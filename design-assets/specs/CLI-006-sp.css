@@ -1,0 +1,1691 @@
+/* CLI-006 ユーザー詳細（職人詳細） (SP) */
+
+position: relative;
+width: 375px;
+height: 2202px;
+
+background: linear-gradient(0deg, rgba(223, 223, 223, 0.25), rgba(223, 223, 223, 0.25)), #FFFFFF;
+border-radius: 20px;
+
+
+/* Rectangle 7295 */
+
+position: absolute;
+width: 375px;
+height: 1950px;
+left: 0px;
+top: 131px;
+
+background: #FFFFFF;
+border-radius: 20px;
+
+
+/* btn */
+
+position: absolute;
+width: 163px;
+height: 50px;
+left: 192px;
+top: 1990px;
+
+
+
+/* Rectangle 6 */
+
+position: absolute;
+width: 163px;
+height: 50px;
+left: 192px;
+top: 1990px;
+
+background: #920783;
+border-radius: 47px;
+
+
+/* スカウトを送る */
+
+position: absolute;
+width: 93px;
+height: 19px;
+left: 227px;
+top: 2005px;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 13px;
+line-height: 19px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.02em;
+
+color: #FFFFFF;
+
+
+
+/* btn */
+
+position: absolute;
+width: 163px;
+height: 50px;
+left: 20px;
+top: 1990px;
+
+
+
+/* Rectangle 6 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 163px;
+height: 50px;
+left: 20px;
+top: 1990px;
+
+background: #FFFFFF;
+border: 1px solid #920783;
+border-radius: 47px;
+
+
+/* メッセージを送る */
+
+position: absolute;
+width: 106px;
+height: 19px;
+left: 48px;
+top: 2005px;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 13px;
+line-height: 19px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.02em;
+
+color: #920783;
+
+
+
+/* page_title */
+
+position: absolute;
+width: 335px;
+height: 41px;
+left: 20px;
+top: 75px;
+
+
+
+/* ホーム */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 9.76%;
+bottom: 12.2%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 22px;
+line-height: 32px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+text-align: center;
+
+color: #601986;
+
+
+
+/* Rectangle 7239 */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 0%;
+bottom: 97.55%;
+
+background: #FFFFFF;
+
+
+/* Group 164120 */
+
+position: absolute;
+left: 86.13%;
+right: 5.33%;
+top: 0.91%;
+bottom: 98.37%;
+
+
+
+/* Arrow 29 */
+
+box-sizing: border-box;
+
+position: absolute;
+left: 86.13%;
+right: 5.33%;
+top: 0.91%;
+bottom: 99.09%;
+
+border: 1.5px solid #1E1E1E;
+
+
+/* Arrow 49 */
+
+box-sizing: border-box;
+
+position: absolute;
+left: 86.13%;
+right: 5.33%;
+top: 1.63%;
+bottom: 98.37%;
+
+border: 1.5px solid #1E1E1E;
+
+
+/* Arrow 48 */
+
+box-sizing: border-box;
+
+position: absolute;
+left: 86.13%;
+right: 8.8%;
+top: 1.27%;
+bottom: 98.73%;
+
+border: 1.5px solid #1E1E1E;
+
+
+/* ○○株式会社 */
+
+position: absolute;
+visibility: hidden;
+left: 11.2%;
+right: 60%;
+top: 0.59%;
+bottom: 98.23%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 18px;
+line-height: 26px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+
+color: #1E1E1E;
+
+
+
+/* Vector 1 */
+
+position: absolute;
+left: 5.33%;
+right: 93.07%;
+top: 1%;
+bottom: 98.46%;
+
+border: 2px solid #1E1E1E;
+
+
+/* Group 628110 */
+
+position: absolute;
+width: 95.58px;
+height: 30.03px;
+left: 211px;
+top: 12.75px;
+
+
+
+/* ビジ友-logoC 3 */
+
+position: absolute;
+width: 38.44px;
+height: 30.03px;
+left: 211px;
+top: 12.75px;
+
+background: url(ビジ友-logoC.png);
+
+
+/* ビジ友-logoC 4 */
+
+position: absolute;
+width: 55.19px;
+height: 24.53px;
+left: 251.39px;
+top: 15.5px;
+
+background: url(ビジ友-logoC.png);
+
+
+/* Ellipse 250 */
+
+position: absolute;
+width: 90px;
+height: 90px;
+left: 20px;
+top: 161px;
+
+background: url(ピコマル.png), #DFF0F2;
+
+
+/* 山田 太郎（30歳） */
+
+position: absolute;
+left: 33.33%;
+right: 31.2%;
+top: 8.22%;
+bottom: 90.74%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 16px;
+line-height: 23px;
+display: flex;
+align-items: center;
+
+color: #1E1E1E;
+
+
+
+/* 基本情報 */
+
+position: absolute;
+left: 5.33%;
+right: 78.13%;
+top: 26.84%;
+bottom: 72.16%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 15px;
+line-height: 22px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7240 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 335px;
+height: 266px;
+left: 20px;
+top: 623px;
+
+background: #FFFFFF;
+border: 1px solid rgba(30, 30, 30, 0.1);
+border-radius: 8px;
+
+
+/* Group 628121 */
+
+position: absolute;
+width: 196px;
+height: 16px;
+left: 125px;
+top: 214px;
+
+
+
+/* 本人確認済み */
+
+position: absolute;
+left: 38.13%;
+right: 43.47%;
+top: 9.72%;
+bottom: 89.55%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 11px;
+line-height: 16px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Vector */
+
+position: absolute;
+left: 33.33%;
+right: 62.93%;
+top: 9.81%;
+bottom: 89.55%;
+
+background: #920783;
+
+
+/* CCUS登録済み */
+
+position: absolute;
+left: 65.33%;
+right: 14.4%;
+top: 9.72%;
+bottom: 89.55%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 11px;
+line-height: 16px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Vector */
+
+position: absolute;
+left: 60.53%;
+right: 35.73%;
+top: 9.81%;
+bottom: 89.55%;
+
+background: #920783;
+
+
+/* Rectangle 7271 */
+
+position: absolute;
+width: 335px;
+height: 40px;
+left: 20px;
+top: 623px;
+
+background: #601986;
+opacity: 0.08;
+border-radius: 8px 8px 0px 0px;
+
+
+/* 空き日程 */
+
+position: absolute;
+left: 5.33%;
+right: 78.13%;
+top: 70.75%;
+bottom: 28.25%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 15px;
+line-height: 22px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7296 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 335px;
+height: 178px;
+left: 20px;
+top: 1590px;
+
+background: #FFFFFF;
+border: 1px solid rgba(30, 30, 30, 0.1);
+border-radius: 8px;
+
+
+/* 発注者評価 */
+
+position: absolute;
+left: 5.33%;
+right: 73.87%;
+top: 81.65%;
+bottom: 17.35%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 15px;
+line-height: 22px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7299 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 335px;
+height: 130px;
+left: 20px;
+top: 1830px;
+
+background: linear-gradient(0deg, rgba(96, 25, 134, 0.06), rgba(96, 25, 134, 0.06)), #FFFFFF;
+border: 1px solid rgba(30, 30, 30, 0.1);
+border-radius: 8px;
+
+
+/* Vector */
+
+position: absolute;
+left: 12%;
+right: 83.47%;
+top: 84.06%;
+bottom: 15.21%;
+
+background: #920783;
+
+
+/* 2024/11/24(日)～2024/11/30(土) */
+
+position: absolute;
+left: 18.67%;
+right: 21.33%;
+top: 73.21%;
+bottom: 25.79%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 15px;
+line-height: 22px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7297 */
+
+position: absolute;
+width: 285px;
+height: 1px;
+left: 45px;
+top: 1652px;
+
+background: #1E1E1E;
+opacity: 0.1;
+border-radius: 3px;
+
+
+/* 2024/12/10(火)～2024/12/12(木) */
+
+position: absolute;
+left: 18.67%;
+right: 21.6%;
+top: 75.61%;
+bottom: 23.39%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 15px;
+line-height: 22px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7298 */
+
+position: absolute;
+width: 285px;
+height: 1px;
+left: 45px;
+top: 1705px;
+
+background: #1E1E1E;
+opacity: 0.1;
+border-radius: 3px;
+
+
+/* 2024/12/15(日)～2024/12/27(金) */
+
+position: absolute;
+left: 18.67%;
+right: 21.87%;
+top: 78.02%;
+bottom: 20.98%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 15px;
+line-height: 22px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* btn */
+
+position: absolute;
+width: 163px;
+height: 50px;
+left: 192px;
+top: 501px;
+
+
+
+/* Rectangle 6 */
+
+position: absolute;
+width: 163px;
+height: 50px;
+left: 192px;
+top: 501px;
+
+background: #920783;
+border-radius: 47px;
+
+
+/* スカウトを送る */
+
+position: absolute;
+width: 93px;
+height: 19px;
+left: 227px;
+top: 516px;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 13px;
+line-height: 19px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.02em;
+
+color: #FFFFFF;
+
+
+
+/* btn */
+
+position: absolute;
+width: 163px;
+height: 50px;
+left: 20px;
+top: 501px;
+
+
+
+/* Rectangle 6 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 163px;
+height: 50px;
+left: 20px;
+top: 501px;
+
+background: #FFFFFF;
+border: 1px solid #920783;
+border-radius: 47px;
+
+
+/* メッセージを送る */
+
+position: absolute;
+width: 106px;
+height: 19px;
+left: 48px;
+top: 516px;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 13px;
+line-height: 19px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.02em;
+
+color: #920783;
+
+
+
+/* btn */
+
+position: absolute;
+width: 255px;
+height: 51px;
+left: 60px;
+top: 2111px;
+
+
+
+/* Group 628118 */
+
+position: absolute;
+width: 255px;
+height: 51px;
+left: 60px;
+top: 2111px;
+
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Rectangle 6 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 255px;
+height: 51px;
+left: 60px;
+top: 2111px;
+
+background: #FFFFFF;
+border: 1px solid #9E9E9E;
+border-radius: 47px;
+transform: matrix(-1, 0, 0, 1, 0, 0);
+
+
+/* Polygon 2 */
+
+position: absolute;
+width: 7px;
+height: 7px;
+left: 80px;
+top: 2133px;
+
+background: #9E9E9E;
+transform: matrix(0, 1, 1, 0, 0, 0);
+
+
+/* ユーザー一覧にもどる */
+
+position: absolute;
+width: 143px;
+height: 20px;
+left: 116px;
+top: 2126px;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+text-align: center;
+letter-spacing: 0.02em;
+
+color: #868686;
+
+
+
+/* 自己紹介 */
+
+position: absolute;
+left: 5.33%;
+right: 78.13%;
+top: 41.73%;
+bottom: 57.27%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 15px;
+line-height: 22px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7273 */
+
+position: absolute;
+width: 335px;
+height: 145px;
+left: 20px;
+top: 951px;
+
+background: linear-gradient(0deg, rgba(223, 223, 223, 0.25), rgba(223, 223, 223, 0.25)), #FFFFFF;
+border-radius: 8px;
+
+
+/* ここに自己紹介文が入ります。ここに自己紹介文が入ります。ここに自己紹介文が入ります。ここに自己紹介文が入ります。ここに自己紹介文が入ります。ここに自己紹介文が入ります。ここに自己紹介文が入ります。 */
+
+position: absolute;
+left: 12%;
+right: 12%;
+top: 43.87%;
+bottom: 50.91%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 400;
+font-size: 13px;
+line-height: 180%;
+/* または23px */
+
+color: #1E1E1E;
+
+
+
+/* 居住地 */
+
+position: absolute;
+left: 10.67%;
+right: 77.6%;
+top: 28.7%;
+bottom: 70.39%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* 東京都江東区 */
+
+position: absolute;
+left: 10.67%;
+right: 66.13%;
+top: 30.56%;
+bottom: 68.53%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7300 */
+
+position: absolute;
+width: 335px;
+height: 40px;
+left: 20px;
+top: 705px;
+
+background: #601986;
+opacity: 0.08;
+border-radius: 0px;
+
+
+/* 性別 */
+
+position: absolute;
+left: 10.67%;
+right: 81.6%;
+top: 32.43%;
+bottom: 66.67%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* 男性 */
+
+position: absolute;
+left: 10.67%;
+right: 81.6%;
+top: 34.29%;
+bottom: 64.8%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7301 */
+
+position: absolute;
+width: 335px;
+height: 40px;
+left: 20px;
+top: 787px;
+
+background: #601986;
+opacity: 0.08;
+border-radius: 0px;
+
+
+/* 対応可能エリア */
+
+position: absolute;
+left: 10.67%;
+right: 62.13%;
+top: 36.15%;
+bottom: 62.94%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* 東京都、千葉県（千葉市、船橋市）、 埼玉県 */
+
+position: absolute;
+left: 10.67%;
+right: 23.47%;
+top: 38.01%;
+bottom: 60.17%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* 能力 */
+
+position: absolute;
+left: 5.33%;
+right: 86.4%;
+top: 51.14%;
+bottom: 47.87%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 15px;
+line-height: 22px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7302 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 335px;
+height: 370px;
+left: 20px;
+top: 1158px;
+
+background: #FFFFFF;
+border: 1px solid rgba(30, 30, 30, 0.1);
+border-radius: 8px;
+
+
+/* Rectangle 7303 */
+
+position: absolute;
+width: 335px;
+height: 40px;
+left: 20px;
+top: 1158px;
+
+background: #601986;
+opacity: 0.08;
+border-radius: 8px 8px 0px 0px;
+
+
+/* 対応できる職種 */
+
+position: absolute;
+left: 10.67%;
+right: 62.13%;
+top: 53%;
+bottom: 46.09%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* 型枠大工、塗装、電気 */
+
+position: absolute;
+left: 10.67%;
+right: 50.4%;
+top: 54.86%;
+bottom: 44.23%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7304 */
+
+position: absolute;
+width: 335px;
+height: 40px;
+left: 20px;
+top: 1240px;
+
+background: #601986;
+opacity: 0.08;
+border-radius: 0px;
+
+
+/* 経験年数 */
+
+position: absolute;
+left: 10.67%;
+right: 73.87%;
+top: 56.72%;
+bottom: 42.37%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* 〇年 */
+
+position: absolute;
+left: 10.67%;
+right: 81.6%;
+top: 58.58%;
+bottom: 40.51%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7305 */
+
+position: absolute;
+width: 335px;
+height: 40px;
+left: 20px;
+top: 1322px;
+
+background: #601986;
+opacity: 0.08;
+border-radius: 0px;
+
+
+/* 保有スキル */
+
+position: absolute;
+left: 10.67%;
+right: 69.87%;
+top: 60.45%;
+bottom: 38.65%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* 型枠設置、電気工、送配電線工、受変電設備工、塗装工、金属塗装、吹付塗装工 */
+
+position: absolute;
+left: 10.67%;
+right: 10.67%;
+top: 62.31%;
+bottom: 35.88%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 20px;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Rectangle 7306 */
+
+position: absolute;
+width: 335px;
+height: 40px;
+left: 20px;
+top: 1424px;
+
+background: #601986;
+opacity: 0.08;
+border-radius: 0px;
+
+
+/* 保有資格 */
+
+position: absolute;
+left: 10.67%;
+right: 73.87%;
+top: 65.08%;
+bottom: 34.01%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 500;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* 2級土木施工管理技士（網構造物塗装）、2級電気通信工事施工管理技士 */
+
+position: absolute;
+left: 10.67%;
+right: 10.67%;
+top: 66.94%;
+bottom: 31.24%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 20px;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* また依頼したい */
+
+position: absolute;
+left: 18.67%;
+right: 54.13%;
+top: 84.01%;
+bottom: 15.08%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* Group 628122 */
+
+position: absolute;
+width: 65px;
+height: 14px;
+left: 275px;
+top: 1930px;
+
+opacity: 0.6;
+
+
+/* Polygon 1 */
+
+position: absolute;
+width: 7px;
+height: 7px;
+left: 333px;
+top: 1934px;
+
+background: #1E1E1E;
+opacity: 0.4;
+transform: rotate(90deg);
+
+
+/* 詳しく見る */
+
+position: absolute;
+left: 73.33%;
+right: 12.8%;
+top: 87.65%;
+bottom: 11.72%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 10px;
+line-height: 14px;
+display: flex;
+align-items: center;
+text-align: right;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
+
+
+/* レイヤー 2 */
+
+position: absolute;
+left: 12.27%;
+right: 84.27%;
+top: 73.52%;
+bottom: 25.89%;
+
+opacity: 0.6;
+
+
+/* icon_data */
+
+position: absolute;
+left: 12.27%;
+right: 84.27%;
+top: 73.52%;
+bottom: 25.89%;
+
+
+
+/* Vector */
+
+position: absolute;
+left: 12.27%;
+right: 84.27%;
+top: 73.58%;
+bottom: 25.89%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 13.23%;
+right: 86.77%;
+top: 73.52%;
+bottom: 26.35%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 14.77%;
+right: 85.23%;
+top: 73.52%;
+bottom: 26.35%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 13.81%;
+right: 85.23%;
+top: 73.58%;
+bottom: 26.42%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 13.37%;
+right: 85.37%;
+top: 73.81%;
+bottom: 26.06%;
+
+border: 1px solid #601986;
+
+
+/* レイヤー 3 */
+
+position: absolute;
+left: 12.27%;
+right: 84.27%;
+top: 75.88%;
+bottom: 23.53%;
+
+opacity: 0.6;
+
+
+/* icon_data */
+
+position: absolute;
+left: 12.27%;
+right: 84.27%;
+top: 75.88%;
+bottom: 23.53%;
+
+
+
+/* Vector */
+
+position: absolute;
+left: 12.27%;
+right: 84.27%;
+top: 75.94%;
+bottom: 23.53%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 13.23%;
+right: 86.77%;
+top: 75.88%;
+bottom: 23.99%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 14.77%;
+right: 85.23%;
+top: 75.88%;
+bottom: 23.99%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 13.81%;
+right: 85.23%;
+top: 75.94%;
+bottom: 24.06%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 13.37%;
+right: 85.37%;
+top: 76.17%;
+bottom: 23.7%;
+
+border: 1px solid #601986;
+
+
+/* レイヤー 4 */
+
+position: absolute;
+left: 12.27%;
+right: 84.27%;
+top: 78.33%;
+bottom: 21.08%;
+
+opacity: 0.6;
+
+
+/* icon_data */
+
+position: absolute;
+left: 12.27%;
+right: 84.27%;
+top: 78.33%;
+bottom: 21.08%;
+
+
+
+/* Vector */
+
+position: absolute;
+left: 12.27%;
+right: 84.27%;
+top: 78.39%;
+bottom: 21.08%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 13.23%;
+right: 86.77%;
+top: 78.33%;
+bottom: 21.54%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 14.77%;
+right: 85.23%;
+top: 78.33%;
+bottom: 21.54%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 13.81%;
+right: 85.23%;
+top: 78.39%;
+bottom: 21.61%;
+
+border: 1px solid #601986;
+
+
+/* Vector */
+
+position: absolute;
+left: 13.37%;
+right: 85.37%;
+top: 78.62%;
+bottom: 21.24%;
+
+border: 1px solid #601986;
+
+
+/* Group 628252 */
+
+position: absolute;
+width: 335px;
+height: 200px;
+left: 20px;
+top: 271px;
+
+
+
+/* Rectangle 7274 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 335px;
+height: 200px;
+left: 20px;
+top: 271px;
+
+background: #FFFFFF;
+border: 1px solid rgba(30, 30, 30, 0.1);
+border-radius: 6px;
+
+
+/* ビジ友-logoC 2 */
+
+position: absolute;
+width: 79.17px;
+height: 107px;
+left: 148px;
+top: 312px;
+
+background: url(ビジ友-logoC.png);
+
+
+/* Rectangle 7307 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 335px;
+height: 200px;
+left: 20px;
+top: 271px;
+
+background: rgba(0, 0, 0, 0.3);
+border: 8px solid #FFFFFF;
+border-radius: 6px;
+
+
+/* Rectangle 7308 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 335px;
+height: 200px;
+left: 20px;
+top: 271px;
+
+border: 1px solid rgba(30, 30, 30, 0.1);
+border-radius: 6px;
+
+
+/* Ellipse 251 */
+
+position: absolute;
+width: 50px;
+height: 50px;
+left: 162px;
+top: 341px;
+
+background: #FFFFFF;
+
+
+/* Polygon 1 */
+
+position: absolute;
+width: 23px;
+height: 23px;
+left: 175px;
+top: 355px;
+
+background: rgba(51, 51, 51, 0.8);
+transform: rotate(90deg);
+
+
+/* Vector */
+
+position: absolute;
+left: 88.53%;
+right: 6.67%;
+top: 8.4%;
+bottom: 90.87%;
+
+border: 1.4px solid #C9C9C9;
+
+
+/* Rectangle 7309 */
+
+box-sizing: border-box;
+
+position: absolute;
+width: 214px;
+height: 32px;
+left: 116px;
+top: 1879px;
+
+background: #FFFFFF;
+border: 1px solid rgba(30, 30, 30, 0.1);
+border-radius: 30px;
+
+
+/* Rectangle 7310 */
+
+position: absolute;
+width: 166px;
+height: 24px;
+left: 120px;
+top: 1883px;
+
+background: #920783;
+opacity: 0.8;
+border-radius: 30px;
+
+
+/* 12 */
+
+position: absolute;
+left: 12%;
+right: 82.13%;
+top: 85.2%;
+bottom: 13.22%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 24px;
+line-height: 35px;
+/* ボックスの高さと同一 */
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #920783;
+
+
+
+/* / 15件 */
+
+position: absolute;
+left: 18.93%;
+right: 71.2%;
+top: 85.74%;
+bottom: 13.35%;
+
+font-family: 'Zen Kaku Gothic New';
+font-style: normal;
+font-weight: 700;
+font-size: 14px;
+line-height: 20px;
+display: flex;
+align-items: center;
+letter-spacing: 0.04em;
+
+color: #1E1E1E;
+
