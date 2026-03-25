@@ -1,0 +1,22 @@
+{
+  "name": "auth",
+  "description": "認証機能（新規登録・ログイン・パスワード管理・マイページ）",
+  "language": "ja",
+  "phase": "implementing",
+  "created_at": "2026-03-25T00:00:00Z",
+  "updated_at": "2026-03-25T12:35:00Z",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  }
+}

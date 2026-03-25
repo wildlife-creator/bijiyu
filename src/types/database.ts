@@ -1183,6 +1183,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_registration: {
+        Args: {
+          p_user_id: string
+          p_last_name: string
+          p_first_name: string
+          p_gender: string
+          p_birth_date: string
+          p_prefecture: string
+          p_company_name?: string | null
+          p_skills?: Json
+          p_areas?: string[]
+        }
+        Returns: undefined
+      }
       is_admin: { Args: { uid: string }; Returns: boolean }
       is_paid_user: { Args: { uid: string }; Returns: boolean }
       is_same_org: { Args: { org_id: string; uid: string }; Returns: boolean }
