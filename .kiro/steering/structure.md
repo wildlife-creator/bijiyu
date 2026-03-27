@@ -158,3 +158,26 @@ design-assets/
 ```
 
 命名規則は screen-map.md の画面IDと完全一致させる。
+
+### 静的アセット（public）
+
+```
+public/
+└── images/
+    ├── logo-vertical.png    # ロゴ縦型（ランディング、認証画面）
+    ├── logo-horizontal.png  # ロゴ横型（ヘッダー）
+    └── icons/               # Figma デザイン準拠のカスタムアイコン PNG
+        ├── icon-search.png
+        ├── icon-memo.png
+        ├── icon-globe.png
+        ├── icon-briefcase.png
+        ├── icon-avatar.png
+        ├── icon-sort.png
+        ├── icon-tag.png
+        ├── icon-heart.png
+        └── icon-pin.png
+```
+
+- ロゴは Next.js `<Image src="/images/logo-horizontal.png">` で参照
+- アイコンは `<Image src="/images/icons/icon-heart.png">` で参照
+- Lucide React で代替可能な場合は Lucide を優先（PNG は Figma デザインと完全一致が必要な場合のみ使用）

@@ -8,7 +8,7 @@ design-system.md が「方針（なぜ）」を定義するのに対し、本フ
 ## カラートークンの使い方
 
 ### 基本ルール
-- 色は `tailwind.config.ts` に定義されたトークン名で指定する
+- 色は `globals.css` の `@theme inline` ブロックに定義されたトークン名で指定する（Tailwind v4: JS設定ファイルではなくCSSでトークンを定義）
 - 直接の色コード指定（`bg-[#3B82F6]` 等）は原則禁止
 - Figma デザイン CSS がある画面は、CSS の値を優先する
 
@@ -25,7 +25,7 @@ design-system.md が「方針（なぜ）」を定義するのに対し、本フ
 | 境界線 | `border-border` | カード、入力欄の枠線 |
 | エラー | `text-destructive` | エラーメッセージ、削除ボタン |
 | エラー背景 | `bg-destructive` | エラーバッジ、削除ボタン背景 |
-| 成功 | `text-green-600` | 承認済みバッジ等（トークン追加後は変更） |
+| 成功 | `text-green-600` | 承認済みバッジ等 ※ 将来的に `--color-success` トークンを globals.css に追加予定。追加後は `text-success` に変更すること |
 
 ### 判断フロー
 ```
@@ -33,7 +33,7 @@ design-system.md が「方針（なぜ）」を定義するのに対し、本フ
    → あり: CSS の値を最優先で使う
    → なし: 次へ
 
-2. tailwind.config.ts にトークンが定義されているか？
+2. globals.css の @theme inline にトークンが定義されているか？
    → あり: トークンを使う
    → なし: Tailwind デフォルトクラスを使う（後でトークン化を検討）
 ```
@@ -42,7 +42,7 @@ design-system.md が「方針（なぜ）」を定義するのに対し、本フ
 
 ### フォント指定
 ```
-font-sans → 'Zen Kaku Gothic New', system-ui, sans-serif（tailwind.config.ts で設定済み）
+font-sans → 'Zen Kaku Gothic New', system-ui, sans-serif（globals.css @theme inline で設定済み）
 ```
 
 ### テキストサイズの使い分け
@@ -55,7 +55,7 @@ font-sans → 'Zen Kaku Gothic New', system-ui, sans-serif（tailwind.config.ts 
 | 本文 | `text-body-md` | 通常テキスト |
 | 補足・キャプション | `text-body-sm text-muted-foreground` | 小さな補足情報 |
 
-※ カスタムサイズは tailwind.config.ts の fontSize に Figma CSS 実測値で定義済み。
+※ カスタムサイズは globals.css の @theme inline に Figma CSS 実測値で定義済み。
 ※ line-height: 140%、letter-spacing: 0.04em（本文）/ 0.02em（見出し）がデフォルト。
 
 ## スペーシング
@@ -181,56 +181,52 @@ lg: 1024px〜（ワイドPC、必要な場合のみ）
 ### アバター画像
 - `rounded-full` で丸く切り抜く
 - サイズ: `w-10 h-10`（一覧）/ `w-20 h-20`（プロフィール）
-- Next.js `<Image>` コンポーネントで最適化
+- `<img>` タグで表示する（Supabase Storage からの画像は `<img>` を使う — CLAUDE.md の実装チェック項目を参照）
 
 ### アイコン
-- Lucide React を使用（shadcn/ui と統一）
+- `assets/icons/` 内のプロジェクト専用アイコン PNG を優先的に使用する
+- 実装時は `public/icons/` にコピーして配置し、`<img src="/icons/icon-briefcase.png" alt="" className="w-5 h-5" />` のように `<img>` タグで表示する
 - サイズ: `w-4 h-4`（インライン）/ `w-5 h-5`（ボタン内）
+- メニューリスト項目（ナビゲーションリンク）にはアイコンを付けない。テキスト + 右矢印のみで構成する
+- `assets/icons/` に該当するアイコンがない場合のみ Lucide React を使用する
+- アイコン一覧は CLAUDE.md の「アイコン・ロゴの使用」セクションを参照
 
-## cc-sdd フェーズ別指示（P6方式）
+### ロゴ
+- 横型（ヘッダー用）: `<img src="/images/logo-horizontal.png" alt="ビジ友" className="h-[61px] w-auto" />`
+- 縦型（ランディング・認証画面用）: `<img src="/images/logo-vertical.png" alt="ビジ友" />`
+- `next/image` の `<Image>` は使わず `<img>` タグで統一する（CLAUDE.md の実装チェック項目と整合させるため）
+
+## cc-sdd フェーズ別指示
 
 ### spec-design フェーズ
 
-requirements.md の画面要件を読んだら、ユーザーに以下を依頼すること：
+requirements.md の画面要件を読んだら、以下を行うこと：
 
-「このページのFigmaスマホ版PNGを貼り付けてください。
-FigmaのPNGがない場合は「なし」と伝えてください。
-画像が貼り付けられるまで待機します。」
+1. `reference/png-mapping.md` で対象画面の PNG ファイル名を特定する
+2. `design-assets/screens/` 内の対応する PNG ファイルを確認し、レイアウト構造と要素配置を読み取る
+3. design.md に以下を記載すること：
+   - PNGから読み取ったレイアウト構造と要素配置
+   - 使用するshadcn/uiコンポーネント名
+   - PC版でのレスポンシブ変更点
 
-PNGが提供されたら、design.md に以下を記載すること：
-- PNGから読み取ったレイアウト構造と要素配置
-- 使用するshadcn/uiコンポーネント名
-- PC版でのレスポンシブ変更点
-
-PNGがない場合は、requirements.md の記載内容と既存の実装済みページのパターンに基づいて判断すること。
+PNGが `png-mapping.md` で「なし」の場合は、requirements.md の記載内容と既存の実装済みページのパターンに基づいて判断すること。
 
 ### spec-impl フェーズ
 
-実装を開始する前に、ユーザーにPNG貼り付けを依頼すること：
+実装を開始する前に、以下を行うこと：
 
-「実装を始めます。このページのFigmaスマホ版PNGを
-もう一度貼り付けてください。
-FigmaのPNGがない場合は「なし」と伝えてください。
-画像が貼り付けられるまで待機します。」
+1. `reference/png-mapping.md` で対象画面の PNG ファイル名を特定する
+2. `design-assets/screens/` 内の対応する PNG ファイルを確認する（ワイヤーフレーム + デザインカンプの両方がある場合は両方確認）
+3. `screen-map.md` の CSS 列を確認し、デザイン要件 CSS がある場合は `design-assets/specs/` 内の該当 CSS ファイルも確認する
 
-PNGが提供されたら、以下のルールで実装すること：
+以下のルールで実装すること：
 1. PNGはスマホ版デザインである。モバイルファーストで実装する
-2. 色・フォント・余白はtailwind.config.tsのカスタムトークンに従う
-3. Tailwind CSSユーティリティクラスを使用する
-4. shadcn/uiコンポーネントを優先的に使用する
-5. 独自CSSファイルやインラインスタイルは作成しない
-6. 下記のレスポンシブルールに従いPC版に対応する
-
-### デザイン要件があるページ（CSS あり）の場合
-
-design-assets/specs/ にそのページのCSSファイルがある場合は、
-PNGに加えてCSSの内容もユーザーに確認すること：
-
-「このページにはデザイン要件のCSSがあります。
-design-assets/specs/[ファイル名].css の内容も貼り付けてください。」
-
-CSSが提供されたら、色・フォント・余白の値は
-tailwind.config.tsよりもCSSの値を優先すること。
+2. 色・フォント・余白はglobals.css（@theme inline）のカスタムトークンに従う
+3. デザイン要件CSSがある場合は、その値を globals.css @theme inline より優先する
+4. Tailwind CSSユーティリティクラスを使用する
+5. shadcn/uiコンポーネントを優先的に使用する
+6. 独自CSSファイルやインラインスタイルは作成しない
+7. 下記のレスポンシブルールに従いPC版に対応する
 
 ### デザイン要件CSS がある画面の一覧
 

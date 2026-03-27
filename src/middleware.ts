@@ -36,7 +36,7 @@ const AUTH_PAGE_PATHS = [
 ] as const;
 
 // Public pages accessible without authentication (static/marketing pages)
-const PUBLIC_PAGES = ["/", "/about", "/terms", "/privacy", "/contact", "/faq"] as const;
+const PUBLIC_PAGES = ["/", "/about", "/terms", "/privacy", "/contact", "/faq", "/legal"] as const;
 
 // Paths that contractors (free users) can access under /billing
 const BILLING_PATH_PREFIX = "/billing";
@@ -204,7 +204,9 @@ export async function middleware(request: NextRequest) {
   const role: UserRole = userData.role;
 
   // --- Authenticated user accessing auth pages → redirect to mypage ---
-  if (isAuthPage(pathname)) {
+  // Exception: /reset-password/confirm must be accessible by authenticated users
+  // (recovery flow sets the session before redirecting to this page)
+  if (isAuthPage(pathname) && pathname !== "/reset-password/confirm") {
     if (role === "admin") {
       return redirectTo(request, "/admin/dashboard");
     }

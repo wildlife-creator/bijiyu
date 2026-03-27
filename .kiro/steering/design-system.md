@@ -7,7 +7,7 @@
 
 ## カラーパレット
 
-Figma CSS から抽出した実測値。具体的な色コードは tailwind.config.ts / globals.css に定義済み。
+Figma CSS から抽出した実測値。具体的な色コードは globals.css（@theme inline + CSS変数）に定義済み。
 
 | トークン名 | 色コード | 用途 |
 |-----------|---------|------|
@@ -55,7 +55,7 @@ Figma CSS から抽出した実測値。具体的な色コードは tailwind.con
 ## スペーシング
 - セクション間: space-y-8 / gap-8
 - カード間: space-y-4 / gap-4
-- 具体値は tailwind.config.ts の spacing に定義
+- 具体値は globals.css の @theme inline に定義
 
 ## ボーダー
 
@@ -86,7 +86,7 @@ Figma CSS から抽出した実測値。具体的な色コードは tailwind.con
 - 詳細なレスポンシブルールは design-rule.md に定義
 
 ## トークンの参照ルール
-- 基本: tailwind.config.ts のトークンに従う
+- 基本: globals.css の @theme inline トークンに従う
 - デザイン要件CSS がある画面: CSS値を優先
 - 判定方法: screen-map.md の「CSS」列を参照
 
@@ -97,9 +97,10 @@ Figma CSS から抽出した実測値。具体的な色コードは tailwind.con
   └ デザイン原則、色の意図、タイポグラフィ方針
   └ 「なぜこの色か」「なぜこのフォントか」の判断基準
        ↓ 具体化
-【定義層】 tailwind.config.ts + src/app/globals.css
+【定義層】 src/app/globals.css（@theme inline + CSS変数）
   └ 具体的なトークン値（色コード、px値）
   └ design-assets/specs/ のCSSから抽出した共通値
+  └ ※ Tailwind v4: tailwind.config.ts は不要。CSSベースで設定
        ↓ 参照
 【実装指示層】 steering/design-rule.md
   └ 各フェーズでAIが従う実装ルール

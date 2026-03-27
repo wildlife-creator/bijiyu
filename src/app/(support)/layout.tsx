@@ -2,22 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 
-interface AuthLayoutProps {
+interface SupportLayoutProps {
   children: React.ReactNode;
 }
 
-export default function AuthLayout({ children }: AuthLayoutProps) {
+export default function SupportLayout({ children }: SupportLayoutProps) {
   const router = useRouter();
 
   return (
     <div className="min-h-dvh bg-background">
       <SiteHeader isAuthenticated={false} />
 
-      {/* Main content */}
-      <main className="px-4 py-6 md:mx-auto md:max-w-lg">
+      <main className="px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
         <Button
           variant="ghost"
           size="icon"

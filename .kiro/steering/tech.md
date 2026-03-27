@@ -65,6 +65,28 @@ Next.js（App Router）をフルスタックフレームワークとして採用
 | **環境** | Production / Preview / Development |
 | **CI/CD** | Vercel Git Integration（GitHub連携で自動デプロイ） |
 
+## CI/CD パイプライン
+
+### GitHub Actions によるテスト自動実行
+
+PR 作成時に全テストを自動実行し、失敗した PR はマージをブロックする。
+これにより、開発者がローカルでのテスト実行を忘れた場合でもデグレードを防止できる。
+
+**実装時に `.github/workflows/ci.yml` を作成し、以下を含めること:**
+
+| ステップ | コマンド | 目的 |
+|---------|---------|------|
+| 型チェック | `npm run build` | TypeScript コンパイルエラーの検出 |
+| リント | `npm run lint` | コード規約違反の検出 |
+| ユニット・統合テスト | `npm run test` | Vitest の全テスト実行 |
+| RLS テスト | `supabase test db` | pgTAP によるセキュリティポリシーのテスト |
+| E2E テスト | `npm run test:e2e` | Playwright による画面操作テスト |
+
+**注意事項:**
+- CI 環境では Supabase CLI の `supabase start`（Docker）が必要。GitHub Actions の `services` または `supabase/setup-cli` アクションを使用する
+- E2E は CI の実行時間が長くなるため、初期は Vitest + RLS のみ CI で実行し、E2E は手動 or nightly で実行する運用も許容する
+- CI の詳細な設定は実装フェーズで決定する。ここでは方針のみ定義する
+
 ## 開発環境
 
 ### ローカル開発構成
@@ -72,6 +94,7 @@ Next.js（App Router）をフルスタックフレームワークとして採用
 | 項目 | 技術 |
 |------|------|
 | **Supabase ローカル** | Supabase CLI + Docker |
+| **Stripe ローカル** | Stripe CLI（Webhook ローカル転送） |
 | **Node.js** | v20+ |
 | **パッケージマネージャ** | npm |
 | **リンター** | ESLint |
@@ -115,6 +138,61 @@ supabase gen types typescript --local > src/types/database.ts
 - RLSポリシーやマイグレーションをローカルで検証してから本番に反映
 - Supabase Cloudの無料枠を開発中に消費しない
 
+### Stripe CLI（ローカル Webhook テスト）
+
+billing 機能の実装時に使用する。Stripe の決済イベント（Webhook）をローカル環境で
+テストするためのツール。
+
+**なぜ必要か:**
+- Stripe は決済完了時に Webhook イベントをサーバーに送信する
+- ローカル開発中は localhost に外部からアクセスできない
+- Stripe CLI がその橋渡しをして、Stripe → localhost:3000 にイベントを転送する
+- これがないと「決済は完了したが users.role が contractor のまま」という状態になる
+
+**インストール:**
+
+  # macOS
+  brew install stripe/stripe-cli/stripe
+
+  # Windows
+  scoop install stripe
+
+**使い方:**
+
+  # Stripe アカウントにログイン（初回のみ）
+  stripe login
+
+  # Webhook をローカルに転送（billing 開発中は常時起動）
+  stripe listen --forward-to localhost:3000/api/webhooks/stripe
+
+  # 出力される Webhook signing secret（whsec_...）を .env.local に設定
+  # STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxx
+
+  # テストイベントを手動で送信（動作確認用）
+  stripe trigger checkout.session.completed
+  stripe trigger customer.subscription.deleted
+  stripe trigger invoice.payment_failed
+
+**開発時の起動順序（billing 機能の開発時）:**
+
+  # ターミナル1: Supabase
+  supabase start
+
+  # ターミナル2: Stripe CLI
+  stripe listen --forward-to localhost:3000/api/webhooks/stripe
+
+  # ターミナル3: Next.js
+  npm run dev
+
+**環境の使い分け（決済）:**
+
+| 環境 | Stripe | 用途 |
+|------|--------|------|
+| ローカル開発 | Stripe CLI + テストモード | Webhook のローカル転送・テスト決済 |
+| Preview（Vercel） | Stripe テストモード | PR プレビューでの決済テスト |
+| Production（Vercel） | Stripe 本番モード | 本番決済 |
+
+
 ### Git LFS（デザインアセット管理）
 
 80枚のPNG（推定合計50-100MB）をGitで効率的に管理するため、Git LFSを推奨する。
@@ -148,8 +226,16 @@ npm run build
 
 # テスト
 npm run test           # Vitest（ユニット・統合）
-npm run test:e2e       # Playwright（E2E）
+supabase db reset && npm run test:e2e  # Playwright（E2E）※DBリセット後に実行
 supabase test db       # RLSテスト（pgTAP）
+
+# Stripe Webhook ローカル転送（billing 開発時）
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+
+# Stripe テストイベント送信（billing 開発時）
+stripe trigger checkout.session.completed
+stripe trigger customer.subscription.deleted
+stripe trigger invoice.payment_failed
 
 # 型生成
 supabase gen types typescript --local > src/types/database.ts
@@ -306,6 +392,104 @@ spec-tasks フェーズで各タスクにテストを含めるかどうかは、
 - 料金計算・プラン判定ロジックのテスト
 - spec-impl の各タスクと同時に作成する
 
+#### Vitest モックの品質ルール
+
+Server Action のテストでは、テストの信頼性を保つために以下のルールを守ること。
+
+**モック対象の判断基準:**
+
+| 対象 | モックする？ | 理由 |
+|------|------------|------|
+| Server Action 関数自体 | ✕ モックしない | 内部ロジック（Zod バリデーション、FormData 解析、エラーハンドリング）をテストするため |
+| Supabase クライアント | ○ モックする | 外部依存を排除するため |
+| Supabase Storage | ○ モックする | 外部依存を排除するため |
+| Stripe API | ○ モックする | 外部依存を排除するため |
+| Resend（メール送信） | ○ モックする | 外部依存を排除するため |
+| Next.js の機能（cookies, redirect等） | ○ モックする | サーバー環境固有の機能のため |
+
+#### Supabase クライアントのモック例
+
+正しいモック（Server Action の内部ロジックは実物が動く）:
+```typescript
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { id: 'user-1', last_name: 'テスト', role: 'contractor' },
+        error: null,
+      }),
+      insert: vi.fn().mockResolvedValue({ data: { id: 'new-1' }, error: null }),
+      update: vi.fn().mockResolvedValue({ data: { id: 'user-1' }, error: null }),
+    })),
+    storage: {
+      from: vi.fn(() => ({
+        upload: vi.fn().mockResolvedValue({ data: { path: 'avatars/user-1/abc.jpg' }, error: null }),
+        getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'http://localhost:54321/storage/v1/object/public/avatars/user-1/abc.jpg' } }),
+        remove: vi.fn().mockResolvedValue({ data: null, error: null }),
+      })),
+    },
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'user-1', email: 'test@example.com' } },
+        error: null,
+      }),
+    },
+  })),
+}))
+```
+
+誤ったモック（Server Action の内部ロジックが一切テストされない）:
+```typescript
+// ✕ これをやってはいけない
+vi.mock('@/app/(authenticated)/profile/edit/actions', () => ({
+  updateProfileAction: vi.fn().mockResolvedValue({ success: true }),
+}))
+```
+
+#### FormData を含むテストの書き方
+
+```typescript
+// ✅ 正しい: 実際に FormData を組み立てて Server Action に渡す
+const formData = new FormData()
+formData.append('lastName', '山田')
+formData.append('firstName', '太郎')
+formData.append('gender', '男性')
+formData.append('avatar', new File(['dummy'], 'avatar.png', { type: 'image/png' }))
+
+const result = await updateProfileAction(formData)
+expect(result.success).toBe(true)
+```
+
+```typescript
+// ✕ 誤り: FormData を省略して直接オブジェクトを渡す
+const result = await updateProfileAction({ lastName: '山田' })
+```
+
+#### 異常系テストの書き方
+
+```typescript
+// Supabase が error を返すケース
+vi.mocked(mockSupabase.from).mockReturnValue({
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  single: vi.fn().mockResolvedValue({
+    data: null,
+    error: { message: 'Not found', code: 'PGRST116' },
+  }),
+} as any)
+
+const result = await someAction(formData)
+expect(result.success).toBe(false)
+
+// auth.getUser() が error を返すケース（未認証）
+vi.mocked(mockSupabase.auth.getUser).mockResolvedValue({
+  data: { user: null },
+  error: { message: 'Not authenticated' },
+} as any)
+```
+
 ### 第2層: 統合テスト（セキュリティ関連specで重点実施）
 
 重点対象spec: auth, billing, profile, organization
@@ -323,9 +507,41 @@ spec-tasks フェーズで各タスクにテストを含めるかどうかは、
   - 解約 → 発注者から受注者へのダウングレード
   - 法人プラン内の権限階層
 
-### 第3層: E2Eテスト（主要フローのみ）
+### デグレーション防止ゲート（spec-impl 開始時の必須チェック）
 
-全77画面の網羅は不要。以下の主要フロー4〜5本に絞る。
+新しい機能の spec-impl を開始する際、最初のステップとして以下を順に実行する。
+いずれかが失敗した場合、新機能の実装に着手せず、まず失敗の原因を調査・修正すること。
+
+```bash
+# 1. ユニット・統合テスト
+npm run test
+
+# 2. RLS テスト（pgTAP）
+supabase test db
+
+# 3. E2E テスト（Playwright）※ 事前に supabase start + supabase db reset + npm run dev が必要
+npm run test:e2e
+```
+
+**なぜ3種類すべて実行するのか:**
+- Vitest: Server Action のロジック破壊、Zod スキーマ変更の副作用を検出
+- RLS テスト: マイグレーション追加によるセキュリティポリシーの意図しない変更を検出
+- E2E: 画面遷移やフォーム送信など、ユーザー操作レベルの破壊を検出
+
+この3層すべてを通過して初めて「既存機能が壊れていない」と判断できる。
+
+### 第3層: E2Eテスト（各 spec-impl 完了後に作成）
+
+各機能の spec-impl 完了後、その機能の書き込み系操作（保存・アップロード・送信など）をカバーする Playwright テストを作成する。
+新しい機能の spec-impl 開始時の最初のステップとして `npm run test:e2e` を実行し、既存の全 Playwright テストが通ること（デグレードがないこと）を確認する。
+
+**対象操作の例（書き込み系を優先）:**
+- フォーム送信（プロフィール保存、お問い合わせ送信、退会手続き等）
+- ファイルアップロード（アバター画像、本人確認書類、CCUS書類）
+- 認証フロー（ログイン、新規登録、パスワードリセット）
+- 決済フロー（課金、プラン変更、解約）
+
+**主要フロー（参考）:**
 
 | # | フロー | 対象spec | 目的 |
 |---|--------|---------|------|
@@ -334,6 +550,57 @@ spec-tasks フェーズで各タスクにテストを含めるかどうかは、
 | 3 | 課金 → 発注者機能アンロック → 案件作成 | billing, job-posting | 課金連動の確認 |
 | 4 | 管理者ログイン → 本人確認承認 | admin, profile | 管理者フローの確認 |
 | 5 | メッセージ送受信（受注者 ↔ 発注者） | messaging | リアルタイム通信の確認 |
+
+#### Playwright テスト環境
+
+##### 実行前提条件
+
+Playwright テストは実際のブラウザ＋ローカル Supabase で動作する。実行前に以下が必要:
+
+1. `supabase start` でローカル Supabase が起動していること
+2. `supabase db reset` で DB がクリーンな状態であること（seed.sql のテストデータが投入済み）
+3. `npm run dev` で Next.js 開発サーバーが起動していること
+
+```bash
+# Playwright テストの実行手順
+supabase start              # 1. Supabase 起動（未起動の場合）
+supabase db reset            # 2. DB リセット + seed 投入
+npm run dev &                # 3. Next.js 起動（バックグラウンド）
+npm run test:e2e             # 4. テスト実行
+```
+
+##### テスト用ユーザー（seed.sql で作成）
+
+| ロール | メールアドレス | パスワード | 用途 |
+|--------|-------------|-----------|------|
+| 受注者（Contractor） | contractor@test.local | testpass123 | 受注者機能のテスト |
+| 発注者（Client） | client@test.local | testpass123 | 発注者機能のテスト |
+| 担当者（Staff） | staff@test.local | testpass123 | 法人プラン担当者機能のテスト |
+| 管理者（Admin） | admin@test.local | testpass123 | 管理者画面のテスト |
+
+seed.sql では以下も含めること:
+- 発注者のサブスクリプション（subscriptions テーブル、status = 'active'）
+- 担当者の組織所属（organizations, organization_members テーブル）
+- テスト用の案件データ（jobs テーブル、1〜2件）
+- テスト用の Storage バケット作成（avatars, job-attachments, identity-documents, ccus-documents, message-attachments）
+
+##### メール認証の扱い
+
+ローカル開発環境では `supabase/config.toml` で**メール確認をスキップ**する設定にする:
+
+```toml
+[auth]
+enable_confirmations = false
+```
+
+新規登録フローのテスト（メール認証の動作確認が必要な場合）のみ、
+ローカル Supabase の Inbucket（http://127.0.0.1:54324）でメールを確認する。
+
+##### データベース状態管理
+
+- テスト実行前に `supabase db reset` で DB を初期状態に戻す（seed.sql のデータのみの状態）
+- テスト間でデータが干渉しないよう、各テストは seed データを前提として動作すること
+- テスト内で作成したデータのクリーンアップは不要（次回の `db reset` でリセットされる）
 
 ### テストファイルの配置
 - ユニット / 統合: `src/__tests__/` 配下に spec 名でディレクトリを切る

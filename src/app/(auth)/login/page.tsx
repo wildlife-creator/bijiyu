@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,18 +25,22 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
-  const [state, formAction, isPending] = useActionState<
+  const [state, formAction] = useActionState<
     ActionResult<{ redirectTo: string }> | null,
     FormData
   >(async (_prevState, formData) => {
     return loginAction(formData);
   }, null);
 
+  const [isPending, startTransition] = useTransition();
+
   const onSubmit = (data: LoginInput) => {
     const formData = new FormData();
     formData.append("email", data.email);
     formData.append("password", data.password);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   const displayError =
