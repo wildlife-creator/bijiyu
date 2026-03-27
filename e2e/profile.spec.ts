@@ -66,11 +66,13 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     await expect(page.getByText("姓を入力してください")).toBeVisible();
   });
 
-  test("本人確認をしていないユーザーに本人確認済みバッジが表示されない", async ({
+  test("本人確認済みユーザーに本人確認済みバッジが表示される", async ({
     page,
   }) => {
+    // seed.sql: contractor は identity_verified = true かつ
+    // identity_verifications に approved レコードがある
     await page.goto("/profile");
-    await expect(page.getByText("本人確認済み")).not.toBeVisible();
+    await expect(page.getByText("本人確認済み")).toBeVisible();
   });
 });
 

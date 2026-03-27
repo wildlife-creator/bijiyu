@@ -47,6 +47,16 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - spec-impl 開始時に `reference/png-mapping.md` で対象画面の PNG ファイルを特定し、デザインカンプを確認してから実装に入ること
 - spec-tasks で生成される tasks.md の各画面タスクには、対応するデザインカンプのファイル名（例: `design-assets/screens/CON-001.png`）を記載すること
 
+### spec-tasks で生成する tasks.md のルール
+- tasks.md の先頭タスク（タスク0）として「既存テストの全実行とデグレ確認」を必ず含めること
+  - `npm run test` / `supabase test db` / `npm run test:e2e` を実行
+  - 全テストがパスしてから実装タスクに着手する
+  - 失敗がある場合は原因を調査・修正してから進む
+
+### テスト失敗時のルール
+- テスト失敗を修正した場合、その原因と対策を CLAUDE.md の「実装時の必須チェック項目」セクションに追記すること
+- 他の機能でも同じバグが起きうる場合は、汎用的なルールとして記載する
+
 ## 言語・コーディング規約
 
 ### 言語
@@ -195,6 +205,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 ### ミドルウェア・認証フロー関連
 - パスワードリセットやメール認証など、Supabase Auth のコールバック後にセッションが確立される画面は、ミドルウェアの「認証済みユーザーをauth画面からリダイレクト」ロジックの例外として登録すること（例: `/reset-password/confirm` は認証済みユーザーにもアクセスを許可）
 - seed.sql のテストデータは実際の業務フローと整合させること（例: `identity_verified = true` にするなら `identity_verifications` テーブルにも対応する承認済みレコードを用意する）
+- **pgTAP テストの UUID は seed.sql と重複させない**: pgTAP テストは `BEGIN; ... ROLLBACK;` で実行されるが、seed データが既に投入されている状態で実行される。テスト内で `INSERT INTO auth.users` する場合、seed.sql で使用済みの UUID と重複すると `duplicate key` エラーになる。テスト専用の UUID を使うこと
 
 ### 外部サービス連携
 - billing 機能の実装時は Stripe CLI でローカル Webhook 転送を設定し、
@@ -210,6 +221,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 新しい機能の spec-impl 開始時の最初のステップとして `npm run test:e2e` を実行し、既存の全 Playwright テストが通ること（デグレードがないこと）を確認すること
 - テスト実行前に `supabase start` + `supabase db reset` + `npm run dev` が必要。seed.sql のテストユーザー（contractor@test.local 等）を使ってテストを書くこと
 - テストデータのクリーンアップは不要（次回の `supabase db reset` でリセットされる）
+- **E2Eテストの期待値は seed.sql のデータと整合させること**: テストが前提とするユーザー状態（本人確認済み、サブスクリプション有効等）が seed.sql の実際のデータと一致しているか確認する。seed.sql でフラグを変更した場合、そのフラグに依存するE2Eテストも同時に更新すること。原因例: seed.sql で `identity_verified = true` を設定しているのに、E2Eテストが「本人確認バッジが表示されない」ことを期待して失敗した
 
 ### デザインカンプとの整合性
 - 画面実装の完了前に、`design-assets/screens/` 内の対応する PNG と実装結果を目視比較すること

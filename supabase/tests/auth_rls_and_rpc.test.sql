@@ -8,11 +8,11 @@ SELECT plan(8);
 -- Setup: create test users in auth.users (triggers public.users)
 -- ============================================================
 
--- User A
+-- User A (use distinct UUIDs to avoid seed data conflicts)
 INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 VALUES (
-  '11111111-1111-1111-1111-111111111111',
-  'usera@test.com',
+  'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1',
+  'usera-rls@test.com',
   crypt('password123', gen_salt('bf')),
   NOW(),
   '{"provider":"email","providers":["email"]}'::jsonb,
@@ -24,8 +24,8 @@ VALUES (
 -- User B
 INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 VALUES (
-  '22222222-2222-2222-2222-222222222222',
-  'userb@test.com',
+  'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2',
+  'userb-rls@test.com',
   crypt('password123', gen_salt('bf')),
   NOW(),
   '{"provider":"email","providers":["email"]}'::jsonb,
@@ -38,7 +38,7 @@ VALUES (
 -- Test 1: DB trigger creates public.users with role=contractor
 -- ============================================================
 SELECT is(
-  (SELECT role FROM public.users WHERE id = '11111111-1111-1111-1111-111111111111'),
+  (SELECT role FROM public.users WHERE id = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1'),
   'contractor',
   'DB trigger creates user with role=contractor'
 );
@@ -47,10 +47,10 @@ SELECT is(
 -- Test 2: Users can read their own record
 -- ============================================================
 SET LOCAL role TO authenticated;
-SET LOCAL request.jwt.claims TO '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+SET LOCAL request.jwt.claims TO '{"sub":"a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1","role":"authenticated"}';
 
 SELECT is(
-  (SELECT count(*)::int FROM public.users WHERE id = '11111111-1111-1111-1111-111111111111'),
+  (SELECT count(*)::int FROM public.users WHERE id = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1'),
   1,
   'User A can read their own record'
 );
@@ -60,10 +60,10 @@ SELECT is(
 -- ============================================================
 UPDATE public.users
 SET last_name = 'テスト', first_name = '太郎'
-WHERE id = '11111111-1111-1111-1111-111111111111';
+WHERE id = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1';
 
 SELECT is(
-  (SELECT last_name FROM public.users WHERE id = '11111111-1111-1111-1111-111111111111'),
+  (SELECT last_name FROM public.users WHERE id = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1'),
   'テスト',
   'User A can update their own record'
 );
@@ -73,10 +73,10 @@ SELECT is(
 -- ============================================================
 UPDATE public.users
 SET last_name = 'ハック'
-WHERE id = '22222222-2222-2222-2222-222222222222';
+WHERE id = 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2';
 
 SELECT isnt(
-  (SELECT last_name FROM public.users WHERE id = '22222222-2222-2222-2222-222222222222'),
+  (SELECT last_name FROM public.users WHERE id = 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2'),
   'ハック',
   'User A cannot update User B record'
 );
@@ -87,7 +87,7 @@ SELECT isnt(
 RESET role;
 
 SELECT public.complete_registration(
-  '11111111-1111-1111-1111-111111111111',
+  'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1',
   '山田',
   '太郎',
   '男性',
@@ -99,7 +99,7 @@ SELECT public.complete_registration(
 );
 
 SELECT is(
-  (SELECT last_name FROM public.users WHERE id = '11111111-1111-1111-1111-111111111111'),
+  (SELECT last_name FROM public.users WHERE id = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1'),
   '山田',
   'complete_registration updates user last_name'
 );
@@ -108,7 +108,7 @@ SELECT is(
 -- Test 6: Skills are created correctly
 -- ============================================================
 SELECT is(
-  (SELECT count(*)::int FROM public.user_skills WHERE user_id = '11111111-1111-1111-1111-111111111111'),
+  (SELECT count(*)::int FROM public.user_skills WHERE user_id = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1'),
   2,
   'complete_registration creates 2 skill records'
 );
@@ -117,7 +117,7 @@ SELECT is(
 -- Test 7: Available areas are created correctly
 -- ============================================================
 SELECT is(
-  (SELECT count(*)::int FROM public.user_available_areas WHERE user_id = '11111111-1111-1111-1111-111111111111'),
+  (SELECT count(*)::int FROM public.user_available_areas WHERE user_id = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1'),
   2,
   'complete_registration creates 2 area records'
 );
@@ -126,10 +126,10 @@ SELECT is(
 -- Test 8: Skills limited to 3 max
 -- ============================================================
 -- Clean up previous skills
-DELETE FROM public.user_skills WHERE user_id = '22222222-2222-2222-2222-222222222222';
+DELETE FROM public.user_skills WHERE user_id = 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2';
 
 SELECT public.complete_registration(
-  '22222222-2222-2222-2222-222222222222',
+  'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2',
   '鈴木',
   '花子',
   '女性',
@@ -141,7 +141,7 @@ SELECT public.complete_registration(
 );
 
 SELECT is(
-  (SELECT count(*)::int FROM public.user_skills WHERE user_id = '22222222-2222-2222-2222-222222222222'),
+  (SELECT count(*)::int FROM public.user_skills WHERE user_id = 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2'),
   3,
   'complete_registration limits skills to 3 max'
 );
