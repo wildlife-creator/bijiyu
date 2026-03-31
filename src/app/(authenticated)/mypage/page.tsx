@@ -16,8 +16,8 @@ interface MenuItem {
 
 // Section 1: Find work (all users)
 const FIND_WORK_MENU: MenuItem[] = [
-  { label: "募集案件一覧", href: "/jobs" },
-  { label: "発注者一覧", href: "/users/clients" },
+  { label: "募集案件一覧", href: "/jobs/search" },
+  { label: "発注者一覧", href: "/clients" },
   { label: "マイリスト", href: "/favorites" },
   { label: "メッセージ・スカウト", href: "/messages" },
 ];
@@ -30,7 +30,7 @@ const CHECK_SCHEDULE_MENU: MenuItem[] = [
 
 // Section 3: Find contractors (client only)
 const FIND_CONTRACTORS_MENU: MenuItem[] = [
-  { label: "ユーザー一覧", href: "/users/search" },
+  { label: "ユーザー一覧", href: "/users/contractors" },
   { label: "マイリスト", href: "/favorites" },
   { label: "応募一覧", href: "/applications/manage" },
   { label: "メッセージ・スカウト", href: "/messages" },

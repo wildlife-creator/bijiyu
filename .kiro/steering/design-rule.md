@@ -16,9 +16,10 @@ design-system.md が「方針（なぜ）」を定義するのに対し、本フ
 
 | 用途 | クラス例 | 説明 |
 |------|---------|------|
-| CTAボタン背景 | `bg-primary` | メインアクション（応募する、送信する等） |
-| CTAボタンテキスト | `text-primary-foreground` | CTAボタン上の文字色 |
-| サブボタン背景 | `bg-secondary` | サブアクション（キャンセル、戻る等） |
+| CTAボタン背景 | `bg-primary` | メインアクション。CSS変数入れ替え後は #920783（ブライトパープル） |
+| CTAボタンテキスト | `text-primary-foreground` | CTAボタン上の文字色（白） |
+| テキストアクセント | `text-secondary` | 見出し、ラベルのアクセント色。#601986（ダークパープル） |
+| ボーダーアクセント | `border-secondary` | カード等のアクセントボーダー。#601986 |
 | ページ背景 | `bg-background` | 全ページの背景 |
 | 本文テキスト | `text-foreground` | 通常のテキスト |
 | 薄いテキスト | `text-muted-foreground` | 補足情報、プレースホルダー |
@@ -83,7 +84,7 @@ font-sans → 'Zen Kaku Gothic New', system-ui, sans-serif（globals.css @theme 
 ### 基本原則
 - **モバイルファースト**: クラスは何もつけない状態がモバイル
 - **PC対応**: `md:` プレフィックス（768px以上）で上書き
-- PC版デザインデータは存在しないため、AIが適切に判断する
+- PC版デザインデータがある画面（`*-design-pc.png`）はそれに従う。ない画面はAIが適切に判断する
 
 ### レイアウトパターン
 
@@ -127,6 +128,16 @@ CON-002-design-sp.png / CON-002-design-pc.png を
 #### 判断基準
 上記リストにない画面でも、案件データが一覧表示される画面では同じパターンを適用する。
 
+### 詳細ページのPC版レスポンシブ（デザインカンプあり）
+
+PC版デザインカンプがある詳細ページでは、SP版（縦積み）とPC版（横並び）でレイアウトを切り替える。
+
+| 画面ID | 画面名 | PC版レイアウト |
+|--------|--------|---------------|
+| CLI-006 | ユーザー詳細 | 「空き日程」と「発注者評価」を横並び（`md:grid-cols-2`） |
+
+CLI-006-design-pc.png を参照し、SP版では縦積み、PC版では横並びにすること。
+
 ### ブレークポイント
 ```
 デフォルト: 0px〜（モバイル）
@@ -145,7 +156,7 @@ lg: 1024px〜（ワイドPC、必要な場合のみ）
 
 | 用途 | shadcn/ui variant | 補足 |
 |------|-------------------|------|
-| CTA（応募、送信等） | `default` | `bg-primary` |
+| CTA（応募、送信等） | `default` | `bg-primary`（#920783 ブライトパープル）|
 | サブアクション（キャンセル等） | `outline` | 枠線のみ |
 | 削除・退会 | `destructive` | 赤系 |
 | リンクスタイル | `link` | テキストのみ |
@@ -221,7 +232,25 @@ lg: 1024px〜（ワイドPC、必要な場合のみ）
 - サイズ: `w-4 h-4`（インライン）/ `w-5 h-5`（ボタン内）
 - メニューリスト項目（ナビゲーションリンク）にはアイコンを付けない。テキスト + 右矢印のみで構成する
 - `assets/icons/` に該当するアイコンがない場合のみ Lucide React を使用する
+- Lucide React アイコンを使う場合は `className="w-4 h-4 text-primary/70"` で薄紫に統一すること
 - アイコン一覧は CLAUDE.md の「アイコン・ロゴの使用」セクションを参照
+
+#### 画面ごとのアイコン割り当て
+
+| 画面 | 項目 | アイコン |
+|------|------|---------|
+| CON-002 募集案件一覧 | 募集職種 | icon-briefcase.png |
+| CON-002 募集案件一覧 | 報酬 | icon-coin.png |
+| CON-002 募集案件一覧 | エリア | icon-pin.png |
+| CON-002 募集案件一覧 | 募集期間 | icon-calendar.png |
+| CON-002 募集案件一覧 | 並び替え | icon-sort.png |
+| CON-005 発注者一覧 | 募集職種 | icon-briefcase.png |
+| CON-005 発注者一覧 | 募集エリア | icon-pin.png |
+| CON-005 発注者一覧 | 求める働き方 | lucide-react CalendarDays（薄紫） |
+| CLI-005 職人一覧 | 対応エリア | icon-pin.png |
+| CLI-005 職人一覧 | 経験年数 | lucide-react Clock（薄紫） |
+| CLI-006 職人詳細 | 本人確認済み | icon-tag.png |
+| CLI-006 職人詳細 | CCUS登録済み | icon-tag.png |
 
 ### ロゴ
 - 横型（ヘッダー用）: `<img src="/images/logo-horizontal.png" alt="ビジ友" className="h-[61px] w-auto" />`

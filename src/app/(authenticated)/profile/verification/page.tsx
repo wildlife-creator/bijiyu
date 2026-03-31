@@ -25,7 +25,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
         </Badge>
       );
     case "pending":
-      return <Badge variant="secondary">申請中</Badge>;
+      return <Badge variant="default">申請中</Badge>;
     case "rejected":
       return <Badge variant="destructive">否認</Badge>;
     default:

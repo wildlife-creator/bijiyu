@@ -45,7 +45,7 @@ export default function ResetPasswordConfirmPage() {
   return (
     <div className="flex flex-1 flex-col items-center px-6 pt-10">
       <div className="w-full max-w-lg">
-        <h1 className="text-heading-xl font-bold text-center text-primary">
+        <h1 className="text-heading-xl font-bold text-center text-secondary">
           パスワード再設定
         </h1>
 
@@ -59,7 +59,7 @@ export default function ResetPasswordConfirmPage() {
             {isExpired && (
               <Link
                 href="/reset-password"
-                className="mt-2 inline-block text-body-sm text-primary underline"
+                className="mt-2 inline-block text-body-sm text-secondary underline"
               >
                 パスワード再設定を再申請する
               </Link>
@@ -110,7 +110,7 @@ export default function ResetPasswordConfirmPage() {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-[47px] bg-secondary text-secondary-foreground h-12 w-full font-bold"
+            className="rounded-[47px] bg-primary text-primary-foreground h-12 w-full font-bold"
           >
             {isSubmitting ? "更新中..." : "ログイン"}
           </Button>

@@ -42,7 +42,7 @@ export default function RegisterPage() {
   if (isSuccess) {
     return (
       <div className="space-y-6">
-        <h1 className="text-center text-heading-xl font-bold text-primary">
+        <h1 className="text-center text-heading-xl font-bold text-secondary">
           会員登録メール認証
         </h1>
         <p className="text-center text-body-base text-foreground">
@@ -55,7 +55,7 @@ export default function RegisterPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-center text-heading-xl font-bold text-primary">
+      <h1 className="text-center text-heading-xl font-bold text-secondary">
         会員登録メール認証
       </h1>
 
@@ -99,7 +99,7 @@ export default function RegisterPage() {
         {/* Submit */}
         <Button
           type="submit"
-          variant="secondary"
+          variant="default"
           disabled={isPending}
           className="h-12 w-full rounded-[47px] font-bold"
         >

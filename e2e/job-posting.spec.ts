@@ -67,7 +67,8 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
 
   test("案件詳細画面に編集ボタンがある（CLI-002）", async ({ page }) => {
     // Use the seed data job (66666666-6666-6666-6666-666666666666)
-    await page.goto("/jobs/66666666-6666-6666-6666-666666666666");
+    // CLI-002 is accessed via ?manage=true (from CLI-001)
+    await page.goto("/jobs/66666666-6666-6666-6666-666666666666?manage=true");
     await expect(
       page.getByRole("heading", { name: "募集現場詳細" })
     ).toBeVisible();

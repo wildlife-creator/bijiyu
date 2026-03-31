@@ -151,7 +151,7 @@ export function JobForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       {/* Section: 募集内容 */}
       <section className="space-y-4">
-        <h2 className="text-heading-md font-bold text-primary">募集内容</h2>
+        <h2 className="text-heading-md font-bold text-secondary">募集内容</h2>
 
         {/* Title */}
         <div className="space-y-1">
@@ -347,7 +347,7 @@ export function JobForm({
 
       {/* Section: 詳細情報 (optional) */}
       <section className="space-y-4">
-        <h2 className="text-heading-md font-bold text-primary">詳細情報</h2>
+        <h2 className="text-heading-md font-bold text-secondary">詳細情報</h2>
 
         <div className="space-y-1">
           <Label>稼働時間</Label>
@@ -449,7 +449,7 @@ export function JobForm({
         <div className="space-y-2">
           <Button
             type="submit"
-            className="w-full rounded-[47px] bg-secondary text-secondary-foreground hover:bg-secondary/90"
+            className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={isPending}
             onClick={handlePublish}
           >
@@ -464,7 +464,7 @@ export function JobForm({
           <>
             <Button
               type="submit"
-              className="w-full rounded-[47px] bg-secondary text-secondary-foreground hover:bg-secondary/90"
+              className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={isPending}
               onClick={handlePublish}
             >
@@ -473,7 +473,7 @@ export function JobForm({
             <Button
               type="submit"
               variant="outline"
-              className="w-full rounded-[47px] border-primary text-primary"
+              className="w-full rounded-[47px] border-secondary text-secondary"
               disabled={isPending}
               onClick={handleSaveAsDraft}
             >
@@ -485,7 +485,7 @@ export function JobForm({
         {mode === "edit" && (
           <Button
             type="submit"
-            className="w-full rounded-[47px] bg-secondary text-secondary-foreground hover:bg-secondary/90"
+            className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={isPending}
           >
             {isPending ? "処理中..." : "入力内容を確認する"}
@@ -495,7 +495,7 @@ export function JobForm({
         <Button
           type="button"
           variant="outline"
-          className="w-full rounded-[47px] border-primary text-primary"
+          className="w-full rounded-[47px] border-secondary text-secondary"
           onClick={() => router.back()}
         >
           もどる

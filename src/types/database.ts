@@ -182,7 +182,7 @@ export type Database = {
           is_compensation_9800: boolean
           is_urgent_option: boolean
           message: string | null
-          recruit_area: string | null
+          recruit_area: string[] | null
           recruit_job_types: string[] | null
           updated_at: string
           user_id: string
@@ -199,7 +199,7 @@ export type Database = {
           is_compensation_9800?: boolean
           is_urgent_option?: boolean
           message?: string | null
-          recruit_area?: string | null
+          recruit_area?: string[] | null
           recruit_job_types?: string[] | null
           updated_at?: string
           user_id: string
@@ -216,7 +216,7 @@ export type Database = {
           is_compensation_9800?: boolean
           is_urgent_option?: boolean
           message?: string | null
-          recruit_area?: string | null
+          recruit_area?: string[] | null
           recruit_job_types?: string[] | null
           updated_at?: string
           user_id?: string

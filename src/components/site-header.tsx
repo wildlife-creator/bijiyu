@@ -31,9 +31,9 @@ const GUEST_MENU: MenuItem[] = [
 
 // Authenticated: REQ-AUTH-008 受注者メニュー（常に表示）
 const CONTRACTOR_MENU: MenuItem[] = [
-  { label: "募集案件一覧", href: "#" },            // CON-002
-  { label: "発注者一覧", href: "#" },              // CON-005
-  { label: "マイリスト", href: "#" },              // CON-007
+  { label: "募集案件一覧", href: "/jobs/search" },   // CON-002
+  { label: "発注者一覧", href: "/clients" },       // CON-005
+  { label: "マイリスト", href: "/favorites" },     // CON-007
   { label: "メッセージ/スカウト一覧", href: "#" },  // CON-008
   { label: "応募履歴一覧", href: "#" },            // CON-011
   { label: "空き日程一覧", href: "#" },            // CON-014
@@ -46,7 +46,7 @@ const CONTRACTOR_MENU: MenuItem[] = [
 
 // REQ-AUTH-008 発注者メニュー（課金後に追加表示）
 const CLIENT_MENU: MenuItem[] = [
-  { label: "募集現場一覧", href: "#" },            // CLI-001
+  { label: "募集現場一覧", href: "/jobs/manage" },   // CLI-001
   { label: "応募者一覧", href: "#" },              // CLI-007
   { label: "発注履歴一覧", href: "#" },            // CLI-010
   { label: "発注者情報詳細", href: "#" },          // CLI-020

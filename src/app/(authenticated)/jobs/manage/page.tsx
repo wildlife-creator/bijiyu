@@ -87,7 +87,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-dvh bg-muted px-6 py-6 md:px-12 md:py-8">
-      <h1 className="text-center text-heading-lg font-bold text-primary">
+      <h1 className="text-center text-heading-lg font-bold text-secondary">
         募集現場一覧
       </h1>
 
@@ -95,7 +95,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
       <div className="mt-6 flex justify-center">
         <Button
           asChild
-          className="rounded-[47px] bg-secondary px-8 text-secondary-foreground hover:bg-secondary/90"
+          className="rounded-[47px] bg-primary px-8 text-primary-foreground hover:bg-primary/90"
         >
           <Link href="/jobs/create">新規作成</Link>
         </Button>
@@ -115,7 +115,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
         <Button
           variant="outline"
           size="lg"
-          className="w-full max-w-sm rounded-[47px] border-primary text-primary"
+          className="w-full max-w-sm rounded-[47px] border-secondary text-secondary"
           asChild
         >
           <Link href="/mypage">もどる</Link>

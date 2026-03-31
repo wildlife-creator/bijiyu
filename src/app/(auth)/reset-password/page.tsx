@@ -34,7 +34,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="flex flex-1 flex-col items-center px-6 pt-10">
       <div className="w-full max-w-lg">
-        <h1 className="text-heading-xl font-bold text-center text-primary">
+        <h1 className="text-heading-xl font-bold text-center text-secondary">
           パスワード再設定依頼
         </h1>
 
@@ -76,7 +76,7 @@ export default function ResetPasswordPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="rounded-[47px] bg-secondary text-secondary-foreground h-12 w-full font-bold"
+                className="rounded-[47px] bg-primary text-primary-foreground h-12 w-full font-bold"
               >
                 {isSubmitting ? "送信中..." : "送信する"}
               </Button>

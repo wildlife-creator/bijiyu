@@ -94,7 +94,7 @@ export default function RegisterProfilePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-center text-heading-lg font-bold text-primary">
+      <h1 className="text-center text-heading-lg font-bold text-secondary">
         新規会員登録
       </h1>
 
@@ -353,7 +353,7 @@ export default function RegisterProfilePage() {
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="h-12 w-full rounded-[47px] bg-secondary font-bold text-white hover:bg-secondary/90"
+          className="h-12 w-full rounded-[47px] bg-primary font-bold text-white hover:bg-primary/90"
         >
           {isSubmitting ? "送信中..." : "入力内容を確認する"}
         </Button>

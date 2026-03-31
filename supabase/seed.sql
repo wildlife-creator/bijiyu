@@ -14,6 +14,10 @@
 --   admin:      44444444-4444-4444-4444-444444444444
 -- 組織
 --   org:        55555555-5555-5555-5555-555555555555
+-- 発注者2
+--   client2:    aabbccdd-1111-2222-3333-444455556666
+-- 組織2
+--   org2:       aabbccdd-5555-5555-5555-555555555555
 -- 案件
 --   job1:       66666666-6666-6666-6666-666666666666
 --   job2:       77777777-7777-7777-7777-777777777777
@@ -113,6 +117,20 @@ INSERT INTO auth.users (
     now(),
     now(),
     '', '', '', '', NULL, '', '', '', 0, '', false
+  ),
+  (
+    'aabbccdd-1111-2222-3333-444455556666',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'client2@test.local',
+    crypt('testpass123', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{}',
+    now(),
+    now(),
+    '', '', '', '', NULL, '', '', '', 0, '', false
   );
 
 -- auth.identities（Supabase Auth が要求する）
@@ -129,7 +147,8 @@ INSERT INTO auth.identities (
   ('11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'contractor@test.local', '{"sub":"11111111-1111-1111-1111-111111111111","email":"contractor@test.local"}', 'email', now(), now(), now()),
   ('22222222-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222222', 'client@test.local',     '{"sub":"22222222-2222-2222-2222-222222222222","email":"client@test.local"}',     'email', now(), now(), now()),
   ('33333333-3333-3333-3333-333333333333', '33333333-3333-3333-3333-333333333333', 'staff@test.local',      '{"sub":"33333333-3333-3333-3333-333333333333","email":"staff@test.local"}',      'email', now(), now(), now()),
-  ('44444444-4444-4444-4444-444444444444', '44444444-4444-4444-4444-444444444444', 'admin@test.local',      '{"sub":"44444444-4444-4444-4444-444444444444","email":"admin@test.local"}',      'email', now(), now(), now());
+  ('44444444-4444-4444-4444-444444444444', '44444444-4444-4444-4444-444444444444', 'admin@test.local',      '{"sub":"44444444-4444-4444-4444-444444444444","email":"admin@test.local"}',      'email', now(), now(), now()),
+  ('aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-1111-2222-3333-444455556666', 'client2@test.local',    '{"sub":"aabbccdd-1111-2222-3333-444455556666","email":"client2@test.local"}',    'email', now(), now(), now());
 
 -- ============================================================
 -- 2. public.users（プロフィール情報）
@@ -176,6 +195,20 @@ UPDATE public.users SET
   bio = '担当者として案件管理を行っています。'
 WHERE id = '33333333-3333-3333-3333-333333333333';
 
+-- 発注者2（別の発注者）
+UPDATE public.users SET
+  role = 'client',
+  last_name = '山田',
+  first_name = '太郎',
+  gender = '男性',
+  birth_date = '1978-08-12',
+  prefecture = '東京都',
+  company_name = '山田建設株式会社',
+  bio = '東京都内を中心にマンション建設・改修工事を行っています。',
+  identity_verified = true,
+  ccus_verified = false
+WHERE id = 'aabbccdd-1111-2222-3333-444455556666';
+
 -- 管理者
 UPDATE public.users SET
   role = 'admin',
@@ -195,7 +228,8 @@ INSERT INTO identity_verifications (user_id, document_type, document_url_1, stat
   ('11111111-1111-1111-1111-111111111111', 'identity', 'dummy/identity-doc.png', 'approved', now()),
   ('11111111-1111-1111-1111-111111111111', 'ccus', 'dummy/ccus-doc.png', 'approved', now()),
   ('22222222-2222-2222-2222-222222222222', 'identity', 'dummy/identity-doc.png', 'approved', now()),
-  ('22222222-2222-2222-2222-222222222222', 'ccus', 'dummy/ccus-doc.png', 'approved', now());
+  ('22222222-2222-2222-2222-222222222222', 'ccus', 'dummy/ccus-doc.png', 'approved', now()),
+  ('aabbccdd-1111-2222-3333-444455556666', 'identity', 'dummy/identity-doc.png', 'approved', now());
 
 -- ============================================================
 -- 3. user_skills（受注者のスキル）
@@ -227,7 +261,8 @@ INSERT INTO user_available_areas (user_id, prefecture) VALUES
 -- ============================================================
 
 INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end) VALUES
-  ('22222222-2222-2222-2222-222222222222', 'corporate', 'active', now(), now() + interval '30 days');
+  ('22222222-2222-2222-2222-222222222222', 'corporate', 'active', now(), now() + interval '30 days'),
+  ('aabbccdd-1111-2222-3333-444455556666', 'basic', 'active', now(), now() + interval '30 days');
 
 -- ============================================================
 -- 7. organizations + organization_members
@@ -235,25 +270,28 @@ INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, cur
 
 -- 組織（発注者がオーナー）
 INSERT INTO organizations (id, name, owner_id) VALUES
-  ('55555555-5555-5555-5555-555555555555', '鈴木工務店株式会社', '22222222-2222-2222-2222-222222222222');
+  ('55555555-5555-5555-5555-555555555555', '鈴木工務店株式会社', '22222222-2222-2222-2222-222222222222'),
+  ('aabbccdd-5555-5555-5555-555555555555', '山田建設株式会社', 'aabbccdd-1111-2222-3333-444455556666');
 
 -- メンバー: 発注者 = owner、担当者 = staff
 INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
   ('55555555-5555-5555-5555-555555555555', '22222222-2222-2222-2222-222222222222', 'owner'),
-  ('55555555-5555-5555-5555-555555555555', '33333333-3333-3333-3333-333333333333', 'staff');
+  ('55555555-5555-5555-5555-555555555555', '33333333-3333-3333-3333-333333333333', 'staff'),
+  ('aabbccdd-5555-5555-5555-555555555555', 'aabbccdd-1111-2222-3333-444455556666', 'owner');
 
 -- ============================================================
 -- 8. client_profiles（発注者プロフィール）
 -- ============================================================
 
-INSERT INTO client_profiles (user_id, display_name, recruit_area, employee_scale, message) VALUES
-  ('22222222-2222-2222-2222-222222222222', '鈴木工務店', '神奈川県・東京都', 15, '一緒に働いてくれる職人さんを募集しています。');
+INSERT INTO client_profiles (user_id, display_name, recruit_area, recruit_job_types, working_way, employee_scale, message) VALUES
+  ('22222222-2222-2222-2222-222222222222', '鈴木工務店', '{"神奈川県","東京都"}', '{"大工","内装工","電気工事士"}', '1日から可', 15, '一緒に働いてくれる職人さんを募集しています。'),
+  ('aabbccdd-1111-2222-3333-444455556666', '山田建設', '{"東京都","埼玉県"}', '{"大工","鉄筋工","型枠大工"}', '長期歓迎', 30, '大規模建築を中心に手がけています。職人さん大募集中です。');
 
 -- ============================================================
 -- 9. jobs（テスト用案件）
 -- ============================================================
 
-INSERT INTO jobs (id, owner_id, organization_id, title, description, prefecture, address, trade_type, headcount, reward_upper, reward_lower, work_start_date, work_end_date, status) VALUES
+INSERT INTO jobs (id, owner_id, organization_id, title, description, prefecture, address, trade_type, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
   (
     '66666666-6666-6666-6666-666666666666',
     '22222222-2222-2222-2222-222222222222',
@@ -268,6 +306,8 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, prefecture,
     20000,
     CURRENT_DATE + interval '7 days',
     CURRENT_DATE + interval '14 days',
+    CURRENT_DATE - interval '3 days',
+    CURRENT_DATE + interval '30 days',
     'open'
   ),
   (
@@ -284,11 +324,205 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, prefecture,
     25000,
     CURRENT_DATE + interval '14 days',
     CURRENT_DATE + interval '21 days',
+    CURRENT_DATE - interval '3 days',
+    CURRENT_DATE + interval '30 days',
+    'open'
+  ),
+  (
+    '88888888-8888-8888-8888-888888888881',
+    '22222222-2222-2222-2222-222222222222',
+    '55555555-5555-5555-5555-555555555555',
+    '千葉県戸建て新築 大工工事',
+    '千葉県船橋市の戸建て新築工事です。木造軸組工法の大工作業全般をお願いします。',
+    '千葉県',
+    '船橋市',
+    '大工',
+    2,
+    28000,
+    22000,
+    CURRENT_DATE + interval '10 days',
+    CURRENT_DATE + interval '30 days',
+    CURRENT_DATE - interval '1 day',
+    CURRENT_DATE + interval '20 days',
+    'open'
+  ),
+  (
+    '88888888-8888-8888-8888-888888888882',
+    '22222222-2222-2222-2222-222222222222',
+    '55555555-5555-5555-5555-555555555555',
+    '東京都内マンション内装仕上げ工事',
+    '東京都品川区のマンション内装仕上げ工事です。クロス張り替え・床材施工をお願いします。',
+    '東京都',
+    '品川区',
+    '内装工',
+    3,
+    24000,
+    18000,
+    CURRENT_DATE + interval '5 days',
+    CURRENT_DATE + interval '20 days',
+    CURRENT_DATE - interval '2 days',
+    CURRENT_DATE + interval '25 days',
+    'open'
+  ),
+  (
+    '88888888-8888-8888-8888-888888888883',
+    '22222222-2222-2222-2222-222222222222',
+    '55555555-5555-5555-5555-555555555555',
+    '神奈川県オフィスビル内装改修',
+    '川崎市のオフィスビル内装改修工事です。パーティション設置と天井仕上げをお願いします。',
+    '神奈川県',
+    '川崎市',
+    '内装工',
+    2,
+    26000,
+    20000,
+    CURRENT_DATE + interval '7 days',
+    CURRENT_DATE + interval '28 days',
+    CURRENT_DATE - interval '5 days',
+    CURRENT_DATE + interval '14 days',
+    'open'
+  ),
+  (
+    '88888888-8888-8888-8888-888888888884',
+    '22222222-2222-2222-2222-222222222222',
+    '55555555-5555-5555-5555-555555555555',
+    '大阪市商業施設 電気工事',
+    '大阪市中央区の商業施設電気工事です。照明設備の更新作業をお願いします。',
+    '大阪府',
+    '大阪市中央区',
+    '電気工事士',
+    1,
+    35000,
+    30000,
+    CURRENT_DATE + interval '14 days',
+    CURRENT_DATE + interval '28 days',
+    CURRENT_DATE - interval '1 day',
+    CURRENT_DATE + interval '21 days',
+    'open'
+  ),
+  (
+    '88888888-8888-8888-8888-888888888885',
+    '33333333-3333-3333-3333-333333333333',
+    '55555555-5555-5555-5555-555555555555',
+    '東京都内 RC造マンション躯体工事',
+    '東京都江東区のRC造マンション新築工事です。型枠・鉄筋工事をお願いします。',
+    '東京都',
+    '江東区',
+    '型枠大工',
+    3,
+    32000,
+    26000,
+    CURRENT_DATE + interval '10 days',
+    CURRENT_DATE + interval '40 days',
+    CURRENT_DATE - interval '2 days',
+    CURRENT_DATE + interval '18 days',
+    'open'
+  ),
+  (
+    '88888888-8888-8888-8888-888888888886',
+    '33333333-3333-3333-3333-333333333333',
+    '55555555-5555-5555-5555-555555555555',
+    '横浜市 住宅塗装工事',
+    '横浜市港北区の戸建て住宅の外壁塗装工事です。足場設置から塗装仕上げまでお願いします。',
+    '神奈川県',
+    '横浜市港北区',
+    '塗装工',
+    2,
+    28000,
+    22000,
+    CURRENT_DATE + interval '14 days',
+    CURRENT_DATE + interval '28 days',
+    CURRENT_DATE - interval '1 day',
+    CURRENT_DATE + interval '20 days',
+    'open'
+  ),
+  -- 別の発注者（山田建設）が掲載する案件
+  (
+    'aabbccdd-6666-6666-6666-666666666661',
+    'aabbccdd-1111-2222-3333-444455556666',
+    'aabbccdd-5555-5555-5555-555555555555',
+    '東京都 大型マンション新築 大工工事',
+    '東京都世田谷区の大型マンション新築工事です。内部造作工事全般をお願いします。長期案件です。',
+    '東京都',
+    '世田谷区',
+    '大工',
+    4,
+    32000,
+    26000,
+    CURRENT_DATE + interval '7 days',
+    CURRENT_DATE + interval '60 days',
+    CURRENT_DATE - interval '3 days',
+    CURRENT_DATE + interval '25 days',
+    'open'
+  ),
+  (
+    'aabbccdd-6666-6666-6666-666666666662',
+    'aabbccdd-1111-2222-3333-444455556666',
+    'aabbccdd-5555-5555-5555-555555555555',
+    '埼玉県 商業施設 鉄筋工事',
+    'さいたま市の商業施設建設に伴う鉄筋工事です。経験者を優遇します。',
+    '埼玉県',
+    'さいたま市',
+    '鉄筋工',
+    3,
+    30000,
+    24000,
+    CURRENT_DATE + interval '10 days',
+    CURRENT_DATE + interval '45 days',
+    CURRENT_DATE - interval '2 days',
+    CURRENT_DATE + interval '20 days',
+    'open'
+  ),
+  (
+    'aabbccdd-6666-6666-6666-666666666663',
+    'aabbccdd-1111-2222-3333-444455556666',
+    'aabbccdd-5555-5555-5555-555555555555',
+    '東京都 オフィスビル内装工事',
+    '東京都千代田区のオフィスビル内装改修工事です。壁紙・床材の張り替え作業をお願いします。',
+    '東京都',
+    '千代田区',
+    '内装工',
+    2,
+    27000,
+    21000,
+    CURRENT_DATE + interval '5 days',
+    CURRENT_DATE + interval '20 days',
+    CURRENT_DATE - interval '1 day',
+    CURRENT_DATE + interval '18 days',
     'open'
   );
 
 -- ============================================================
--- 10. Storage バケット（マイグレーション 008 で作成済みだが、seed でも冪等に作成）
+-- 10. job_images（案件画像テストデータ）
+-- ============================================================
+
+-- 画像なし: 全カードがビジ友ロゴのプレースホルダー表示で統一
+-- 実際の画像はユーザーがアップロードした時のみ表示される
+
+-- ============================================================
+-- 11. available_schedules（空き日程テストデータ）
+-- ============================================================
+
+INSERT INTO available_schedules (user_id, start_date, end_date, note) VALUES
+  ('11111111-1111-1111-1111-111111111111', CURRENT_DATE + interval '7 days', CURRENT_DATE + interval '14 days', NULL),
+  ('11111111-1111-1111-1111-111111111111', CURRENT_DATE + interval '21 days', CURRENT_DATE + interval '28 days', NULL),
+  ('11111111-1111-1111-1111-111111111111', CURRENT_DATE + interval '35 days', CURRENT_DATE + interval '42 days', NULL);
+
+-- ============================================================
+-- 12. user_reviews（発注者評価テストデータ）
+-- ============================================================
+-- Note: user_reviews requires application_id. Create test applications first.
+
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '7 days', 'accepted'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab', '77777777-7777-7777-7777-777777777777', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'accepted');
+
+INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools, comment) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', '丁寧な仕事でした。また依頼したいです。'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'yes', 'yes', 'yes', 'no', 'yes', 'yes', '木工事の技術が高く安心してお任せできました。');
+
+-- ============================================================
+-- 13. Storage バケット（マイグレーション 008 で作成済みだが、seed でも冪等に作成）
 -- ============================================================
 
 INSERT INTO storage.buckets (id, name, public) VALUES

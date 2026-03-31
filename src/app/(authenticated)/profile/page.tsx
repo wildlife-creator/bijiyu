@@ -301,7 +301,7 @@ export default async function ProfilePage() {
                 href={profile.video_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-body-md text-secondary underline"
+                className="text-body-md text-primary underline"
               >
                 動画を見る
               </a>
@@ -311,7 +311,7 @@ export default async function ProfilePage() {
 
         {/* Action buttons */}
         <div className="space-y-3">
-          <Button variant="secondary" asChild size="lg" className="w-full rounded-pill">
+          <Button variant="default" asChild size="lg" className="w-full rounded-pill">
             <Link href="/profile/edit">編集する</Link>
           </Button>
 

@@ -7,7 +7,7 @@ export default function LandingPage() {
       {/* Hero */}
       <main className="flex flex-1 flex-col items-center justify-center px-6">
         <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-8 text-center">
-          <h1 className="text-heading-2xl font-bold text-primary">ビジ友</h1>
+          <h1 className="text-heading-2xl font-bold text-secondary">ビジ友</h1>
           <p className="text-body-base text-foreground">
             ビジ友は建設業界の職人と発注者をつなぐマッチングサービスです
           </p>
@@ -17,7 +17,7 @@ export default function LandingPage() {
               <Link href="/login">ログイン</Link>
             </Button>
             <Button
-              className="rounded-[47px] bg-secondary text-secondary-foreground h-12 w-full font-bold"
+              className="rounded-[47px] bg-primary text-primary-foreground h-12 w-full font-bold"
               asChild
             >
               <Link href="/register">新規登録</Link>

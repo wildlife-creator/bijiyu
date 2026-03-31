@@ -655,7 +655,7 @@ export default function ProfileEditPage() {
           <Button
             type="submit"
             disabled={isSubmitting || isPending}
-            className="h-12 w-full rounded-pill bg-secondary font-bold text-white hover:bg-secondary/90"
+            className="h-12 w-full rounded-pill bg-primary font-bold text-white hover:bg-primary/90"
           >
             {isSubmitting || isPending ? "送信中..." : "確認する"}
           </Button>

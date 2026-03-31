@@ -15,7 +15,7 @@ export default async function JobCreatePage() {
 
   return (
     <div className="min-h-dvh px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
-      <h1 className="text-heading-lg font-bold text-primary">
+      <h1 className="text-heading-lg font-bold text-secondary">
         募集現場新規登録
       </h1>
 

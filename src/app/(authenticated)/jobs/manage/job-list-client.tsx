@@ -50,7 +50,7 @@ function StatusBadge({ status }: { status: string }) {
 
   if (status === "open") {
     return (
-      <Badge className="rounded-[33px] bg-secondary text-secondary-foreground">
+      <Badge className="rounded-[33px] bg-primary text-primary-foreground">
         {label}
       </Badge>
     );
@@ -152,7 +152,7 @@ export function JobListClient({
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           {jobs.map((job) => (
-            <Link key={job.id} href={`/jobs/${job.id}`} className="block">
+            <Link key={job.id} href={`/jobs/${job.id}?manage=true`} className="block">
               <Card className="overflow-hidden rounded-[8px] border-border transition-shadow hover:shadow-md">
                 {/* Thumbnail area */}
                 <div className="relative aspect-[16/9] w-full bg-muted">

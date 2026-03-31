@@ -48,7 +48,7 @@ export default function LoginPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-center text-heading-xl font-bold text-primary">
+      <h1 className="text-center text-heading-xl font-bold text-secondary">
         ログイン
       </h1>
 
@@ -103,7 +103,7 @@ export default function LoginPage() {
         {/* Forgot password link */}
         <p className="text-body-sm text-muted-foreground">
           パスワードを忘れた方は
-          <Link href="/reset-password" className="text-primary underline">
+          <Link href="/reset-password" className="text-secondary underline">
             こちら
           </Link>
         </p>
@@ -111,7 +111,7 @@ export default function LoginPage() {
         {/* Submit */}
         <Button
           type="submit"
-          variant="secondary"
+          variant="default"
           disabled={isPending}
           className="h-12 w-full rounded-[47px] font-bold"
         >
@@ -122,7 +122,7 @@ export default function LoginPage() {
       {/* Register link */}
       <p className="text-center text-body-sm text-muted-foreground">
         新規登録は
-        <Link href="/register" className="text-primary underline">
+        <Link href="/register" className="text-secondary underline">
           こちら
         </Link>
       </p>
