@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   jobSchema,
+  jobDraftSchema,
   validateJobImageFile,
   validateJobImageCount,
   ALLOWED_TRANSITIONS,
@@ -37,8 +38,6 @@ function parseFormDataToJobInput(formData: FormData) {
     scheduleDetail: (formData.get("scheduleDetail") as string) ?? "",
     projectDetails: (formData.get("projectDetails") as string) ?? "",
     ownerMessage: (formData.get("ownerMessage") as string) ?? "",
-    location: (formData.get("location") as string) ?? "",
-    etcMessage: (formData.get("etcMessage") as string) ?? "",
     status: (formData.get("status") as string) ?? "draft",
   };
 }
@@ -120,9 +119,12 @@ export async function createJobAction(
       };
     }
 
-    // Validate form data
+    // Validate form data (use relaxed schema for drafts)
     const raw = parseFormDataToJobInput(formData);
-    const parsed = jobSchema.safeParse(raw);
+    const isDraft = raw.status === "draft";
+    const parsed = isDraft
+      ? jobDraftSchema.safeParse(raw)
+      : jobSchema.safeParse(raw);
     if (!parsed.success) {
       const firstError = parsed.error.issues[0]?.message;
       return {
@@ -149,6 +151,10 @@ export async function createJobAction(
       }
     }
 
+    // Helper to convert NaN/undefined to null for numeric fields
+    const numOrNull = (v: unknown) =>
+      typeof v === "number" && !Number.isNaN(v) ? v : null;
+
     // Insert job
     const { data: job, error: jobError } = await supabase
       .from("jobs")
@@ -156,17 +162,17 @@ export async function createJobAction(
         owner_id: user.id,
         organization_id: orgMember?.organization_id ?? null,
         title: data.title,
-        description: data.description,
-        trade_type: data.tradeType,
-        reward_lower: data.rewardLower,
-        reward_upper: data.rewardUpper,
-        prefecture: data.prefecture,
+        description: data.description || null,
+        trade_type: data.tradeType || null,
+        reward_lower: numOrNull(data.rewardLower),
+        reward_upper: numOrNull(data.rewardUpper),
+        prefecture: data.prefecture || null,
         address: data.address || null,
-        work_start_date: data.workStartDate,
-        work_end_date: data.workEndDate,
-        recruit_start_date: data.recruitStartDate,
-        recruit_end_date: data.recruitEndDate,
-        headcount: data.headcount,
+        work_start_date: data.workStartDate || null,
+        work_end_date: data.workEndDate || null,
+        recruit_start_date: data.recruitStartDate || null,
+        recruit_end_date: data.recruitEndDate || null,
+        headcount: numOrNull(data.headcount),
         work_hours: data.workHours || null,
         experience_years: data.experienceYears || null,
         required_skills: data.requiredSkills || null,
@@ -175,8 +181,6 @@ export async function createJobAction(
         schedule_detail: data.scheduleDetail || null,
         project_details: data.projectDetails || null,
         owner_message: data.ownerMessage || null,
-        location: data.location || null,
-        etc_message: data.etcMessage || null,
         status: data.status,
       })
       .select("id")
@@ -277,9 +281,12 @@ export async function updateJobAction(
       return { success: false, error: "案件が見つかりません" };
     }
 
-    // Validate form data
+    // Validate form data (use relaxed schema for drafts)
     const raw = parseFormDataToJobInput(formData);
-    const parsed = jobSchema.safeParse(raw);
+    const isDraft = raw.status === "draft";
+    const parsed = isDraft
+      ? jobDraftSchema.safeParse(raw)
+      : jobSchema.safeParse(raw);
     if (!parsed.success) {
       const firstError = parsed.error.issues[0]?.message;
       return {
@@ -329,22 +336,26 @@ export async function updateJobAction(
       }
     }
 
+    // Helper to convert NaN/undefined to null for numeric fields
+    const numOrNull = (v: unknown) =>
+      typeof v === "number" && !Number.isNaN(v) ? v : null;
+
     // Update job
     const { error: updateError } = await supabase
       .from("jobs")
       .update({
         title: data.title,
-        description: data.description,
-        trade_type: data.tradeType,
-        reward_lower: data.rewardLower,
-        reward_upper: data.rewardUpper,
-        prefecture: data.prefecture,
+        description: data.description || null,
+        trade_type: data.tradeType || null,
+        reward_lower: numOrNull(data.rewardLower),
+        reward_upper: numOrNull(data.rewardUpper),
+        prefecture: data.prefecture || null,
         address: data.address || null,
-        work_start_date: data.workStartDate,
-        work_end_date: data.workEndDate,
-        recruit_start_date: data.recruitStartDate,
-        recruit_end_date: data.recruitEndDate,
-        headcount: data.headcount,
+        work_start_date: data.workStartDate || null,
+        work_end_date: data.workEndDate || null,
+        recruit_start_date: data.recruitStartDate || null,
+        recruit_end_date: data.recruitEndDate || null,
+        headcount: numOrNull(data.headcount),
         work_hours: data.workHours || null,
         experience_years: data.experienceYears || null,
         required_skills: data.requiredSkills || null,
@@ -353,8 +364,6 @@ export async function updateJobAction(
         schedule_detail: data.scheduleDetail || null,
         project_details: data.projectDetails || null,
         owner_message: data.ownerMessage || null,
-        location: data.location || null,
-        etc_message: data.etcMessage || null,
         status: data.status,
       })
       .eq("id", jobId);
@@ -428,6 +437,63 @@ export async function updateJobAction(
     return {
       success: false,
       error: "案件の保存に失敗しました。時間をおいて再度お試しください",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// closeJobAction — 掲載を終了する（open → closed）
+// ---------------------------------------------------------------------------
+export async function closeJobAction(
+  jobId: string
+): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return {
+        success: false,
+        error: "認証情報が見つかりません。再度ログインしてください。",
+      };
+    }
+
+    // Fetch job to validate ownership and current status
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("id, owner_id, organization_id, status")
+      .eq("id", jobId)
+      .is("deleted_at", null)
+      .single();
+
+    if (!job) {
+      return { success: false, error: "案件が見つかりません" };
+    }
+
+    if (job.status !== "open") {
+      return { success: false, error: "この案件は現在掲載中ではありません" };
+    }
+
+    // Update status to closed (RLS handles owner/org permission)
+    const { error: updateError } = await supabase
+      .from("jobs")
+      .update({ status: "closed" })
+      .eq("id", jobId);
+
+    if (updateError) {
+      return {
+        success: false,
+        error: "掲載終了に失敗しました。時間をおいて再度お試しください",
+      };
+    }
+
+    return { success: true };
+  } catch {
+    return {
+      success: false,
+      error: "掲載終了に失敗しました。時間をおいて再度お試しください",
     };
   }
 }

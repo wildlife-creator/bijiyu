@@ -96,7 +96,7 @@ export function SiteHeader({
 
   return (
     <header className="flex items-center justify-between border-b border-border bg-background px-4 py-3">
-      <Link href="/" className="flex items-center">
+      <Link href={isAuthenticated ? "/mypage" : "/"} className="flex items-center">
         <img
           src="/images/logo-horizontal.png"
           alt="ビジ友"

@@ -81,7 +81,7 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
 
   function handleCompleteOk() {
     setShowComplete(false);
-    router.push("/applications");
+    router.push("/applications/history");
   }
 
   return (

@@ -58,15 +58,15 @@ test.describe("発注者のCON-002→CON-003遷移（リグレッション防止
     // CON-003（募集案件詳細）が表示され、CLI-002（募集現場詳細）ではないこと
     await expect(page.getByRole("heading", { name: "募集案件詳細" })).toBeVisible();
     // CLI-002 の管理UIが表示されていないこと
-    await expect(page.getByText("編集する")).not.toBeVisible();
-    // 応募ボタンが表示されていること（発注者は制限なしで活性）
-    await expect(page.getByRole("link", { name: "応募する" }).first()).toBeVisible();
+    await expect(page.getByText("編集する").first()).not.toBeVisible();
+    // 自分の案件なので応募ボタンは非表示（案件オーナーは応募不可）
+    await expect(page.getByRole("link", { name: "応募する" })).not.toBeVisible();
   });
 
   test("発注者がCLI-001から?manage=trueで遷移するとCLI-002（管理画面）が表示される", async ({ page }) => {
     await page.goto("/jobs/88888888-8888-8888-8888-888888888881?manage=true");
     await expect(page.getByRole("heading", { name: "募集現場詳細" })).toBeVisible();
-    await expect(page.getByText("編集する")).toBeVisible();
+    await expect(page.getByText("編集する").first()).toBeVisible();
   });
 });
 

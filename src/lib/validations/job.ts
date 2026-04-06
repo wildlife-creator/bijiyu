@@ -44,8 +44,6 @@ export const jobSchema = z
     scheduleDetail: z.string().max(2000).optional().or(z.literal("")),
     projectDetails: z.string().max(2000).optional().or(z.literal("")),
     ownerMessage: z.string().max(2000).optional().or(z.literal("")),
-    location: z.string().max(500).optional().or(z.literal("")),
-    etcMessage: z.string().max(2000).optional().or(z.literal("")),
     status: z.enum(["draft", "open", "closed"]),
   })
   .refine((data) => data.rewardUpper >= data.rewardLower, {
@@ -69,6 +67,36 @@ export const jobSchema = z
   );
 
 export type JobFormValues = z.infer<typeof jobSchema>;
+
+// ---------------------------------------------------------------------------
+// Draft schema — only title is required, everything else is optional
+// ---------------------------------------------------------------------------
+export const jobDraftSchema = z.object({
+  title: z
+    .string()
+    .min(1, "タイトルを入力してください")
+    .max(100, "タイトルは100文字以内で入力してください"),
+  description: z.string().max(5000).optional().or(z.literal("")),
+  tradeType: z.string().optional().or(z.literal("")),
+  rewardLower: z.number().int().positive().optional().or(z.nan()),
+  rewardUpper: z.number().int().positive().optional().or(z.nan()),
+  prefecture: z.string().optional().or(z.literal("")),
+  address: z.string().max(200).optional().or(z.literal("")),
+  workStartDate: z.string().optional().or(z.literal("")),
+  workEndDate: z.string().optional().or(z.literal("")),
+  recruitStartDate: z.string().optional().or(z.literal("")),
+  recruitEndDate: z.string().optional().or(z.literal("")),
+  headcount: z.number().int().positive().optional().or(z.nan()),
+  workHours: z.string().max(200).optional().or(z.literal("")),
+  experienceYears: z.string().max(100).optional().or(z.literal("")),
+  requiredSkills: z.string().max(500).optional().or(z.literal("")),
+  nationalityLanguage: z.string().max(200).optional().or(z.literal("")),
+  items: z.string().max(500).optional().or(z.literal("")),
+  scheduleDetail: z.string().max(2000).optional().or(z.literal("")),
+  projectDetails: z.string().max(2000).optional().or(z.literal("")),
+  ownerMessage: z.string().max(2000).optional().or(z.literal("")),
+  status: z.literal("draft"),
+});
 
 // ---------------------------------------------------------------------------
 // Status transition whitelist

@@ -72,10 +72,10 @@
 
 - [x] 3. RLS ポリシー・インデックス・テーブル制約のマイグレーション作成
 - [x] 3.1 RLS ポリシーの作成
-  - jobs（SELECT）: 一般ユーザーは status = 'open' AND deleted_at IS NULL のみ。案件作成者は自分の案件を draft/closed 含めて閲覧可。管理者は全件閲覧可
+  - jobs（SELECT）: 一般ユーザーは status = 'open' AND deleted_at IS NULL のみ。案件作成者は自分の案件を draft/closed・削除済み含めて閲覧可。同一組織メンバーは draft/closed 含めて閲覧可（deleted_at IS NULL のみ）。管理者は全件閲覧可
   - applications（INSERT）: applicant_id = auth.uid() のみ。（SELECT）: applicant_id = auth.uid() OR job.owner_id = auth.uid()
   - favorites（SELECT/INSERT/DELETE）: user_id = auth.uid() のみ
-  - client_profiles, user_skills, user_available_areas, user_qualifications, user_reviews, client_reviews, available_schedules, job_images: 全ユーザー閲覧可
+  - client_profiles, user_skills, user_available_areas, user_qualifications, user_reviews, available_schedules, job_images: 全ユーザー閲覧可
   - _Requirements: 1, 2, 3, 4, 5, 6, 7, 8_
 
 - [x] 3.2 インデックスとテーブル制約のマイグレーション作成
@@ -105,7 +105,7 @@
   - 案件画像は `<img>` タグで表示する（Supabase Storage）
   - 応募制限判定: canApplyJob ユーティリティを使用し、無料ユーザーの応募可否をフロントで判定する
   - 応募不可の場合: ボタン非活性 + 「有料プランに加入するか、プロフィールの職種・エリアを更新してください」メッセージ
-  - 情報セクション: 報酬、エリア、募集職種、募集人数、勤務地、現場工期、募集期間、稼働時間、必要経験年数、必須スキル、国籍・言語、持ち物、スケジュール詳細、請負案件詳細、発注者からのメッセージ、詳細その他
+  - 情報セクション: 報酬、エリア、募集職種、募集人数、勤務地、現場工期、募集期間、稼働時間、必要経験年数、必須スキル、国籍・言語、持ち物、スケジュール詳細、請負案件詳細、発注者からのメッセージ
   - お気に入りボタン、「応募する」ボタン（→ CON-004）、発注者情報リンク（→ CON-006）
   - 下部固定の「応募する」ボタン
   - _Requirements: 2_
@@ -140,7 +140,6 @@
   - アバターは `<img>` タグで表示する
   - 情報セクション: 募集職種、募集エリア、従業員規模、求める働き方、発注者からのメッセージ
   - 掲載中の案件一覧（案件カード形式）を表示する
-  - 発注者評価の集計（client_reviews の平均等）を表示する
   - お気に入りボタン、「メッセージを送る」導線
   - _Requirements: 5_
   - _デザインカンプ: CON-006.png_

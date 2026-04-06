@@ -60,41 +60,41 @@ export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobL
 
         {/* Info rows */}
         <div className="space-y-1.5 text-body-sm">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center">
             <img
               src="/images/icons/icon-briefcase.png"
               alt=""
-              className="w-4 h-4"
+              className="w-4 h-4 shrink-0"
             />
-            <span className="text-muted-foreground">募集職種</span>
+            <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集職種</span>
             <span>{job.tradeType}</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center">
             <img
               src="/images/icons/icon-coin.png"
               alt=""
-              className="w-4 h-4"
+              className="w-4 h-4 shrink-0"
             />
-            <span className="text-muted-foreground">報酬</span>
+            <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">報酬</span>
             <span>{formatReward(job.rewardLower, job.rewardUpper)}</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center">
             <img
               src="/images/icons/icon-pin.png"
               alt=""
-              className="w-4 h-4"
+              className="w-4 h-4 shrink-0"
             />
-            <span className="text-muted-foreground">エリア</span>
+            <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">エリア</span>
             <span>{job.prefecture}</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center">
             <img
               src="/images/icons/icon-calendar.png"
               alt=""
-              className="w-4 h-4"
+              className="w-4 h-4 shrink-0"
             />
-            <span className="text-muted-foreground">募集期間</span>
-            <span>〜{job.recruitEndDate}</span>
+            <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集期間</span>
+            <span>〜{job.recruitEndDate.replace(/-/g, "/")}</span>
           </div>
         </div>
 

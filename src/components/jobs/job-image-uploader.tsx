@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { X } from "lucide-react";
+import { Camera, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { validateJobImageFile } from "@/lib/validations/job";
@@ -69,12 +69,12 @@ export function JobImageUploader({
 
   return (
     <div className="space-y-3">
-      <p className="text-body-md font-medium text-foreground">
-        数量についての詳細
-      </p>
-      <p className="text-body-sm text-muted-foreground">
-        マッチングが成立した際に、マッチング先に共有されます。
-      </p>
+      {/* Placeholder when no images */}
+      {existingImages.length === 0 && newFiles.length === 0 && (
+        <div className="flex aspect-video w-full items-center justify-center rounded-[8px] border border-border bg-muted/40">
+          <Camera className="size-12 text-muted-foreground/30" />
+        </div>
+      )}
 
       {/* Existing images */}
       {existingImages.length > 0 && (
@@ -122,18 +122,32 @@ export function JobImageUploader({
         </div>
       )}
 
-      {/* Upload button */}
+      {/* Upload buttons */}
       {canAdd && (
-        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-6 text-body-md text-muted-foreground transition-colors hover:border-primary hover:bg-muted/50">
-          <span>＋画像を追加する</span>
-          <input
-            type="file"
-            accept="image/jpeg,image/png"
-            multiple
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-        </label>
+        <div className="flex flex-col items-center gap-2">
+          <label className="inline-flex cursor-pointer items-center justify-center rounded-[47px] border border-secondary px-8 py-2 text-body-md text-secondary transition-colors hover:bg-secondary/10">
+            <span>画像を登録する</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </label>
+          {totalCount > 0 && (
+            <label className="cursor-pointer text-body-md text-foreground hover:underline">
+              <span>＋追加する</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </label>
+          )}
+        </div>
       )}
 
       <p className="text-body-sm text-muted-foreground">

@@ -8,19 +8,26 @@
 -- 固定 UUID（テストコードから参照しやすくするため）
 -- ============================================================
 -- ユーザー
---   contractor: 11111111-1111-1111-1111-111111111111
---   client:     22222222-2222-2222-2222-222222222222
---   staff:      33333333-3333-3333-3333-333333333333
---   admin:      44444444-4444-4444-4444-444444444444
+--   contractor:  11111111-1111-1111-1111-111111111111
+--   client:      22222222-2222-2222-2222-222222222222
+--   staff:       33333333-3333-3333-3333-333333333333
+--   admin:       44444444-4444-4444-4444-444444444444
+--   contractor2: cc111111-1111-1111-1111-111111111111
+--   contractor3: cc222222-2222-2222-2222-222222222222
+--   contractor4: cc333333-3333-3333-3333-333333333333
 -- 組織
---   org:        55555555-5555-5555-5555-555555555555
+--   org:         55555555-5555-5555-5555-555555555555
 -- 発注者2
---   client2:    aabbccdd-1111-2222-3333-444455556666
+--   client2:     aabbccdd-1111-2222-3333-444455556666
 -- 組織2
---   org2:       aabbccdd-5555-5555-5555-555555555555
+--   org2:        aabbccdd-5555-5555-5555-555555555555
 -- 案件
---   job1:       66666666-6666-6666-6666-666666666666
---   job2:       77777777-7777-7777-7777-777777777777
+--   job1:        66666666-6666-6666-6666-666666666666
+--   job2:        77777777-7777-7777-7777-777777777777
+-- CLI-010 テスト用応募
+--   completed1:  cccccccc-cccc-cccc-cccc-cccccccccc01
+--   completed2:  cccccccc-cccc-cccc-cccc-cccccccccc02
+--   cancelled:   cccccccc-cccc-cccc-cccc-cccccccccc03
 
 -- ============================================================
 -- 1. auth.users（Supabase Auth ユーザー）
@@ -131,6 +138,48 @@ INSERT INTO auth.users (
     now(),
     now(),
     '', '', '', '', NULL, '', '', '', 0, '', false
+  ),
+  (
+    'cc111111-1111-1111-1111-111111111111',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'contractor2@test.local',
+    crypt('testpass123', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{}',
+    now(),
+    now(),
+    '', '', '', '', NULL, '', '', '', 0, '', false
+  ),
+  (
+    'cc222222-2222-2222-2222-222222222222',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'contractor3@test.local',
+    crypt('testpass123', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{}',
+    now(),
+    now(),
+    '', '', '', '', NULL, '', '', '', 0, '', false
+  ),
+  (
+    'cc333333-3333-3333-3333-333333333333',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'contractor4@test.local',
+    crypt('testpass123', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{}',
+    now(),
+    now(),
+    '', '', '', '', NULL, '', '', '', 0, '', false
   );
 
 -- auth.identities（Supabase Auth が要求する）
@@ -148,7 +197,10 @@ INSERT INTO auth.identities (
   ('22222222-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222222', 'client@test.local',     '{"sub":"22222222-2222-2222-2222-222222222222","email":"client@test.local"}',     'email', now(), now(), now()),
   ('33333333-3333-3333-3333-333333333333', '33333333-3333-3333-3333-333333333333', 'staff@test.local',      '{"sub":"33333333-3333-3333-3333-333333333333","email":"staff@test.local"}',      'email', now(), now(), now()),
   ('44444444-4444-4444-4444-444444444444', '44444444-4444-4444-4444-444444444444', 'admin@test.local',      '{"sub":"44444444-4444-4444-4444-444444444444","email":"admin@test.local"}',      'email', now(), now(), now()),
-  ('aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-1111-2222-3333-444455556666', 'client2@test.local',    '{"sub":"aabbccdd-1111-2222-3333-444455556666","email":"client2@test.local"}',    'email', now(), now(), now());
+  ('aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-1111-2222-3333-444455556666', 'client2@test.local',    '{"sub":"aabbccdd-1111-2222-3333-444455556666","email":"client2@test.local"}',    'email', now(), now(), now()),
+  ('cc111111-1111-1111-1111-111111111111', 'cc111111-1111-1111-1111-111111111111', 'contractor2@test.local', '{"sub":"cc111111-1111-1111-1111-111111111111","email":"contractor2@test.local"}', 'email', now(), now(), now()),
+  ('cc222222-2222-2222-2222-222222222222', 'cc222222-2222-2222-2222-222222222222', 'contractor3@test.local', '{"sub":"cc222222-2222-2222-2222-222222222222","email":"contractor3@test.local"}', 'email', now(), now(), now()),
+  ('cc333333-3333-3333-3333-333333333333', 'cc333333-3333-3333-3333-333333333333', 'contractor4@test.local', '{"sub":"cc333333-3333-3333-3333-333333333333","email":"contractor4@test.local"}', 'email', now(), now(), now());
 
 -- ============================================================
 -- 2. public.users（プロフィール情報）
@@ -219,6 +271,46 @@ UPDATE public.users SET
   prefecture = '東京都'
 WHERE id = '44444444-4444-4444-4444-444444444444';
 
+-- 受注者2（塗装工・左官）
+UPDATE public.users SET
+  role = 'contractor',
+  last_name = '高橋',
+  first_name = '美咲',
+  gender = '女性',
+  birth_date = '1992-07-22',
+  prefecture = '神奈川県',
+  company_name = NULL,
+  bio = '塗装工歴8年。外壁・内壁の塗装を専門にしています。左官工事も対応可能です。',
+  identity_verified = true,
+  ccus_verified = true
+WHERE id = 'cc111111-1111-1111-1111-111111111111';
+
+-- 受注者3（電気工事士・配管工）
+UPDATE public.users SET
+  role = 'contractor',
+  last_name = '渡辺',
+  first_name = '大輔',
+  gender = '男性',
+  birth_date = '1988-02-14',
+  prefecture = '東京都',
+  company_name = '渡辺電設',
+  bio = '電気工事士として15年の経験があります。商業施設・住宅問わず対応可能です。',
+  identity_verified = true,
+  ccus_verified = false
+WHERE id = 'cc222222-2222-2222-2222-222222222222';
+
+-- 受注者4（内装工）— 無料ユーザー、本人確認なし
+UPDATE public.users SET
+  role = 'contractor',
+  last_name = '小林',
+  first_name = 'さくら',
+  gender = '女性',
+  birth_date = '1998-12-03',
+  prefecture = '千葉県',
+  company_name = NULL,
+  bio = '内装工事を中心に活動しています。クロス張り替えが得意です。'
+WHERE id = 'cc333333-3333-3333-3333-333333333333';
+
 -- ============================================================
 -- 2.5 identity_verifications（本人確認・CCUS 承認済みレコード）
 -- identity_verified = true にするなら identity_verifications にも対応レコードを用意する
@@ -229,6 +321,9 @@ INSERT INTO identity_verifications (user_id, document_type, document_url_1, stat
   ('11111111-1111-1111-1111-111111111111', 'ccus', 'dummy/ccus-doc.png', 'approved', now()),
   ('22222222-2222-2222-2222-222222222222', 'identity', 'dummy/identity-doc.png', 'approved', now()),
   ('22222222-2222-2222-2222-222222222222', 'ccus', 'dummy/ccus-doc.png', 'approved', now()),
+  ('cc111111-1111-1111-1111-111111111111', 'identity', 'dummy/identity-doc.png', 'approved', now()),
+  ('cc111111-1111-1111-1111-111111111111', 'ccus', 'dummy/ccus-doc.png', 'approved', now()),
+  ('cc222222-2222-2222-2222-222222222222', 'identity', 'dummy/identity-doc.png', 'approved', now()),
   ('aabbccdd-1111-2222-3333-444455556666', 'identity', 'dummy/identity-doc.png', 'approved', now());
 
 -- ============================================================
@@ -237,7 +332,12 @@ INSERT INTO identity_verifications (user_id, document_type, document_url_1, stat
 
 INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
   ('11111111-1111-1111-1111-111111111111', '大工', 10),
-  ('11111111-1111-1111-1111-111111111111', '内装工', 5);
+  ('11111111-1111-1111-1111-111111111111', '内装工', 5),
+  ('cc111111-1111-1111-1111-111111111111', '塗装工', 8),
+  ('cc111111-1111-1111-1111-111111111111', '左官', 4),
+  ('cc222222-2222-2222-2222-222222222222', '電気工事士', 15),
+  ('cc222222-2222-2222-2222-222222222222', '配管工', 6),
+  ('cc333333-3333-3333-3333-333333333333', '内装工', 3);
 
 -- ============================================================
 -- 4. user_qualifications（受注者の資格）
@@ -245,7 +345,10 @@ INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
 
 INSERT INTO user_qualifications (user_id, qualification_name) VALUES
   ('11111111-1111-1111-1111-111111111111', '一級建築士'),
-  ('11111111-1111-1111-1111-111111111111', '二級建築施工管理技士');
+  ('11111111-1111-1111-1111-111111111111', '二級建築施工管理技士'),
+  ('cc111111-1111-1111-1111-111111111111', '一級塗装技能士'),
+  ('cc222222-2222-2222-2222-222222222222', '第二種電気工事士'),
+  ('cc222222-2222-2222-2222-222222222222', '一級電気工事施工管理技士');
 
 -- ============================================================
 -- 5. user_available_areas（受注者の対応可能エリア）
@@ -254,7 +357,14 @@ INSERT INTO user_qualifications (user_id, qualification_name) VALUES
 INSERT INTO user_available_areas (user_id, prefecture) VALUES
   ('11111111-1111-1111-1111-111111111111', '東京都'),
   ('11111111-1111-1111-1111-111111111111', '神奈川県'),
-  ('11111111-1111-1111-1111-111111111111', '千葉県');
+  ('11111111-1111-1111-1111-111111111111', '千葉県'),
+  ('cc111111-1111-1111-1111-111111111111', '神奈川県'),
+  ('cc111111-1111-1111-1111-111111111111', '東京都'),
+  ('cc222222-2222-2222-2222-222222222222', '東京都'),
+  ('cc222222-2222-2222-2222-222222222222', '埼玉県'),
+  ('cc222222-2222-2222-2222-222222222222', '千葉県'),
+  ('cc333333-3333-3333-3333-333333333333', '千葉県'),
+  ('cc333333-3333-3333-3333-333333333333', '東京都');
 
 -- ============================================================
 -- 6. subscriptions（発注者のサブスクリプション）
@@ -283,9 +393,9 @@ INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
 -- 8. client_profiles（発注者プロフィール）
 -- ============================================================
 
-INSERT INTO client_profiles (user_id, display_name, recruit_area, recruit_job_types, working_way, employee_scale, message) VALUES
-  ('22222222-2222-2222-2222-222222222222', '鈴木工務店', '{"神奈川県","東京都"}', '{"大工","内装工","電気工事士"}', '1日から可', 15, '一緒に働いてくれる職人さんを募集しています。'),
-  ('aabbccdd-1111-2222-3333-444455556666', '山田建設', '{"東京都","埼玉県"}', '{"大工","鉄筋工","型枠大工"}', '長期歓迎', 30, '大規模建築を中心に手がけています。職人さん大募集中です。');
+INSERT INTO client_profiles (user_id, display_name, recruit_area, recruit_job_types, working_way, employee_scale, message, language) VALUES
+  ('22222222-2222-2222-2222-222222222222', '鈴木工務店', '{"神奈川県","東京都"}', '{"大工","内装工","電気工事士"}', '1日から可', 15, '一緒に働いてくれる職人さんを募集しています。', '日本語'),
+  ('aabbccdd-1111-2222-3333-444455556666', '山田建設', '{"東京都","埼玉県"}', '{"大工","鉄筋工","型枠大工"}', '長期歓迎', 30, '大規模建築を中心に手がけています。職人さん大募集中です。', '日本語・英語');
 
 -- ============================================================
 -- 9. jobs（テスト用案件）
@@ -506,20 +616,55 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, prefecture,
 INSERT INTO available_schedules (user_id, start_date, end_date, note) VALUES
   ('11111111-1111-1111-1111-111111111111', CURRENT_DATE + interval '7 days', CURRENT_DATE + interval '14 days', NULL),
   ('11111111-1111-1111-1111-111111111111', CURRENT_DATE + interval '21 days', CURRENT_DATE + interval '28 days', NULL),
-  ('11111111-1111-1111-1111-111111111111', CURRENT_DATE + interval '35 days', CURRENT_DATE + interval '42 days', NULL);
+  ('11111111-1111-1111-1111-111111111111', CURRENT_DATE + interval '35 days', CURRENT_DATE + interval '42 days', NULL),
+  ('cc111111-1111-1111-1111-111111111111', CURRENT_DATE + interval '5 days', CURRENT_DATE + interval '20 days', NULL),
+  ('cc222222-2222-2222-2222-222222222222', CURRENT_DATE + interval '10 days', CURRENT_DATE + interval '30 days', NULL),
+  ('cc333333-3333-3333-3333-333333333333', CURRENT_DATE + interval '3 days', CURRENT_DATE + interval '10 days', NULL);
 
 -- ============================================================
 -- 12. user_reviews（発注者評価テストデータ）
 -- ============================================================
 -- Note: user_reviews requires application_id. Create test applications first.
 
-INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status) VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '7 days', 'accepted'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab', '77777777-7777-7777-7777-777777777777', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'accepted');
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '7 days', 'accepted', CURRENT_DATE + interval '10 days'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab', '77777777-7777-7777-7777-777777777777', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'accepted', CURRENT_DATE + interval '21 days');
 
+-- Matching E2E test data: applied application for cancel test (contractor applies to client2's job)
+-- Need a job from client2 for the contractor to apply to
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_type, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date, prefecture)
+VALUES ('88888888-8888-8888-8888-888888888888', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', 'E2Eテスト用案件（キャンセルテスト）', 'マッチングE2Eテスト用', '塗装', 2, 'open', 15000, 20000, CURRENT_DATE, CURRENT_DATE + 60, CURRENT_DATE, CURRENT_DATE + 30, '神奈川県');
+
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date, message) VALUES
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '88888888-8888-8888-8888-888888888888', '11111111-1111-1111-1111-111111111111', 1, 'スポット', CURRENT_DATE + interval '30 days', 'accepted', CURRENT_DATE + interval '30 days', 'E2Eテスト用応募です（キャンセルテスト）');
+
+-- Matching E2E test data: applied applications for client's accept/reject test
+-- 高橋美咲が鈴木工務店の案件に応募（発注可否テスト用）
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, message) VALUES
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc', '66666666-6666-6666-6666-666666666666', 'cc111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '20 days', 'applied', '塗装工事の経験を活かして内装工事にも挑戦したいです。'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbd', '77777777-7777-7777-7777-777777777777', 'cc222222-2222-2222-2222-222222222222', 1, 'スポット', CURRENT_DATE + interval '14 days', 'applied', '電気配線関連の作業を担当できます。'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbe', '88888888-8888-8888-8888-888888888881', 'cc333333-3333-3333-3333-333333333333', 1, '常勤', CURRENT_DATE + interval '12 days', 'applied', '千葉県在住なので通いやすいです。よろしくお願いします。');
+
+-- contractor1 の1件目のみ評価済み（発注済み表示）、2件目は未評価（評価登録未入力表示）
 INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools, comment) VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', '丁寧な仕事でした。また依頼したいです。'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'yes', 'yes', 'yes', 'no', 'yes', 'yes', '木工事の技術が高く安心してお任せできました。');
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', '丁寧な仕事でした。また依頼したいです。');
+
+-- ============================================================
+-- 12.5 CLI-010〜012 / CLI-028 テスト用データ
+-- ============================================================
+-- 取引完了: contractor2 (cc111111) の completed 応募 × 2件（CLI-028 で同一 reviewee の複数評価をテスト）
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
+  ('cccccccc-cccc-cccc-cccc-cccccccccc01', '88888888-8888-8888-8888-888888888882', 'cc111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE - interval '30 days', 'completed', CURRENT_DATE - interval '25 days'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc02', '88888888-8888-8888-8888-888888888883', 'cc111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE - interval '20 days', 'completed', CURRENT_DATE - interval '15 days');
+
+-- キャンセル・お断り: contractor3 (cc222222) の cancelled 応募
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status) VALUES
+  ('cccccccc-cccc-cccc-cccc-cccccccccc03', '77777777-7777-7777-7777-777777777777', 'cc222222-2222-2222-2222-222222222222', 1, 'スポット', CURRENT_DATE + interval '14 days', 'cancelled');
+
+-- user_reviews: contractor2 への評価（CLI-028 テスト用、同一 reviewee に2件）
+INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools, comment) VALUES
+  ('cccccccc-cccc-cccc-cccc-cccccccccc01', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', 'good', 'good', 'good', 'good', 'good', 'good', '作業が丁寧で、時間通りに来てくれました。道具も揃っていて安心でした。'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc02', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', 'good', 'good', 'good', 'bad', 'good', 'good', '丁寧な作業でしたが、もう少しスピードが欲しかったです。');
 
 -- ============================================================
 -- 13. Storage バケット（マイグレーション 008 で作成済みだが、seed でも冪等に作成）

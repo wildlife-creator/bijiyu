@@ -60,8 +60,6 @@ export default async function JobEditPage({ params }: PageProps) {
     scheduleDetail: job.schedule_detail ?? "",
     projectDetails: job.project_details ?? "",
     ownerMessage: job.owner_message ?? "",
-    location: job.location ?? "",
-    etcMessage: job.etc_message ?? "",
     status: job.status,
   };
 

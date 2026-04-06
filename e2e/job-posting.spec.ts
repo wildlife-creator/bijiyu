@@ -29,22 +29,22 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
 
     // Fill required fields
     await page.getByPlaceholder("案件タイトルを入力").fill("E2Eテスト案件");
-    await page.getByPlaceholder("案件の詳細を入力", { exact: true }).fill("E2Eテストの案件詳細説明です。");
+    await page.getByPlaceholder("請負案件の詳細を入力").fill("E2Eテストの案件詳細説明です。");
 
-    // Select trade type
-    await page.locator('[data-slot="select-trigger"]').first().click();
-    await page.getByRole("option", { name: "大工", exact: true }).click();
-
-    // Reward
-    await page.getByPlaceholder("下限").fill("15000");
+    // Reward (upper first, then lower in the form)
     await page.getByPlaceholder("上限").fill("20000");
+    await page.getByPlaceholder("下限").fill("15000");
+
+    // Select area (エリア)
+    await page.locator('[data-slot="select-trigger"]').first().click();
+    await page.getByRole("option", { name: "東京都" }).click();
+
+    // Select trade type (募集職種)
+    await page.locator('[data-slot="select-trigger"]').nth(1).click();
+    await page.getByRole("option", { name: "大工", exact: true }).click();
 
     // Headcount
     await page.getByPlaceholder("人数").fill("2");
-
-    // Prefecture
-    await page.locator('[data-slot="select-trigger"]').nth(1).click();
-    await page.getByRole("option", { name: "東京都" }).click();
 
     // Dates
     const today = new Date();
@@ -60,8 +60,8 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     // Save as draft
     await page.getByRole("button", { name: "下書き保存" }).click();
 
-    // Should redirect to detail page
-    await page.waitForURL(/\/jobs\/[a-f0-9-]+$/);
+    // Should redirect to detail page (with ?manage=true)
+    await page.waitForURL(/\/jobs\/[a-f0-9-]+/);
     await expect(page.getByText("E2Eテスト案件")).toBeVisible();
   });
 
@@ -72,18 +72,18 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     await expect(
       page.getByRole("heading", { name: "募集現場詳細" })
     ).toBeVisible();
-    await expect(page.getByText("編集する")).toBeVisible();
+    await expect(page.getByText("編集する").first()).toBeVisible();
   });
 
   test("バリデーションエラーが表示される", async ({ page }) => {
     await page.goto("/jobs/create");
 
     // Submit without filling required fields
-    await page.getByRole("button", { name: "入力内容を確認する" }).click();
+    await page.getByRole("button", { name: "公開する" }).click();
 
-    // Should show validation errors
+    // Should show validation error toast
     await expect(
-      page.getByText("タイトルを入力してください")
+      page.getByText("入力内容に不備があります")
     ).toBeVisible();
   });
 });

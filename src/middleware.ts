@@ -48,6 +48,8 @@ const CLIENT_ONLY_PREFIXES = [
   "/organization",
   "/users/search", // CLI-005~006: contractor search for clients
   "/users/contractors", // CLI-005~006: contractor search (alternative path)
+  "/applications/received", // CLI-007~009: received applications
+  "/applications/orders", // CLI-010~012: order history
 ] as const;
 
 /**

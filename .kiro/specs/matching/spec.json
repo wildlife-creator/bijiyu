@@ -1,0 +1,22 @@
+{
+  "name": "matching",
+  "description": "応募から発注可否判断、作業完了/失注報告、相互評価までの一連のフローを管理する機能",
+  "language": "ja",
+  "phase": "implemented",
+  "created_at": "2026-03-31T00:00:00Z",
+  "updated_at": "2026-03-31T00:00:00Z",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  }
+}

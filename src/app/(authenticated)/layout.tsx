@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
+import { Toaster } from "@/components/ui/sonner";
 
 interface AuthenticatedLayoutProps {
   children: React.ReactNode;
@@ -33,6 +34,7 @@ export default async function AuthenticatedLayout({
         hasActiveSubscription={hasActiveSubscription}
       />
       <main>{children}</main>
+      <Toaster position="top-center" />
     </div>
   );
 }

@@ -12,6 +12,25 @@
 - 画像・書類の Supabase Storage アップロード（job-attachments バケット）
 - 法人プランにおける組織内案件の統合管理
 
+### 画面遷移の設計方針（CON-003 と CLI-002 の区別）
+
+ビジ友では同じ案件ID（`/jobs/[id]`）に対して、2つの異なる画面が存在する:
+
+- **CON-003（募集案件詳細）**: 案件を閲覧・応募するための画面。受注者・発注者・担当者すべてが利用する
+- **CLI-002（募集現場詳細）**: 自分（または同一組織メンバー）が掲載した案件を管理するための画面。発注者・担当者のみが利用する
+
+この区別は URL のクエリパラメータ `?manage=true` で制御する:
+- CLI-001（募集現場一覧）からのリンク: `/jobs/${job.id}?manage=true` → CLI-002 を表示
+- CON-002（募集案件一覧）からのリンク: `/jobs/${job.id}`（パラメータなし）→ CON-003 を表示
+- `/jobs/[id]` ページの表示分岐: `(isOwner || isSameOrganization) && searchParams.manage === 'true'` のときのみ CLI-002、それ以外は CON-003
+
+**発注者アカウントの画面構造:**
+発注者は受注者機能（エリア等の制限なし）に加えて発注者機能が開放される構造であるため:
+- 「仕事を探す」セクション → 「募集案件一覧」（CON-002）「発注者一覧」（CON-005）= 受注者と同じ画面
+- 「発注先を管理する」セクション → 「募集現場一覧」（CLI-001）= 自分の掲載案件の管理画面
+
+発注者が CON-002 経由で案件にアクセスした場合は、常に CON-003（閲覧・応募画面）を表示すること。CLI-002（管理画面）は CLI-001 経由のアクセスでのみ表示する。
+
 ### Non-Goals
 - 受注者（Contractor）向けの案件検索・閲覧機能（別 spec: job-search）
 - 応募管理機能（CLI-005〜CLI-007 は別 spec）
@@ -159,9 +178,9 @@ stateDiagram-v2
 |-----------|-------------|--------|--------------|------------------|-----------|
 | JobListPage | UI / Page | 案件一覧の Server Component | REQ-JP-001 | Supabase client (P0) | - |
 | JobListTable | UI / Client | 案件一覧テーブル + ページネーション | REQ-JP-001 | JobListPage props (P0) | State |
-| JobDetailPage | UI / Page | 案件詳細の Server Component | REQ-JP-002 | Supabase client (P0) | - |
+| JobDetailPage | UI / Page | 案件詳細の Server Component（CLI-002 は CON-003 と同じ DetailRow スタイルを採用） | REQ-JP-002 | Supabase client (P0) | - |
 | JobDetailView | UI / Presentational | 案件詳細の表示コンポーネント | REQ-JP-002 | JobDetailPage props (P0) | - |
-| JobCreatePage | UI / Page | 新規登録ページ | REQ-JP-004 | JobForm (P0) | - |
+| JobCreatePage | UI / Page | 新規登録ページ（copyFrom クエリパラメータによるコピー機能対応） | REQ-JP-004 | JobForm (P0), Supabase client (P0) | - |
 | JobEditPage | UI / Page | 編集ページ（既存データプリフィル） | REQ-JP-003 | JobForm (P0), Supabase client (P0) | - |
 | JobForm | UI / Client | 案件入力フォーム（作成・編集共用） | REQ-JP-003, REQ-JP-004 | react-hook-form (P0), Zod (P0) | State |
 | JobImageUploader | UI / Client | 画像アップロード・プレビュー・削除 | REQ-JP-003, REQ-JP-004 | JobForm (P0) | State |
@@ -189,6 +208,50 @@ stateDiagram-v2
 - データ取得: `supabase.from("jobs").select("*, users!owner_id(display_name)").eq("deleted_at", null).order("created_at", { ascending: false }).range(offset, offset + 19)`
 - 法人判定: layout から渡されるユーザー情報の organization_id の有無で分岐
 - 「新規登録」ボタン → `/jobs/create` へ遷移
+- 各案件カードのリンク先: `/jobs/${job.id}?manage=true` → CLI-002（管理画面）へ遷移
+
+#### JobDetailPage（CLI-002 管理ビュー）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 自分（または同一組織）の案件の詳細を表示・管理する Server Component。CON-003 と同じ DetailRow スタイルを採用 |
+| Requirements | REQ-JP-002 |
+
+**Responsibilities & Constraints**
+- `/jobs/[id]?manage=true` でアクセスした場合にのみ表示（(isOwner || isSameOrganization) && isManageView）
+- CON-003（募集案件詳細）と同じ DetailRow コンポーネント + セクション分割スタイルを使用する
+- 全フィールドに `alwaysShow` を適用し、値が空の場合も項目名と「—」を表示する
+
+**Implementation Notes**
+- レイアウト構成（上から順）:
+  1. ヘッダー（「募集現場詳細」+ 掲載中の場合「掲載を終了する」ボタン（CloseJobButton クライアントコンポーネント、確認ダイアログ付き、closeJobAction を呼び出し））
+  2. ステータスバッジ + 急募バッジ（option_subscriptions 参照）
+  3. 画像エリア（job_images。画像なしの場合はプレースホルダー表示）
+  4. タイトル + 会社名（users.company_name）
+  5. アクションボタン上部（「応募者をみる」outline / 「編集する」primary — 同幅・中央配置）
+  6. 条件セクション — DetailRow（alwaysShow）形式: 報酬、エリア、住所、募集職種、募集人数、現場工期、募集期間、稼働時間、締め切り、経験年数、必須スキル、国籍・言語、持ち物
+  7. 業務内容セクション — スケジュール詳細、請負案件詳細（ラベル + 本文の縦並び）
+  8. 発注者からのメッセージセクション — border 枠付きカード
+  9. アクションボタン下部（上部と同じ「応募者をみる」「編集する」を再配置 — 同幅・中央配置）
+  10. 「コピーして新規作成する」ボタン（primary カプセル型）と「もどる」ボタン（outline カプセル型）— 同幅・縦並び中央配置
+
+#### JobCreatePage（CLI-004 新規登録 + コピー機能）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 新規案件の作成ページ。copyFrom クエリパラメータによる既存案件のコピー機能を提供 |
+| Requirements | REQ-JP-004 |
+
+**Responsibilities & Constraints**
+- `searchParams` から `copyFrom`（コピー元案件ID）を取得する
+- `copyFrom` が指定されている場合、Supabase からコピー元案件データを取得し `defaultValues` にマッピングして JobForm に渡す
+- コピー時の注意: 日付フィールド（工期・募集期間）は空にする。ステータスは常に `"draft"` で初期化。画像はコピーしない
+
+**Implementation Notes**
+- コピー元データのマッピング: edit ページと同じフィールドマッピングを使用するが、以下のフィールドは空にする:
+  - `workStartDate`, `workEndDate`, `recruitStartDate`, `recruitEndDate` → `""`
+  - `status` → `"draft"`
+- `copyFrom` が指定されていない場合は従来通り空のフォームを表示する
 
 #### JobForm（作成・編集共用）
 
@@ -199,9 +262,14 @@ stateDiagram-v2
 
 **Responsibilities & Constraints**
 - `"use client"` コンポーネント
-- react-hook-form + zodResolver で入力管理
+- react-hook-form + zodResolver で入力管理（`shouldFocusError: true` でエラー箇所に自動スクロール）
 - 編集モードでは既存データをデフォルト値としてプリフィル
 - セクション分割でフォームの見やすさを確保（基本情報 / 勤務条件 / 詳細情報 / 画像）
+- ボタン構成:
+  - 新規作成（create）: 「公開する」（`type="button"`, handlePublish で handleSubmit → status = "open"）+ 「下書き保存」（`type="button"`, handleSaveAsDraft でバリデーションスキップ → status = "draft"）
+  - 下書き編集（edit + draft）: 「公開する」+ 「下書き保存」（新規作成と同じ構成）
+  - 公開中の編集（edit + 非draft）: 「更新する」（`type="submit"`, 通常のフォーム送信）
+- 「公開する」ボタン押下時にバリデーションエラーがある場合、トーストで具体的なエラーフィールドを通知する
 
 **Dependencies**
 - Inbound: JobCreatePage / JobEditPage — 初期データとモード指定 (P0)
@@ -243,8 +311,6 @@ interface JobFormValues {
   scheduleDetail: string;
   projectDetails: string;
   ownerMessage: string;
-  location: string;
-  etcMessage: string;
   status: "draft" | "open" | "closed";
   images: File[];
 }
@@ -389,6 +455,38 @@ async function updateJobAction(formData: FormData): Promise<ActionResult<{ id: s
   - jobs レコードが更新される
   - updated_at が自動更新される（DB トリガー）
 
+#### closeJobAction
+
+| Field | Detail |
+|-------|--------|
+| Intent | 掲載中の案件を終了する（open → closed） |
+| Requirements | REQ-JP-002 |
+
+**Responsibilities & Constraints**
+- 認証チェック + 案件の存在・ステータス確認
+- RLS により owner_id または同一組織メンバーのみ更新可能
+- status が 'open' でない場合はエラーを返す
+
+**Contracts**: Service [x]
+
+##### Service Interface
+
+```typescript
+async function closeJobAction(jobId: string): Promise<ActionResult>
+```
+
+- Preconditions:
+  - ユーザーが認証済み
+  - 対象案件の status が 'open'
+  - 対象案件の owner_id が自分、または同一組織のメンバー（RLS で制御）
+- Postconditions:
+  - jobs.status が 'closed' に更新される
+
+**UI コンポーネント**: `CloseJobButton`（クライアントコンポーネント）
+- `confirm()` ダイアログで確認後に closeJobAction を呼び出す
+- 成功時は `router.refresh()` でページを再読み込み
+- 処理中は「処理中...」を表示し二重クリックを防止
+
 #### uploadJobImages
 
 | Field | Detail |
@@ -459,8 +557,6 @@ export const jobSchema = z.object({
   scheduleDetail: z.string().max(2000).optional().or(z.literal("")),
   projectDetails: z.string().max(2000).optional().or(z.literal("")),
   ownerMessage: z.string().max(2000).optional().or(z.literal("")),
-  location: z.string().max(500).optional().or(z.literal("")),
-  etcMessage: z.string().max(2000).optional().or(z.literal("")),
   status: z.enum(["draft", "open", "closed"]),
 }).refine(
   (data) => data.rewardUpper >= data.rewardLower,
@@ -472,6 +568,21 @@ export const jobSchema = z.object({
   (data) => new Date(data.recruitEndDate) >= new Date(data.recruitStartDate),
   { message: "募集終了日は開始日以降を選択してください", path: ["recruitEndDate"] }
 );
+```
+
+#### jobDraftSchema
+
+下書き保存時はタイトルのみ必須とし、他のフィールドは optional とする緩いバリデーションスキーマ。
+createJobAction / updateJobAction 内で `status === "draft"` の場合にこのスキーマを使用する。
+数値フィールド（rewardLower, rewardUpper, headcount）は NaN を許容し、DB 保存時に null に変換する。
+
+```typescript
+export const jobDraftSchema = z.object({
+  title: z.string().min(1).max(100),
+  description: z.string().max(5000).optional().or(z.literal("")),
+  // ... 他の全フィールドは optional
+  status: z.literal("draft"),
+});
 ```
 
 ## Data Models

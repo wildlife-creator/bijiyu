@@ -55,6 +55,7 @@ export function JobForm({
     formState: { errors },
   } = useForm<JobFormValues>({
     resolver: zodResolver(jobSchema),
+    shouldFocusError: true,
     defaultValues: {
       title: "",
       description: "",
@@ -76,8 +77,6 @@ export function JobForm({
       scheduleDetail: "",
       projectDetails: "",
       ownerMessage: "",
-      location: "",
-      etcMessage: "",
       status: "draft",
       ...defaultValues,
     },
@@ -132,7 +131,7 @@ export function JobForm({
         toast.success(
           mode === "create" ? "案件を作成しました" : "案件を更新しました"
         );
-        router.push(`/jobs/${result.data.id}`);
+        router.push(`/jobs/${result.data.id}?manage=true`);
       } else if (!result.success) {
         toast.error(result.error);
       }
@@ -140,75 +139,92 @@ export function JobForm({
   }
 
   function handleSaveAsDraft() {
-    setValue("status", "draft");
+    // Skip client-side validation for draft save
+    const values = watch();
+    values.status = "draft";
+    onSubmit(values);
   }
 
   function handlePublish() {
-    setValue("status", "open");
+    // Trigger full validation via handleSubmit, then submit with status = open
+    handleSubmit(
+      (data) => {
+        data.status = "open";
+        onSubmit(data);
+      },
+      (fieldErrors) => {
+        const errorFields = Object.entries(fieldErrors)
+          .map(([key, err]) => `${key}: ${err?.message}`)
+          .join(", ");
+        toast.error(`入力内容に不備があります: ${errorFields}`);
+      },
+    )();
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-      {/* Section: 募集内容 */}
+      {/* タイトル */}
+      <div className="space-y-1">
+        <Label>
+          タイトル <span className="text-destructive">必須</span>
+        </Label>
+        <Input {...register("title")} placeholder="案件タイトルを入力" />
+        {errors.title && (
+          <p className="text-body-sm text-destructive">
+            {errors.title.message}
+          </p>
+        )}
+      </div>
+
+      {/* 案件詳細 */}
+      <div className="space-y-1">
+        <Label>
+          案件詳細 <span className="text-destructive">必須</span>
+        </Label>
+        <Textarea
+          {...register("description")}
+          placeholder="案件の詳細を入力"
+          rows={4}
+        />
+        {errors.description && (
+          <p className="text-body-sm text-destructive">
+            {errors.description.message}
+          </p>
+        )}
+      </div>
+
+      {/* Section: 条件 */}
       <section className="space-y-4">
-        <h2 className="text-heading-md font-bold text-secondary">募集内容</h2>
+        <h2 className="text-heading-md font-bold text-secondary">条件</h2>
 
-        {/* Title */}
+        {/* 報酬上限（人工） */}
         <div className="space-y-1">
           <Label>
-            タイトル <span className="text-destructive">必須</span>
+            報酬上限（人工） <span className="text-destructive">必須</span>
           </Label>
-          <Input {...register("title")} placeholder="案件タイトルを入力" />
-          {errors.title && (
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              {...register("rewardUpper", { valueAsNumber: true })}
+              placeholder="上限"
+            />
+            <span className="shrink-0 text-body-md">円</span>
+          </div>
+          {errors.rewardUpper && (
             <p className="text-body-sm text-destructive">
-              {errors.title.message}
+              {errors.rewardUpper.message}
             </p>
           )}
         </div>
 
-        {/* Trade type */}
+        {/* 報酬下限（人工） */}
         <div className="space-y-1">
-          <Label>
-            職種 <span className="text-destructive">必須</span>
-          </Label>
-          <Select
-            value={watch("tradeType")}
-            onValueChange={(v) => setValue("tradeType", v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="職種を選択" />
-            </SelectTrigger>
-            <SelectContent>
-              {TRADE_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.tradeType && (
-            <p className="text-body-sm text-destructive">
-              {errors.tradeType.message}
-            </p>
-          )}
-        </div>
-
-        {/* Reward */}
-        <div className="space-y-1">
-          <Label>
-            報酬（人工） <span className="text-destructive">必須</span>
-          </Label>
+          <Label>報酬下限（人工）</Label>
           <div className="flex items-center gap-2">
             <Input
               type="number"
               {...register("rewardLower", { valueAsNumber: true })}
               placeholder="下限"
-            />
-            <span className="text-body-md">〜</span>
-            <Input
-              type="number"
-              {...register("rewardUpper", { valueAsNumber: true })}
-              placeholder="上限"
             />
             <span className="shrink-0 text-body-md">円</span>
           </div>
@@ -217,35 +233,9 @@ export function JobForm({
               {errors.rewardLower.message}
             </p>
           )}
-          {errors.rewardUpper && (
-            <p className="text-body-sm text-destructive">
-              {errors.rewardUpper.message}
-            </p>
-          )}
         </div>
 
-        {/* Headcount */}
-        <div className="space-y-1">
-          <Label>
-            募集人数 <span className="text-destructive">必須</span>
-          </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              {...register("headcount", { valueAsNumber: true })}
-              placeholder="人数"
-              className="w-24"
-            />
-            <span className="text-body-md">人</span>
-          </div>
-          {errors.headcount && (
-            <p className="text-body-sm text-destructive">
-              {errors.headcount.message}
-            </p>
-          )}
-        </div>
-
-        {/* Prefecture */}
+        {/* エリア */}
         <div className="space-y-1">
           <Label>
             エリア <span className="text-destructive">必須</span>
@@ -255,7 +245,7 @@ export function JobForm({
             onValueChange={(v) => setValue("prefecture", v)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="都道府県を選択" />
+              <SelectValue placeholder="お選びください" />
             </SelectTrigger>
             <SelectContent>
               {PREFECTURES.map((pref) => (
@@ -272,38 +262,54 @@ export function JobForm({
           )}
         </div>
 
-        {/* Address */}
-        <div className="space-y-1">
-          <Label>詳細住所</Label>
-          <Input {...register("address")} placeholder="詳細住所を入力" />
-          {errors.address && (
-            <p className="text-body-sm text-destructive">
-              {errors.address.message}
-            </p>
-          )}
-        </div>
-
-        {/* Description */}
+        {/* 募集職種 */}
         <div className="space-y-1">
           <Label>
-            案件詳細 <span className="text-destructive">必須</span>
+            募集職種 <span className="text-destructive">必須</span>
           </Label>
-          <Textarea
-            {...register("description")}
-            placeholder="案件の詳細を入力"
-            rows={5}
-          />
-          {errors.description && (
+          <Select
+            value={watch("tradeType")}
+            onValueChange={(v) => setValue("tradeType", v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="お選びください" />
+            </SelectTrigger>
+            <SelectContent>
+              {TRADE_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.tradeType && (
             <p className="text-body-sm text-destructive">
-              {errors.description.message}
+              {errors.tradeType.message}
             </p>
           )}
         </div>
 
-        {/* Work period */}
+        {/* 募集人数 */}
         <div className="space-y-1">
           <Label>
-            工期 <span className="text-destructive">必須</span>
+            募集人数（人） <span className="text-destructive">必須</span>
+          </Label>
+          <Input
+            type="number"
+            {...register("headcount", { valueAsNumber: true })}
+            placeholder="人数"
+          />
+          {errors.headcount && (
+            <p className="text-body-sm text-destructive">
+              {errors.headcount.message}
+            </p>
+          )}
+        </div>
+
+        {/* 現場工期 */}
+        <div className="space-y-1">
+          <Label>
+            現場工期 <span className="text-destructive">必須</span>
           </Label>
           <div className="flex items-center gap-2">
             <Input type="date" {...register("workStartDate")} />
@@ -322,7 +328,7 @@ export function JobForm({
           )}
         </div>
 
-        {/* Recruitment period */}
+        {/* 募集期間 */}
         <div className="space-y-1">
           <Label>
             募集期間 <span className="text-destructive">必須</span>
@@ -343,99 +349,139 @@ export function JobForm({
             </p>
           )}
         </div>
-      </section>
 
-      {/* Section: 詳細情報 (optional) */}
-      <section className="space-y-4">
-        <h2 className="text-heading-md font-bold text-secondary">詳細情報</h2>
-
+        {/* 稼働時間 */}
         <div className="space-y-1">
-          <Label>稼働時間</Label>
+          <Label>
+            稼働時間 <span className="text-destructive">必須</span>
+          </Label>
           <Input
             {...register("workHours")}
             placeholder="例: 8:00〜17:00"
           />
         </div>
 
+        {/* 締め切り（= 募集終了日と同じ値を表示用に表示） */}
+        <div className="space-y-1">
+          <Label>
+            締め切り <span className="text-destructive">必須</span>
+          </Label>
+          <Input
+            type="date"
+            value={watch("recruitEndDate") || ""}
+            disabled
+            className="bg-muted"
+          />
+          <p className="text-body-xs text-muted-foreground">
+            募集期間の終了日が自動的に設定されます
+          </p>
+        </div>
+
+        {/* 経験年数 */}
         <div className="space-y-1">
           <Label>経験年数</Label>
+          <Select
+            value={watch("experienceYears") || ""}
+            onValueChange={(v) => setValue("experienceYears", v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="お選びください" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="不問">不問</SelectItem>
+              <SelectItem value="1年以上">1年以上</SelectItem>
+              <SelectItem value="3年以上">3年以上</SelectItem>
+              <SelectItem value="5年以上">5年以上</SelectItem>
+              <SelectItem value="10年以上">10年以上</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* 必須スキル */}
+        <div className="space-y-1">
+          <Label>必須スキル</Label>
           <Input
-            {...register("experienceYears")}
-            placeholder="例: 3年以上"
+            {...register("requiredSkills")}
+            placeholder="テキスト"
           />
         </div>
 
+        {/* 国籍・言語 */}
+        <div className="space-y-1">
+          <Label>国籍・言語</Label>
+          <Select
+            value={watch("nationalityLanguage") || ""}
+            onValueChange={(v) => setValue("nationalityLanguage", v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="お選びください" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="不問">不問</SelectItem>
+              <SelectItem value="日本語必須">日本語必須</SelectItem>
+              <SelectItem value="日本国籍のみ">日本国籍のみ</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* 持ち物 */}
         <div className="space-y-1">
           <Label>持ち物</Label>
           <Input
             {...register("items")}
-            placeholder="例: 安全靴、ヘルメット、安全帯、手工具（ハーネス含む）、墨出道具"
+            placeholder="例: 作業着、安全靴、ヘルメット、安全帯（ハーネス型）、腰道具"
           />
         </div>
+      </section>
 
-        <div className="space-y-1">
-          <Label>スキル</Label>
-          <Input
-            {...register("requiredSkills")}
-            placeholder="必要なスキルを入力"
-          />
-        </div>
+      {/* Section: 業務内容 */}
+      <section className="space-y-4">
+        <h2 className="text-heading-md font-bold text-secondary">業務内容</h2>
 
-        <div className="space-y-1">
-          <Label>国籍・言語</Label>
-          <Input
-            {...register("nationalityLanguage")}
-            placeholder="国籍・言語の要件を入力"
-          />
-        </div>
-
+        {/* スケジュール詳細 */}
         <div className="space-y-1">
           <Label>スケジュール詳細</Label>
           <Textarea
             {...register("scheduleDetail")}
             placeholder="スケジュールの詳細を入力"
-            rows={3}
+            rows={4}
           />
         </div>
 
+        {/* 請負案件詳細 */}
         <div className="space-y-1">
           <Label>請負案件詳細</Label>
           <Textarea
             {...register("projectDetails")}
             placeholder="請負案件の詳細を入力"
-            rows={3}
+            rows={4}
           />
         </div>
+      </section>
 
+      {/* その他 */}
+      <section className="space-y-4">
+        <h2 className="text-heading-md font-bold text-secondary">その他</h2>
+
+        {/* 発注者からのメッセージ */}
         <div className="space-y-1">
-          <Label>発注者からのメッセージ</Label>
+          <Label>
+            発注者からのメッセージ <span className="text-destructive">必須</span>
+          </Label>
           <Textarea
             {...register("ownerMessage")}
             placeholder="応募者へのメッセージを入力"
             rows={3}
           />
         </div>
-
-        <div className="space-y-1">
-          <Label>勤務地詳細</Label>
-          <Input
-            {...register("location")}
-            placeholder="勤務地の詳細を入力"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <Label>その他</Label>
-          <Textarea
-            {...register("etcMessage")}
-            placeholder="その他の情報を入力"
-            rows={3}
-          />
-        </div>
       </section>
 
-      {/* Section: Images */}
+      {/* Section: 画像 */}
       <section className="space-y-4">
+        <h2 className="text-heading-md font-bold text-secondary">画像</h2>
+        <p className="text-body-sm text-muted-foreground">
+          1枚目の画像が案件一覧のサムネイルとして表示されます。最大10枚までアップロードできます。
+        </p>
         <JobImageUploader
           existingImages={existingImages}
           newFiles={newFiles}
@@ -444,34 +490,20 @@ export function JobForm({
         />
       </section>
 
-      {/* Status change buttons for edit mode */}
-      {mode === "edit" && currentStatus === "draft" && (
-        <div className="space-y-2">
-          <Button
-            type="submit"
-            className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
-            disabled={isPending}
-            onClick={handlePublish}
-          >
-            {isPending ? "処理中..." : "入力内容を確認する"}
-          </Button>
-        </div>
-      )}
-
       {/* Submit buttons */}
       <div className="space-y-3">
         {mode === "create" && (
           <>
             <Button
-              type="submit"
+              type="button"
               className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={isPending}
               onClick={handlePublish}
             >
-              {isPending ? "処理中..." : "入力内容を確認する"}
+              {isPending ? "処理中..." : "公開する"}
             </Button>
             <Button
-              type="submit"
+              type="button"
               variant="outline"
               className="w-full rounded-[47px] border-secondary text-secondary"
               disabled={isPending}
@@ -482,13 +514,35 @@ export function JobForm({
           </>
         )}
 
-        {mode === "edit" && (
+        {mode === "edit" && currentStatus === "draft" && (
+          <>
+            <Button
+              type="button"
+              className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={isPending}
+              onClick={handlePublish}
+            >
+              {isPending ? "処理中..." : "公開する"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full rounded-[47px] border-secondary text-secondary"
+              disabled={isPending}
+              onClick={handleSaveAsDraft}
+            >
+              {isPending ? "処理中..." : "下書き保存"}
+            </Button>
+          </>
+        )}
+
+        {mode === "edit" && currentStatus !== "draft" && (
           <Button
             type="submit"
             className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={isPending}
           >
-            {isPending ? "処理中..." : "入力内容を確認する"}
+            {isPending ? "処理中..." : "更新する"}
           </Button>
         )}
 

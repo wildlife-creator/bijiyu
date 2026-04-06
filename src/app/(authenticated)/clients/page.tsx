@@ -189,27 +189,27 @@ export default async function ClientListPage({ searchParams }: PageProps) {
                   {/* Info rows */}
                   <div className="space-y-1.5 text-body-sm">
                     {profile?.recruit_job_types && profile.recruit_job_types.length > 0 && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center">
                         <img src="/images/icons/icon-briefcase.png" alt="" className="w-4 h-4 shrink-0" />
-                        <span className="text-muted-foreground">募集職種</span>
+                        <span className="ml-1.5 w-[5.5rem] shrink-0 text-muted-foreground">募集職種</span>
                         <span className="line-clamp-1">
                           {profile.recruit_job_types.join("、")}
                         </span>
                       </div>
                     )}
                     {profile?.recruit_area && profile.recruit_area.length > 0 && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center">
                         <img src="/images/icons/icon-pin.png" alt="" className="w-4 h-4 shrink-0" />
-                        <span className="text-muted-foreground">募集エリア</span>
+                        <span className="ml-1.5 w-[5.5rem] shrink-0 text-muted-foreground">募集エリア</span>
                         <span className="line-clamp-1">
                           {profile.recruit_area.join("、")}
                         </span>
                       </div>
                     )}
                     {profile?.working_way && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center">
                         <CalendarDays className="w-4 h-4 text-primary/70 shrink-0" />
-                        <span className="text-muted-foreground">求める働き方</span>
+                        <span className="ml-1.5 w-[5.5rem] shrink-0 text-muted-foreground">求める働き方</span>
                         <span>{profile.working_way}</span>
                       </div>
                     )}

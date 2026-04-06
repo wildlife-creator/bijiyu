@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
+import { JobListCard } from "@/components/job-search/job-list-card";
 import { createClient } from "@/lib/supabase/server";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 
@@ -49,7 +49,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
       deleted_at, role, prefecture,
       client_profiles(
         display_name, recruit_job_types, recruit_area, working_way,
-        employee_scale, message
+        employee_scale, message, language
       )
     `,
     )
@@ -74,25 +74,35 @@ export default async function ClientDetailPage({ params }: PageProps) {
     "company",
   );
 
-  // Fetch client's open jobs
+  // Fetch client's open jobs with thumbnail + urgency info
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("id, title, trade_type, prefecture, reward_lower, reward_upper")
+    .select(
+      `id, title, trade_type, prefecture, reward_lower, reward_upper,
+       is_urgent, recruit_end_date,
+       owner:users!jobs_owner_id_fkey(company_name),
+       job_images(image_url, sort_order)`,
+    )
     .eq("owner_id", id)
     .eq("status", "open")
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(10);
 
-  // Fetch client reviews count
-  const { data: reviews } = await supabase
-    .from("client_reviews")
-    .select("id, rating_again")
-    .eq("reviewee_id", id);
+  // Get job favorites for these jobs
+  const jobIds = (jobs ?? []).map((j) => j.id);
+  const { data: jobFavorites } = await supabase
+    .from("favorites")
+    .select("target_id")
+    .eq("user_id", user.id)
+    .eq("target_type", "job")
+    .in("target_id", jobIds.length > 0 ? jobIds : ["__none__"]);
 
-  const reviewCount = reviews?.length ?? 0;
+  const favoritedJobIds = new Set(
+    (jobFavorites ?? []).map((f) => f.target_id),
+  );
 
-  // Check favorite status
+  // Check client favorite status
   const { data: favorite } = await supabase
     .from("favorites")
     .select("id")
@@ -135,15 +145,6 @@ export default async function ClientDetailPage({ params }: PageProps) {
           )}
         </div>
       </div>
-
-      {/* Review count */}
-      {reviewCount > 0 && (
-        <div className="mt-3">
-          <span className="text-body-sm text-muted-foreground">
-            レビュー {reviewCount}件
-          </span>
-        </div>
-      )}
 
       {/* Action buttons */}
       {!isDeleted && (
@@ -196,6 +197,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
           value={profile?.employee_scale ? `${profile.employee_scale}名` : null}
         />
         <DetailRow label="稼働方法" value={profile?.working_way} />
+        <DetailRow label="言語" value={profile?.language} />
       </div>
 
       {/* Message from client */}
@@ -211,55 +213,45 @@ export default async function ClientDetailPage({ params }: PageProps) {
       )}
 
       {/* Open jobs */}
-      {jobs && jobs.length > 0 && (
-        <section className="mt-6">
-          <h3 className="text-body-lg font-bold text-foreground">
-            掲載中の案件
-          </h3>
-          <div className="mt-2 space-y-3">
-            {jobs.map((job) => (
-              <Link key={job.id} href={`/jobs/${job.id}`}>
-                <Card className="rounded-[8px] transition-colors hover:bg-muted/50">
-                  <CardContent className="p-4">
-                    <h4 className="text-body-md font-semibold line-clamp-2">
-                      {job.title}
-                    </h4>
-                    <div className="mt-1 flex items-center gap-3 text-body-sm text-muted-foreground">
-                      {job.trade_type && (
-                        <span className="flex items-center gap-1">
-                          <img
-                            src="/images/icons/icon-briefcase.png"
-                            alt=""
-                            className="w-4 h-4"
-                          />
-                          {job.trade_type}
-                        </span>
-                      )}
-                      {job.prefecture && (
-                        <span className="flex items-center gap-1">
-                          <img
-                            src="/images/icons/icon-pin.png"
-                            alt=""
-                            className="w-4 h-4"
-                          />
-                          {job.prefecture}
-                        </span>
-                      )}
-                    </div>
-                    {(job.reward_lower || job.reward_upper) && (
-                      <p className="mt-1 text-body-sm font-semibold">
-                        {job.reward_lower?.toLocaleString()}
-                        {job.reward_lower && job.reward_upper && "〜"}
-                        {job.reward_upper?.toLocaleString()}円（人工）
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+      <section className="mt-6 -mx-4 px-4 py-6 bg-muted md:-mx-8 md:px-8">
+        <h3 className="text-body-lg font-bold text-foreground">
+          掲載中の案件
+        </h3>
+        {(!jobs || jobs.length === 0) ? (
+          <p className="mt-2 text-body-md text-muted-foreground">
+            現在掲載中の案件はありません
+          </p>
+        ) : (
+          <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {jobs.map((job) => {
+              const images = job.job_images as { image_url: string; sort_order: number }[] | null;
+              const thumbnail = images && images.length > 0
+                ? [...images].sort((a, b) => a.sort_order - b.sort_order)[0].image_url
+                : null;
+              const owner = job.owner as { company_name: string | null } | null;
+
+              return (
+                <JobListCard
+                  key={job.id}
+                  job={{
+                    id: job.id,
+                    title: job.title,
+                    tradeType: job.trade_type ?? "",
+                    prefecture: job.prefecture ?? "",
+                    rewardLower: job.reward_lower,
+                    rewardUpper: job.reward_upper,
+                    isUrgent: job.is_urgent ?? false,
+                    recruitEndDate: job.recruit_end_date ?? "",
+                    companyName: owner?.company_name ?? null,
+                    thumbnailUrl: thumbnail,
+                  }}
+                  isFavorited={favoritedJobIds.has(job.id)}
+                />
+              );
+            })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       <BackButton />
     </div>

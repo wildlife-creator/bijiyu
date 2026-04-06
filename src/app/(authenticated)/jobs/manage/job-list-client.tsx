@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Camera } from "lucide-react";
+import { JobThumbnail } from "@/components/job-search/job-thumbnail";
+import { formatDate } from "@/lib/utils/format-date";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,11 +82,6 @@ function formatReward(lower: number | null, upper: number | null): string {
   return "—";
 }
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "";
-  return dateStr.replace(/-/g, "/");
-}
-
 export function JobListClient({
   jobs,
   totalCount,
@@ -152,29 +148,19 @@ export function JobListClient({
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           {jobs.map((job) => (
-            <Link key={job.id} href={`/jobs/${job.id}?manage=true`} className="block">
-              <Card className="overflow-hidden rounded-[8px] border-border transition-shadow hover:shadow-md">
-                {/* Thumbnail area */}
-                <div className="relative aspect-[16/9] w-full bg-muted">
-                  {job.thumbnailUrl ? (
-                    <img
-                      src={job.thumbnailUrl}
-                      alt={job.title}
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex size-full items-center justify-center">
-                      <Camera className="size-8 text-muted-foreground/40" />
-                    </div>
-                  )}
-                  {/* Status badge overlay */}
-                  <div className="absolute left-2 top-2">
-                    <StatusBadge status={job.status} />
-                  </div>
+            <Card key={job.id} className="overflow-hidden rounded-[8px] border-border">
+              {/* Thumbnail area */}
+              <div className="relative aspect-[16/9] w-full bg-muted">
+                <JobThumbnail src={job.thumbnailUrl} alt={job.title} />
+                {/* Status badge overlay */}
+                <div className="absolute left-2 top-2">
+                  <StatusBadge status={job.status} />
                 </div>
+              </div>
 
-                {/* Card body */}
-                <div className="space-y-1.5 p-4">
+              {/* Card body */}
+              <div className="space-y-3 p-4">
+                <div className="space-y-1.5">
                   <h3 className="line-clamp-2 text-body-lg font-semibold text-foreground">
                     {job.title}
                   </h3>
@@ -183,24 +169,52 @@ export function JobListClient({
                       {job.companyName}
                     </p>
                   )}
-                  <div className="space-y-0.5 text-body-sm text-muted-foreground">
-                    {job.trade_type && (
-                      <p>職種：{job.trade_type}</p>
-                    )}
-                    <p>報酬：{formatReward(job.reward_lower, job.reward_upper)}（人工）</p>
-                    {job.prefecture && (
-                      <p>エリア：{job.prefecture}</p>
-                    )}
-                    {job.recruit_start_date && job.recruit_end_date && (
-                      <p>
-                        募集：{formatDate(job.recruit_start_date)}〜
-                        {formatDate(job.recruit_end_date)}
-                      </p>
-                    )}
-                  </div>
                 </div>
-              </Card>
-            </Link>
+                <div className="space-y-1.5 text-body-sm">
+                  {job.trade_type && (
+                    <div className="flex items-center">
+                      <img src="/images/icons/icon-briefcase.png" alt="" className="w-4 h-4 shrink-0" />
+                      <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集職種</span>
+                      <span>{job.trade_type}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center">
+                    <img src="/images/icons/icon-coin.png" alt="" className="w-4 h-4 shrink-0" />
+                    <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">報酬</span>
+                    <span>{formatReward(job.reward_lower, job.reward_upper)}（人工）</span>
+                  </div>
+                  {job.prefecture && (
+                    <div className="flex items-center">
+                      <img src="/images/icons/icon-pin.png" alt="" className="w-4 h-4 shrink-0" />
+                      <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">エリア</span>
+                      <span>{job.prefecture}</span>
+                    </div>
+                  )}
+                  {job.recruit_start_date && job.recruit_end_date && (
+                    <div className="flex items-center">
+                      <img src="/images/icons/icon-calendar.png" alt="" className="w-4 h-4 shrink-0" />
+                      <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集期間</span>
+                      <span>
+                        {formatDate(job.recruit_start_date, "")}〜
+                        {formatDate(job.recruit_end_date, "")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action button */}
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="rounded-[47px] border-primary text-primary hover:bg-primary/10"
+                  >
+                    <Link href={`/jobs/${job.id}?manage=true`}>詳細をみる</Link>
+                  </Button>
+                </div>
+              </div>
+            </Card>
           ))}
         </div>
       )}

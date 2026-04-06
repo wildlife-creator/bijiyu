@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
+import { SuccessToast } from "./success-toast";
 
 // -------------------------------------------------------------------
 // Menu item definitions
@@ -24,7 +25,7 @@ const FIND_WORK_MENU: MenuItem[] = [
 
 // Section 2: Check schedule (all users)
 const CHECK_SCHEDULE_MENU: MenuItem[] = [
-  { label: "応募履歴一覧", href: "/applications" },
+  { label: "応募履歴", href: "/applications/history" },
   { label: "空き日程一覧", href: "/schedule" },
 ];
 
@@ -32,13 +33,13 @@ const CHECK_SCHEDULE_MENU: MenuItem[] = [
 const FIND_CONTRACTORS_MENU: MenuItem[] = [
   { label: "ユーザー一覧", href: "/users/contractors" },
   { label: "マイリスト", href: "/favorites" },
-  { label: "応募一覧", href: "/applications/manage" },
+  { label: "応募一覧", href: "/applications/received" },
   { label: "メッセージ・スカウト", href: "/messages" },
 ];
 
 // Section 4: Manage orders (client only)
 const MANAGE_ORDERS_MENU: MenuItem[] = [
-  { label: "発注履歴一覧", href: "/orders" },
+  { label: "発注履歴", href: "/applications/orders" },
   { label: "募集現場一覧", href: "/jobs/manage" },
 ];
 
@@ -169,6 +170,34 @@ export default async function MyPage() {
     .limit(1)
     .maybeSingle();
 
+  // Fetch accepted applications (稼働予定) with job details
+  const { data: acceptedApplications } = await supabase
+    .from("applications")
+    .select(`
+      id,
+      client_reviews (id),
+      user_reviews (id),
+      jobs (
+        id,
+        title,
+        trade_type,
+        headcount,
+        recruit_end_date,
+        reward_lower,
+        reward_upper,
+        prefecture,
+        recruit_start_date,
+        recruit_end_date,
+        owner_id,
+        users!jobs_owner_id_fkey (
+          company_name
+        )
+      )
+    `)
+    .eq("applicant_id", user.id)
+    .eq("status", "accepted")
+    .order("updated_at", { ascending: false });
+
   // Fetch subscription status for client menu visibility
   const { data: subscription } = await supabase
     .from("subscriptions")
@@ -231,6 +260,7 @@ export default async function MyPage() {
 
   return (
     <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+      <SuccessToast />
       {/* Page title — CSS: 22px, bold, #601986 */}
       <h1 className="text-[22px] leading-[32px] font-bold text-bijiyu-purple">マイページ</h1>
 
@@ -300,7 +330,7 @@ export default async function MyPage() {
 
       {/* Edit profile button */}
       <div className="mt-4">
-        <Button variant="outline" size="lg" className="w-full rounded-pill border-bijiyu-gray text-bijiyu-gray" asChild>
+        <Button size="lg" className="w-full rounded-pill bg-primary text-white hover:bg-primary/90" asChild>
           <Link href="/profile">プロフィールを変更する</Link>
         </Button>
       </div>
@@ -314,6 +344,122 @@ export default async function MyPage() {
           <MenuList items={FIND_WORK_MENU} />
         </nav>
       </section>
+
+      {/* Scheduled jobs (稼働予定) */}
+      {acceptedApplications && acceptedApplications.length > 0 && (
+        <section className="mt-8 space-y-4">
+          {acceptedApplications.map((app) => {
+            const job = app.jobs as unknown as {
+              id: string;
+              title: string;
+              trade_type: string | null;
+              headcount: number | null;
+              recruit_end_date: string | null;
+              reward_lower: number | null;
+              reward_upper: number | null;
+              prefecture: string | null;
+              recruit_start_date: string | null;
+              owner_id: string;
+              users: { company_name: string | null } | null;
+            };
+            if (!job) return null;
+
+            const clientReview = app.client_reviews as unknown as { id: string } | null;
+            const userReview = app.user_reviews as unknown as { id: string } | null;
+            const hasClientReview = clientReview !== null;
+            const hasUserReview = userReview !== null;
+            const companyName = job.users?.company_name ?? "";
+            const tradeLabel = [job.trade_type, job.headcount ? `${job.headcount}人` : null]
+              .filter(Boolean)
+              .join("・");
+            const rewardText = job.reward_lower
+              ? `${job.reward_lower.toLocaleString()}円（人工）`
+              : "要相談";
+            const recruitPeriod = [job.recruit_start_date, job.recruit_end_date]
+              .map((d) => (d ? d.replace(/-/g, "/") : ""))
+              .join("〜");
+
+            return (
+              <div
+                key={app.id}
+                className="rounded-lg border border-[rgba(30,30,30,0.1)] bg-white p-5"
+              >
+                {/* Badge */}
+                <span className={`inline-block rounded-full px-3 py-1 text-body-xs font-medium border ${
+                  hasClientReview
+                    ? "bg-orange-50 text-orange-400 border-orange-100"
+                    : hasUserReview
+                      ? "bg-yellow-50 text-yellow-500 border-yellow-100"
+                      : "bg-[rgba(146,7,131,0.05)] text-primary/60 border-[rgba(146,7,131,0.1)]"
+                }`}>
+                  {hasClientReview ? "評価登録済み" : hasUserReview ? "評価登録未入力" : "稼働予定"}
+                </span>
+
+                {/* Title & Company */}
+                <h3 className="mt-2 text-body-lg font-bold text-foreground">
+                  {job.title}
+                </h3>
+                {companyName && (
+                  <p className="mt-0.5 text-body-md font-bold text-bijiyu-purple">
+                    {companyName}
+                  </p>
+                )}
+
+                {/* Trade type & deadline */}
+                <div className="mt-1 flex items-center justify-between text-body-xs text-muted-foreground">
+                  <span>{tradeLabel}</span>
+                  {job.recruit_end_date && (
+                    <span>
+                      締め切り：{job.recruit_end_date.replace(/-/g, "/")}
+                    </span>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="my-3 border-t border-[rgba(30,30,30,0.1)]" />
+
+                {/* Details — grid layout to align values */}
+                <div className="space-y-2 text-body-sm">
+                  <div className="flex items-center">
+                    <img src="/images/icons/icon-coin.png" alt="" className="size-4 shrink-0" />
+                    <span className="ml-2 w-16 shrink-0 font-bold text-bijiyu-purple">報酬</span>
+                    <span className="text-foreground">{rewardText}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <img src="/images/icons/icon-pin.png" alt="" className="size-4 shrink-0" />
+                    <span className="ml-2 w-16 shrink-0 font-bold text-bijiyu-purple">エリア</span>
+                    <span className="text-foreground">{job.prefecture ?? "未設定"}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
+                    <span className="ml-2 w-16 shrink-0 font-bold text-bijiyu-purple">募集期間</span>
+                    <span className="text-foreground">{recruitPeriod || "未設定"}</span>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="mt-5 flex gap-3">
+                  <Button
+                    size="lg"
+                    className="flex-1 rounded-pill bg-primary text-white hover:bg-primary/90"
+                    asChild
+                  >
+                    <Link href={`/messages`}>メッセージ</Link>
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="flex-1 rounded-pill border-primary text-primary hover:bg-primary/5"
+                    asChild
+                  >
+                    <Link href={`/applications/history/${app.id}`}>応募詳細</Link>
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
 
       {/* Section 2: Check schedule */}
       <section className="mt-8">

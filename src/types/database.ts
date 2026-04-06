@@ -1,3 +1,38 @@
+Connecting to db 5432
+v0.96.1: Pulling from supabase/postgres-meta
+3aa96371cb05: Pulling fs layer
+649294d53040: Pulling fs layer
+b1f4bffa7894: Pulling fs layer
+eb04ef52de3a: Pulling fs layer
+7f0469884eb9: Pulling fs layer
+19351e083594: Pulling fs layer
+036bd28688ee: Pulling fs layer
+9b590c83e93c: Pulling fs layer
+1061a5258f4e: Pulling fs layer
+4f6e2095427e: Pulling fs layer
+7f0469884eb9: Already exists
+3aa96371cb05: Download complete
+19351e083594: Download complete
+649294d53040: Download complete
+036bd28688ee: Download complete
+1061a5258f4e: Download complete
+b1f4bffa7894: Download complete
+d8cd7fa11bac: Download complete
+4f6e2095427e: Download complete
+eb04ef52de3a: Download complete
+eb04ef52de3a: Pull complete
+3aa96371cb05: Pull complete
+9b590c83e93c: Download complete
+9b590c83e93c: Pull complete
+649294d53040: Pull complete
+1061a5258f4e: Pull complete
+7f0469884eb9: Pull complete
+b1f4bffa7894: Pull complete
+4f6e2095427e: Pull complete
+19351e083594: Pull complete
+036bd28688ee: Pull complete
+Digest: sha256:2559d20aaa50f2eb86a6cb2e5af4e847e87139673bc214b4655c126d96c160b2
+Status: Downloaded newer image for public.ecr.aws/supabase/postgres-meta:v0.96.1
 export type Json =
   | string
   | number
@@ -37,6 +72,7 @@ export type Database = {
       applications: {
         Row: {
           applicant_id: string
+          client_notes: string | null
           created_at: string
           first_work_date: string | null
           headcount: number | null
@@ -44,12 +80,14 @@ export type Database = {
           job_id: string
           message: string | null
           preferred_first_work_date: string | null
+          rejection_reason: string | null
           status: Database["public"]["Enums"]["application_status"]
           updated_at: string
           working_type: string | null
         }
         Insert: {
           applicant_id: string
+          client_notes?: string | null
           created_at?: string
           first_work_date?: string | null
           headcount?: number | null
@@ -57,12 +95,14 @@ export type Database = {
           job_id: string
           message?: string | null
           preferred_first_work_date?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           updated_at?: string
           working_type?: string | null
         }
         Update: {
           applicant_id?: string
+          client_notes?: string | null
           created_at?: string
           first_work_date?: string | null
           headcount?: number | null
@@ -70,6 +110,7 @@ export type Database = {
           job_id?: string
           message?: string | null
           preferred_first_work_date?: string | null
+          rejection_reason?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           updated_at?: string
           working_type?: string | null
@@ -1185,21 +1226,36 @@ export type Database = {
     Functions: {
       complete_registration: {
         Args: {
-          p_user_id: string
-          p_last_name: string
+          p_areas?: string[]
+          p_birth_date: string
+          p_company_name?: string
           p_first_name: string
           p_gender: string
-          p_birth_date: string
+          p_last_name: string
           p_prefecture: string
-          p_company_name?: string | null
           p_skills?: Json
-          p_areas?: string[]
+          p_user_id: string
         }
         Returns: undefined
       }
       is_admin: { Args: { uid: string }; Returns: boolean }
       is_paid_user: { Args: { uid: string }; Returns: boolean }
       is_same_org: { Args: { org_id: string; uid: string }; Returns: boolean }
+      update_profile: {
+        Args: {
+          p_areas?: string[]
+          p_bio?: string
+          p_company_name?: string
+          p_first_name: string
+          p_gender: string
+          p_last_name: string
+          p_prefecture: string
+          p_qualifications?: string[]
+          p_skills?: Json
+          p_user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       application_status:

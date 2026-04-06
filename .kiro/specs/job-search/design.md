@@ -128,6 +128,10 @@ sequenceDiagram
     U->>Detail: 案件カードをクリック
     Detail->>DB: jobs + job_images + users を取得
     DB-->>Detail: 案件詳細データ
+    Detail->>Detail: オーナー/同一組織チェック
+    alt オーナーまたは同一組織メンバー
+        Detail->>Detail: 応募ボタン非表示
+    else オーナーでも同一組織でもない
     Detail->>Detail: 応募制限チェック（フロント）
     alt 応募可能
         U->>Form: 応募するボタンをクリック
@@ -146,6 +150,7 @@ sequenceDiagram
         U->>Form: OK → CON-011 へ遷移
     else 応募不可（無料ユーザー、職種/エリア不一致）
         Detail->>Detail: 応募ボタン非活性 + メッセージ表示
+    end
     end
 ```
 
@@ -181,7 +186,7 @@ sequenceDiagram
 | REQ-JS-002 | 募集案件詳細（全情報表示・応募制限チェック・お気に入り） | JobDetailPage, FavoriteButton | canApplyJob | — |
 | REQ-JS-003 | 応募情報入力（フォーム・確認/完了ポップアップ・サーバー検証） | ApplicationFormPage | applyJobAction | 応募フロー |
 | REQ-JS-004 | 発注者一覧（検索・フィルター・お気に入り） | ClientSearchPage, ClientListCard, SearchFilterSheet, FavoriteButton | — | — |
-| REQ-JS-005 | 発注者詳細（全情報・掲載案件・評価集計・お気に入り） | ClientDetailPage, FavoriteButton | — | — |
+| REQ-JS-005 | 発注者詳細（全情報・掲載案件・お気に入り） | ClientDetailPage, FavoriteButton | — | — |
 | REQ-JS-006 | マイリスト（お気に入り案件/発注者/見込みユーザー） | FavoritesPage, FavoriteButton | — | — |
 | REQ-JS-007 | 職人一覧（発注者専用、検索・フィルター・お気に入り） | UserSearchPage, UserListCard, SearchFilterSheet, FavoriteButton | — | — |
 | REQ-JS-008 | 職人詳細（発注者専用、プロフィール詳細・導線） | UserDetailPage, FavoriteButton | — | — |
@@ -563,17 +568,16 @@ const applicationSchema = z.object({
 **レイアウト構造**:
 - ページタイトル: 「募集案件詳細」
 - 案件タイトル + 会社名
-- 「興味する」ボタン（FavoriteButton）+ 「応募する」ボタン
-- 情報セクション（上から順に）:
-  - 報酬、エリア、募集職種、募集人数
-  - 勤務地、現場工期、募集期間
-  - 稼働時間、必要経験年数、必須スキル、国籍・言語
-  - 持ち物、スケジュール詳細、請負案件詳細
-  - 発注者からのメッセージ、詳細その他
+- 「マイリスト登録」ボタン（FavoriteButton）+ 「応募する」ボタン（※案件オーナーまたは同一組織メンバーの場合は非表示）
+- **DB に値がない項目も空欄（—）で常に表示する**（項目を非表示にしない）
+- 「条件」セクション: 報酬、エリア、募集職種、募集人数、現場工期、募集期間、稼働時間、締め切り、経験年数、必須スキル、国籍・言語、持ち物
+- 「業務内容」セクション: スケジュール詳細、請負案件詳細
+- 「発注者からのメッセージ」セクション: 発注者メッセージ（枠線付きカード表示）
 - 急募バッジ（該当時）
 - 添付画像・書類
 - 発注者情報リンク（→ CON-006）
-- 下部固定: 「応募する」ボタン
+- 下部固定: 「応募する」ボタン（※案件オーナーまたは同一組織メンバーの場合は非表示）
+- **オーナー/同一組織判定**: `job.owner_id === currentUser.id` または `organization_members` で同一 `organization_id` に所属 → 応募ボタン・制限メッセージともに非表示
 - **応募制限表示**: 応募不可の場合、ボタン非活性 + メッセージ「有料プランに加入するか、プロフィールの職種・エリアを更新してください」
 
 ### CON-004 応募情報入力
@@ -614,11 +618,10 @@ const applicationSchema = z.object({
 **レイアウト構造**:
 - ページタイトル: 「発注者詳細」
 - プロフィール画像 + 名前 + 住所
-- 「興味する」ボタン（FavoriteButton）+ 「応募する」ボタン
-- 情報セクション: 募集職種、募集エリア、従業員規模、求める働き方
+- 「マイリスト登録」ボタン（FavoriteButton）+ 「メッセージを送る」ボタン
+- 情報セクション: 募集職種、募集エリア、従業員規模、求める働き方、言語
 - 発注者からのメッセージ
 - 掲載中の案件一覧（案件カード形式）
-- 発注者評価の集計（client_reviews の平均等）
 
 ### CON-007 マイリスト
 
@@ -725,7 +728,8 @@ const applicationSchema = z.object({
 
 #### jobs（案件）— SELECT
 - 一般ユーザー: `status = 'open' AND deleted_at IS NULL`（募集中かつ未削除のみ）
-- 案件作成者: `owner_id = auth.uid() AND deleted_at IS NULL`（自分の案件は draft/closed も閲覧可）
+- 案件作成者: `owner_id = auth.uid()`（自分の案件は draft/closed・削除済みも閲覧可）
+- 同一組織メンバー: `is_same_org(auth.uid(), organization_id) AND deleted_at IS NULL`（組織の案件は draft/closed も閲覧可、削除済みは除外）
 - 管理者: `is_admin(auth.uid())`（deleted_at 条件なし）
 
 #### applications（応募）— INSERT
@@ -745,7 +749,7 @@ const applicationSchema = z.object({
 #### user_skills / user_available_areas / user_qualifications — SELECT
 - 全ユーザーが閲覧可（公開プロフィール）
 
-#### user_reviews / client_reviews — SELECT
+#### user_reviews — SELECT
 - 全ユーザーが閲覧可（公開評価）
 
 #### available_schedules — SELECT

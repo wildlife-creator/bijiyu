@@ -7,6 +7,7 @@ import { BackButton } from "@/components/job-search/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -34,10 +35,6 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
   );
 }
 
-function formatScheduleDate(dateStr: string): string {
-  return dateStr.replace(/-/g, "/");
-}
-
 export default async function ContractorDetailPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
@@ -58,7 +55,6 @@ export default async function ContractorDetailPage({ params }: PageProps) {
     `,
     )
     .eq("id", id)
-    .eq("role", "contractor")
     .single();
 
   if (!contractor) notFound();
@@ -274,7 +270,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
                   {schedules.map((s, i) => (
                     <tr key={i} className="border-b border-primary/20">
                       <td className="py-2 px-3 text-body-sm">
-                        {formatScheduleDate(s.start_date)}〜{formatScheduleDate(s.end_date)}
+                        {formatDate(s.start_date)}〜{formatDate(s.end_date)}
                       </td>
                     </tr>
                   ))}
@@ -291,7 +287,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
                 <div className="flex items-center justify-between">
                   <p className="text-[14px] font-bold">また依頼したい</p>
                   <Link
-                    href={`/users/contractors/${id}/reviews`}
+                    href={`/users/${id}/reviews`}
                     className="text-[10px] text-foreground/60 flex items-center gap-1"
                   >
                     詳しく見る

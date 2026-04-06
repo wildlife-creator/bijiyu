@@ -1,0 +1,3 @@
+-- v3 仕様変更: 受注者キャンセルは accepted 状態のみ可能に変更
+-- キャンセル処理は admin client (service_role) で実行するため、RLS ポリシー変更は不要
+-- (既存の applications_update_cancel ポリシーは applied→cancelled 用として残す)

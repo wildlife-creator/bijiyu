@@ -1,0 +1,153 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ThumbsUp, ThumbsDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { submitContractorReportAction } from "@/app/(authenticated)/applications/actions";
+import { CONTRACTOR_OPERATING_STATUS_OPTIONS } from "@/lib/validations/matching";
+
+interface ContractorReportFormProps {
+  applicationId: string;
+}
+
+export function ContractorReportForm({
+  applicationId,
+}: ContractorReportFormProps) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [operatingStatus, setOperatingStatus] = useState("");
+  const [ratingAgain, setRatingAgain] = useState("");
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    formData.set("applicationId", applicationId);
+    formData.set("operatingStatus", operatingStatus);
+    formData.set("ratingAgain", ratingAgain);
+
+    const result = await submitContractorReportAction(formData);
+
+    if (result.success) {
+      router.push("/mypage?success=report");
+    } else {
+      setError(result.error);
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+      {/* 稼働状況セクション */}
+      <section>
+        <h2 className="text-body-lg font-bold text-foreground">作業報告</h2>
+
+        <div className="mt-3 space-y-2">
+          <Label className="text-body-md font-bold">
+            稼働状況 <span className="text-destructive text-body-sm">必須</span>
+          </Label>
+          <Select value={operatingStatus} onValueChange={setOperatingStatus}>
+            <SelectTrigger className="rounded-[8px]">
+              <SelectValue placeholder="お選びください" />
+            </SelectTrigger>
+            <SelectContent>
+              {CONTRACTOR_OPERATING_STATUS_OPTIONS.map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="mt-3 space-y-1">
+          <Label htmlFor="statusSupplement" className="text-body-md">
+            稼働状況の補足
+          </Label>
+          <Textarea
+            id="statusSupplement"
+            name="statusSupplement"
+            className="rounded-[8px]"
+          />
+        </div>
+      </section>
+
+      {/* 発注者の評価セクション */}
+      <section>
+        <h2 className="text-body-lg font-bold text-foreground">評価入力</h2>
+
+        <div className="mt-3 flex items-center justify-between border-b border-border pb-3">
+          <span className="text-body-md text-foreground">また仕事を受けたいか？</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setRatingAgain("good")}
+              className={`rounded-full p-2 transition-colors ${
+                ratingAgain === "good" ? "text-primary" : "text-gray-400"
+              }`}
+              aria-label="Good"
+            >
+              <ThumbsUp className="size-6" fill={ratingAgain === "good" ? "currentColor" : "none"} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setRatingAgain("bad")}
+              className={`rounded-full p-2 transition-colors ${
+                ratingAgain === "bad" ? "text-primary" : "text-gray-400"
+              }`}
+              aria-label="Bad"
+            >
+              <ThumbsDown className="size-6" fill={ratingAgain === "bad" ? "currentColor" : "none"} />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 space-y-1">
+          <Label htmlFor="comment" className="text-body-md">
+            評価の補足
+          </Label>
+          <Textarea
+            id="comment"
+            name="comment"
+            placeholder="評価の補足コメントがあればご記入ください"
+            className="rounded-[8px]"
+          />
+        </div>
+      </section>
+
+      {error && (
+        <p className="text-body-sm text-destructive">{error}</p>
+      )}
+
+      <Button
+        type="submit"
+        className="w-full rounded-pill"
+        disabled={isLoading || !operatingStatus || !ratingAgain}
+      >
+        {isLoading ? "送信中..." : "作業報告・評価を登録する"}
+      </Button>
+
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full rounded-pill text-body-md"
+        onClick={() => router.back()}
+      >
+        もどる
+      </Button>
+    </form>
+  );
+}

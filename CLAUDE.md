@@ -195,9 +195,16 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   Supabase Storage のホストを追加すること（ローカル: localhost:54321、本番: xxxx.supabase.co）
 - Storage バケットの作成と RLS ポリシー設定を実装タスクに含めること
 - ファイルアップロードの Server Action は FormData で受け取ること
-- アップロード後の公開 URL 取得には getPublicUrl を使用すること
+- アップロード後の URL 取得: 公開バケットは `getPublicUrl()` を使用。非公開バケット（`application-documents` 等）はファイルパスのみ DB に保存し、表示時に `createSignedUrl()` で Signed URL を生成すること（`getPublicUrl()` は非公開バケットでは機能しない）
 - **Storage RLS ポリシーとアップロードパスの整合**: `(storage.foldername(name))[1] = auth.uid()::text` のようなRLSポリシーの場合、`.upload(path, file)` の `path` はユーザーIDで始める必要がある（例: `${user.id}/filename.ext`）。バケット名をパスに含めないこと（`.from("bucket")` が既にバケットを指定している）
 - **ユーザーアップロード画像の表示**: Supabase Storage から取得した画像を表示する際は `<img>` タグを使うこと。`next/image` の `<Image>` はリモートパターン設定の問題が起きやすく、サーバー再起動が必要になる場合がある
+
+### 書類・ファイル添付のデータ保存レベル
+- ファイル添付機能を実装する際は「誰に見せるデータか」で保存先を使い分けること:
+  - **案件レベル**（全応募者に見せる）: `job_images` テーブル + `job-attachments` バケット。案件作成・編集時にアップロード
+  - **応募レベル**（特定の応募者にだけ見せる）: `applications.document_urls` + `application-documents` バケット。発注可否（CLI-009-B）等でアップロード
+- 受注者側の画面（CON-012 等）で「業務に関する書類」を表示する場合は、案件レベル（`job_images`）と応募レベル（`applications.document_urls`）の両方を統合して表示すること。受注者にとってはどちらも「発注者から提供された書類」なので区別不要
+- 新しいバケットを作成する場合は、マイグレーションでバケット作成 + RLS ポリシー設定をセットで行うこと
 
 ### Server Actions 関連
 - Server Action を実装したら、ブラウザから実際に呼び出せることを
@@ -209,6 +216,44 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - パスワードリセットやメール認証など、Supabase Auth のコールバック後にセッションが確立される画面は、ミドルウェアの「認証済みユーザーをauth画面からリダイレクト」ロジックの例外として登録すること（例: `/reset-password/confirm` は認証済みユーザーにもアクセスを許可）
 - seed.sql のテストデータは実際の業務フローと整合させること（例: `identity_verified = true` にするなら `identity_verifications` テーブルにも対応する承認済みレコードを用意する）
 - **pgTAP テストの UUID は seed.sql と重複させない**: pgTAP テストは `BEGIN; ... ROLLBACK;` で実行されるが、seed データが既に投入されている状態で実行される。テスト内で `INSERT INTO auth.users` する場合、seed.sql で使用済みの UUID と重複すると `duplicate key` エラーになる。テスト専用の UUID を使うこと
+
+### RLS ポリシーの自己参照（無限再帰）
+- RLS ポリシーの USING 句で自テーブルを直接 SELECT するサブクエリを書いてはならない。PostgreSQL が無限再帰を検出してエラーになる
+- 例: `organization_members` の SELECT ポリシーで `SELECT organization_id FROM organization_members WHERE ...` を使うと再帰する
+- 対策: `SECURITY DEFINER` 関数（`is_same_org()` 等）を経由してアクセスする。SECURITY DEFINER 関数は RLS をバイパスするため再帰が発生しない
+- 他テーブルの RLS ポリシーから `organization_members` を参照する場合も同様に `is_same_org()` を使うこと（`organizations_select` ポリシー等）
+- このバグはクエリが `null` を返すだけでエラーメッセージが画面に表示されないため、発見が遅れやすい
+
+### フィルター付き一覧画面と `router.back()` の状態不整合
+- フィルター付き一覧画面で `router.back()` を使うと、プルダウン等の `useState` が前回の選択値を保持したまま残り、URL の searchParams（フィルターなし）と UI 表示が乖離する
+- 対策: フィルターの状態は URL の searchParams を Single Source of Truth とし、`useState` ではなく `useSearchParams()` から直接値を取得すること
+- プルダウン選択で即時フィルタリングする場合は `onValueChange` 内で `router.push()` して URL を更新する
+
+### 段階的フォーム表示（条件レンダリング）
+- プルダウンや選択肢に応じてフォームの表示内容が変わる場合は、別ページ遷移ではなく `useState` による同一ページ内の条件レンダリングで実装すること（例: CLI-009 の「発注を依頼する」/「お断りする」選択）
+- プルダウンの `onValueChange` では state 更新のみ行い、Server Action の呼び出しは行わない。送信はフォームの「送信する」ボタン押下時に行う
+- `decision` が未選択（`null`）の場合は送信ボタンを `disabled` にする
+- このパターンは「選択 → 追加入力 → 確認 → 送信」のステップを1ページ内で完結させる場合の標準パターンとする
+
+### CTA ボタン（`variant="default"`）の文字色
+- `bg-primary` ボタンの文字色が白（`text-primary-foreground`）になっていることを必ず確認すること
+- `asChild` + `<Link>` の組み合わせでは `<a>` タグのデフォルトスタイルが干渉し文字色が黒になる場合がある。その場合は明示的に `text-white` を `className` に追加する
+- globals.css の `--primary-foreground` が `0 0% 100%`（白）に設定されていることも確認すること
+- 同一セクション内に複数のボタンがある場合、幅を `w-full max-w-xs mx-auto` で統一し、中央寄せにすること
+- 遷移先のあるアクションボタン（「募集案件詳細」「ユーザー詳細」等）は primary 塗りつぶし（`variant="default" rounded-full text-white`）、「もどる」ボタンは `variant="outline" rounded-full` で統一する
+- ボタンの親要素には `flex flex-col items-center gap-3` を適用して縦並び中央揃えにする
+
+### フォーム要素の背景色
+- 入力可能なフォーム要素（Input, Textarea, Select, date input）の背景色は `bg-background`（白）にすること
+- `bg-muted` や `bg-gray-*` 等のグレー系背景をフォーム要素に使用してはならない（disabled 状態を除く）
+- disabled / readonly 状態のフォーム要素は `bg-muted` を使用する（操作可能 vs 操作不可の視覚的区別）
+
+### 下書き保存のバリデーション
+- 下書き保存（status = "draft"）時は `jobDraftSchema`（タイトルのみ必須）を使用し、公開時は `jobSchema`（全必須項目チェック）を使用すること
+- 下書き保存ボタンは `type="button"` にして react-hook-form のクライアント側バリデーションをスキップすること。`type="submit"` だとフルバリデーションが走り、途中入力の下書きが保存できない
+- Server Action 側でも `status === "draft"` を判定して `jobDraftSchema` を使い分けること
+- 数値フィールド（rewardLower, rewardUpper, headcount）は下書き時に NaN になりうるため、DB 保存時に `numOrNull()` で null に変換すること
+- 「公開する」ボタンは `handleSubmit(callback)()` を使い、バリデーション失敗時はトーストでエラーフィールドを通知すること
 
 ### 外部サービス連携
 - billing 機能の実装時は Stripe CLI でローカル Webhook 転送を設定し、
@@ -234,6 +279,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - ボタンのスタイルが design-rule.md のバリエーション定義（CTA = `bg-primary` ピル型、サブ = `outline` 等）に従っているか確認すること
 - カードの角丸が design-system.md の定義（8px = カード、47px = ピル型ボタン）に従っているか確認すること
 - 「機能は動くがデザインカンプと見た目が違う」は未完了とみなす
+- 仕様書（requirements.md）の記述が簡素な場合（例:「表示項目: 応募者名、職種、応募日」のみ）、デザインカンプの見た目を正としてレイアウト・配置・セクション構成・アイコン使い分けを読み取り、仕様書に書かれていない要素もデザインカンプに従って実装すること。仕様書の項目リストは「最低限含む要素」であり、デザインカンプに描かれている要素を省略してよいという意味ではない
 
 ### Vitest モック関連
 - Server Action のテストでは、Server Action 自体を vi.mock で差し替えてはならない。Supabase クライアントをモックし、Server Action の内部ロジックが実際に動くテストを書くこと
@@ -253,15 +299,15 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **正しい実装パターン**:
   - CON-002（募集案件一覧）: 全ロールで同一UI、同一データ、同一レイアウト
   - CON-002 のカードリンク: 全ロールで `/jobs/${job.id}`（パラメータなし）→ CON-003 に遷移
-  - CON-003（応募ボタン）: 無料ユーザーのみ職種×エリアの合致チェックで非活性化。有料ユーザー（発注者含む）は常に活性
-  - 発注者が CON-002 → CON-003 でアクセスした場合の動作は、有料の受注者と完全に同一
+  - CON-003（応募ボタン）: 案件オーナーまたは同一組織メンバーの場合は応募ボタン非表示（自分の案件に応募する意味がないため）。それ以外の場合、無料ユーザーのみ職種×エリアの合致チェックで非活性化。有料ユーザー（発注者含む）は常に活性
+  - 発注者が CON-002 → CON-003 で他社の案件にアクセスした場合の動作は、有料の受注者と完全に同一
   - CLI-001 のカードリンク: `/jobs/${job.id}?manage=true` → CLI-002（管理画面）に遷移
-  - /jobs/[id] の表示分岐: `isOwner && searchParams.manage === 'true'` のときのみ CLI-002。それ以外は CON-003
+  - /jobs/[id] の表示分岐: `(isOwner || isSameOrganization) && searchParams.manage === 'true'` のときのみ CLI-002。それ以外は CON-003
   - Middleware: CON系は認証済み全ロールに開放。CLI系（CLI-026〜027を除く）は発注者・担当者のみ
   - 発注者マイページ: 「仕事を探す」セクション（CON系画面への導線）を非表示にしてはならない。CON-002 への導線は「仕事を探す」セクションで提供する（「発注先を探す」セクションには含めない）
 
 ### UI テキスト・ラベル（必ず守ること）
-- お気に入りボタンのラベルは「お気に入り登録」/「お気に入り解除」を使うこと（「興味する」等の不自然な日本語は禁止）
+- お気に入りボタンのラベルは「マイリスト登録」/「マイリスト解除」を使うこと（「興味する」等の不自然な日本語は禁止）
 - UIテキストは自然な日本語であることを確認すること。機械的な翻訳調の表現は使わない
 
 ### ナビゲーション・画面遷移（必ず守ること）

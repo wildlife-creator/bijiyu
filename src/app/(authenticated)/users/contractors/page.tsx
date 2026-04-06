@@ -168,9 +168,16 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
                         )}
                       </h3>
                       {skills.length > 0 && (
-                        <p className="text-body-sm text-muted-foreground line-clamp-1 mt-0.5">
-                          {skills.map((s) => s.trade_type).join("、")}
-                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {skills.map((s) => (
+                            <span
+                              key={s.trade_type}
+                              className="rounded-[33px] bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-body-xs text-primary"
+                            >
+                              {s.trade_type}
+                            </span>
+                          ))}
+                        </div>
                       )}
                       {/* Verification badges */}
                       <div className="flex flex-wrap gap-2 mt-1">
@@ -201,18 +208,18 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
                   {/* Info rows */}
                   <div className="space-y-1.5 text-body-sm">
                     {areas.length > 0 && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center">
                         <img src="/images/icons/icon-pin.png" alt="" className="w-4 h-4 shrink-0" />
-                        <span className="text-muted-foreground">対応エリア</span>
+                        <span className="ml-1.5 w-[5rem] shrink-0 text-muted-foreground">対応エリア</span>
                         <span className="line-clamp-1">
                           {areas.map((a) => a.prefecture).join("、")}
                         </span>
                       </div>
                     )}
                     {skills.length > 0 && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center">
                         <Clock className="w-4 h-4 text-primary/70 shrink-0" />
-                        <span className="text-muted-foreground">経験年数</span>
+                        <span className="ml-1.5 w-[5rem] shrink-0 text-muted-foreground">経験年数</span>
                         <span className="line-clamp-1">
                           {skills
                             .filter((s) => s.experience_years)
