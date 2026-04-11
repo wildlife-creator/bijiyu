@@ -35,7 +35,7 @@ export async function applyJobAction(
 
     if (
       !userData ||
-      !["contractor", "client", "staff"].includes(userData.role)
+      !["contractor", "client"].includes(userData.role)
     ) {
       return { success: false, error: "応募する権限がありません。" };
     }
@@ -47,6 +47,7 @@ export async function applyJobAction(
       workingType: formData.get("workingType"),
       preferredFirstWorkDate: formData.get("preferredFirstWorkDate"),
       message: formData.get("message") || undefined,
+      scoutMessageId: formData.get("scoutMessageId") || undefined,
     };
 
     const parsed = applicationSchema.safeParse(raw);
@@ -97,7 +98,7 @@ export async function applyJobAction(
       .maybeSingle();
 
     const isPaidUser =
-      !!subscription || userData.role === "staff" || userData.role === "client";
+      !!subscription || userData.role === "client";
 
     if (!isPaidUser) {
       const { data: skills } = await supabase
@@ -131,7 +132,25 @@ export async function applyJobAction(
       }
     }
 
-    // 7. INSERT
+    // 7. Validate scout_message_id if provided
+    let validatedScoutMessageId: string | null = null;
+    if (data.scoutMessageId) {
+      const { data: scoutMsg } = await supabase
+        .from("messages")
+        .select("id, is_scout")
+        .eq("id", data.scoutMessageId)
+        .single();
+
+      if (!scoutMsg || !scoutMsg.is_scout) {
+        return {
+          success: false,
+          error: "スカウトメッセージが見つかりません。",
+        };
+      }
+      validatedScoutMessageId = scoutMsg.id;
+    }
+
+    // 8. INSERT
     const { data: application, error: insertError } = await supabase
       .from("applications")
       .insert({
@@ -142,6 +161,7 @@ export async function applyJobAction(
         preferred_first_work_date: data.preferredFirstWorkDate,
         message: data.message || null,
         status: "applied",
+        scout_message_id: validatedScoutMessageId,
       })
       .select("id")
       .single();

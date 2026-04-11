@@ -20,9 +20,10 @@ import { toast } from "sonner";
 
 interface ApplicationFormProps {
   jobId: string;
+  scoutMessageId?: string;
 }
 
-export function ApplicationForm({ jobId }: ApplicationFormProps) {
+export function ApplicationForm({ jobId, scoutMessageId }: ApplicationFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -67,6 +68,7 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
       formData.set("workingType", workingType);
       formData.set("preferredFirstWorkDate", preferredDate);
       if (message) formData.set("message", message);
+      if (scoutMessageId) formData.set("scoutMessageId", scoutMessageId);
 
       const result = await applyJobAction(formData);
 
@@ -87,6 +89,12 @@ export function ApplicationForm({ jobId }: ApplicationFormProps) {
   return (
     <>
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        {scoutMessageId && (
+          <div className="rounded-[8px] bg-[rgba(146,7,131,0.08)] px-3 py-2 text-body-sm text-primary/70">
+            スカウト経由の応募です
+          </div>
+        )}
+
         <div className="space-y-1">
           <Label>応募人数</Label>
           <Input

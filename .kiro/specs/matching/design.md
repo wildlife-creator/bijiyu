@@ -581,6 +581,8 @@ async function acceptApplicationAction(
 - Zod バリデーション: firstWorkDate は有効な日付であること
 - メール送信失敗は catch してログ記録。本体処理はロールバックしない
 - メールテンプレート: `src/lib/email/templates/application-accepted.tsx`
+- **clientName の名前解決**: ハードコード `"発注者"` ではなく、messaging spec「名前表示ルール」に従う。案件の organization_id で organizations テーブルを参照し、法人: `organizations.name`、個人: 案件オーナーの `users.company_name → users.last_name + first_name`
+- **applicantName の名前解決**: `users.company_name → users.last_name + first_name`
 
 #### rejectApplicationAction
 
@@ -607,6 +609,7 @@ async function rejectApplicationAction(
 
 **Implementation Notes**
 - メールテンプレート: `src/lib/email/templates/application-rejected.tsx`
+- **clientName / applicantName の名前解決**: acceptApplicationAction と同じルール
 
 #### submitContractorReportAction
 
@@ -808,7 +811,7 @@ CREATE POLICY "job_owners_can_decide_applications"
 
 ## Security Considerations
 
-- **Middleware**: 受注者系画面（/applications/history/）は全認証済みユーザーがアクセス可能（CON 系画面のため）。発注者系画面（/applications/received/, /applications/orders/）は発注者（client）・担当者（staff）のみ。**実装時に src/middleware.ts の CLIENT_ONLY_PREFIXES に "/applications/received", "/applications/orders" を追加すること。**
+- **Middleware**: 受注者系画面（/applications/history/）は受注者（contractor）・発注者（client）のみアクセス可。担当者（staff）はブロック（staffは応募できないのでデータなし）。発注者系画面（/applications/received/, /applications/orders/）は発注者（client）・担当者（staff）のみ。**実装時に src/middleware.ts で "/applications/history" を staff ブロック対象に、"/applications/received", "/applications/orders" を CLIENT_ONLY_PREFIXES に追加すること。**
 - **Server Action**: 全アクションで認証チェック + 所有権チェック（applicant_id or job.owner_id）を実施
 - **RLS**: 既存ポリシー + 受注者キャンセル用 UPDATE ポリシー + 発注者 accept/reject 用 UPDATE ポリシーの追加
 - **admin client 使用箇所**: 完了報告 + 評価の原子的実行のみ。通常の CRUD は通常クライアントを使用
@@ -849,5 +852,52 @@ src/lib/email/templates/
 └── application-rejected.tsx                # お断り通知
 
 supabase/migrations/
-└── YYYYMMDDHHMMSS_012_application_update_policies.sql  # 受注者キャンセル + 発注者 accept/reject RLS
+├── YYYYMMDDHHMMSS_012_application_update_policies.sql  # 受注者キャンセル + 発注者 accept/reject RLS
+└── YYYYMMDDHHMMSS_scout_message_id.sql                 # applications.scout_message_id カラム追加
 ```
+
+## スカウト経由応募の連携（REQ-MT-011）
+
+### 概要
+
+messaging spec のスカウト受諾フローから CON-004（応募情報入力）に遷移する際に `scout_message_id` が渡される。
+matching spec 側でこの値を applications テーブルに保存し、各一覧・詳細画面でスカウト経由の応募を識別できるようにする。
+
+### マイグレーション
+
+```sql
+-- applications テーブルに scout_message_id カラムを追加
+ALTER TABLE applications
+  ADD COLUMN scout_message_id uuid REFERENCES messages(id);
+
+-- 部分インデックス（scout_message_id IS NOT NULL の応募のみ）
+CREATE INDEX idx_applications_scout_message_id
+  ON applications (scout_message_id)
+  WHERE scout_message_id IS NOT NULL;
+```
+
+### Zod スキーマ変更
+
+`src/lib/validations/application.ts` の `applicationSchema` に追加:
+```typescript
+scoutMessageId: z.string().uuid().optional(),
+```
+
+### Server Action 変更（applyJobAction）
+
+`src/app/(authenticated)/jobs/search-actions.ts`:
+1. FormData から `scoutMessageId` を取得
+2. 指定時: messages テーブルで該当メッセージの存在 + `is_scout = true` を検証
+3. INSERT に `scout_message_id` を含める
+
+### UI 変更
+
+**CON-004 応募フォーム**:
+- `page.tsx`: searchParams から `scout_message_id` を取得し、ApplicationForm に props として渡す
+- `application-form.tsx`: `scoutMessageId` prop を受け取り、FormData に含める。スカウト経由の場合は「スカウト経由の応募です」テキストを表示
+
+**バッジ表示（4画面共通）**:
+- SELECT クエリに `scout_message_id` を含める
+- `scout_message_id IS NOT NULL` の応募に「スカウト経由」バッジを表示
+- バッジスタイル: `bg-[rgba(146,7,131,0.08)] text-primary/70 text-xs rounded-full px-2 py-0.5`
+- 対象画面: CON-011, CON-012, CLI-007, CLI-008

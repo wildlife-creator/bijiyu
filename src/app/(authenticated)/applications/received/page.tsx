@@ -42,7 +42,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
   let dataQuery = supabase
     .from("applications")
     .select(
-      `id, status, created_at,
+      `id, status, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified),
        jobs!inner(id, title, owner_id, trade_type, recruit_end_date, headcount)`,
     )
@@ -102,7 +102,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
 
   return (
     <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
-      <h1 className="text-heading-lg font-bold text-secondary">応募一覧</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">応募一覧</h1>
 
       <div className="mt-2 flex items-center justify-between">
         <p className="text-body-sm text-muted-foreground">
@@ -159,8 +159,13 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
             <Card key={app.id} className="rounded-[8px]">
               <CardContent className="p-4">
                 {/* Status badge at top-left */}
-                <div className="mb-3">
+                <div className="mb-3 flex items-center gap-2">
                   <ApplicationStatusBadge status={app.status} />
+                  {app.scout_message_id && (
+                    <span className="rounded-full bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-xs text-primary/70">
+                      スカウト経由
+                    </span>
+                  )}
                 </div>
 
                 {/* Applicant profile */}

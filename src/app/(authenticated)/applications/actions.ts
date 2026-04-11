@@ -12,6 +12,7 @@ import {
 import { sendEmail } from "@/lib/email/send-email";
 import { matchingAcceptedEmail } from "@/lib/email/templates/matching-accepted";
 import { matchingRejectedEmail } from "@/lib/email/templates/matching-rejected";
+import { resolveParticipantName } from "@/lib/utils/display-name";
 import type { ActionResult } from "@/lib/types/action-result";
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -26,7 +27,7 @@ async function getApplicationWithDetails(
   return supabase
     .from("applications")
     .select(
-      "*, jobs(id, title, owner_id, organization_id), applicant:users!applications_applicant_id_fkey(id, email, last_name, first_name, deleted_at)",
+      "*, jobs(id, title, owner_id, organization_id, organizations(name), owner:users!jobs_owner_id_fkey(last_name, first_name, company_name)), applicant:users!applications_applicant_id_fkey(id, email, last_name, first_name, company_name, deleted_at)",
     )
     .eq("id", applicationId)
     .single();
@@ -300,11 +301,23 @@ export async function acceptApplicationAction(
     // Send email notification (failure does NOT rollback)
     const applicant = application.applicant;
     if (applicant && applicant.email && !applicant.deleted_at) {
-      const applicantName = `${applicant.last_name ?? ""} ${applicant.first_name ?? ""}`.trim() || "ユーザー";
+      const applicantName = resolveParticipantName({
+        companyName: (applicant as { company_name?: string | null }).company_name,
+        lastName: applicant.last_name,
+        firstName: applicant.first_name,
+      });
+      const org = (job as { organizations?: { name: string } | null }).organizations;
+      const owner = (job as { owner?: { last_name: string | null; first_name: string | null; company_name: string | null } | null }).owner;
+      const clientName = resolveParticipantName({
+        organizationName: org?.name,
+        companyName: owner?.company_name,
+        lastName: owner?.last_name,
+        firstName: owner?.first_name,
+      });
       const { subject, html } = matchingAcceptedEmail({
         applicantName,
         jobTitle: job.title,
-        clientName: "発注者",
+        clientName,
         firstWorkDate: input.firstWorkDate,
         serviceUrl: SERVICE_URL,
       });
@@ -400,11 +413,23 @@ export async function rejectApplicationAction(
     // Send email notification
     const applicant = application.applicant;
     if (applicant && applicant.email && !applicant.deleted_at) {
-      const applicantName = `${applicant.last_name ?? ""} ${applicant.first_name ?? ""}`.trim() || "ユーザー";
+      const applicantName = resolveParticipantName({
+        companyName: (applicant as { company_name?: string | null }).company_name,
+        lastName: applicant.last_name,
+        firstName: applicant.first_name,
+      });
+      const org = (job as { organizations?: { name: string } | null }).organizations;
+      const owner = (job as { owner?: { last_name: string | null; first_name: string | null; company_name: string | null } | null }).owner;
+      const clientName = resolveParticipantName({
+        organizationName: org?.name,
+        companyName: owner?.company_name,
+        lastName: owner?.last_name,
+        firstName: owner?.first_name,
+      });
       const { subject, html } = matchingRejectedEmail({
         applicantName,
         jobTitle: job.title,
-        clientName: "発注者",
+        clientName,
         serviceUrl: SERVICE_URL,
       });
 

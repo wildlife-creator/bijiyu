@@ -44,7 +44,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
   let query = supabase
     .from("applications")
     .select(
-      `id, status, created_at, applicant_id,
+      `id, status, created_at, applicant_id, scout_message_id,
        jobs(id, title, owner_id, trade_type, headcount, reward_lower, reward_upper,
             recruit_start_date, recruit_end_date, prefecture,
             organizations(name),
@@ -169,12 +169,17 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
           return (
             <Card key={app.id} className="overflow-hidden rounded-[8px]">
               {/* 1. Status badge — flush to top-left */}
-              <div className="px-2 pt-2">
+              <div className="flex items-center gap-2 px-2 pt-2">
                 <ApplicationStatusBadge
                   status={app.status}
                   hasClientReview={hasClientReview}
                   hasUserReview={hasUserReview}
                 />
+                {app.scout_message_id && (
+                  <span className="rounded-full bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-xs text-primary/70">
+                    スカウト経由
+                  </span>
+                )}
               </div>
 
               <CardContent className="px-4 pb-4 pt-2">

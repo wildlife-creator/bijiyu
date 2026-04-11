@@ -2,6 +2,16 @@ import { test, expect } from "@playwright/test";
 import { login, TEST_CONTRACTOR, TEST_CLIENT } from "./helpers";
 
 // ---------------------------------------------------------------------------
+// Seed data UUIDs
+// ---------------------------------------------------------------------------
+// 発注可否テスト用（applied 状態）
+const APPLICATION_FOR_ACCEPT = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbe"; // contractor4 → 千葉案件
+// 受注者作業報告テスト用（accepted 状態、レビューなし）
+const APPLICATION_FOR_CONTRACTOR_REPORT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab"; // contractor → job2
+// 発注者作業報告テスト用（accepted 状態、レビューなし）
+const APPLICATION_FOR_CLIENT_REPORT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac"; // contractor3 → 東京マンション
+
+// ---------------------------------------------------------------------------
 // 受注者フロー
 // ---------------------------------------------------------------------------
 test.describe("受注者: 応募履歴（CON-011〜013）", () => {
@@ -83,6 +93,124 @@ test.describe("発注者: 発注履歴（CLI-010〜012）", () => {
     await firstLink.waitFor({ state: "visible", timeout: 10000 });
     await firstLink.click();
     await expect(page.getByRole("heading", { name: "発注内容詳細" })).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 受注者: ステータスフィルター
+// ---------------------------------------------------------------------------
+test.describe("受注者: ステータスフィルター（CON-011）", () => {
+  test("ステータスで応募履歴を絞り込める", async ({ page }) => {
+    await login(page);
+    await page.goto("/applications/history");
+    await expect(page.getByRole("heading", { name: "応募履歴" })).toBeVisible();
+
+    // フィルターのプルダウンを選択（onValueChange で即時遷移）
+    await page.getByRole("combobox").click();
+    await page.getByRole("option", { name: "稼働予定" }).click();
+
+    // URL にフィルターパラメータが付く
+    await page.waitForURL(/filter=/, { timeout: 10000 });
+    // 検索結果が表示される
+    await expect(page.getByText("検索結果")).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 発注者: 応募詳細表示（CLI-008）
+// ---------------------------------------------------------------------------
+test.describe("発注者: 応募詳細（CLI-008）", () => {
+  test("応募詳細ページが表示される", async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto("/applications/received");
+    // 応募カードをクリック
+    const firstLink = page.locator("a[href*='/applications/received/']").first();
+    await firstLink.waitFor({ state: "visible", timeout: 10000 });
+    await firstLink.click();
+    await expect(page.getByRole("heading", { name: "応募詳細" })).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 発注者: 発注を依頼する（CLI-009 accept）
+// ---------------------------------------------------------------------------
+test.describe("発注者: 発注を依頼する（CLI-009）", () => {
+  test("「発注を依頼する」を実行できる", async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/applications/received/${APPLICATION_FOR_ACCEPT}/decide`);
+    await expect(page.getByRole("heading", { name: "発注可否" })).toBeVisible();
+
+    // 「発注を依頼する」を選択
+    await page.getByRole("combobox").click();
+    await page.getByRole("option", { name: "発注を依頼する" }).click();
+
+    // 初回稼働日を入力
+    const dateInput = page.locator("input[type='date']");
+    await dateInput.waitFor({ state: "visible", timeout: 5000 });
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 14);
+    const dateStr = futureDate.toISOString().split("T")[0];
+    await dateInput.fill(dateStr);
+
+    // 送信
+    await page.getByRole("button", { name: "送信する" }).click();
+
+    // 成功ダイアログ
+    await expect(page.getByText("ユーザーへ結果を送信しました")).toBeVisible({ timeout: 10000 });
+    await page.getByRole("button", { name: "OK" }).click();
+    await page.waitForURL(/\/applications\/received$/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 受注者: 作業報告・評価入力（CON-013）
+// ---------------------------------------------------------------------------
+test.describe("受注者: 作業報告・評価入力（CON-013）", () => {
+  test("作業報告・評価を登録できる", async ({ page }) => {
+    await login(page);
+    await page.goto(`/applications/history/${APPLICATION_FOR_CONTRACTOR_REPORT}/report`);
+    await expect(page.getByRole("heading", { name: "作業報告・評価入力" })).toBeVisible();
+
+    // 稼働状況を選択
+    await page.getByRole("combobox").click();
+    await page.getByRole("option", { name: "問題なく稼働完了", exact: true }).click();
+
+    // 評価: Good を選択
+    await page.getByLabel("Good").click();
+
+    // 送信
+    await page.getByRole("button", { name: "作業報告・評価を登録する" }).click();
+
+    // マイページにリダイレクト
+    await page.waitForURL(/\/mypage/, { timeout: 10000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 発注者: 作業完了報告・評価登録（CLI-012）
+// ---------------------------------------------------------------------------
+test.describe("発注者: 作業完了報告・評価登録（CLI-012）", () => {
+  test("評価を登録できる", async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/applications/orders/${APPLICATION_FOR_CLIENT_REPORT}/report`);
+    await expect(page.locator("h1", { hasText: "評価入力" })).toBeVisible();
+
+    // 稼働状況を選択
+    await page.getByRole("combobox").click();
+    await page.getByRole("option", { name: "問題なく稼働完了", exact: true }).click();
+
+    // 6項目の評価をすべて Good にする（aria-label が "質問文 Good" の形式）
+    const goodButtons = page.getByRole("button", { name: /Good/ });
+    const count = await goodButtons.count();
+    for (let i = 0; i < count; i++) {
+      await goodButtons.nth(i).click();
+    }
+
+    // 送信
+    await page.getByRole("button", { name: "評価を登録する" }).click();
+
+    // 発注履歴一覧にリダイレクト
+    await page.waitForURL(/\/applications\/orders$/, { timeout: 10000 });
   });
 });
 

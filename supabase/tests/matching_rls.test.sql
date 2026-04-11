@@ -169,19 +169,19 @@ SELECT is(
 );
 
 -- ============================================================
--- Test 10: Client reviews are publicly readable
+-- Test 10: Client reviews are readable by reviewer (not publicly)
 -- ============================================================
 RESET ROLE;
 INSERT INTO client_reviews (id, application_id, reviewer_id, reviewee_id, operating_status, rating_again)
 VALUES ('dd999999-9999-9999-9999-999999999999', 'dd777777-7777-7777-7777-777777777777', 'dd111111-1111-1111-1111-111111111111', 'dd222222-2222-2222-2222-222222222222', 'completed', 'good');
 
 SET LOCAL ROLE authenticated;
-SET LOCAL request.jwt.claim.sub = 'dd333333-3333-3333-3333-333333333333';
+SET LOCAL request.jwt.claim.sub = 'dd111111-1111-1111-1111-111111111111';
 
 SELECT is(
   (SELECT count(*)::int FROM client_reviews WHERE id = 'dd999999-9999-9999-9999-999999999999'),
   1,
-  'Client reviews are publicly readable'
+  'Client reviews are readable by reviewer'
 );
 
 -- ============================================================

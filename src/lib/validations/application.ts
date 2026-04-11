@@ -16,4 +16,5 @@ export const applicationSchema = z.object({
     .string()
     .min(1, "初回稼働希望日を選択してください"),
   message: z.string().optional(),
+  scoutMessageId: z.string().uuid("スカウトメッセージIDが不正です").optional(),
 });

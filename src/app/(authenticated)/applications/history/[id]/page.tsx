@@ -157,12 +157,17 @@ export default async function ApplicationDetailPage({ params }: Props) {
       <h1 className="text-center text-heading-lg font-bold text-secondary">応募詳細</h1>
 
       {/* 2. Status badge */}
-      <div className="mt-2">
+      <div className="mt-2 flex items-center gap-2">
         <ApplicationStatusBadge
           status={application.status}
           hasClientReview={hasClientReview}
           hasUserReview={hasUserReview}
         />
+        {application.scout_message_id && (
+          <span className="rounded-full bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-xs text-primary/70">
+            スカウト経由
+          </span>
+        )}
       </div>
 
       {/* Notice for cancelled/rejected */}

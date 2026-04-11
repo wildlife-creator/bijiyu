@@ -29,7 +29,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
   const { data: application } = await supabase
     .from("applications")
     .select(
-      `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at,
+      `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified, birth_date),
        jobs!inner(id, title, trade_type, headcount, reward_lower, reward_upper, prefecture, address, work_start_date, work_end_date, recruit_start_date, recruit_end_date, work_hours, schedule_detail, owner_id)`,
     )
@@ -152,9 +152,14 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto min-h-dvh max-w-2xl bg-muted px-4 py-6 md:px-8 md:py-8">
-      <div className="flex items-center gap-3">
-        <h1 className="text-heading-lg font-bold text-secondary">応募詳細</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">応募詳細</h1>
+      <div className="mt-2 flex items-center justify-center gap-3">
         <ApplicationStatusBadge status={application.status} />
+        {application.scout_message_id && (
+          <span className="rounded-full bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-xs text-primary/70">
+            スカウト経由
+          </span>
+        )}
       </div>
 
       {/* Job info section */}

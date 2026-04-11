@@ -1,38 +1,3 @@
-Connecting to db 5432
-v0.96.1: Pulling from supabase/postgres-meta
-3aa96371cb05: Pulling fs layer
-649294d53040: Pulling fs layer
-b1f4bffa7894: Pulling fs layer
-eb04ef52de3a: Pulling fs layer
-7f0469884eb9: Pulling fs layer
-19351e083594: Pulling fs layer
-036bd28688ee: Pulling fs layer
-9b590c83e93c: Pulling fs layer
-1061a5258f4e: Pulling fs layer
-4f6e2095427e: Pulling fs layer
-7f0469884eb9: Already exists
-3aa96371cb05: Download complete
-19351e083594: Download complete
-649294d53040: Download complete
-036bd28688ee: Download complete
-1061a5258f4e: Download complete
-b1f4bffa7894: Download complete
-d8cd7fa11bac: Download complete
-4f6e2095427e: Download complete
-eb04ef52de3a: Download complete
-eb04ef52de3a: Pull complete
-3aa96371cb05: Pull complete
-9b590c83e93c: Download complete
-9b590c83e93c: Pull complete
-649294d53040: Pull complete
-1061a5258f4e: Pull complete
-7f0469884eb9: Pull complete
-b1f4bffa7894: Pull complete
-4f6e2095427e: Pull complete
-19351e083594: Pull complete
-036bd28688ee: Pull complete
-Digest: sha256:2559d20aaa50f2eb86a6cb2e5af4e847e87139673bc214b4655c126d96c160b2
-Status: Downloaded newer image for public.ecr.aws/supabase/postgres-meta:v0.96.1
 export type Json =
   | string
   | number
@@ -74,6 +39,7 @@ export type Database = {
           applicant_id: string
           client_notes: string | null
           created_at: string
+          document_urls: string[] | null
           first_work_date: string | null
           headcount: number | null
           id: string
@@ -81,6 +47,7 @@ export type Database = {
           message: string | null
           preferred_first_work_date: string | null
           rejection_reason: string | null
+          scout_message_id: string | null
           status: Database["public"]["Enums"]["application_status"]
           updated_at: string
           working_type: string | null
@@ -89,6 +56,7 @@ export type Database = {
           applicant_id: string
           client_notes?: string | null
           created_at?: string
+          document_urls?: string[] | null
           first_work_date?: string | null
           headcount?: number | null
           id?: string
@@ -96,6 +64,7 @@ export type Database = {
           message?: string | null
           preferred_first_work_date?: string | null
           rejection_reason?: string | null
+          scout_message_id?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           updated_at?: string
           working_type?: string | null
@@ -104,6 +73,7 @@ export type Database = {
           applicant_id?: string
           client_notes?: string | null
           created_at?: string
+          document_urls?: string[] | null
           first_work_date?: string | null
           headcount?: number | null
           id?: string
@@ -111,6 +81,7 @@ export type Database = {
           message?: string | null
           preferred_first_work_date?: string | null
           rejection_reason?: string | null
+          scout_message_id?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           updated_at?: string
           working_type?: string | null
@@ -128,6 +99,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_scout_message_id_fkey"
+            columns: ["scout_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
         ]
@@ -222,6 +200,7 @@ export type Database = {
           is_compensation_5000: boolean
           is_compensation_9800: boolean
           is_urgent_option: boolean
+          language: string | null
           message: string | null
           recruit_area: string[] | null
           recruit_job_types: string[] | null
@@ -239,6 +218,7 @@ export type Database = {
           is_compensation_5000?: boolean
           is_compensation_9800?: boolean
           is_urgent_option?: boolean
+          language?: string | null
           message?: string | null
           recruit_area?: string[] | null
           recruit_job_types?: string[] | null
@@ -256,6 +236,7 @@ export type Database = {
           is_compensation_5000?: boolean
           is_compensation_9800?: boolean
           is_urgent_option?: boolean
+          language?: string | null
           message?: string | null
           recruit_area?: string[] | null
           recruit_job_types?: string[] | null
@@ -603,6 +584,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          organization_id: string | null
           participant_1_id: string
           participant_2_id: string
           thread_type: Database["public"]["Enums"]["thread_type"]
@@ -611,6 +593,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          organization_id?: string | null
           participant_1_id: string
           participant_2_id: string
           thread_type?: Database["public"]["Enums"]["thread_type"]
@@ -619,12 +602,20 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          organization_id?: string | null
           participant_1_id?: string
           participant_2_id?: string
           thread_type?: Database["public"]["Enums"]["thread_type"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "message_threads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "message_threads_participant_1_id_fkey"
             columns: ["participant_1_id"]
@@ -650,8 +641,8 @@ export type Database = {
           is_proxy: boolean
           is_scout: boolean
           job_id: string | null
-          proxy_sender_id: string | null
           read_at: string | null
+          scout_status: string | null
           sender_id: string
           thread_id: string
         }
@@ -663,8 +654,8 @@ export type Database = {
           is_proxy?: boolean
           is_scout?: boolean
           job_id?: string | null
-          proxy_sender_id?: string | null
           read_at?: string | null
+          scout_status?: string | null
           sender_id: string
           thread_id: string
         }
@@ -676,8 +667,8 @@ export type Database = {
           is_proxy?: boolean
           is_scout?: boolean
           job_id?: string | null
-          proxy_sender_id?: string | null
           read_at?: string | null
+          scout_status?: string | null
           sender_id?: string
           thread_id?: string
         }
@@ -687,13 +678,6 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_proxy_sender_id_fkey"
-            columns: ["proxy_sender_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -1224,6 +1208,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_view_client_review: {
+        Args: { p_reviewee_id: string }
+        Returns: boolean
+      }
       complete_registration: {
         Args: {
           p_areas?: string[]
@@ -1424,4 +1412,3 @@ export const Constants = {
     },
   },
 } as const
-

@@ -6,10 +6,12 @@ import { ApplicationForm } from "./application-form";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ scout_message_id?: string }>;
 }
 
-export default async function ApplicationPage({ params }: PageProps) {
+export default async function ApplicationPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const { scout_message_id: scoutMessageId } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -79,7 +81,7 @@ export default async function ApplicationPage({ params }: PageProps) {
 
   return (
     <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
-      <h1 className="text-heading-lg font-bold text-secondary">応募情報入力</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">応募情報入力</h1>
 
       {/* Job summary */}
       <div className="mt-4 rounded-[8px] border border-border p-4 space-y-1">
@@ -100,7 +102,7 @@ export default async function ApplicationPage({ params }: PageProps) {
       </div>
 
       {/* Application form */}
-      <ApplicationForm jobId={id} />
+      <ApplicationForm jobId={id} scoutMessageId={scoutMessageId} />
     </div>
   );
 }

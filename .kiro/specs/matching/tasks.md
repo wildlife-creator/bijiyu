@@ -246,6 +246,47 @@
 - [x] R3-2. CLI-008: 佐藤健太の seed データ追加 + ユーザー詳細画面の role フィルター削除
 - [x] R3-3. CLI-009-B: 書類アップロード後のカメラアイコン占有領域を非表示にする
 
+## スカウト経由応募の連携（REQ-MT-011）
+
+- [x] S-1. applications テーブルに scout_message_id カラムを追加するマイグレーションを作成する
+  - マイグレーション: `supabase/migrations/20260408100000_applications_scout_message_id.sql`
+  - `ALTER TABLE applications ADD COLUMN scout_message_id uuid REFERENCES messages(id)`
+  - 部分インデックス: `idx_applications_scout_message_id` WHERE scout_message_id IS NOT NULL
+  - `src/types/database.ts` に型反映済み
+  - _Requirements: 11_
+
+- [x] S-2. 応募フォーム（CON-004）で scout_message_id を受け渡し・保存する
+  - `src/lib/validations/application.ts:19`: applicationSchema に `scoutMessageId: z.string().uuid().optional()` を追加
+  - `src/app/(authenticated)/jobs/[id]/apply/page.tsx:9,14,105`: searchParams から `scout_message_id` を取得し ApplicationForm に伝搬
+  - `src/app/(authenticated)/jobs/[id]/apply/application-form.tsx:23,71,92-96`: prop を受け取り FormData に含める。スカウト経由の場合は「スカウト経由の応募です」バナーを表示
+  - `src/app/(authenticated)/jobs/search-actions.ts:50,135-164`: applyJobAction で `is_scout=true` 検証後、INSERT に scout_message_id を含める
+  - _Requirements: 11_
+
+- [x] S-3. 各画面に「スカウト経由」バッジを表示する
+  - CON-011（応募履歴一覧）: `applications/history/page.tsx:47,178-181`
+  - CON-012（応募詳細）: `applications/history/[id]/page.tsx:166-169`
+  - CLI-007（応募一覧）: `applications/received/page.tsx:45,164-167`
+  - CLI-008（応募詳細）: `applications/received/[id]/page.tsx:32,158-161`
+  - バッジスタイル: `bg-[rgba(146,7,131,0.08)] text-primary/70 text-xs rounded-full px-2 py-0.5`
+  - _Requirements: 11_
+
+- [x] S-4. テスト実行と動作確認
+  - `npm run test` で 265 テスト全パス確認済み（messaging 機能完了時に確認）
+  - _Requirements: 11_
+
+## メール通知の名前表示修正
+
+- [x] NAME-1. acceptApplicationAction の clientName 修正
+  - `src/app/(authenticated)/applications/actions.ts:30` — `getApplicationWithDetails()` の SELECT に `organizations(name)` と `owner.company_name` の JOIN を追加
+  - `actions.ts:304-316` — `resolveParticipantName()` で clientName を解決（`organizations.name → owner.company_name → owner.last_name + first_name` の優先順）
+  - applicantName にも `company_name` フォールバック適用（`:304-308`）
+  - ハードコード `"発注者"` は撤去済み
+  - _Requirements: 6_
+
+- [x] NAME-2. rejectApplicationAction の clientName 修正
+  - `src/app/(authenticated)/applications/actions.ts:416-428` — NAME-1 と同じ名前解決パターンを適用
+  - _Requirements: 6_
+
 ## Requirements Coverage
 
 | Requirement | Tasks |
@@ -260,3 +301,4 @@
 | 8 (REQ-MT-008) 発注履歴詳細 | 1.2, 7.2 |
 | 9 (REQ-MT-009) 発注者 完了報告・評価 | 1.2, 2.1, 4.3, 7.3, 8.1, 8.3 |
 | 10 (REQ-MT-010) 発注者評価表示 | 7.4 |
+| 11 (REQ-MT-011) スカウト経由応募の連携 | S-1, S-2, S-3, S-4 |
