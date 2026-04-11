@@ -19,15 +19,28 @@
 --   org:         55555555-5555-5555-5555-555555555555
 -- 発注者2
 --   client2:     aabbccdd-1111-2222-3333-444455556666
+--   staff-admin: ee111111-1111-1111-1111-111111111111  (org_role=admin)
 -- 組織2
 --   org2:        aabbccdd-5555-5555-5555-555555555555
 -- 案件
 --   job1:        66666666-6666-6666-6666-666666666666
 --   job2:        77777777-7777-7777-7777-777777777777
+-- 発注者作業報告テスト用
+--   report_app:   aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac
 -- CLI-010 テスト用応募
 --   completed1:  cccccccc-cccc-cccc-cccc-cccccccccc01
 --   completed2:  cccccccc-cccc-cccc-cccc-cccccccccc02
 --   cancelled:   cccccccc-cccc-cccc-cccc-cccccccccc03
+-- スカウト連携テスト用
+--   scout_thread: eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01
+--   scout_msg:    ffffffff-ffff-ffff-ffff-ffffffffffff
+--   scout_app:    dddddddd-dddd-dddd-dddd-dddddddddd01
+--   scout_job:    88888888-8888-8888-8888-888888888899
+-- メッセージテスト用スレッド
+--   msg_thread_org_con2:  eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02
+--   msg_thread_org_con3:  eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03
+--   msg_thread_org_con4:  eeeeeeee-eeee-eeee-eeee-eeeeeeeeee04
+--   msg_thread_indiv_con: eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05
 
 -- ============================================================
 -- 1. auth.users（Supabase Auth ユーザー）
@@ -180,6 +193,34 @@ INSERT INTO auth.users (
     now(),
     now(),
     '', '', '', '', NULL, '', '', '', 0, '', false
+  ),
+  (
+    'dd111111-1111-2222-3333-444455556666',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'individual-client@test.local',
+    crypt('testpass123', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{}',
+    now(),
+    now(),
+    '', '', '', '', NULL, '', '', '', 0, '', false
+  ),
+  (
+    'ee111111-1111-1111-1111-111111111111',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'staff-admin@test.local',
+    crypt('testpass123', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{}',
+    now(),
+    now(),
+    '', '', '', '', NULL, '', '', '', 0, '', false
   );
 
 -- auth.identities（Supabase Auth が要求する）
@@ -200,7 +241,9 @@ INSERT INTO auth.identities (
   ('aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-1111-2222-3333-444455556666', 'client2@test.local',    '{"sub":"aabbccdd-1111-2222-3333-444455556666","email":"client2@test.local"}',    'email', now(), now(), now()),
   ('cc111111-1111-1111-1111-111111111111', 'cc111111-1111-1111-1111-111111111111', 'contractor2@test.local', '{"sub":"cc111111-1111-1111-1111-111111111111","email":"contractor2@test.local"}', 'email', now(), now(), now()),
   ('cc222222-2222-2222-2222-222222222222', 'cc222222-2222-2222-2222-222222222222', 'contractor3@test.local', '{"sub":"cc222222-2222-2222-2222-222222222222","email":"contractor3@test.local"}', 'email', now(), now(), now()),
-  ('cc333333-3333-3333-3333-333333333333', 'cc333333-3333-3333-3333-333333333333', 'contractor4@test.local', '{"sub":"cc333333-3333-3333-3333-333333333333","email":"contractor4@test.local"}', 'email', now(), now(), now());
+  ('cc333333-3333-3333-3333-333333333333', 'cc333333-3333-3333-3333-333333333333', 'contractor4@test.local', '{"sub":"cc333333-3333-3333-3333-333333333333","email":"contractor4@test.local"}', 'email', now(), now(), now()),
+  ('dd111111-1111-2222-3333-444455556666', 'dd111111-1111-2222-3333-444455556666', 'individual-client@test.local', '{"sub":"dd111111-1111-2222-3333-444455556666","email":"individual-client@test.local"}', 'email', now(), now(), now()),
+  ('ee111111-1111-1111-1111-111111111111', 'ee111111-1111-1111-1111-111111111111', 'staff-admin@test.local', '{"sub":"ee111111-1111-1111-1111-111111111111","email":"staff-admin@test.local"}', 'email', now(), now(), now());
 
 -- ============================================================
 -- 2. public.users（プロフィール情報）
@@ -235,7 +278,7 @@ UPDATE public.users SET
   ccus_verified = true
 WHERE id = '22222222-2222-2222-2222-222222222222';
 
--- 担当者
+-- 担当者（org_role = staff）
 UPDATE public.users SET
   role = 'staff',
   last_name = '佐藤',
@@ -246,6 +289,18 @@ UPDATE public.users SET
   company_name = '鈴木工務店株式会社',
   bio = '担当者として案件管理を行っています。'
 WHERE id = '33333333-3333-3333-3333-333333333333';
+
+-- 組織管理者（org_role = admin、users.role = staff）
+UPDATE public.users SET
+  role = 'staff',
+  last_name = '伊藤',
+  first_name = '真理',
+  gender = '女性',
+  birth_date = '1992-07-25',
+  prefecture = '神奈川県',
+  company_name = '鈴木工務店株式会社',
+  bio = '組織管理者として担当者の管理を行っています。'
+WHERE id = 'ee111111-1111-1111-1111-111111111111';
 
 -- 発注者2（別の発注者）
 UPDATE public.users SET
@@ -311,6 +366,20 @@ UPDATE public.users SET
   bio = '内装工事を中心に活動しています。クロス張り替えが得意です。'
 WHERE id = 'cc333333-3333-3333-3333-333333333333';
 
+-- 個人発注者（組織なし）— 個人発注者様向けプラン
+UPDATE public.users SET
+  role = 'client',
+  last_name = '中村',
+  first_name = '由美',
+  gender = '女性',
+  birth_date = '1988-07-22',
+  prefecture = '埼玉県',
+  company_name = '中村リフォーム',
+  bio = '個人で小規模リフォームの発注をしています。',
+  identity_verified = true,
+  ccus_verified = false
+WHERE id = 'dd111111-1111-2222-3333-444455556666';
+
 -- ============================================================
 -- 2.5 identity_verifications（本人確認・CCUS 承認済みレコード）
 -- identity_verified = true にするなら identity_verifications にも対応レコードを用意する
@@ -324,7 +393,8 @@ INSERT INTO identity_verifications (user_id, document_type, document_url_1, stat
   ('cc111111-1111-1111-1111-111111111111', 'identity', 'dummy/identity-doc.png', 'approved', now()),
   ('cc111111-1111-1111-1111-111111111111', 'ccus', 'dummy/ccus-doc.png', 'approved', now()),
   ('cc222222-2222-2222-2222-222222222222', 'identity', 'dummy/identity-doc.png', 'approved', now()),
-  ('aabbccdd-1111-2222-3333-444455556666', 'identity', 'dummy/identity-doc.png', 'approved', now());
+  ('aabbccdd-1111-2222-3333-444455556666', 'identity', 'dummy/identity-doc.png', 'approved', now()),
+  ('dd111111-1111-2222-3333-444455556666', 'identity', 'dummy/identity-doc.png', 'approved', now());
 
 -- ============================================================
 -- 3. user_skills（受注者のスキル）
@@ -372,7 +442,8 @@ INSERT INTO user_available_areas (user_id, prefecture) VALUES
 
 INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end) VALUES
   ('22222222-2222-2222-2222-222222222222', 'corporate', 'active', now(), now() + interval '30 days'),
-  ('aabbccdd-1111-2222-3333-444455556666', 'basic', 'active', now(), now() + interval '30 days');
+  ('aabbccdd-1111-2222-3333-444455556666', 'basic', 'active', now(), now() + interval '30 days'),
+  ('dd111111-1111-2222-3333-444455556666', 'basic', 'active', now(), now() + interval '30 days');
 
 -- ============================================================
 -- 7. organizations + organization_members
@@ -383,11 +454,12 @@ INSERT INTO organizations (id, name, owner_id) VALUES
   ('55555555-5555-5555-5555-555555555555', '鈴木工務店株式会社', '22222222-2222-2222-2222-222222222222'),
   ('aabbccdd-5555-5555-5555-555555555555', '山田建設株式会社', 'aabbccdd-1111-2222-3333-444455556666');
 
--- メンバー: 発注者 = owner、担当者 = staff
-INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
-  ('55555555-5555-5555-5555-555555555555', '22222222-2222-2222-2222-222222222222', 'owner'),
-  ('55555555-5555-5555-5555-555555555555', '33333333-3333-3333-3333-333333333333', 'staff'),
-  ('aabbccdd-5555-5555-5555-555555555555', 'aabbccdd-1111-2222-3333-444455556666', 'owner');
+-- メンバー: 発注者 = owner、組織管理者 = admin、担当者 = staff（代理アカウント）
+INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account) VALUES
+  ('55555555-5555-5555-5555-555555555555', '22222222-2222-2222-2222-222222222222', 'owner', false),
+  ('55555555-5555-5555-5555-555555555555', '33333333-3333-3333-3333-333333333333', 'staff', true),
+  ('55555555-5555-5555-5555-555555555555', 'ee111111-1111-1111-1111-111111111111', 'admin', false),
+  ('aabbccdd-5555-5555-5555-555555555555', 'aabbccdd-1111-2222-3333-444455556666', 'owner', false);
 
 -- ============================================================
 -- 8. client_profiles（発注者プロフィール）
@@ -395,7 +467,8 @@ INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
 
 INSERT INTO client_profiles (user_id, display_name, recruit_area, recruit_job_types, working_way, employee_scale, message, language) VALUES
   ('22222222-2222-2222-2222-222222222222', '鈴木工務店', '{"神奈川県","東京都"}', '{"大工","内装工","電気工事士"}', '1日から可', 15, '一緒に働いてくれる職人さんを募集しています。', '日本語'),
-  ('aabbccdd-1111-2222-3333-444455556666', '山田建設', '{"東京都","埼玉県"}', '{"大工","鉄筋工","型枠大工"}', '長期歓迎', 30, '大規模建築を中心に手がけています。職人さん大募集中です。', '日本語・英語');
+  ('aabbccdd-1111-2222-3333-444455556666', '山田建設', '{"東京都","埼玉県"}', '{"大工","鉄筋工","型枠大工"}', '長期歓迎', 30, '大規模建築を中心に手がけています。職人さん大募集中です。', '日本語・英語'),
+  ('dd111111-1111-2222-3333-444455556666', '中村リフォーム', '{"埼玉県","東京都"}', '{"大工","内装工"}', '1日から可', 1, '小規模リフォームの発注をしています。', '日本語');
 
 -- ============================================================
 -- 9. jobs（テスト用案件）
@@ -626,6 +699,27 @@ INSERT INTO available_schedules (user_id, start_date, end_date, note) VALUES
 -- ============================================================
 -- Note: user_reviews requires application_id. Create test applications first.
 
+-- 個人発注者の案件（organization_id なし）
+INSERT INTO jobs (id, owner_id, organization_id, title, description, prefecture, address, trade_type, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
+  (
+    '99999999-9999-9999-9999-999999999999',
+    'dd111111-1111-2222-3333-444455556666',
+    NULL,
+    '自宅キッチンリフォーム',
+    '埼玉県の自宅キッチンのリフォーム工事です。',
+    '埼玉県',
+    'さいたま市大宮区',
+    '内装工',
+    1,
+    25000,
+    20000,
+    CURRENT_DATE,
+    CURRENT_DATE + 30,
+    CURRENT_DATE,
+    CURRENT_DATE + 60,
+    'open'
+  );
+
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '7 days', 'accepted', CURRENT_DATE + interval '10 days'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab', '77777777-7777-7777-7777-777777777777', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'accepted', CURRENT_DATE + interval '21 days');
@@ -644,6 +738,10 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc', '66666666-6666-6666-6666-666666666666', 'cc111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '20 days', 'applied', '塗装工事の経験を活かして内装工事にも挑戦したいです。'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbd', '77777777-7777-7777-7777-777777777777', 'cc222222-2222-2222-2222-222222222222', 1, 'スポット', CURRENT_DATE + interval '14 days', 'applied', '電気配線関連の作業を担当できます。'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbe', '88888888-8888-8888-8888-888888888881', 'cc333333-3333-3333-3333-333333333333', 1, '常勤', CURRENT_DATE + interval '12 days', 'applied', '千葉県在住なので通いやすいです。よろしくお願いします。');
+
+-- E2Eテスト用: 発注者作業報告テスト用応募（受注者3 → 東京マンション内装、accepted）
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac', '88888888-8888-8888-8888-888888888882', 'cc222222-2222-2222-2222-222222222222', 1, '常勤', CURRENT_DATE + interval '5 days', 'accepted', CURRENT_DATE + interval '7 days');
 
 -- contractor1 の1件目のみ評価済み（発注済み表示）、2件目は未評価（評価登録未入力表示）
 INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools, comment) VALUES
@@ -665,6 +763,75 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
 INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools, comment) VALUES
   ('cccccccc-cccc-cccc-cccc-cccccccccc01', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', 'good', 'good', 'good', 'good', 'good', 'good', '作業が丁寧で、時間通りに来てくれました。道具も揃っていて安心でした。'),
   ('cccccccc-cccc-cccc-cccc-cccccccccc02', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', 'good', 'good', 'good', 'bad', 'good', 'good', '丁寧な作業でしたが、もう少しスピードが欲しかったです。');
+
+-- ============================================================
+-- 14. スカウト経由応募テスト用データ（E2E: scout → application flow）
+-- ============================================================
+-- スレッド: client(22222222) → contractor(11111111) のスカウトスレッド
+-- organization_id は client の組織 (55555555)
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, thread_type, organization_id) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'scout', '55555555-5555-5555-5555-555555555555');
+
+-- スカウトメッセージ: client が contractor に job1(66666666) のスカウトを送信（受諾済み）
+INSERT INTO messages (id, thread_id, sender_id, body, job_id, is_scout, scout_status) VALUES
+  ('ffffffff-ffff-ffff-ffff-ffffffffffff', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', '22222222-2222-2222-2222-222222222222', '塗装の経験が豊富な職人さんを探しています。ぜひご応募ください。', '66666666-6666-6666-6666-666666666666', true, 'accepted');
+
+-- スカウト経由の応募: contractor が client2 の案件（88888888-...-888888888884）にスカウト経由で応募
+-- 新しい案件を1件追加（スカウト応募テスト専用）
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_type, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date, prefecture)
+VALUES ('88888888-8888-8888-8888-888888888899', '22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', 'スカウトテスト用案件（内装工事）', 'スカウト経由応募のE2Eテスト用案件', '内装工', 2, 'open', 20000, 25000, CURRENT_DATE, CURRENT_DATE + 60, CURRENT_DATE, CURRENT_DATE + 30, '東京都');
+
+-- スカウト経由応募（scout_message_id 付き）
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, scout_message_id) VALUES
+  ('dddddddd-dddd-dddd-dddd-dddddddddd01', '88888888-8888-8888-8888-888888888899', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'applied', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
+
+-- 応募フォーム表示テスト用案件（contractor の職種「内装工」+エリア「東京都」に合致、未応募）
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_type, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date, prefecture)
+VALUES ('88888888-8888-8888-8888-888888888898', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', '応募フォームテスト用案件', 'E2Eテスト用', '内装工', 1, 'open', 18000, 22000, CURRENT_DATE, CURRENT_DATE + 60, CURRENT_DATE, CURRENT_DATE + 30, '東京都');
+
+-- ============================================================
+-- 15. メッセージ機能テスト用スレッド＆メッセージ
+-- ============================================================
+-- 鈴木工務店(org) ↔ 受注者2(contractor2): 通常メッセージ
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, thread_type, organization_id) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', 'message', '55555555-5555-5555-5555-555555555555'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', '22222222-2222-2222-2222-222222222222', 'cc222222-2222-2222-2222-222222222222', 'message', '55555555-5555-5555-5555-555555555555'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee04', '22222222-2222-2222-2222-222222222222', 'cc333333-3333-3333-3333-333333333333', 'message', '55555555-5555-5555-5555-555555555555');
+
+-- 個人発注者(individual-client) ↔ 受注者1(contractor): 通常メッセージ（組織なし）
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, thread_type, organization_id) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05', 'dd111111-1111-2222-3333-444455556666', '11111111-1111-1111-1111-111111111111', 'message', NULL);
+
+-- サンプルメッセージ（各スレッドに2〜3通、最終メッセージの日時を変えて一覧の並び順を確認可能に）
+
+-- スレッド02: 鈴木工務店 ↔ 受注者2（高橋美咲）
+INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02', '22222222-2222-2222-2222-222222222222', '高橋さん、先日はお疲れ様でした。次の現場のご相談をしたいのですが。', false, false, now() - interval '3 days'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02', 'cc111111-1111-1111-1111-111111111111', 'ありがとうございます。ぜひお話を聞かせてください。', false, false, now() - interval '2 days 23 hours'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02', '22222222-2222-2222-2222-222222222222', '来週の月曜日に横浜の現場で打ち合わせはいかがでしょうか？', false, false, now() - interval '2 days');
+
+-- スレッド03: 鈴木工務店 ↔ 受注者3（渡辺大輔）
+INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', '22222222-2222-2222-2222-222222222222', '渡辺さん、電気工事の件でご連絡です。品川の現場について詳細をお送りします。', false, false, now() - interval '1 day'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', 'cc222222-2222-2222-2222-222222222222', '承知しました。詳細を確認します。', false, false, now() - interval '23 hours');
+
+-- スレッド04: 鈴木工務店 ↔ 受注者4（小林さくら）— 未読メッセージあり
+INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee04', '22222222-2222-2222-2222-222222222222', '小林さん、内装工事の案件のご案内です。', false, false, now() - interval '5 hours'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee04', 'cc333333-3333-3333-3333-333333333333', 'ありがとうございます。内容を確認いたします。', false, false, now() - interval '4 hours'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee04', '22222222-2222-2222-2222-222222222222', '確認できましたらご連絡ください。よろしくお願いします。', false, false, now() - interval '3 hours');
+
+-- スレッド05: 個人発注者 ↔ 受注者1（田中一郎）
+INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05', 'dd111111-1111-2222-3333-444455556666', '田中さん、キッチンリフォームの件でご相談があります。', false, false, now() - interval '6 hours'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05', '11111111-1111-1111-1111-111111111111', 'はい、お気軽にどうぞ。どのような工事をご検討ですか？', false, false, now() - interval '5 hours 30 minutes'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05', 'dd111111-1111-2222-3333-444455556666', '壁紙の張り替えとフローリングの交換を考えています。見積もりをお願いできますか？', false, false, now() - interval '5 hours');
+
+-- updated_at をスレッドごとに更新（一覧の並び順に反映）
+UPDATE message_threads SET updated_at = now() - interval '2 days' WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02';
+UPDATE message_threads SET updated_at = now() - interval '23 hours' WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03';
+UPDATE message_threads SET updated_at = now() - interval '3 hours' WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee04';
+UPDATE message_threads SET updated_at = now() - interval '5 hours' WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05';
 
 -- ============================================================
 -- 13. Storage バケット（マイグレーション 008 で作成済みだが、seed でも冪等に作成）

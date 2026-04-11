@@ -142,14 +142,14 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
     return (
       <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-heading-lg font-bold text-secondary">
-            募集現場詳細
-          </h1>
-          {job.status === "open" && (
+        <h1 className="text-center text-heading-lg font-bold text-secondary">
+          募集現場詳細
+        </h1>
+        {job.status === "open" && (
+          <div className="mt-3 flex justify-center">
             <CloseJobButton jobId={id} />
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Status badge */}
         <div className="mt-2">
@@ -338,7 +338,8 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
 
   // --- Applicant view (CON-003) ---
 
-  const hideApplyButton = canManage;
+  // Hide apply button for: own jobs, same org jobs, and staff (staff cannot apply per roles-and-permissions.md)
+  const hideApplyButton = canManage || userData?.role === "staff";
 
   // Check favorite status
   const { data: favorite } = await supabase
@@ -397,7 +398,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
 
   return (
     <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
-      <h1 className="text-heading-lg font-bold text-secondary">募集案件詳細</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">募集案件詳細</h1>
 
       {/* Title + Company */}
       <h2 className="mt-4 text-heading-md font-bold text-foreground">

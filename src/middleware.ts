@@ -50,6 +50,8 @@ const CLIENT_ONLY_PREFIXES = [
   "/users/contractors", // CLI-005~006: contractor search (alternative path)
   "/applications/received", // CLI-007~009: received applications
   "/applications/orders", // CLI-010~012: order history
+  "/messages/bulk-send", // CLI-014: bulk message send
+  "/messages/scout-send", // CLI-015: scout send
 ] as const;
 
 /**
@@ -241,7 +243,21 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Client and staff: no additional blocking needed beyond /admin/* (already handled)
+  // Staff: block contractor action routes (apply, application history, availability)
+  // Staff can VIEW CON screens (job search, detail, etc.) but cannot perform contractor actions
+  if (role === "staff") {
+    // Block /jobs/[id]/apply specifically (not /jobs/search or /jobs/[id] viewing)
+    if (pathname.match(/^\/jobs\/[^/]+\/apply/)) {
+      return redirectTo(request, "/mypage");
+    }
+    // Block application history and availability routes
+    if (
+      pathname.startsWith("/applications/history") ||
+      pathname.startsWith("/availability")
+    ) {
+      return redirectTo(request, "/mypage");
+    }
+  }
 
   return supabaseResponse;
 }
