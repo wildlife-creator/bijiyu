@@ -48,7 +48,7 @@ const LEGAL_SECTIONS = [
 export default function LegalPage() {
   return (
     <div className="space-y-8">
-      <h1 className="text-center text-heading-lg font-bold">
+      <h1 className="text-center text-heading-lg font-bold text-secondary">
         特商法に関わる表示
       </h1>
 

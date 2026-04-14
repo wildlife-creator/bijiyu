@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveParticipantName } from "@/lib/utils/display-name";
+import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
@@ -37,7 +40,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
       id, title, description, trade_type, prefecture,
       reward_lower, reward_upper, is_urgent,
       recruit_start_date, recruit_end_date, created_at,
-      users!jobs_owner_id_fkey(company_name),
+      owner_id,
       job_images(image_url, sort_order)
     `,
       { count: "exact" },
@@ -87,6 +90,30 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
 
   const { data: jobs, count } = await query;
 
+  // オーナーの表示名を解決。法人プラン（active）のときのみ組織名を使う
+  const ownerIds = Array.from(new Set((jobs ?? []).map((j) => j.owner_id)));
+  const admin = createAdminClient();
+  const [ownerRowsResult, orgNameByOwnerId] = await Promise.all([
+    admin
+      .from("users")
+      .select("id, company_name, last_name, first_name, deleted_at")
+      .in("id", ownerIds.length > 0 ? ownerIds : ["__none__"]),
+    getActiveCorporateOrgNames(admin, ownerIds),
+  ]);
+  const ownerNameById = new Map<string, string>();
+  for (const row of ownerRowsResult.data ?? []) {
+    ownerNameById.set(
+      row.id,
+      resolveParticipantName({
+        organizationName: orgNameByOwnerId.get(row.id) ?? null,
+        companyName: row.company_name,
+        lastName: row.last_name,
+        firstName: row.first_name,
+        deletedAt: row.deleted_at,
+      }),
+    );
+  }
+
   // Get user's favorites for these jobs
   const jobIds = (jobs ?? []).map((j) => j.id);
   const { data: favorites } = await supabase
@@ -102,7 +129,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     <div className="min-h-dvh bg-muted">
       {/* Header */}
       <div className="bg-background px-6 py-4 md:px-12">
-        <h1 className="text-heading-lg font-bold text-secondary">
+        <h1 className="text-center text-heading-lg font-bold text-secondary">
           募集案件一覧
         </h1>
       </div>
@@ -143,9 +170,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
         {/* Job cards grid */}
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">
           {(jobs ?? []).map((job) => {
-            const companyName =
-              (job.users as unknown as { company_name: string | null })
-                ?.company_name ?? null;
+            const companyName = ownerNameById.get(job.owner_id) ?? null;
             const images = (job.job_images as Array<{
               image_url: string;
               sort_order: number;

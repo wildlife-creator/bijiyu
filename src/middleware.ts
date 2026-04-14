@@ -1,9 +1,22 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  FEE_COOKIE_NAME,
+  getFeeCookieOptions,
+  sealFeeCookie,
+} from "@/lib/billing/fee-cookie";
 import type { Database } from "@/types/database";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
+
+// Headers exposed to (authenticated) layout for PastDueBanner.
+// Read by Server Components via `headers()` to avoid duplicate
+// subscriptions SELECTs per request (Task 2 軽 4).
+const HEADER_BILLING_STATUS = "x-billing-status";
+const HEADER_PAST_DUE_SINCE = "x-past-due-since";
+
+const BILLING_PATH = "/billing";
 
 // Public routes that skip authentication checks entirely
 const PUBLIC_PATH_PREFIXES = [
@@ -128,11 +141,25 @@ function redirectToLoginWithError(
 }
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
 
   // Skip public routes (static files, auth callback, webhooks)
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
+  }
+
+  // -----------------------------------------------------------------
+  // fee=free Cookie set side
+  //   /billing?fee=free を検出したら sealed payload を計算しておく。
+  //   実際のセットは finalize() で行う（redirect レスポンスにも貼るため）。
+  // -----------------------------------------------------------------
+  let pendingFeeCookie: string | null = null;
+  if (pathname === BILLING_PATH && searchParams.get("fee") === "free") {
+    try {
+      pendingFeeCookie = await sealFeeCookie({ feeExempt: true });
+    } catch {
+      // SESSION_SECRET が未設定 → ローカル開発時の事故を避けるため握りつぶす
+    }
   }
 
   // Create Supabase client with cookie handling for middleware
@@ -164,14 +191,55 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Will be populated below if the user is authenticated.
+  // Default values mean "do nothing" for unauthenticated requests.
+  let billingStatus: "active" | "past_due" | "none" = "none";
+  let pastDueSince: string | null = null;
+  let billingHeadersAvailable = false;
+
+  /**
+   * Apply pending billing-related state (headers + fee=free Cookie set/delete)
+   * to whichever response we are about to return. Must be called at every
+   * return point so that even auth-redirects preserve the fee=free Cookie.
+   *
+   * Cookie ルール:
+   *   - 課金済み（active / past_due）かつ pathname が /billing → 新規 Cookie は
+   *     セットしない。既存 Cookie があれば削除する（不要になった旧 Cookie の掃除）。
+   *   - それ以外で pendingFeeCookie が用意されていればセット。
+   *   この優先順位により、課金済みユーザーが /billing?fee=free を踏んでも
+   *   Cookie は付与されない（fee=free は新規申込専用のフロー）。
+   */
+  function finalize(response: NextResponse): NextResponse {
+    if (billingHeadersAvailable) {
+      response.headers.set(HEADER_BILLING_STATUS, billingStatus);
+      if (billingStatus === "past_due" && pastDueSince) {
+        response.headers.set(HEADER_PAST_DUE_SINCE, pastDueSince);
+      }
+    }
+
+    const isPaid = billingStatus !== "none";
+
+    if (pathname === BILLING_PATH && isPaid) {
+      if (request.cookies.has(FEE_COOKIE_NAME)) {
+        response.cookies.delete(FEE_COOKIE_NAME);
+      }
+      return response;
+    }
+
+    if (pendingFeeCookie) {
+      response.cookies.set(FEE_COOKIE_NAME, pendingFeeCookie, getFeeCookieOptions());
+    }
+    return response;
+  }
+
   // --- Unauthenticated user routing ---
   if (!user) {
     // Allow access to auth pages and public pages
     if (isAuthPage(pathname) || isPublicPage(pathname)) {
-      return supabaseResponse;
+      return finalize(supabaseResponse);
     }
     // Redirect all other routes to login
-    return redirectTo(request, "/login");
+    return finalize(redirectTo(request, "/login"));
   }
 
   // --- Authenticated user: fetch role from DB ---
@@ -185,37 +253,61 @@ export async function middleware(request: NextRequest) {
   if (!userData) {
     // Allow auth pages and registration flow
     if (isAuthPage(pathname) || pathname.startsWith("/register")) {
-      return supabaseResponse;
+      return finalize(supabaseResponse);
     }
-    return redirectTo(request, "/register/profile");
+    return finalize(redirectTo(request, "/register/profile"));
   }
 
   // Check if account is deactivated
   if (!userData.is_active) {
-    return redirectToLoginWithError(
-      request,
-      "アカウントが一時停止されています。詳しくは管理者にお問い合わせください",
+    return finalize(
+      redirectToLoginWithError(
+        request,
+        "アカウントが一時停止されています。詳しくは管理者にお問い合わせください",
+      ),
     );
   }
 
   // Check if account is soft-deleted
   if (userData.deleted_at) {
-    return redirectToLoginWithError(
-      request,
-      "このアカウントは退会済みです",
+    return finalize(
+      redirectToLoginWithError(request, "このアカウントは退会済みです"),
     );
   }
 
   const role: UserRole = userData.role;
+
+  // -----------------------------------------------------------------
+  // Billing 状態の統合 SELECT （Task 2 軽 4）
+  //   認証済みリクエスト全般で 1 回だけ subscriptions を SELECT し、
+  //   結果を以下 2 つの目的で再利用する:
+  //     (a) x-billing-status / x-past-due-since ヘッダーで PastDueBanner
+  //         に渡す（layout が headers() で読み取る）
+  //     (b) /billing で active/past_due があれば fee=free Cookie を削除
+  // -----------------------------------------------------------------
+  const { data: subData } = await supabase
+    .from("subscriptions")
+    .select("status, past_due_since, created_at")
+    .eq("user_id", user.id)
+    .in("status", ["active", "past_due"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  billingStatus = subData
+    ? (subData.status as "active" | "past_due")
+    : "none";
+  pastDueSince = subData?.past_due_since ?? null;
+  billingHeadersAvailable = true;
 
   // --- Authenticated user accessing auth pages → redirect to mypage ---
   // Exception: /reset-password/confirm must be accessible by authenticated users
   // (recovery flow sets the session before redirecting to this page)
   if (isAuthPage(pathname) && pathname !== "/reset-password/confirm") {
     if (role === "admin") {
-      return redirectTo(request, "/admin/dashboard");
+      return finalize(redirectTo(request, "/admin/dashboard"));
     }
-    return redirectTo(request, "/mypage");
+    return finalize(redirectTo(request, "/mypage"));
   }
 
   // --- Role-based routing ---
@@ -223,23 +315,23 @@ export async function middleware(request: NextRequest) {
   // Admin: only allow /admin/* routes, redirect everything else
   if (role === "admin") {
     if (isAdminRoute(pathname)) {
-      return supabaseResponse;
+      return finalize(supabaseResponse);
     }
-    return redirectTo(request, "/admin/dashboard");
+    return finalize(redirectTo(request, "/admin/dashboard"));
   }
 
   // Non-admin roles: block /admin/* routes
   if (isAdminRoute(pathname)) {
-    return redirectTo(request, "/mypage");
+    return finalize(redirectTo(request, "/mypage"));
   }
 
   // Contractor (free user): block client-only paths but allow /billing/*
   if (role === "contractor") {
     if (pathname.startsWith(BILLING_PATH_PREFIX)) {
-      return supabaseResponse;
+      return finalize(supabaseResponse);
     }
     if (isClientOnlyRoute(pathname)) {
-      return redirectTo(request, "/mypage");
+      return finalize(redirectTo(request, "/mypage"));
     }
   }
 
@@ -248,18 +340,18 @@ export async function middleware(request: NextRequest) {
   if (role === "staff") {
     // Block /jobs/[id]/apply specifically (not /jobs/search or /jobs/[id] viewing)
     if (pathname.match(/^\/jobs\/[^/]+\/apply/)) {
-      return redirectTo(request, "/mypage");
+      return finalize(redirectTo(request, "/mypage"));
     }
     // Block application history and availability routes
     if (
       pathname.startsWith("/applications/history") ||
       pathname.startsWith("/availability")
     ) {
-      return redirectTo(request, "/mypage");
+      return finalize(redirectTo(request, "/mypage"));
     }
   }
 
-  return supabaseResponse;
+  return finalize(supabaseResponse);
 }
 
 export const config = {

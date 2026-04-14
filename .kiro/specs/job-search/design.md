@@ -236,7 +236,7 @@ sequenceDiagram
 
 **Server Action チェック順序（security.md 準拠）**:
 1. 認証チェック: ログイン済みか確認（未認証ならエラー）
-2. ロールチェック: user.role が 'contractor', 'client', 'staff' のいずれかであることを確認
+2. ロールチェック: user.role が 'contractor' または 'client' であることを確認（'staff' は応募不可 — roles-and-permissions.md「担当者と受注者アクションの制限」参照）
 3. FormData 抽出 + Zod バリデーション: applicationSchema でバリデーション
 4. 案件ステータスチェック: 応募先の案件が status = 'open' かつ deleted_at IS NULL
 5. 重複応募チェック: 同一 applicant_id + job_id で status NOT IN ('cancelled') のレコードが存在しないこと
@@ -407,7 +407,7 @@ interface JobListCardProps {
 
 ```typescript
 interface CanApplyJobParams {
-  userRole: 'contractor' | 'client' | 'staff';
+  userRole: 'contractor' | 'client';  // staff は応募不可のため含まない
   isPaidUser: boolean; // subscriptions.status IN ('active', 'past_due') で判定。DB の is_paid_user() 関数と同等
   jobTradeType: string;
   jobPrefecture: string;
@@ -425,7 +425,7 @@ function canApplyJob(params: CanApplyJobParams): CanApplyJobResult;
 
 - 有料ユーザーの判定: subscriptions テーブルで status IN ('active', 'past_due') のレコードが存在するかで判定する
   - past_due（支払い遅延中）のユーザーも猶予期間中は有料ユーザーとして扱う（roles-and-permissions.md に準拠）
-  - staff ロール（法人プランの担当者）も有料ユーザーとして扱う
+  - staff ロール（法人プランの担当者）は応募不可のため canApplyJob の対象外。CON-003 では応募ボタン自体を非表示にする
 - DB の is_paid_user() ヘルパー関数と同じロジックをサーバーサイドで再現する
 - 有料ユーザー（`isPaidUser = true`）は常に `canApply: true`
 - 無料ユーザー: `jobTradeType` が `userSkills` に含まれ、かつ `jobPrefecture` が `userAvailableAreas` に含まれる場合のみ `canApply: true`
@@ -720,7 +720,7 @@ const applicationSchema = z.object({
 
 | 層 | 対象 | job-search での適用 |
 |----|------|-------------------|
-| Middleware（第1層） | ルーティング制御 | CON-002〜007: ログイン済みユーザーのみ。CLI-005/006: role = 'client' または 'staff' のみ |
+| Middleware（第1層） | ルーティング制御 | CON-002〜003, 005〜010: 認証済み全ロールに開放。CON-004: 担当者（staff）をブロック。CLI-005/006: role = 'client' または 'staff' のみ |
 | Server Action（第2層） | ビジネスロジック | applyJobAction: 認証→ロール→Zod→案件ステータス→重複→応募制限の順でチェック。toggleFavoriteAction: 認証→ロール×target_type→対象存在チェック |
 | RLS（第3層） | データアクセス | 下記テーブル別ポリシー参照 |
 

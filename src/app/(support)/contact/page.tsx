@@ -75,7 +75,7 @@ export default function ContactPage() {
   if (submitted) {
     return (
       <div className="space-y-8">
-        <h1 className="text-center text-heading-lg font-bold">お問い合わせ</h1>
+        <h1 className="text-center text-heading-lg font-bold text-secondary">お問い合わせ</h1>
 
         <div className="space-y-4 text-center">
           <p className="text-body-md">
@@ -97,7 +97,7 @@ export default function ContactPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-center text-heading-lg font-bold">お問い合わせ</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">お問い合わせ</h1>
 
       {serverError && (
         <p className="text-center text-body-sm text-destructive">

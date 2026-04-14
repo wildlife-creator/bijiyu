@@ -79,10 +79,10 @@ export default async function VerificationPage() {
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8">
-      <h1 className="text-heading-lg font-bold text-foreground">
+      <h1 className="text-center text-heading-lg font-bold text-secondary">
         本人確認・CCUS登録
       </h1>
-      <p className="mt-2 text-body-md text-muted-foreground">
+      <p className="mt-2 text-center text-body-md text-muted-foreground">
         ビジ友をご利用いただくために、以下の2つのステップを完了してください。
       </p>
 

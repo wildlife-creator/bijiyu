@@ -40,7 +40,7 @@ const PRIVACY_SECTIONS = [
 export default function PrivacyPage() {
   return (
     <div className="space-y-8">
-      <h1 className="text-center text-heading-lg font-bold">
+      <h1 className="text-center text-heading-lg font-bold text-secondary">
         プライバシーポリシー
       </h1>
 

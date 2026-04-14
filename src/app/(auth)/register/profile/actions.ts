@@ -39,7 +39,7 @@ export async function completeRegistrationAction(
     p_gender: data.gender,
     p_birth_date: data.birthDate,
     p_prefecture: data.prefecture,
-    p_company_name: data.companyName ?? null,
+    p_company_name: data.companyName ?? undefined,
     p_skills: skillsJsonb,
     p_areas: data.availableAreas,
   });

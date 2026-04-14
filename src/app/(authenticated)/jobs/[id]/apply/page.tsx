@@ -1,7 +1,10 @@
 import { redirect, notFound } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { canApplyJob } from "@/lib/utils/can-apply-job";
+import { resolveParticipantName } from "@/lib/utils/display-name";
+import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 import { ApplicationForm } from "./application-form";
 
 interface PageProps {
@@ -23,7 +26,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      "id, title, trade_type, prefecture, reward_lower, reward_upper, work_hours, users!jobs_owner_id_fkey(company_name)",
+      "id, title, trade_type, prefecture, reward_lower, reward_upper, work_hours, owner_id, users!jobs_owner_id_fkey(company_name, last_name, first_name, deleted_at)",
     )
     .eq("id", id)
     .eq("status", "open")
@@ -75,9 +78,25 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     }
   }
 
-  const companyName =
-    (job.users as unknown as { company_name: string | null })?.company_name ??
-    null;
+  // 法人プラン（active）の場合のみ組織名を使う
+  const admin = createAdminClient();
+  const ownerOrgNameMap = await getActiveCorporateOrgNames(admin, [job.owner_id]);
+  const ownerOrgName = ownerOrgNameMap.get(job.owner_id) ?? null;
+  const ownerUser = job.users as unknown as {
+    company_name: string | null;
+    last_name: string | null;
+    first_name: string | null;
+    deleted_at: string | null;
+  } | null;
+  const companyName = ownerUser
+    ? resolveParticipantName({
+        organizationName: ownerOrgName,
+        companyName: ownerUser.company_name,
+        lastName: ownerUser.last_name,
+        firstName: ownerUser.first_name,
+        deletedAt: ownerUser.deleted_at,
+      })
+    : null;
 
   return (
     <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">

@@ -13,6 +13,7 @@ import { sendEmail } from "@/lib/email/send-email";
 import { matchingAcceptedEmail } from "@/lib/email/templates/matching-accepted";
 import { matchingRejectedEmail } from "@/lib/email/templates/matching-rejected";
 import { resolveParticipantName } from "@/lib/utils/display-name";
+import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 import type { ActionResult } from "@/lib/types/action-result";
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -306,10 +307,16 @@ export async function acceptApplicationAction(
         lastName: applicant.last_name,
         firstName: applicant.first_name,
       });
-      const org = (job as { organizations?: { name: string } | null }).organizations;
       const owner = (job as { owner?: { last_name: string | null; first_name: string | null; company_name: string | null } | null }).owner;
+      // 法人プラン active のオーナーのみ組織名を使う（ダウングレード後は company_name にフォールバック）
+      const admin = createAdminClient();
+      const ownerOrgNameMap = job.owner_id
+        ? await getActiveCorporateOrgNames(admin, [job.owner_id as string])
+        : new Map<string, string>();
       const clientName = resolveParticipantName({
-        organizationName: org?.name,
+        organizationName: job.owner_id
+          ? (ownerOrgNameMap.get(job.owner_id as string) ?? null)
+          : null,
         companyName: owner?.company_name,
         lastName: owner?.last_name,
         firstName: owner?.first_name,
@@ -418,10 +425,16 @@ export async function rejectApplicationAction(
         lastName: applicant.last_name,
         firstName: applicant.first_name,
       });
-      const org = (job as { organizations?: { name: string } | null }).organizations;
       const owner = (job as { owner?: { last_name: string | null; first_name: string | null; company_name: string | null } | null }).owner;
+      // 法人プラン active のオーナーのみ組織名を使う
+      const admin = createAdminClient();
+      const ownerOrgNameMap = job.owner_id
+        ? await getActiveCorporateOrgNames(admin, [job.owner_id as string])
+        : new Map<string, string>();
       const clientName = resolveParticipantName({
-        organizationName: org?.name,
+        organizationName: job.owner_id
+          ? (ownerOrgNameMap.get(job.owner_id as string) ?? null)
+          : null,
         companyName: owner?.company_name,
         lastName: owner?.last_name,
         firstName: owner?.first_name,

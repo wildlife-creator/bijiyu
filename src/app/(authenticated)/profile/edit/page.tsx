@@ -292,7 +292,7 @@ export default function ProfileEditPage() {
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8 md:max-w-2xl md:mx-auto">
-      <h1 className="text-heading-lg font-bold">ユーザープロフィール編集</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">ユーザープロフィール編集</h1>
 
       {serverError && (
         <p className="mt-4 text-body-sm text-destructive">{serverError}</p>

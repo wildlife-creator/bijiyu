@@ -27,6 +27,7 @@ interface Job {
   recruit_start_date: string | null;
   headcount: number | null;
   status: "draft" | "open" | "closed";
+  is_urgent: boolean;
   created_at: string;
   thumbnailUrl: string | null;
   companyName: string | null;
@@ -153,8 +154,13 @@ export function JobListClient({
               <div className="relative aspect-[16/9] w-full bg-muted">
                 <JobThumbnail src={job.thumbnailUrl} alt={job.title} />
                 {/* Status badge overlay */}
-                <div className="absolute left-2 top-2">
+                <div className="absolute left-2 top-2 flex gap-1">
                   <StatusBadge status={job.status} />
+                  {job.is_urgent && (
+                    <Badge className="rounded-[33px] bg-destructive text-destructive-foreground">
+                      急募
+                    </Badge>
+                  )}
                 </div>
               </div>
 

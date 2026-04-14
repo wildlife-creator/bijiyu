@@ -6,7 +6,9 @@ import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { createClient } from "@/lib/supabase/server";
-import { getUserDisplayName } from "@/lib/utils/display-name";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveParticipantName } from "@/lib/utils/display-name";
+import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -64,15 +66,17 @@ export default async function ClientDetailPage({ params }: PageProps) {
     ? client.client_profiles[0]
     : client.client_profiles;
 
-  const displayName = getUserDisplayName(
-    {
-      lastName: client.last_name,
-      firstName: client.first_name,
-      companyName: client.company_name,
-      deletedAt: client.deleted_at,
-    },
-    "company",
-  );
+  // 法人プラン（active）の場合のみ organizations.name を表示
+  const admin = createAdminClient();
+  const orgNameMap = await getActiveCorporateOrgNames(admin, [id]);
+  const orgName = orgNameMap.get(id) ?? null;
+  const displayName = resolveParticipantName({
+    organizationName: orgName,
+    companyName: client.company_name,
+    lastName: client.last_name,
+    firstName: client.first_name,
+    deletedAt: client.deleted_at,
+  });
 
   // Fetch client's open jobs with thumbnail + urgency info
   const { data: jobs } = await supabase
@@ -113,7 +117,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
-      <h1 className="text-heading-lg font-bold text-secondary">発注者詳細</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">発注者詳細</h1>
 
       {/* Profile header */}
       <div className="mt-4 flex items-center gap-4">
@@ -228,7 +232,6 @@ export default async function ClientDetailPage({ params }: PageProps) {
               const thumbnail = images && images.length > 0
                 ? [...images].sort((a, b) => a.sort_order - b.sort_order)[0].image_url
                 : null;
-              const owner = job.owner as { company_name: string | null } | null;
 
               return (
                 <JobListCard
@@ -242,7 +245,9 @@ export default async function ClientDetailPage({ params }: PageProps) {
                     rewardUpper: job.reward_upper,
                     isUrgent: job.is_urgent ?? false,
                     recruitEndDate: job.recruit_end_date ?? "",
-                    companyName: owner?.company_name ?? null,
+                    // この画面の案件はすべてこの client の案件なので、
+                    // ページ上部で解決済みの displayName を利用する
+                    companyName: displayName,
                     thumbnailUrl: thumbnail,
                   }}
                   isFavorited={favoritedJobIds.has(job.id)}

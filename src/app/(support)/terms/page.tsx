@@ -40,7 +40,7 @@ const TERMS_SECTIONS = [
 export default function TermsPage() {
   return (
     <div className="space-y-8">
-      <h1 className="text-center text-heading-lg font-bold">利用規約</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">利用規約</h1>
 
       {TERMS_SECTIONS.map((section) => (
         <section key={section.title} className="space-y-2">

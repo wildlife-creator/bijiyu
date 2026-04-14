@@ -8,7 +8,9 @@ import { JobListCard } from "@/components/job-search/job-list-card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
 import { createClient } from "@/lib/supabase/server";
-import { getUserDisplayName } from "@/lib/utils/display-name";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getUserDisplayName, resolveParticipantName } from "@/lib/utils/display-name";
+import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -70,7 +72,7 @@ export default async function FavoritesPage({ searchParams }: PageProps) {
     <div className="min-h-dvh bg-muted">
       {/* Header */}
       <div className="bg-background px-6 py-4 md:px-12">
-        <h1 className="text-heading-lg font-bold text-secondary">マイリスト</h1>
+        <h1 className="text-center text-heading-lg font-bold text-secondary">マイリスト</h1>
       </div>
 
       <div className="px-6 md:px-12">
@@ -146,19 +148,37 @@ async function JobFavorites({
       id, title, description, trade_type, prefecture,
       reward_lower, reward_upper, is_urgent,
       recruit_start_date, recruit_end_date, created_at,
-      users!jobs_owner_id_fkey(company_name),
+      owner_id,
+      users!jobs_owner_id_fkey(company_name, last_name, first_name, deleted_at),
       job_images(image_url, sort_order)
     `,
     )
     .in("id", targetIds)
     .is("deleted_at", null);
 
+  // 法人プラン（active）のオーナーのみ組織名を使う
+  const ownerIds = Array.from(new Set((jobs ?? []).map((j) => j.owner_id)));
+  const admin = createAdminClient();
+  const orgNameByOwnerId = await getActiveCorporateOrgNames(admin, ownerIds);
+
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">
       {(jobs ?? []).map((job) => {
-        const companyName =
-          (job.users as unknown as { company_name: string | null })
-            ?.company_name ?? null;
+        const ownerUser = job.users as unknown as {
+          company_name: string | null;
+          last_name: string | null;
+          first_name: string | null;
+          deleted_at: string | null;
+        } | null;
+        const companyName = ownerUser
+          ? resolveParticipantName({
+              organizationName: orgNameByOwnerId.get(job.owner_id) ?? null,
+              companyName: ownerUser.company_name,
+              lastName: ownerUser.last_name,
+              firstName: ownerUser.first_name,
+              deletedAt: ownerUser.deleted_at,
+            })
+          : null;
         const images =
           (job.job_images as Array<{
             image_url: string;
@@ -211,21 +231,23 @@ async function ClientFavorites({
     .in("id", targetIds)
     .eq("role", "client");
 
+  // 法人プラン（active）の発注者のみ組織名を使う
+  const admin = createAdminClient();
+  const orgNameByUserId = await getActiveCorporateOrgNames(admin, targetIds);
+
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">
       {(clients ?? []).map((client) => {
         const profile = Array.isArray(client.client_profiles)
           ? client.client_profiles[0]
           : client.client_profiles;
-        const displayName = getUserDisplayName(
-          {
-            lastName: client.last_name,
-            firstName: client.first_name,
-            companyName: client.company_name,
-            deletedAt: client.deleted_at,
-          },
-          "company",
-        );
+        const displayName = resolveParticipantName({
+          organizationName: orgNameByUserId.get(client.id) ?? null,
+          companyName: client.company_name,
+          lastName: client.last_name,
+          firstName: client.first_name,
+          deletedAt: client.deleted_at,
+        });
 
         return (
           <Card key={client.id} className="overflow-hidden rounded-[8px]">

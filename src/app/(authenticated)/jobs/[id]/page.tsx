@@ -3,6 +3,9 @@ import { redirect, notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveParticipantName } from "@/lib/utils/display-name";
+import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 import { canApplyJob } from "@/lib/utils/can-apply-job";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
@@ -88,7 +91,12 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
   // Fetch job with owner info
   const { data: job } = await supabase
     .from("jobs")
-    .select("*, users!jobs_owner_id_fkey(company_name)")
+    .select(`
+      *,
+      users!jobs_owner_id_fkey(
+        company_name, last_name, first_name, deleted_at
+      )
+    `)
     .eq("id", id)
     .is("deleted_at", null)
     .single();
@@ -120,9 +128,25 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
 
   const canManage = isOwner || isOrganizationMember;
 
-  const ownerCompanyName =
-    (job.users as unknown as { company_name: string | null })?.company_name ??
-    null;
+  const ownerUser = job.users as unknown as {
+    company_name: string | null;
+    last_name: string | null;
+    first_name: string | null;
+    deleted_at: string | null;
+  } | null;
+  // 法人プラン（active）の場合のみ組織名を使う
+  const admin = createAdminClient();
+  const ownerOrgNameMap = await getActiveCorporateOrgNames(admin, [job.owner_id]);
+  const ownerOrgName = ownerOrgNameMap.get(job.owner_id) ?? null;
+  const ownerCompanyName = ownerUser
+    ? resolveParticipantName({
+        organizationName: ownerOrgName,
+        companyName: ownerUser.company_name,
+        lastName: ownerUser.last_name,
+        firstName: ownerUser.first_name,
+        deletedAt: ownerUser.deleted_at,
+      })
+    : null;
 
   // --- Owner/Organization view (CLI-002) --- only when accessed via ?manage=true from CLI-001
   if (canManage && isManageView) {

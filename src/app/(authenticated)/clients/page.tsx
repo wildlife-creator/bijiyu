@@ -9,7 +9,9 @@ import { PaginationControls } from "@/components/job-search/pagination-controls"
 import { BackButton } from "@/components/job-search/back-button";
 import { SearchFilterSheet } from "@/components/job-search/search-filter-sheet";
 import { createClient } from "@/lib/supabase/server";
-import { getUserDisplayName } from "@/lib/utils/display-name";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveParticipantName } from "@/lib/utils/display-name";
+import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -69,6 +71,14 @@ export default async function ClientListPage({ searchParams }: PageProps) {
 
   const { data: clients, count } = await query;
 
+  // 法人プラン契約中のユーザーの組織名を admin 経由で解決
+  // （ダウングレード後も organizations データは残るが、active な法人プランのときのみ表示）
+  const admin = createAdminClient();
+  const orgNameByUserId = await getActiveCorporateOrgNames(
+    admin,
+    (clients ?? []).map((c) => c.id),
+  );
+
   // Get user's favorites for these clients
   const clientIds = (clients ?? []).map((c) => c.id);
   const { data: favorites } = await supabase
@@ -84,7 +94,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     <div className="min-h-dvh bg-muted">
       {/* Header */}
       <div className="bg-background px-6 py-4 md:px-12">
-        <h1 className="text-heading-lg font-bold text-secondary">
+        <h1 className="text-center text-heading-lg font-bold text-secondary">
           発注者一覧
         </h1>
       </div>
@@ -142,15 +152,15 @@ export default async function ClientListPage({ searchParams }: PageProps) {
             const profile = Array.isArray(client.client_profiles)
               ? client.client_profiles[0]
               : client.client_profiles;
-            const displayName = getUserDisplayName(
-              {
-                lastName: client.last_name,
-                firstName: client.first_name,
-                companyName: client.company_name,
-                deletedAt: client.deleted_at,
-              },
-              "company",
-            );
+            // 法人プランの場合は organizations.name を優先表示（admin clientで取得済み）
+            const orgName = orgNameByUserId.get(client.id) ?? null;
+            const displayName = resolveParticipantName({
+              organizationName: orgName,
+              companyName: client.company_name,
+              lastName: client.last_name,
+              firstName: client.first_name,
+              deletedAt: client.deleted_at,
+            });
 
             return (
               <Card key={client.id} className="overflow-hidden rounded-[8px]">

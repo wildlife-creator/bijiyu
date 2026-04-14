@@ -145,6 +145,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - ユーザー向けエラーメッセージは日本語で表示する
 - 技術的なエラー詳細はログに記録し、ユーザーには見せない
 - フォームバリデーションは Zod スキーマでクライアント・サーバー両方で実施する
+- クライアントコンポーネントから Server Action を呼び出す際は、`success: false` のケースで必ず `toast.error(result.error)` 等でユーザーにフィードバックすること。成功パスのみ処理してエラーを握り潰すと「ボタンを押しても何も起きない」UX になる（PastDueBanner で実際に発生した）
 
 ### セキュリティ（必ず守ること）
 - 全テーブルに RLS を有効化し、デフォルトで全アクセスを拒否する
@@ -163,7 +164,12 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   2. `supabase test db` — RLS テスト（pgTAP）
   3. `npm run test:e2e` — Playwright（E2E テスト）
 - 上記のいずれかが失敗した場合、新機能の実装に着手せず、まず失敗の原因を調査・修正すること
-- E2E（Playwright）: 各機能の spec-impl 完了後、その機能の書き込み系操作（保存・アップロード・送信など）をカバーする Playwright テストを作成する
+- E2E（Playwright）: 各機能の spec-impl 完了後、その機能に関わるユーザーストーリーを網羅的に洗い出し、Playwright テストを作成する
+  - まず「この機能で考えうるユーザーストーリー」を一覧化する（正常系 + エラー系）
+  - 各ストーリーについて、ユーザーの操作順にテストを書く（画面遷移→操作→結果確認の通しフロー）
+  - 複数ロール（受注者・発注者・担当者）が関わる機能は、各ロールの視点でストーリーを書く
+  - 書き込み系操作（保存・アップロード・送信など）は必ずカバーする
+  - seed.sql に必要なテストデータを事前に用意し、テストが確実に再現可能な状態にする
 - Playwright テスト実行前に `supabase start` と `npm run dev` が起動していることを確認する。DB は `supabase db reset` でリセットしてからテストを実行する
 
 ### Vitest モックのルール
@@ -255,10 +261,17 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 数値フィールド（rewardLower, rewardUpper, headcount）は下書き時に NaN になりうるため、DB 保存時に `numOrNull()` で null に変換すること
 - 「公開する」ボタンは `handleSubmit(callback)()` を使い、バリデーション失敗時はトーストでエラーフィールドを通知すること
 
+
 ### 外部サービス連携
 - billing 機能の実装時は Stripe CLI でローカル Webhook 転送を設定し、
   テスト決済後に users.role が 'client' に変わることを手動で確認すること
 - Stripe Webhook の署名検証（STRIPE_WEBHOOK_SECRET）が .env.local に設定されていることを確認すること
+
+### Stripe 二重課金防止（必ず守ること）
+- Checkout Session 作成前の二重課金防止は **DB チェック + Stripe API チェックの二段構え** で行うこと。DB（subscriptions テーブル）のチェックだけでは、Webhook 遅延時に DB が未更新のままガードをすり抜ける
+- Stripe API チェック: `ensureStripeCustomer` で customerId 確定後、`stripe.subscriptions.list({ customer, status: 'active', limit: 1 })` を呼び、active subscription が存在すれば拒否する
+- この問題は本番でも起こりうる（Stripe Webhook の配送遅延、Webhook ハンドラの一時ダウン、ユーザーの素早い再操作）
+- 同様のパターン（外部サービスの状態を DB にミラーリングしている場合）では、DB だけでなく外部サービスの API も直接確認すること
 
 ### 設定ファイル
 - 新しい外部ホストから画像を取得する場合は next.config の remotePatterns を必ず更新すること
@@ -281,6 +294,14 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 「機能は動くがデザインカンプと見た目が違う」は未完了とみなす
 - 仕様書（requirements.md）の記述が簡素な場合（例:「表示項目: 応募者名、職種、応募日」のみ）、デザインカンプの見た目を正としてレイアウト・配置・セクション構成・アイコン使い分けを読み取り、仕様書に書かれていない要素もデザインカンプに従って実装すること。仕様書の項目リストは「最低限含む要素」であり、デザインカンプに描かれている要素を省略してよいという意味ではない
 
+### メッセージング・組織スレッド関連
+- メッセージスレッドは「1組織（or 個人発注者）× 1受注者 = 常に1スレッド」。法人プランの場合、同一組織メンバー全員がスレッドを共有する
+- 受注者が発注者にスレッドを作成する際は **admin client** を使用すること（相手の organization_members を SELECT する権限が RLS で制限されるため）
+- messages テーブルの UPDATE（read_at, scout_status）は **admin client** で実行すること（PERMISSIVE ポリシーの OR 結合問題を回避）
+- Server Action で FormData 経由の File を受け取る場合、Zod の `z.instanceof(File)` は使わないこと（サーバー側で instanceof が一致しない）。`file.size`、`file.type` を直接チェックするインラインバリデーションを使用する
+- 受注者のスレッド一覧・詳細で組織名を表示するため、organizations テーブルに `organizations_select_thread_participant` RLS ポリシーが必要
+- **代理メッセージ（`is_proxy`）の仕組み**: 代理アカウント（`organization_members.is_proxy_account = true`）は、ビジ友の運営スタッフが法人の担当者アカウントにログインして操作するためのもの。**sender_id の書き換えは行わない**（`proxy_sender_id` カラムは廃止済み）。Server Action が送信者の `is_proxy_account` を参照し、`messages.is_proxy = true` を自動設定するだけ。「代理」バッジは**発注者側の画面でのみ表示**し、受注者側には表示しない
+
 ### Vitest モック関連
 - Server Action のテストでは、Server Action 自体を vi.mock で差し替えてはならない。Supabase クライアントをモックし、Server Action の内部ロジックが実際に動くテストを書くこと
 - テストが通っても「このテストは実際のブラウザ操作で同じ結果になるか？」を自問すること。モックが現実と乖離していないか確認する
@@ -288,7 +309,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 
 ### ロール設計と画面アクセス（必ず守ること — 過去に複数回リグレッション発生）
 - ビジ友は「1アカウントで受注・発注の両方が可能」な設計。受注者が課金すると発注者機能が追加で解放され、受注者機能もそのまま使える
-- CON系画面（受注者向け）のクエリやアクセス制御で `role = 'contractor'` に限定しないこと。発注者（client）・担当者（staff）も CON系画面にアクセス可能
+- CON系画面（受注者向け）のクエリやアクセス制御で `role = 'contractor'` に限定しないこと。発注者（client）・担当者（staff）もCON系画面を閲覧可能。ただし担当者（staff）は受注者アクション不可（応募ボタン非表示、CON-004/CON-011〜016はMiddlewareでブロック）
 - Middleware で CON系画面へのアクセスをcontractorのみに制限しないこと
 - 発注者は応募制限なし（無料ユーザーの「登録職種×登録県」制限は適用されない）
 - **禁止パターン（以下のコードパターンは絶対に書いてはならない）**:
@@ -299,12 +320,68 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **正しい実装パターン**:
   - CON-002（募集案件一覧）: 全ロールで同一UI、同一データ、同一レイアウト
   - CON-002 のカードリンク: 全ロールで `/jobs/${job.id}`（パラメータなし）→ CON-003 に遷移
-  - CON-003（応募ボタン）: 案件オーナーまたは同一組織メンバーの場合は応募ボタン非表示（自分の案件に応募する意味がないため）。それ以外の場合、無料ユーザーのみ職種×エリアの合致チェックで非活性化。有料ユーザー（発注者含む）は常に活性
+  - CON-003（応募ボタン）: 案件オーナーまたは同一組織メンバーの場合は応募ボタン非表示（自分の案件に応募する意味がないため）。担当者（staff）の場合も応募ボタン非表示（受注者アクション不可のため）。それ以外の場合、無料ユーザーのみ職種×エリアの合致チェックで非活性化。有料ユーザー（発注者含む）は常に活性
   - 発注者が CON-002 → CON-003 で他社の案件にアクセスした場合の動作は、有料の受注者と完全に同一
   - CLI-001 のカードリンク: `/jobs/${job.id}?manage=true` → CLI-002（管理画面）に遷移
   - /jobs/[id] の表示分岐: `(isOwner || isSameOrganization) && searchParams.manage === 'true'` のときのみ CLI-002。それ以外は CON-003
-  - Middleware: CON系は認証済み全ロールに開放。CLI系（CLI-026〜027を除く）は発注者・担当者のみ
+  - Middleware: CON系画面は認証済み全ロールに閲覧開放。ただしCON-004（応募入力）、CON-011〜013（応募履歴）、CON-014〜016（空き日程）は担当者（staff）をブロック。CLI系（CLI-026〜027を除く）は発注者・担当者のみ
   - 発注者マイページ: 「仕事を探す」セクション（CON系画面への導線）を非表示にしてはならない。CON-002 への導線は「仕事を探す」セクションで提供する（「発注先を探す」セクションには含めない）
+
+### 担当者（staff）の受注者アクション制限（必ず守ること）
+- `isPaidUser` の判定に `userData.role === "staff"` を含めてはならない。staff は CON 系画面を閲覧できるが、受注者としてのアクション（応募・空き日程管理等）は不可
+- 受注者アクション系の Server Action（applyJobAction 等）のロールチェックに `'staff'` を含めないこと。許可ロールは `'contractor'` と `'client'` のみ
+- CON-003 の応募ボタン表示条件には `role === 'staff'` による非表示チェックを必ず含めること
+- 新しい受注者アクション（応募・評価・完了報告等）を実装する際は、staff がそのアクションを実行できないことを三重防御（Middleware + UI + Server Action）で確認すること
+- `users.role = 'staff'` は `org_role` の値（admin / staff）に関係なく同じ制限が適用される。org_role による違いは CLI 系画面内の操作権限（担当者管理等）のみ
+
+### 名前表示・姓名結合のルール
+- 日本語の姓名結合は**スペースなし**で行うこと（`${lastName}${firstName}`）。`${lastName} ${firstName}` のようにスペースを入れると、既存の表示パターンと不一致になりテストが失敗する
+- 名前表示のユーティリティ関数（`resolveParticipantName` 等）を新規作成する際は、既存の結合パターンを必ず確認し、一致させること
+- **すべての UI で発注者表示名の解決は `resolveParticipantName()` を使うこと**。メッセージ UI・メール通知に限らず、発注者一覧・案件カード・マイページ完了案件・お気に入り等、ユーザー名を表示するすべての場所で統一する。過去に `getUserDisplayName(..., "company")` だけを使っていた画面が `organizations.name` を参照しておらず、法人プラン組織名が反映されないバグが発生した
+- 優先順位: `organizations.name`（法人）→ `users.company_name`（屋号）→ `users.last_name + first_name`（個人名）
+- 名前解決ルールの詳細は `.kiro/specs/messaging/requirements.md` の「名前表示ルール」セクションを参照
+- 表示ロジックを変更すると、**データは変わらなくても画面の表示が変わる**ため、既存テストの期待値更新が必要になる。表示ロジック変更時は関連する E2E テストを必ず確認・更新すること
+
+### 組織名表示のライフサイクル（必ず守ること）
+- **データ保持と表示制御は分離する**: ダウングレード/解約時も `organizations` / `organization_members` / `organizations.name` は**削除しない**（再アップグレード時の利便性のため）。しかし UI 表示では「現在 active な法人プラン（corporate / corporate_premium）のユーザー」にだけ組織名を使う
+- 複数ユーザーの組織名を一括解決する場合は `src/lib/utils/resolve-org-names.ts` の **`getActiveCorporateOrgNames(admin, userIds)`** を使う。これは `organization_members` と `subscriptions` を両方参照して「active な法人プランのユーザーだけ」の組織名を返す
+- 新しく発注者名を表示する画面を作る際は、この関数を使ってからの `resolveParticipantName()` 呼び出しが定石。直接 `organization_members` を JOIN して組織名を取得する実装は**プラン状態を考慮しない**ため禁止
+- 単一ユーザーでも同じヘルパーを使う（`[userId]` を渡す）。ロジックを分散させない
+
+### 組織情報の RLS と admin client（必ず守ること）
+- `organizations` / `organization_members` テーブルには `is_same_org` RLS が効いており、**他組織のメンバーから組織情報は SELECT できない**。nested join で embed した場合もサイレントに null になる（気づきにくい）
+- 発注者一覧等で「他ユーザーの組織名を表示する」には、必ず **`createAdminClient()`（service_role）経由で取得**すること。通常の `supabase` クライアントでは RLS により null になる
+- 取得する情報が「表示専用の組織名」など機密性の低いデータに限定されていれば admin client の使用は妥当。個人情報や認可判定に関わるデータの取得は別の層（RPC with SECURITY DEFINER など）を検討する
+
+### 組織メンバー判定のパターン（必ず守ること）
+- 法人プラン機能で「特定案件に対する権限判定」を行う際、`owner_id === user.id` だけで判定してはならない。組織メンバーが作成した案件も、オーナーが操作できる必要がある
+- 正しいパターン:
+  1. `owner_id === user.id` を最初にチェック（個人プランや自分の案件）
+  2. それがだめなら `organization_members` を参照して `user.id` と `job.organization_id` の関係を確認
+  3. どちらも満たさない場合のみ拒否
+- **UI のプルダウン/一覧の表示範囲と Server Action の許可範囲は必ず一致させる**こと。プルダウンに出るのに Server Action で拒否される、もしくはその逆は UX 破綻になる。急募オプションで実際に発生した（プルダウンは組織全体、Server Action は owner_id のみで、スタッフ作成案件が選べても購入できなかった）
+
+### Webhook タイミング対策（必ず守ること）
+- Stripe Server Action（`stripe.subscriptions.update()` 等）の直後に Webhook 由来の DB 状態へ依存する画面遷移を行う場合、**Webhook 到着前にアクセスされて race condition が発生する**
+- 対策: Server Action 内で、Stripe 呼び出し成功後に UI 遷移先のガードチェックに必要な DB 更新を**同期的に先行実行**する
+  - 例: 法人プランへのアップグレード時、`stripe.subscriptions.update()` の直後に `subscriptions.plan_type` を先行 UPDATE し、`ensure_organization_exists` を先行 RPC で呼ぶ
+  - Webhook（`handle_subscription_lifecycle_updated`）で同じ更新が再実行されるが、冪等な操作なので二重実行しても安全
+- 該当 Webhook ハンドラのロジックはできるだけ冪等に保つ。Server Action の先行更新とぶつかっても問題ないように設計する
+
+### Next.js Router Cache とリダイレクトキャッシュ（必ず守ること）
+- Next.js の App Router は Server Component のレスポンス（redirect 含む）をクライアント側 Router Cache に保持することがある
+- DB 状態が変化してから同一 URL に遷移する場合、古い redirect 結果が使われて**意図しないページに飛ばされる**ことがある（例: 組織名入力画面への遷移で `/mypage` に即リダイレクトされ続ける）
+- 対策: 状態変化後にクライアント遷移させる場合は `router.push()` ではなく **`window.location.href`** でハードナビゲーションする。新しい HTTP リクエストになるので Router Cache を回避できる
+- `router.refresh()` ではこの問題を回避できない場合がある（redirect は別リソースとしてキャッシュされる）
+
+### Zod UUID バリデーションと seed データ
+- Zod v4 の `z.string().uuid()` は RFC 4122 準拠の厳密検証（variant bits まで検査）。**seed.sql の手書きダミー UUID（`66666666-6666-6666-6666-666666666666` 等）は非準拠で弾かれる**
+- 現在 `src/app/(authenticated)/billing/actions.ts` の `urgentOptionInputSchema.jobId` は暫定対応として `UUID_LIKE_REGEX` に緩和中（`TODO(restore-strict-uuid):` コメント付き）。本番投入前に戻すか、seed データを RFC 準拠に書き換えること
+- 新しい Server Action で UUID バリデーションを追加する際は、seed を使った手動テストで弾かれないか事前確認すること。弾かれる場合、同様の正規表現緩和 + TODO コメントで対応
+
+### メールテンプレートの使用確認
+- メールテンプレートファイル（`src/lib/email/templates/`）を作成したら、対応する Server Action で**実際に使われているか**確認すること。テンプレートが存在するのにインライン HTML で送信しているコードが過去に発見された（`scoutNotificationEmail` テンプレートが未使用だった）
+- メール通知の sender/recipient 名はハードコードしない。`resolveParticipantName()` で動的に解決すること（過去に `clientName: "発注者"` とハードコードされていた問題が発生）
 
 ### UI テキスト・ラベル（必ず守ること）
 - お気に入りボタンのラベルは「マイリスト登録」/「マイリスト解除」を使うこと（「興味する」等の不自然な日本語は禁止）

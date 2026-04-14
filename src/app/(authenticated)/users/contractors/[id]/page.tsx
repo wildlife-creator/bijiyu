@@ -116,7 +116,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
     <div className="min-h-dvh bg-background">
       {/* Page title */}
       <div className="px-5 pt-6 pb-2">
-        <h1 className="text-heading-lg font-bold text-secondary">ユーザー詳細</h1>
+        <h1 className="text-center text-heading-lg font-bold text-secondary">ユーザー詳細</h1>
       </div>
 
       {/* Profile header */}
@@ -186,7 +186,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
             className="flex-1 rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-[13px]"
             asChild
           >
-            <Link href={`/scouts/new?to=${id}`}>スカウトを送る</Link>
+            <Link href={`/messages/scout-send?userId=${id}`}>スカウトを送る</Link>
           </Button>
         </div>
       )}
@@ -325,7 +325,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
             className="flex-1 rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-[13px]"
             asChild
           >
-            <Link href={`/scouts/new?to=${id}`}>スカウトを送る</Link>
+            <Link href={`/messages/scout-send?userId=${id}`}>スカウトを送る</Link>
           </Button>
         </div>
       )}

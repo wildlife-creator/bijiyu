@@ -2,6 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { Clock, CheckCircle2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveParticipantName } from "@/lib/utils/display-name";
+import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 import { ApplicationStatusBadge } from "@/components/shared/application-status-badge";
 import { CancelButton } from "./cancel-button";
 import { BackButton } from "../back-button";
@@ -28,11 +31,10 @@ export default async function ApplicationDetailPage({ params }: Props) {
   const { data: application } = await supabase
     .from("applications")
     .select(
-      `*, jobs(id, title, trade_type, headcount, reward_lower, reward_upper, prefecture, address,
+      `*, jobs(id, title, owner_id, trade_type, headcount, reward_lower, reward_upper, prefecture, address,
               work_start_date, work_end_date, recruit_start_date, recruit_end_date,
               work_hours, items, required_skills, schedule_detail, etc_message,
-              organizations(name),
-              owner:users!jobs_owner_id_fkey(company_name)),
+              owner:users!jobs_owner_id_fkey(company_name, last_name, first_name, deleted_at)),
        client_reviews(id),
        user_reviews(id)`,
     )
@@ -47,6 +49,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
   const job = application.jobs as {
     id: string;
     title: string;
+    owner_id: string;
     trade_type: string | null;
     headcount: number | null;
     reward_lower: number | null;
@@ -62,8 +65,12 @@ export default async function ApplicationDetailPage({ params }: Props) {
     required_skills: string | null;
     schedule_detail: string | null;
     etc_message: string | null;
-    organizations: { name: string } | null;
-    owner: { company_name: string | null } | null;
+    owner: {
+      company_name: string | null;
+      last_name: string | null;
+      first_name: string | null;
+      deleted_at: string | null;
+    } | null;
   } | null;
 
   const hasClientReview =
@@ -73,8 +80,20 @@ export default async function ApplicationDetailPage({ params }: Props) {
     application.user_reviews != null &&
     (!Array.isArray(application.user_reviews) || application.user_reviews.length > 0);
 
-  const companyName =
-    job?.organizations?.name ?? job?.owner?.company_name ?? "不明";
+  // 法人プラン active のオーナーのみ組織名を使う（ダウングレード後は company_name にフォールバック）
+  const admin = createAdminClient();
+  const ownerOrgNameMap = job?.owner_id
+    ? await getActiveCorporateOrgNames(admin, [job.owner_id])
+    : new Map<string, string>();
+  const companyName = job?.owner
+    ? resolveParticipantName({
+        organizationName: job.owner_id ? (ownerOrgNameMap.get(job.owner_id) ?? null) : null,
+        companyName: job.owner.company_name,
+        lastName: job.owner.last_name,
+        firstName: job.owner.first_name,
+        deletedAt: job.owner.deleted_at,
+      })
+    : "不明";
 
   // Cancel check: accepted + first_work_date - 5 days
   let canCancel = false;

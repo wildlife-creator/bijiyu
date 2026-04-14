@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ------------------------------------------------------------------
+  # 1. 型チェック + リント + ユニットテスト（Supabase 不要）
+  # ------------------------------------------------------------------
+  test-unit:
+    name: Type Check / Lint / Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type Check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit / Integration Tests (Vitest)
+        run: npm run test
+
+  # ------------------------------------------------------------------
+  # 2. RLS テスト（Supabase CLI + Docker が必要）
+  # ------------------------------------------------------------------
+  test-rls:
+    name: RLS Tests (pgTAP)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase
+        run: supabase start -x realtime,storage-api,imgproxy,inbucket,postgrest-caller-id,edge-runtime,logflare,vector,supavisor
+
+      - name: Run RLS Tests
+        run: supabase test db

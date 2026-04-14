@@ -61,8 +61,8 @@ export default function CcusUploadPage() {
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8">
-      <h1 className="text-heading-lg font-bold text-foreground">CCUS登録</h1>
-      <p className="mt-2 text-body-md text-muted-foreground">
+      <h1 className="text-center text-heading-lg font-bold text-secondary">CCUS登録</h1>
+      <p className="mt-2 text-center text-body-md text-muted-foreground">
         建設キャリアアップシステム（CCUS）のカードを登録してください。
       </p>
 

@@ -248,7 +248,7 @@ export type Database = {
           {
             foreignKeyName: "client_profiles_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -926,36 +926,48 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          cancel_at_period_end: boolean
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
           id: string
           past_due_since: string | null
           plan_type: string
+          schedule_id: string | null
+          scheduled_at: string | null
+          scheduled_plan_type: string | null
           status: Database["public"]["Enums"]["subscription_status"]
           stripe_subscription_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
           past_due_since?: string | null
           plan_type: string
+          schedule_id?: string | null
+          scheduled_at?: string | null
+          scheduled_plan_type?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_subscription_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
           past_due_since?: string | null
           plan_type?: string
+          schedule_id?: string | null
+          scheduled_at?: string | null
+          scheduled_plan_type?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_subscription_id?: string | null
           updated_at?: string
@@ -1226,9 +1238,27 @@ export type Database = {
         }
         Returns: undefined
       }
+      ensure_organization_exists: { Args: { uid: string }; Returns: Json }
+      get_or_lock_stripe_customer: { Args: { uid: string }; Returns: Json }
+      handle_checkout_completed_plan: {
+        Args: { event_data: Json }
+        Returns: Json
+      }
+      handle_subscription_lifecycle_deleted: {
+        Args: { event_data: Json }
+        Returns: Json
+      }
+      handle_subscription_lifecycle_updated: {
+        Args: { event_data: Json }
+        Returns: Json
+      }
       is_admin: { Args: { uid: string }; Returns: boolean }
       is_paid_user: { Args: { uid: string }; Returns: boolean }
       is_same_org: { Args: { org_id: string; uid: string }; Returns: boolean }
+      set_stripe_customer_id: {
+        Args: { customer_id: string; uid: string }
+        Returns: Json
+      }
       update_profile: {
         Args: {
           p_areas?: string[]
@@ -1412,3 +1442,4 @@ export const Constants = {
     },
   },
 } as const
+

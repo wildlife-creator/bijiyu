@@ -67,11 +67,11 @@ export default function IdentityUploadPage() {
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8">
-      <h1 className="text-heading-lg font-bold text-foreground">本人確認</h1>
-      <p className="mt-2 text-body-md text-muted-foreground">
+      <h1 className="text-center text-heading-lg font-bold text-secondary">本人確認</h1>
+      <p className="mt-2 text-center text-body-md text-muted-foreground">
         以下のいずれかの本人確認書類を提出してください。
       </p>
-      <p className="mt-1 text-body-sm text-muted-foreground">
+      <p className="mt-1 text-center text-body-sm text-muted-foreground">
         運転免許証 / 運転経歴証明書 / マイナンバーカード / 在留カード
       </p>
 

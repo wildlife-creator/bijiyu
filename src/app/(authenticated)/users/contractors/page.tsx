@@ -92,7 +92,7 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
     <div className="min-h-dvh bg-muted">
       {/* Header */}
       <div className="bg-background px-6 py-4 md:px-12">
-        <h1 className="text-heading-lg font-bold text-secondary">職人一覧</h1>
+        <h1 className="text-center text-heading-lg font-bold text-secondary">職人一覧</h1>
       </div>
 
       <div className="px-6 md:px-12">

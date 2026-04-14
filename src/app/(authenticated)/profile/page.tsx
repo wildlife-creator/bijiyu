@@ -93,14 +93,14 @@ export default async function ProfilePage() {
     <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-2">
+        <div className="relative flex items-center justify-center">
           <Link
             href="/mypage"
-            className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-card"
+            className="absolute left-0 flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-card"
           >
             <ChevronLeft className="size-5" />
           </Link>
-          <h1 className="text-heading-lg font-bold text-foreground">
+          <h1 className="text-center text-heading-lg font-bold text-secondary">
             ユーザープロフィール
           </h1>
         </div>

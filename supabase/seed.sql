@@ -442,8 +442,8 @@ INSERT INTO user_available_areas (user_id, prefecture) VALUES
 
 INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end) VALUES
   ('22222222-2222-2222-2222-222222222222', 'corporate', 'active', now(), now() + interval '30 days'),
-  ('aabbccdd-1111-2222-3333-444455556666', 'basic', 'active', now(), now() + interval '30 days'),
-  ('dd111111-1111-2222-3333-444455556666', 'basic', 'active', now(), now() + interval '30 days');
+  ('aabbccdd-1111-2222-3333-444455556666', 'small', 'active', now(), now() + interval '30 days'),
+  ('dd111111-1111-2222-3333-444455556666', 'individual', 'active', now(), now() + interval '30 days');
 
 -- ============================================================
 -- 7. organizations + organization_members
@@ -844,3 +844,134 @@ INSERT INTO storage.buckets (id, name, public) VALUES
   ('ccus-documents', 'ccus-documents', false),
   ('message-attachments', 'message-attachments', false)
 ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
+-- BILLING テストデータ (Task 12)
+-- ============================================================
+
+-- ---------- past_due ユーザー ----------
+-- past_due_since を 8 日以上前に設定 (auto-cancel-past-due テスト用)
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES ('b1110000-0000-1000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pastdue@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES ('b1110000-0000-1000-8000-000000000001', 'b1110000-0000-1000-8000-000000000001', 'pastdue@test.local', '{"sub":"b1110000-0000-1000-8000-000000000001","email":"pastdue@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'client', last_name = '遅延', first_name = '太郎', email = 'pastdue@test.local', prefecture = '東京都'
+WHERE id = 'b1110000-0000-1000-8000-000000000001';
+
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end, past_due_since)
+VALUES ('b1110000-0000-1000-8000-000000000001', 'individual', 'past_due', now() - interval '35 days', now() - interval '5 days', now() - interval '8 days');
+
+INSERT INTO client_profiles (user_id, display_name) VALUES ('b1110000-0000-1000-8000-000000000001', '遅延太郎');
+
+-- ---------- cancelled ユーザー (過去 client、現在 contractor) ----------
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES ('b1110000-0000-1000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'cancelled@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES ('b1110000-0000-1000-8000-000000000002', 'b1110000-0000-1000-8000-000000000002', 'cancelled@test.local', '{"sub":"b1110000-0000-1000-8000-000000000002","email":"cancelled@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'contractor', last_name = '解約', first_name = '次郎', email = 'cancelled@test.local', prefecture = '東京都'
+WHERE id = 'b1110000-0000-1000-8000-000000000002';
+
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end)
+VALUES ('b1110000-0000-1000-8000-000000000002', 'individual', 'cancelled', now() - interval '60 days', now() - interval '30 days');
+
+-- ---------- ダウングレード予約中ユーザー ----------
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES ('b1110000-0000-1000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'downgrade-reserved@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES ('b1110000-0000-1000-8000-000000000003', 'b1110000-0000-1000-8000-000000000003', 'downgrade-reserved@test.local', '{"sub":"b1110000-0000-1000-8000-000000000003","email":"downgrade-reserved@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'client', last_name = '予約', first_name = '三郎', email = 'downgrade-reserved@test.local', prefecture = '神奈川県'
+WHERE id = 'b1110000-0000-1000-8000-000000000003';
+
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end, schedule_id, scheduled_plan_type, scheduled_at)
+VALUES ('b1110000-0000-1000-8000-000000000003', 'corporate', 'active', now(), now() + interval '30 days', 'sub_sched_seed_001', 'individual', now() + interval '30 days');
+
+INSERT INTO client_profiles (user_id, display_name) VALUES ('b1110000-0000-1000-8000-000000000003', '予約三郎');
+
+-- ---------- 法人プラン購入直後 (org名未入力) ----------
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES ('b1110000-0000-1000-8000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'corp-noname@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES ('b1110000-0000-1000-8000-000000000004', 'b1110000-0000-1000-8000-000000000004', 'corp-noname@test.local', '{"sub":"b1110000-0000-1000-8000-000000000004","email":"corp-noname@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'client', last_name = '法人', first_name = '四郎', email = 'corp-noname@test.local', prefecture = '大阪府'
+WHERE id = 'b1110000-0000-1000-8000-000000000004';
+
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end)
+VALUES ('b1110000-0000-1000-8000-000000000004', 'corporate', 'active', now(), now() + interval '30 days');
+
+INSERT INTO client_profiles (user_id, display_name) VALUES ('b1110000-0000-1000-8000-000000000004', '法人四郎');
+
+INSERT INTO organizations (id, name, owner_id) VALUES
+  ('b1115555-0000-1000-8000-000000000004', '', 'b1110000-0000-1000-8000-000000000004');
+INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
+  ('b1115555-0000-1000-8000-000000000004', 'b1110000-0000-1000-8000-000000000004', 'owner');
+
+-- ---------- 法人四郎の公開中案件（ダウングレードバリデーションテスト用） ----------
+-- 個人プランの maxOpenJobs=1 を超える2件を用意
+INSERT INTO jobs (id, owner_id, organization_id, title, description, prefecture, address, trade_type, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
+  (
+    'b1116666-0000-1000-8000-000000000001',
+    'b1110000-0000-1000-8000-000000000004',
+    'b1115555-0000-1000-8000-000000000004',
+    'ダウングレードテスト案件1',
+    'ダウングレードバリデーション確認用の案件です。',
+    '大阪府',
+    '大阪市北区',
+    '大工',
+    1,
+    20000,
+    18000,
+    CURRENT_DATE + interval '7 days',
+    CURRENT_DATE + interval '14 days',
+    CURRENT_DATE - interval '3 days',
+    CURRENT_DATE + interval '30 days',
+    'open'
+  ),
+  (
+    'b1116666-0000-1000-8000-000000000002',
+    'b1110000-0000-1000-8000-000000000004',
+    'b1115555-0000-1000-8000-000000000004',
+    'ダウングレードテスト案件2',
+    'ダウングレードバリデーション確認用の案件です。',
+    '大阪府',
+    '大阪市中央区',
+    '内装工',
+    2,
+    25000,
+    20000,
+    CURRENT_DATE + interval '10 days',
+    CURRENT_DATE + interval '20 days',
+    CURRENT_DATE - interval '1 days',
+    CURRENT_DATE + interval '30 days',
+    'open'
+  );
+
+-- ---------- 法人 + 補償 active ユーザー (連鎖キャンセルテスト用) ----------
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES ('b1110000-0000-1000-8000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'corp-comp@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES ('b1110000-0000-1000-8000-000000000005', 'b1110000-0000-1000-8000-000000000005', 'corp-comp@test.local', '{"sub":"b1110000-0000-1000-8000-000000000005","email":"corp-comp@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'client', last_name = '補償', first_name = '五郎', email = 'corp-comp@test.local', prefecture = '東京都'
+WHERE id = 'b1110000-0000-1000-8000-000000000005';
+
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end, stripe_subscription_id)
+VALUES ('b1110000-0000-1000-8000-000000000005', 'corporate', 'active', now(), now() + interval '30 days', 'sub_seed_comp_base');
+
+INSERT INTO client_profiles (user_id, display_name, is_compensation_5000) VALUES ('b1110000-0000-1000-8000-000000000005', '補償五郎', true);
+
+INSERT INTO option_subscriptions (user_id, payment_type, stripe_subscription_id, option_type, status, start_date)
+VALUES ('b1110000-0000-1000-8000-000000000005', 'subscription', 'sub_seed_comp_opt', 'compensation_5000', 'active', now());
+
+INSERT INTO organizations (id, name, owner_id) VALUES
+  ('b1115555-0000-1000-8000-000000000005', '補償テスト建設', 'b1110000-0000-1000-8000-000000000005');
+INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
+  ('b1115555-0000-1000-8000-000000000005', 'b1110000-0000-1000-8000-000000000005', 'owner');

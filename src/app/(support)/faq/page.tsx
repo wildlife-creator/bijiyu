@@ -60,7 +60,7 @@ const FAQ_DATA = [
 export default function FaqPage() {
   return (
     <div className="space-y-8">
-      <h1 className="text-center text-heading-lg font-bold">よくある質問</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">よくある質問</h1>
 
       {FAQ_DATA.map((section) => (
         <section key={section.category} className="space-y-4">
