@@ -198,13 +198,11 @@ export function BillingClient({
       }
       if (result.data?.performedType === "upgrade") {
         toast.success(`${result.data.newPlanName}にアップグレードしました`);
-        // 法人プランへのアップグレード時は組織名入力へ遷移（CLI-021 完成まで暫定ページ）
+        // 全プラン共通で CLI-021（発注者情報編集）の setup モードに遷移。
         // Next.js の Router Cache によるリダイレクト結果キャッシュ回避のため
-        // window.location.href でハードナビゲーションする
-        if (dialogTarget === "corporate" || dialogTarget === "corporate_premium") {
-          window.location.href = "/mypage/organization-setup";
-          return;
-        }
+        // window.location.href でハードナビゲーションする。
+        window.location.href = "/mypage/client-profile/edit?setup=true";
+        return;
       } else if (result.data?.performedType === "downgrade") {
         toast.success(
           `${formatDate(result.data.scheduledAt)}に${result.data.newPlanName}への変更を予約しました`,
