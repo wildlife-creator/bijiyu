@@ -659,7 +659,7 @@
     - (4) `invited_role` に `'admin'` や `'client'` 等の不正値が入っていても `'contractor'` フォールバックで作成される（メタデータ汚染防止）
   - _Requirements: 5.2_
 
-- [ ] 15.4 (P) delete_staff_member RPC テスト
+- [x] 15.4 (P) delete_staff_member RPC テスト
   - `supabase/tests/delete_staff_member.test.sql` を新規作成
   - (1) テンプレ移譲 + 所属削除 + ソフト削除が atomic に実行される
   - (2) 存在しない user_id でも例外を返さず冪等
