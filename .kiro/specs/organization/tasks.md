@@ -72,7 +72,7 @@
   - **初期化の 2 パスが衝突しないこと**: 本 migration（既存組織の Task 2.7 バックフィル）と、Webhook 経由の `client_profiles` 初期化（新規課金時に `users.last_name + first_name` をデフォルト格納）の 2 つで初期化が走る。本 migration が先に完了しているため、Webhook 側は `INSERT ... ON CONFLICT (user_id) DO NOTHING` 相当で保護し、既存 `display_name` を上書きしないこと（billing 仕様書 REQ-BL-005 / organization 仕様書 REQ-ORG-006-B に準拠）
   - _Requirements: 6.2_
 
-- [ ] 2.8 ensure_organization_exists RPC の本体書き換え（シグネチャ不変）
+- [x] 2.8 ensure_organization_exists RPC の本体書き換え（シグネチャ不変）
   - `CREATE OR REPLACE FUNCTION ensure_organization_exists(uid uuid)` で現行定義を置換
   - 関数本体の `INSERT INTO organizations (owner_id, name) VALUES (uid, '')` を `INSERT INTO organizations (owner_id) VALUES (uid)` に変更
   - シグネチャは `(uid uuid)` のまま変更しないため、呼び出し側（`plan-actions.ts` / `handle_checkout_completed.ts` / `handle_checkout_completed_plan`）は無変更で継続動作
