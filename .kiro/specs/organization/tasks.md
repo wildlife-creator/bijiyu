@@ -150,7 +150,7 @@
   - 案件カード・詳細に表示する発注者名を `client_profiles.display_name` に統一
   - _Requirements: 6.2_
 
-- [ ] 4.3 (P) 応募系画面とアクションのクエリ書き換え（CON-011/012 + applications/actions.ts）
+- [x] 4.3 (P) 応募系画面とアクションのクエリ書き換え（CON-011/012 + applications/actions.ts）
   - `src/app/(authenticated)/applications/history/page.tsx`（CON-011 応募履歴一覧）
   - `src/app/(authenticated)/applications/history/[id]/page.tsx`（CON-012 応募詳細）
   - `src/app/(authenticated)/applications/actions.ts`（マッチング通知メールの sender/recipient 名解決）
