@@ -644,7 +644,7 @@
   - 本人作成 / 組織メンバーによる CRUD / 他組織からの拒否 / Staff が Owner 作成を編集できる / 削除後 is_same_org で見えなくなる などをカバー
   - _Requirements: 5.2_
 
-- [ ] 15.2 (P) organizations RLS テスト（刷新）
+- [x] 15.2 (P) organizations RLS テスト（刷新）
   - `supabase/tests/organizations_rls.test.sql` を新規作成または既存刷新
   - (1) `organizations_select_public` で認証済みが生存組織を SELECT 可 (2) 同ポリシーでソフト削除済み組織は非表示 (3) admin がソフト削除済みを含む全組織を SELECT 可 (4) 旧ポリシー `organizations_select` / `organizations_select_thread_participant` が DROP 済み（`pg_policies` 確認） (5) `is_same_org()` 関数が他テーブル RLS から継続利用可能 の 5 シナリオ
   - _Requirements: 5.2_
