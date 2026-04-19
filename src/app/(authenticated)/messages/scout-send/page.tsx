@@ -74,11 +74,11 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
     ascending: false,
   });
 
-  // Fetch scout templates
+  // Fetch scout templates（最終更新日降順。CLI-018 編集直後に上位に来る）
   const { data: templatesData } = await supabase
     .from("scout_templates")
     .select("id, title, body")
-    .order("created_at", { ascending: false });
+    .order("updated_at", { ascending: false });
 
   return (
     <ScoutSendForm
