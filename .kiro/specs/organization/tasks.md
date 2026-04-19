@@ -639,7 +639,7 @@
 
 - [ ] 15. 新規 RLS と新規 RPC のテストを pgTAP で追加する
 
-- [ ] 15.1 (P) scout_templates RLS テスト
+- [x] 15.1 (P) scout_templates RLS テスト
   - `supabase/tests/scout_templates_rls.test.sql` に requirements.md の 10 シナリオを追加
   - 本人作成 / 組織メンバーによる CRUD / 他組織からの拒否 / Staff が Owner 作成を編集できる / 削除後 is_same_org で見えなくなる などをカバー
   - _Requirements: 5.2_
