@@ -61,12 +61,21 @@ export function ScoutSendForm({
   const [isPending, startTransition] = useTransition();
 
   function handleTemplateSelect(templateId: string) {
-    setSelectedTemplateId(templateId);
     const template = templates.find((t) => t.id === templateId);
-    if (template) {
-      setTitle(template.title);
-      setBody(template.body);
+    if (!template) {
+      setSelectedTemplateId(templateId);
+      return;
     }
+    // タイトル・本文のいずれかに入力済みなら上書き確認
+    if (title.trim() || body.trim()) {
+      const ok = window.confirm(
+        "入力中の内容がテンプレートで上書きされます。よろしいですか？",
+      );
+      if (!ok) return;
+    }
+    setSelectedTemplateId(templateId);
+    setTitle(template.title);
+    setBody(template.body);
   }
 
   function handleSubmit() {

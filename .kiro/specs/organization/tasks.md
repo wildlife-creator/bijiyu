@@ -191,9 +191,9 @@
 
 ## Task 5: 発注者アバター表示の統一（付録 A Step 3-B）
 
-- [ ] 5. 受注者が発注者を見る場面のアバターを `client_profiles.image_url` に切り替える
+- [x] 5. 受注者が発注者を見る場面のアバターを `client_profiles.image_url` に切り替える
 
-- [ ] 5.1 (P) メッセージ一覧のアバター切替
+- [x] 5.1 (P) メッセージ一覧のアバター切替（Task 4.4 コミット a700795 に同梱）
   - `src/app/(authenticated)/messages/page.tsx`
   - **Task 4.4 と同一ファイル**: Task 4.4 の standard query pattern に既に `client_profiles(display_name, image_url, deleted_at)` が含まれているため、追加 SELECT は不要。本タスクは「**Task 4.4 で取得した image_url をアバター表示に使う**」だけ
   - 相手が発注者側（= スレッドの `organization_id IS NOT NULL` かつ自分が `participant_2_id`）なら `resolveClientProfileForRow(thread).imageUrl` を使用
@@ -201,7 +201,7 @@
   - `imageUrl` が NULL の場合は既存のデフォルト（`/assets/icons/icon-avatar.png`）にフォールバック
   - _Requirements: 6.3_
 
-- [ ] 5.2 (P) スレッド詳細のアバター切替
+- [x] 5.2 (P) スレッド詳細のアバター切替（Task 4.4 コミット a700795 に同梱）
   - `src/app/(authenticated)/messages/[threadId]/page.tsx`
   - **Task 4.4 と同一ファイル**: Task 4.4 の standard query pattern に既に `client_profiles(display_name, image_url, deleted_at)` が含まれているため、追加 SELECT は不要。本タスクは「**Task 4.4 で取得した `image_url` を、アバター描画箇所で使う**」だけ
   - `isContractorSide === true`（受注者が発注者を見る側）のときのみ `resolveClientProfileForRow(thread).imageUrl` を使用（`/assets/icons/icon-avatar.png` フォールバック）
@@ -212,36 +212,36 @@
 
 ## Task 6: organization-setup の削除と CLI-021 統合（付録 A Step 4-A）
 
-- [ ] 6. 暫定画面 `/mypage/organization-setup` を廃止し、全プラン共通で CLI-021 の setup モードに統一する
+- [x] 6. 暫定画面 `/mypage/organization-setup` を廃止し、全プラン共通で CLI-021 の setup モードに統一する
 
-- [ ] 6.1 (P) organization-setup 関連ファイルの削除
+- [x] 6.1 (P) organization-setup 関連ファイルの削除
   - `src/app/(authenticated)/mypage/organization-setup/page.tsx` を削除（URL 直打ちは middleware で `/mypage/client-profile/edit?setup=true` に 308 リダイレクト）
   - `src/app/(authenticated)/mypage/organization-setup/actions.ts` を削除
   - `src/app/(authenticated)/mypage/organization-setup/OrganizationSetupForm.tsx` を削除
   - _Requirements: 6.4_
 
-- [ ] 6.2 (P) billing の buildSuccessUrl 統一
+- [x] 6.2 (P) billing の buildSuccessUrl 統一
   - `src/app/(authenticated)/billing/actions.ts` L95-100 付近の `buildSuccessUrl()` を全プラン統一
   - 個人 / 小規模 / 法人 / 法人高サポートすべてで `/mypage/client-profile/edit?setup=true` を返すよう変更
   - 既存の法人プランのみ `/mypage/organization-setup` という分岐を廃止
   - _Requirements: 6.4_
 
-- [ ] 6.3 (P) BillingClient のアップグレード後遷移統一
+- [x] 6.3 (P) BillingClient のアップグレード後遷移統一
   - `src/app/(authenticated)/billing/BillingClient.tsx` L205 付近の `window.location.href` 呼び出しも全プランで CLI-021?setup=true に遷移
   - `router.push()` ではなくハードナビゲーション（`window.location.href`）を維持（Router Cache 回避）
   - _Requirements: 6.4_
 
-- [ ] 6.4 (P) auth callback に type=invite 分岐追加
+- [x] 6.4 (P) auth callback に type=invite 分岐追加
   - `src/app/auth/callback/route.ts` L14-L66 付近に `flowType === 'invite'` の分岐を追加
   - `exchangeCodeForSession` 成功後、`/accept-invite/confirm` にリダイレクト
   - セッション確立失敗時は `/login?error=...` の既存動作を維持
   - _Requirements: 4.1_
 
-- [ ] 6.5 (P) scout-send ページの並び順を updated_at 降順に変更
+- [x] 6.5 (P) scout-send ページの並び順を updated_at 降順に変更
   - `src/app/(authenticated)/messages/scout-send/page.tsx` L78-81 付近の `scout_templates` クエリから `.order("created_at", { ascending: false })` を `.order("updated_at", { ascending: false })` に変更
   - _Requirements: 1.5_
 
-- [ ] 6.6 (P) scout-send フォームの confirm 上書き追加
+- [x] 6.6 (P) scout-send フォームの confirm 上書き追加
   - `src/app/(authenticated)/messages/scout-send/scout-send-form.tsx` の `handleTemplateSelect`（L63-70 付近）を修正
   - タイトル・本文のいずれかに入力がある場合、`window.confirm("入力中の内容がテンプレートで上書きされます。よろしいですか？")` を表示し、OK のときのみプリフィルを実行
   - _Requirements: 1.5_
