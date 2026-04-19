@@ -79,8 +79,18 @@ export async function saveClientProfileAction(
   const profileUserId = await resolveProfileUserId(supabase, user.id);
   const planType = await getPlanType(supabase, profileUserId);
 
-  // Webhook 未着時のガード（setup / edit ともに、プランが確定していないと保存できない）
+  // プラン未確定ガード:
+  // - edit モード or setup モード + skip=true → 恒久的に保存不可。contractor の
+  //   URL 直打ち等も含めて「発注者プランに加入していない」旨を明示
+  // - setup モード + 通常 save → Webhook race（課金直後）の正規経路なので
+  //   soft retry メッセージを返す
   if (!planType) {
+    if (opts.mode === "edit" || opts.skip === true) {
+      return {
+        success: false,
+        error: "発注者プランに加入していないため、この画面は使用できません",
+      };
+    }
     return {
       success: false,
       error: "プラン情報を反映中です。数秒後にもう一度お試しください",

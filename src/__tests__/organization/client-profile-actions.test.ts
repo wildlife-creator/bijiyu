@@ -90,13 +90,29 @@ describe("saveClientProfileAction", () => {
     expect(r.success).toBe(false);
   });
 
-  it("Webhook 未着（active / past_due なし）は日本語エラー", async () => {
+  it("edit モード + プラン未加入（contractor 等）は「発注者プランに加入していない」エラー", async () => {
     mockAuth(OWNER_ID);
-    // resolveProfileUserId: organization_members maybeSingle → 個人扱い
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
-    // getPlanType: subscriptions → null
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     const r = await saveClientProfileAction(basePersonalInput, { mode: "edit" });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("発注者プランに加入していない");
+  });
+
+  it("setup モード + skip=true + プラン未加入は「発注者プランに加入していない」エラー", async () => {
+    mockAuth(OWNER_ID);
+    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    const r = await saveClientProfileAction(basePersonalInput, { mode: "setup", skip: true });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("発注者プランに加入していない");
+  });
+
+  it("setup モード + 通常 save + プラン未加入は soft retry エラー（Webhook race 想定）", async () => {
+    mockAuth(OWNER_ID);
+    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    const r = await saveClientProfileAction(basePersonalInput, { mode: "setup" });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toContain("プラン情報を反映中");
   });
