@@ -42,7 +42,7 @@
   - **同 migration で `CREATE INDEX idx_users_email ON public.users(email)` を追加**（R2 対応）。CLI-025 のメール重複チェックを `public.users.email` 経由で O(log N) で実行するため。`auth.users.email` は UNIQUE のため `public.users.email` も実質ユニークだが、トリガー反映の race を許容するため**非 UNIQUE** インデックスとする
   - _Requirements: 3.1, 3.2, 3.4, 4.1_
 
-- [ ] 2.4 organizations の SELECT RLS ポリシー刷新
+- [x] 2.4 organizations の SELECT RLS ポリシー刷新
   - 旧ポリシー `organizations_select`（is_same_org ベース）と `organizations_select_thread_participant`（messaging spec で追加）を DROP
   - 新ポリシー `organizations_select_public` を `USING (deleted_at IS NULL)` で CREATE（認証済みユーザー全員が生存組織を SELECT 可）
   - `organizations_select_admin` は維持（ソフト削除済みも admin は閲覧可）
