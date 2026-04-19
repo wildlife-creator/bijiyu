@@ -316,7 +316,7 @@
 
 ## Task 9: スカウトメッセージテンプレート機能の実装（CLI-016〜019）
 
-- [ ] 9. テンプレート CRUD の Server Action と 4 画面を実装する
+- [x] 9. テンプレート CRUD の Server Action と 4 画面を実装する
 
 - [x] 9.1 scoutTemplate Server Action の実装
   - `create` / `update` / `delete` の 3 アクションを Server Action として実装
@@ -341,14 +341,14 @@
   - `design-assets/screens/CLI-017.png` に従ったレイアウト
   - _Requirements: 1.2_
 
-- [ ] 9.4 (P) CLI-018 テンプレート編集画面
+- [x] 9.4 (P) CLI-018 テンプレート編集画面
   - `/messages/templates/[id]/edit/page.tsx` + クライアントフォーム
   - `react-hook-form` + Zod で入力検証、`updateScoutTemplateAction` 呼び出し
   - 保存成功時 CLI-017 へ戻る、エラー時は toast で通知
   - `design-assets/screens/CLI-018.png` に従ったレイアウト
   - _Requirements: 1.3_
 
-- [ ] 9.5 (P) CLI-019 テンプレート新規作成画面
+- [x] 9.5 (P) CLI-019 テンプレート新規作成画面
   - `/messages/templates/new/page.tsx` + クライアントフォーム
   - `createScoutTemplateAction` 呼び出し、成功時に CLI-016 へ戻る
   - `design-assets/screens/CLI-019.png` に従ったレイアウト
