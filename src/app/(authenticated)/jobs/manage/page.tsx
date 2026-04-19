@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
+import {
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 
 import { JobListClient } from "./job-list-client";
 
@@ -37,12 +38,27 @@ export default async function JobListPage({ searchParams }: PageProps) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  // Build query — include first image via nested select
+  // Build query — include first image via nested select + standard query pattern
+  // for B3 (Staff 作成案件でも社長 client_profiles に到達)
   let query = supabase
     .from("jobs")
-    .select("id, title, trade_type, prefecture, reward_lower, reward_upper, recruit_end_date, recruit_start_date, headcount, status, is_urgent, created_at, owner_id, users!owner_id(company_name, last_name, first_name, deleted_at), job_images(image_url)", {
-      count: "exact",
-    })
+    .select(
+      `id, title, trade_type, prefecture, reward_lower, reward_upper,
+       recruit_end_date, recruit_start_date, headcount, status, is_urgent,
+       created_at, owner_id, organization_id,
+       owner:users!owner_id(
+         last_name, first_name, deleted_at,
+         client_profiles(display_name, image_url)
+       ),
+       organization:organizations(
+         owner_user:users!owner_id(
+           last_name, first_name, deleted_at,
+           client_profiles(display_name, image_url)
+         )
+       ),
+       job_images(image_url)`,
+      { count: "exact" },
+    )
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
@@ -66,30 +82,17 @@ export default async function JobListPage({ searchParams }: PageProps) {
   const totalCount = count ?? 0;
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-  // 法人プラン（active）のオーナーのみ組織名を使う
-  const ownerIds = Array.from(new Set((jobs ?? []).map((j) => j.owner_id)));
-  const admin = createAdminClient();
-  const orgNameByOwnerId = await getActiveCorporateOrgNames(admin, ownerIds);
-
   // Map jobs to include thumbnail and company name
   const jobsWithMeta = (jobs ?? []).map((job) => {
     const raw = job as Record<string, unknown>;
     const images = raw.job_images as { image_url: string }[] | null;
-    const ownerUser = raw.users as {
-      company_name: string | null;
-      last_name: string | null;
-      first_name: string | null;
-      deleted_at: string | null;
-    } | null;
-    const companyName = ownerUser
-      ? resolveParticipantName({
-          organizationName: orgNameByOwnerId.get(job.owner_id) ?? null,
-          companyName: ownerUser.company_name,
-          lastName: ownerUser.last_name,
-          firstName: ownerUser.first_name,
-          deletedAt: ownerUser.deleted_at,
-        })
-      : null;
+    const resolution = resolveClientProfileForRow(job);
+    const companyName = resolveParticipantName({
+      displayName: resolution.displayName,
+      lastName: resolution.lastName,
+      firstName: resolution.firstName,
+      deletedAt: resolution.deletedAt,
+    });
     return {
       id: job.id,
       title: job.title,

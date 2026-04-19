@@ -142,7 +142,7 @@
   - いずれも発注者名表示箇所を `client_profiles.display_name` 経由に統一、`resolveParticipantName({ displayName, lastName, firstName, deletedAt })` 呼び出し形式に更新
   - _Requirements: 6.2_
 
-- [ ] 4.2 (P) 案件系画面のクエリ書き換え（CON-002/003/004 + CLI-002）
+- [x] 4.2 (P) 案件系画面のクエリ書き換え（CON-002/003/004 + CLI-002）
   - `src/app/(authenticated)/jobs/search/page.tsx`（CON-002 案件検索）
   - `src/app/(authenticated)/jobs/[id]/page.tsx`（CON-003 案件詳細）
   - `src/app/(authenticated)/jobs/[id]/apply/page.tsx`（CON-004 応募情報入力）

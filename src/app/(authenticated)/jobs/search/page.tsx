@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
+import {
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
@@ -40,7 +41,17 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
       id, title, description, trade_type, prefecture,
       reward_lower, reward_upper, is_urgent,
       recruit_start_date, recruit_end_date, created_at,
-      owner_id,
+      owner_id, organization_id,
+      owner:users!owner_id(
+        last_name, first_name, deleted_at,
+        client_profiles(display_name, image_url)
+      ),
+      organization:organizations(
+        owner_user:users!owner_id(
+          last_name, first_name, deleted_at,
+          client_profiles(display_name, image_url)
+        )
+      ),
       job_images(image_url, sort_order)
     `,
       { count: "exact" },
@@ -49,23 +60,10 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     .is("deleted_at", null)
     .gte("recruit_end_date", new Date().toISOString().split("T")[0]);
 
-  // Apply filters
+  // Apply filters（title / description のみ対象。発注者名は client_profiles.display_name
+  // 一本化に伴い、クロステーブル検索を廃止）
   if (q) {
-    // Find owner_ids matching company_name keyword
-    const { data: matchingOwners } = await supabase
-      .from("users")
-      .select("id")
-      .ilike("company_name", `%${q}%`);
-
-    const ownerIds = (matchingOwners ?? []).map((o) => o.id);
-
-    if (ownerIds.length > 0) {
-      query = query.or(
-        `title.ilike.%${q}%,description.ilike.%${q}%,owner_id.in.(${ownerIds.join(",")})`,
-      );
-    } else {
-      query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
-    }
+    query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
   }
   if (prefecture) {
     query = query.eq("prefecture", prefecture);
@@ -89,30 +87,6 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
   query = query.range(offset, offset + ITEMS_PER_PAGE - 1);
 
   const { data: jobs, count } = await query;
-
-  // オーナーの表示名を解決。法人プラン（active）のときのみ組織名を使う
-  const ownerIds = Array.from(new Set((jobs ?? []).map((j) => j.owner_id)));
-  const admin = createAdminClient();
-  const [ownerRowsResult, orgNameByOwnerId] = await Promise.all([
-    admin
-      .from("users")
-      .select("id, company_name, last_name, first_name, deleted_at")
-      .in("id", ownerIds.length > 0 ? ownerIds : ["__none__"]),
-    getActiveCorporateOrgNames(admin, ownerIds),
-  ]);
-  const ownerNameById = new Map<string, string>();
-  for (const row of ownerRowsResult.data ?? []) {
-    ownerNameById.set(
-      row.id,
-      resolveParticipantName({
-        organizationName: orgNameByOwnerId.get(row.id) ?? null,
-        companyName: row.company_name,
-        lastName: row.last_name,
-        firstName: row.first_name,
-        deletedAt: row.deleted_at,
-      }),
-    );
-  }
 
   // Get user's favorites for these jobs
   const jobIds = (jobs ?? []).map((j) => j.id);
@@ -170,7 +144,13 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
         {/* Job cards grid */}
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">
           {(jobs ?? []).map((job) => {
-            const companyName = ownerNameById.get(job.owner_id) ?? null;
+            const resolution = resolveClientProfileForRow(job);
+            const companyName = resolveParticipantName({
+              displayName: resolution.displayName,
+              lastName: resolution.lastName,
+              firstName: resolution.firstName,
+              deletedAt: resolution.deletedAt,
+            });
             const images = (job.job_images as Array<{
               image_url: string;
               sort_order: number;
