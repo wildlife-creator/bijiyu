@@ -318,7 +318,7 @@
 
 - [ ] 9. テンプレート CRUD の Server Action と 4 画面を実装する
 
-- [ ] 9.1 scoutTemplate Server Action の実装
+- [x] 9.1 scoutTemplate Server Action の実装
   - `create` / `update` / `delete` の 3 アクションを Server Action として実装
   - Zod スキーマ（title ≤ 50 / body ≤ 2000 / memo ≤ 500）で空白トリム + 日本語エラーメッセージ
   - `owner_id = auth.uid()`、`organization_id` は作成者の所属組織（法人プランなら `organization_members` を参照）を自動設定

@@ -44,3 +44,44 @@ export const bulkMessageSchema = z.object({
     .min(1, "メッセージを入力してください")
     .max(MAX_BODY_LENGTH, `メッセージは${MAX_BODY_LENGTH}文字以内で入力してください`),
 });
+
+// ============================================================
+// scout_templates（CLI-016〜019）
+// ============================================================
+// 上限・改行禁止は requirements.md REQ-ORG-001 準拠
+
+const SCOUT_TEMPLATE_TITLE_MAX = 50;
+const SCOUT_TEMPLATE_BODY_MAX = 2000;
+const SCOUT_TEMPLATE_MEMO_MAX = 500;
+
+export const scoutTemplateSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, "タイトルを入力してください")
+    .max(
+      SCOUT_TEMPLATE_TITLE_MAX,
+      `タイトルは${SCOUT_TEMPLATE_TITLE_MAX}文字以内で入力してください`,
+    )
+    .refine((v) => !/[\r\n]/.test(v), "タイトルに改行は使用できません"),
+  body: z
+    .string()
+    .trim()
+    .min(1, "本文を入力してください")
+    .max(
+      SCOUT_TEMPLATE_BODY_MAX,
+      `本文は${SCOUT_TEMPLATE_BODY_MAX}文字以内で入力してください`,
+    ),
+  memo: z
+    .string()
+    .trim()
+    .max(
+      SCOUT_TEMPLATE_MEMO_MAX,
+      `メモは${SCOUT_TEMPLATE_MEMO_MAX}文字以内で入力してください`,
+    )
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v : null)),
+});
+
+export type ScoutTemplateInput = z.infer<typeof scoutTemplateSchema>;
