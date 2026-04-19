@@ -409,7 +409,7 @@
   - `design-assets/screens/CLI-022.png`（PC/SP 両方）に従ったレスポンシブレイアウト
   - _Requirements: 3.1_
 
-- [ ] 11.3 (P) CLI-023 担当者詳細画面
+- [x] 11.3 (P) CLI-023 担当者詳細画面
   - `/mypage/members/[id]/page.tsx`（RSC）で担当者の詳細情報を表示
   - 「対象ロール」表に従い編集・削除ボタンの表示を分岐（Owner が自分を開いた場合は `/profile/edit` リンク、Admin/Staff が自分を開いた場合は CLI-024 自己編集モード）
   - 招待再送ボタン（Owner/Admin + `password_set_at IS NULL` 時のみ表示）
