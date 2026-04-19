@@ -151,6 +151,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // /mypage/organization-setup は organization spec Task 6.1 で廃止済み。
+  // 旧 URL を直接踏まれた場合は CLI-021 setup モードに 308 リダイレクト
+  if (pathname === "/mypage/organization-setup") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/mypage/client-profile/edit";
+    url.searchParams.set("setup", "true");
+    return NextResponse.redirect(url, 308);
+  }
+
   // -----------------------------------------------------------------
   // fee=free Cookie set side
   //   /billing?fee=free を検出したら sealed payload を計算しておく。
@@ -356,6 +365,14 @@ export async function middleware(request: NextRequest) {
   // Staff: block contractor action routes (apply, application history, availability)
   // Staff can VIEW CON screens (job search, detail, etc.) but cannot perform contractor actions
   if (role === "staff") {
+    // Staff の /profile/edit アクセスは CLI-024 自己編集モードに転送
+    // （organization spec Task 13）
+    if (pathname === "/profile/edit" || pathname.startsWith("/profile/edit/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/mypage/members/${user.id}/edit`;
+      url.search = "";
+      return finalize(NextResponse.redirect(url));
+    }
     // Block /jobs/[id]/apply specifically (not /jobs/search or /jobs/[id] viewing)
     if (pathname.match(/^\/jobs\/[^/]+\/apply/)) {
       return finalize(redirectTo(request, "/mypage"));

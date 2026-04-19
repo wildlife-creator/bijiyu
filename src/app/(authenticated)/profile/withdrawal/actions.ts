@@ -112,29 +112,52 @@ export async function withdrawAction(
     .eq("user_id", user.id)
     .eq("status", "active");
 
-  // 11. Remove from organization
+  // 11. Organization handling (C 案: organization spec Task 13.4)
+  // Owner 退会時は Admin の有無に関わらず組織ごとソフトデリートし、
+  // 配下 Admin / Staff の users.deleted_at も連動設定してログイン不可化。
+  // client_profiles / scout_templates は削除せず保持（履歴）。
   if (orgMembership) {
     const orgId = orgMembership.organization_id;
+    const adminClientForOrg = createAdminClient();
 
-    await supabase
-      .from("organization_members")
-      .delete()
-      .eq("user_id", user.id);
-
-    // 12. Organization handling: if user was owner, check for remaining admins
     if (orgMembership.org_role === "owner") {
-      const { count: remainingAdmins } = await supabase
+      // 配下メンバー取得（Owner 以外）
+      const { data: memberRows } = await adminClientForOrg
         .from("organization_members")
-        .select("*", { count: "exact", head: true })
+        .select("user_id")
         .eq("organization_id", orgId)
-        .eq("org_role", "admin");
+        .neq("user_id", user.id);
 
-      if (!remainingAdmins || remainingAdmins === 0) {
-        await supabase
-          .from("organizations")
+      const memberIds = (memberRows ?? [])
+        .map((m) => m.user_id as string)
+        .filter(Boolean);
+
+      // 配下メンバーの users.deleted_at をセット（ログイン不可化）
+      if (memberIds.length > 0) {
+        await adminClientForOrg
+          .from("users")
           .update({ deleted_at: new Date().toISOString() })
-          .eq("id", orgId);
+          .in("id", memberIds);
       }
+
+      // organization_members を全削除（Owner 含む）
+      await adminClientForOrg
+        .from("organization_members")
+        .delete()
+        .eq("organization_id", orgId);
+
+      // 組織をソフトデリート
+      await adminClientForOrg
+        .from("organizations")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", orgId);
+    } else {
+      // Owner 以外の自己退会（現在は上部ガードで Owner のみ到達可能だが
+      // 将来の仕様変更に備え本人分のみ削除）
+      await adminClientForOrg
+        .from("organization_members")
+        .delete()
+        .eq("user_id", user.id);
     }
   }
 

@@ -453,7 +453,7 @@
 
 ## Task 13: Middleware と認可ガードの更新
 
-- [ ] 13. 新規画面と setup モードを Middleware で正しく守る
+- [x] 13. 新規画面と setup モードを Middleware で正しく守る
   - `CLIENT_ONLY_PREFIXES` に `/messages/templates`、`/mypage/client-profile`、`/mypage/members` を追加し、受注者のみのアカウントはブロック
   - ただし `role = 'client'` 持ちのユーザー（発注者 or 担当者）は通過
   - `/mypage/client-profile/edit?setup=true` は認証済みなら plan / role 未確定でも通過（Webhook 未着対策）
@@ -467,7 +467,7 @@
 
 ## Task 13.4: COM-006（退会画面）の C 案対応リファクタ（2026-04-19 C 案採用）
 
-- [ ] 13.4 既存 `src/app/(authenticated)/profile/withdrawal/` を組織ごとソフトデリート方式（C 案）に書き換える
+- [x] 13.4 既存 `src/app/(authenticated)/profile/withdrawal/` を組織ごとソフトデリート方式（C 案）に書き換える
 
 - [ ] 13.4.1 `withdrawal/actions.ts` のロジック変更
   - 現状（旧仕様）: Owner 退会時、admin の有無で分岐（admin あり → 組織維持、admin なし → `organizations.deleted_at` セット）
@@ -522,7 +522,7 @@
 
 ## Task 13.45: billing Webhook ハンドラの J1 仕様対応（2026-04-19 C/J1 採用に伴う既存実装リファクタ）
 
-- [ ] 13.45 既存 billing Webhook ハンドラ（`src/lib/billing/webhook/handle-subscription-lifecycle.ts` + 対応 RPC）を J1 仕様に合わせて修正する
+- [x] 13.45 既存 billing Webhook ハンドラ（`src/lib/billing/webhook/handle-subscription-lifecycle.ts` + 対応 RPC）を J1 仕様に合わせて修正する
 
 - [ ] 13.45.1 `handle_subscription_lifecycle_deleted` RPC の対象ロール拡張
   - 現状: 法人プラン完全解約時、`organization_members WHERE org_role = 'staff'` のみ `is_active=false` に設定
@@ -577,7 +577,7 @@
 
 ## Task 13.5: /profile/edit に法人プラン Owner 向け注意書きを追加（R1 対応）
 
-- [ ] 13.5 法人プラン Owner が `/profile/edit` を開いたとき、画面上部に契約者引き継ぎに関する注意バナーを表示する
+- [x] 13.5 法人プラン Owner が `/profile/edit` を開いたとき、画面上部に契約者引き継ぎに関する注意バナーを表示する
   - **背景**: requirements.md L708 の要件（法人プラン Owner にだけ Pattern 2「別人へのアカウント移譲」を運営経由に誘導する案内）。**編集機能自体は一切制限しない**（同一人物の改姓・メール変更などは通常通り保存可）
   - **実装パターン**: 既存 `src/app/(authenticated)/profile/edit/page.tsx` は Client Component（`"use client"`）のため、Server Component ラッパーを新設してプラン判定を行う:
     1. 既存 `page.tsx` の中身を `ProfileEditForm.tsx`（Client Component）にリネーム/分離

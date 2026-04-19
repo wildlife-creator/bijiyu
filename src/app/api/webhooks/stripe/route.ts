@@ -23,6 +23,7 @@ export const runtime = "nodejs";
 
 const SUPPORTED_EVENT_TYPES = new Set<string>([
   "checkout.session.completed",
+  "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
   "invoice.payment_failed",
@@ -72,6 +73,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           event.data.object as Stripe.Checkout.Session,
         );
         return;
+      case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
         await handleSubscriptionLifecycle(admin, stripe, {
