@@ -360,7 +360,7 @@
 
 - [ ] 10. 発注者情報の表示・編集と setup モード遷移を実装する
 
-- [ ] 10.1 clientProfile Server Action の実装
+- [x] 10.1 clientProfile Server Action の実装
   - `saveClientProfileAction(input, { mode: 'edit' | 'setup', skip?: boolean })` — `client_profiles` の UPSERT
   - Zod スキーマ 2 バリアント（`clientProfileSchema` / `clientProfileSetupSchema`）で法人プラン必須 vs 非法人任意を分岐
   - setup モード + 法人プランで displayName 必須、非法人プランは skip 可能
