@@ -667,7 +667,7 @@
   - (4) **部分失敗ロールバック検証**: 意図的に scout_templates UPDATE を失敗させて（例: 存在しない owner_id 指定）、`organization_members` DELETE と `users.deleted_at` セットも巻き戻される（トランザクション全体のロールバック）
   - _Requirements: 5.2_
 
-- [ ] 15.5 (P) avatars Storage RLS テスト
+- [x] 15.5 (P) avatars Storage RLS テスト
   - `supabase/tests/avatars_storage_rls.test.sql` を新規作成
   - (1) 自分のフォルダへの INSERT/UPDATE/DELETE が既存ポリシー（`(storage.foldername(name))[1] = auth.uid()::text`）で通る
   - (2) 組織 Owner のフォルダへ Admin が INSERT/UPDATE/DELETE できる（`avatars_client_profile_write` ポリシー経由）
