@@ -98,7 +98,7 @@
 
 - [ ] 3. 発注者表示名解決とアバター解決の共通関数を新仕様に書き換える
 
-- [ ] 3.1 resolveParticipantName の再設計 + B3 対応ヘルパー追加
+- [x] 3.1 resolveParticipantName の再設計 + B3 対応ヘルパー追加
   - **resolveParticipantName 改修**:
     - 引数を `organizationName` から `displayName`（`client_profiles.display_name` の値）に変更
     - 優先順位を新方針「displayName → last_name + first_name」の 2 段階に書き換え
