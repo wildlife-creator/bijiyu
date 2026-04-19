@@ -727,7 +727,7 @@
 
 ## Task 16.2: billing spec ドキュメントの記述更新（付録 A Step 5.6）
 
-- [ ] 16.2. organization 実装で `organizations.name` カラムが廃止されるため、billing spec 配下の記述を過去形に更新する
+- [x] 16.2. organization 実装で `organizations.name` カラムが廃止されるため、billing spec 配下の記述を過去形に更新する
   - `.kiro/specs/billing/tasks.md`: 同ファイル L423-L433 の自己メモに従い、L436 / L519 / L520 / L657-L661 / L673 / L744 / L745 の `organizations.name` 参照行を `client_profiles.display_name` 基準に書き換え。Task 8.7（暫定画面）の記述は「organization spec で CLI-021 に統合済み」の注記付き完了扱いに変更
   - `.kiro/specs/billing/requirements.md`: L491 / L521 の「`organizations.name` カラムは organization spec で廃止される」を過去形（「廃止された」「削除済み」）に書き換え、発注者表示名一本化の旨を明示
   - `.kiro/specs/billing/design.md`: L248 / L556 / L571 / L590 / L597 / L1419 の `organizations.name` 参照を確認。Phase 1 暫定画面の記述は「organization spec で置き換え済み」の注記に変更

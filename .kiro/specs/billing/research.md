@@ -9,7 +9,7 @@
   - 補償オプションは `subscriptions` テーブルの UNIQUE 制約と衝突するため `option_subscriptions` テーブルに分離する
   - past_due の自動解約はメール送信を伴うため pg_cron + Edge Function、その他のオプション期限切れは pg_cron 直接 SQL で実装する
   - fee=free（初回事務手数料免除）は iron-session の暗号化 Cookie をミドルウェアでセットして判定する
-  - プラン購入後（全プラン共通）は CLI-021?setup=true にリダイレクトして発注者情報入力を促す。法人プランは社名必須、個人・小規模プランはスキップ可（受注者機能のみ利用するユーザーへの配慮 + `client_profiles.display_name` がメッセージ画面の表示名に直結するため課金直後に設定導線を持つ）。`organizations.name` カラムは organization spec で廃止予定
+  - プラン購入後（全プラン共通）は CLI-021?setup=true にリダイレクトして発注者情報入力を促す。法人プランは社名必須、個人・小規模プランはスキップ可（受注者機能のみ利用するユーザーへの配慮 + `client_profiles.display_name` がメッセージ画面の表示名に直結するため課金直後に設定導線を持つ）。`organizations.name` カラムは organization spec で廃止済み（Phase 1 Task 2.1 で NOT NULL 解除、Phase 3 Task 19 で DROP COLUMN 予定）
 
 ## Research Log
 

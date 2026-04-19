@@ -488,7 +488,7 @@ past_due 警告バナー「お支払い方法を更新する」→ Stripe Custom
 - subscriptions: サブスクリプション管理（CRUD）
 - option_subscriptions: オプション契約管理
 - client_profiles: 発注者プロフィール作成、オプションフラグ更新
-- organizations: 法人プラン購入時に自動作成（`owner_id` のみ設定）。発注者表示名は `client_profiles.display_name` に一本化されており、`organizations.name` カラムは organization spec で廃止される
+- organizations: 法人プラン購入時に自動作成（`owner_id` のみ設定）。発注者表示名は `client_profiles.display_name` に一本化されており、`organizations.name` カラムは organization spec で廃止済み（Phase 1 Task 2.1 で NOT NULL 解除、Phase 3 Task 19 で DROP COLUMN 予定）
 - organization_members: 担当者管理（ダウングレード前提条件チェックで件数確認）
 - audit_logs: ロール変更ログ
 
@@ -518,7 +518,7 @@ past_due 警告バナー「お支払い方法を更新する」→ Stripe Custom
 - **定期ジョブの実装**: close-expired-jobs と expire-options は pg_cron SQL 直接実行、auto-cancel-past-due のみ Edge Function（メール送信が必要なため）
 - **ダウングレード前提条件**: 3つのチェック（掲載中案件数・未返信応募・担当者数）に集約。代理アカウントは担当者数に含まれるため個別チェック不要。全10パターンが同一ロジックで処理可能
 - **PLAN_LIMITS 定数**: `src/lib/constants/plans.ts` にプランごとの上限値を定義。DB ではなくコード内定数で管理（変更頻度が低いため）
-- **発注者表示名は `client_profiles.display_name` に一本化**: CLI-021 で display_name を保存する。`organizations.name` カラムは organization spec の実装時に廃止されるため同期は不要（詳細は `.kiro/steering/database-schema.md`「発注者表示名のルール」および `.kiro/specs/organization/requirements.md` 付録 A 参照）
+- **発注者表示名は `client_profiles.display_name` に一本化**: CLI-021 で display_name を保存する。`organizations.name` カラムは organization spec で廃止済み（Phase 1 Task 2.1 で NOT NULL 解除、Phase 3 Task 19 で DROP COLUMN 予定）のため同期は不要（詳細は `.kiro/steering/database-schema.md`「発注者表示名のルール」および `.kiro/specs/organization/requirements.md` 付録 A 参照）
 - **解約後のメッセージ**: 進行中（accepted）の案件のスレッドは引き続き利用可能。ただし無料プランのメッセージ制限（月5スレッド）が適用される。既存スレッドへの返信は制限なし（制限は新規スレッド作成のみ）
 - **解約後の完了報告・評価**: 自分がオーナーの accepted 案件に対してはアクセス可能。ページ側で所有権チェック（role ではなく案件オーナーかで判定）。受注者が不利にならないための措置
 - **プラン購入後の発注者情報入力（全プラン共通）**: success_url を全プランで CLI-021（`?setup=true`）に統一。背景は「`client_profiles.display_name` がメッセージ・案件カード・スカウト等で受注者に表示される唯一の名前源」であり、課金した瞬間に発注者名を設定する導線を持つべきため

@@ -12,7 +12,7 @@
 - Stripe Billing による安全な決済と署名検証付き Webhook 処理
 - 二重課金防止と Webhook 冪等性の担保
 - 全プラン変更マトリクス（アップグレード・ダウングレード・解約のすべての組み合わせ）を矛盾なく処理
-- プラン購入直後の発注者情報設定導線（全プラン CLI-021?setup=true へ遷移。法人プランは社名必須・スキップ不可、個人・小規模プランは任意でスキップ可。Phase 1 暫定では法人プランのみ `/mypage/organization-setup` 経由、個人・小規模は `/mypage?checkout=success` 遷移）。法人プランは追加で組織（organizations）の自動作成も行う
+- プラン購入直後の発注者情報設定導線（全プラン CLI-021?setup=true へ遷移。法人プランは社名必須・スキップ不可、個人・小規模プランは任意でスキップ可）。法人プランは追加で組織（organizations）の自動作成も行う。Phase 1 暫定の `/mypage/organization-setup` 経由は organization spec Task 6 で廃止済み
 - past_due の7日猶予と自動解約（pg_cron + Edge Function）
 - 担当者（staff）の書き込み操作を三重防御（Middleware + UI + Server Action）でブロック
 - fee=free（初回事務手数料免除）ルートを暗号化 Cookie で実装
@@ -243,14 +243,14 @@ sequenceDiagram
     CLI027-->>User: success_url にリダイレクト（全プラン=CLI-021?setup=true）
 ```
 
-**プラン購入完了後のリダイレクト先（全プラン共通）**:
-- **現状（billing 単独リリース時の暫定対応）**: 法人プランのみ `/mypage/organization-setup`（OrganizationNameSetupPage 暫定画面）に遷移。個人・小規模プランは `/mypage?checkout=success` に遷移
-- **移行後（organization spec 実装時）**: 暫定画面を廃止し、success_url を **全プランで CLI-021（`?setup=true`）** に統一する。CLI-021 が発注者情報の唯一の編集画面となり、社名・氏名は `client_profiles.display_name` に保存される（`organizations.name` カラムは廃止）
+**プラン購入完了後のリダイレクト先（全プラン共通、現行仕様）**:
+- **現行（organization spec Task 6 完了後）**: 全プラン共通で `/mypage/client-profile/edit?setup=true`（CLI-021 setup モード）に遷移。`buildSuccessUrl` 内のプラン分岐は廃止済み
+- **旧 Phase 1 暫定**（organization spec で置き換え済み）: 法人プランは `/mypage/organization-setup`、個人・小規模は `/mypage?checkout=success`。暫定画面と Server Action は organization spec Task 6.1 で削除済み
 - **プラン別の必須/任意**:
   - 法人プラン（corporate / corporate_premium）: 社名入力必須、スキップ不可
   - 個人・小規模プラン（`individual` / `small`）: 任意、「スキップして後で設定する」ボタンで CON-001 へ遷移可
 - **スキップ時の表示名**: Webhook（`handle_checkout_completed_plan`）が `client_profiles` を INSERT する際に `display_name` のデフォルト値として `users.last_name + first_name`（受注者登録時に入力された姓名）を格納する（`ON CONFLICT (user_id) DO NOTHING` のため既存値があれば維持）。スキップ時は DB 操作を行わずこの値がそのまま表示名として使われるため、受注者側で「名無し」にはならない
-- **切替作業は organization spec 側で実施**: 暫定画面・Server Action・関連テストの削除、`billing/actions.ts`（L100 付近 `buildSuccessUrl`）と `BillingClient.tsx`（L205 付近）のリダイレクト URL 差替は `.kiro/specs/organization/requirements.md` の「付録 A: 実装前提リファクタリング手順」Step 4 に従って行う。差替後は `buildSuccessUrl` 内のプラン分岐を削除し全プラン `/mypage/client-profile/edit?setup=true`（CLI-021 の実 URL）に統一する
+- **参考**: 切替作業の詳細手順は `.kiro/specs/organization/requirements.md` 付録 A Step 4 + organization spec Task 6.1-6.3 のコミット履歴を参照
 - **Webhook 未着時のガード緩和**: `?setup=true` の CLI-021 アクセスは `users.role` や `subscriptions.plan_type` の確定を待たず認証済みユーザーに許可する。保存 Server Action は Webhook 完了を前提とするため、未完了時は「プラン情報を反映中です。数秒後にもう一度お試しください」エラーを返す
 - **二重防御**: `resolveParticipantName()` のフォールバック（`users.last_name + first_name`）が機能するため、万一 `client_profiles` レコードが存在しない edge case でも表示名が空にならない
 - **詳細**: 発注者表示名の一本化方針は `.kiro/steering/database-schema.md`「発注者表示名のルール」参照
@@ -271,7 +271,7 @@ sequenceDiagram
     CLI026->>SA: targetPlan
     SA->>SA: 認証 + past_due でないことを確認
     SA->>Stripe: subscriptions.update items=[newPrice] proration=create_prorations
-    SA-->>CLI026: 即時反映トースト + 全プランで CLI-021?setup=true に遷移（organization spec 実装前は法人プランのみ暫定画面 /mypage/organization-setup 経由）
+    SA-->>CLI026: 即時反映トースト + 全プランで CLI-021?setup=true に遷移（旧 Phase 1 暫定の /mypage/organization-setup 経由は organization spec Task 6.3 で廃止済み）
     Stripe->>Webhook: customer.subscription.updated
     Webhook->>Webhook: 署名検証 + 冪等性ガード + subscriptions SELECT
     Webhook->>Updated: handle_subscription_lifecycle_updated(event_data)
@@ -281,7 +281,7 @@ sequenceDiagram
 ```
 
 **プランアップグレード完了後のリダイレクト先（全プラン共通）**:
-- 新規購入時と同じ遷移先（現状は法人プランのみ `/mypage/organization-setup` 暫定画面、organization spec 実装後は全プラン `CLI-021?setup=true`）にリダイレクトし、発注者情報の入力を求める（非法人プランはスキップ可）
+- 新規購入時と同じ遷移先（全プラン `/mypage/client-profile/edit?setup=true` = CLI-021 setup モード）にリダイレクトし、発注者情報の入力を求める（非法人プランはスキップ可）。旧 Phase 1 暫定の `/mypage/organization-setup` 経路は organization spec Task 6 で廃止済み
 - 再アップグレード時（既に発注者情報が設定済み）は、遷移先画面が既存データを表示するため、ユーザーは確認・変更が可能
 - 無料→有料のアップグレードはそもそも Checkout フロー（startCheckoutAction）を通る。本セクションは有料→有料のプラン変更（upgradePlanAction）を対象とする
 
@@ -542,9 +542,9 @@ sequenceDiagram
 - 検証: 急募プルダウンの選択肢生成ロジックをユニットテスト
 - リスク: 大量の active option_subscriptions がある場合の N+1 → ユーザー単位の集計クエリで事前取得
 
-#### OrganizationNameSetupPage（暫定画面、CLI-021 完成まで）
+#### OrganizationNameSetupPage（旧暫定画面 — organization spec で置き換え済み）
 
-> **⚠️ 移行予定**: organization spec の CLI-021 実装時に本画面を削除する。削除手順は `.kiro/specs/organization/requirements.md`「付録 A: 実装前提リファクタリング手順」Step 4 参照。
+> **〔organization spec Task 6.1 で削除済み〕**: 本暫定画面（`/mypage/organization-setup`）は organization spec Task 6.1 で `src/app/(authenticated)/mypage/organization-setup/*` 3 ファイル + `saveOrganizationNameAction` と共に削除された。後継は CLI-021 setup モード（`/mypage/client-profile/edit?setup=true`）。以下の記述は当時の仕様書として保持する（歴史的記録）。
 
 | Field | Detail |
 |-------|--------|
