@@ -392,7 +392,7 @@
 
 - [ ] 11. 担当者 CRUD と招待メール再送の Server Action + 4 画面を実装する
 
-- [ ] 11.1 member Server Action の実装
+- [x] 11.1 member Server Action の実装
   - `createMemberAction(input)`: Zod → 権限チェック → **メール重複チェック（R2 対応: `admin.from('users').select('id').eq('email', input.email).maybeSingle()` で O(log N) 確認、ヒットしたら早期リターン。`auth.admin.listUsers()` は使わない）** → plan_type 取得 → `inviteUserByEmail(email, { redirectTo, data: { invited_role: 'staff', invited_last_name: input.lastName, invited_first_name: input.firstName, inviter_name, organization_name } })` を呼ぶ（**D 対応**: メタデータ経由でトリガーが INSERT 時に role='staff' と氏名を設定。孤児 auth.users のフォールバックとしてここでも email 重複エラーを掴む 2 段防御）→ `insert_staff_member_with_limit(new_user_id, org_id, org_role, is_proxy, max_staff)` RPC 呼び出し（D 採用により name/role 引数なし。RPC は人数チェック + organization_members INSERT のみ実行）→ RPC 失敗時 `auth.admin.deleteUser` cleanup + `audit_logs` 記録
   - `updateMemberAction(targetUserId, input)`: 氏名 / メール / 権限 / 代理フラグの更新。メール変更は「本人 = `auth.updateUser`」「管理者 = `auth.admin.updateUserById(email_confirm: true)` + Resend 通知」で分岐。**R4 対応**: `is_proxy_account = true` への切替時は UPDATE 前に `select id from organization_members where organization_id = ? and is_proxy_account = true and user_id != targetUserId` を SELECT して既存代理の有無を確認、ヒットしたら「代理アカウントは既に登録されています。既存の代理アカウントを解除してから再度お試しください」を返す（DB 部分 UNIQUE が最終ガード、race 時は 23505 を catch して同じメッセージへフォールバック）
   - `deleteMemberAction(targetUserId)`: `delete_staff_member` RPC 呼び出し + `audit_logs` 記録
