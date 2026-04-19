@@ -676,7 +676,7 @@
   - (5) SELECT（画像閲覧）は既存の public SELECT ポリシーで全認証済みユーザーが可能
   - _Requirements: 5.2_
 
-- [ ] 15.6 (P) is_org_admin_or_owner_of 関数の直接テスト（RLS 再帰回避の動作検証）
+- [x] 15.6 (P) is_org_admin_or_owner_of 関数の直接テスト（RLS 再帰回避の動作検証）
   - `supabase/tests/is_org_admin_or_owner_of.test.sql` を新規作成
   - (1) 関数単体呼び出し: Owner の user_id を渡すと true、Admin の user_id を渡すと true、Staff の user_id を渡すと false
   - (2) 他組織 Owner の target_owner_user_id を渡すと false
