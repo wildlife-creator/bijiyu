@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { scoutSchema } from "@/lib/validations/message";
 import { sendEmail } from "@/lib/email/send-email";
 import { scoutNotificationEmail } from "@/lib/email/templates/scout-notification";
-import { resolveParticipantName } from "@/lib/utils/display-name";
+import {
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 import type { ActionResult } from "@/lib/types/action-result";
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -160,26 +163,43 @@ export async function sendScoutAction(
       .single();
 
     if (targetUser?.email) {
-      // Resolve sender name: org.name → company_name → personal name
-      const { data: senderData } = await supabase
+      // Resolve sender name: 法人プランなら組織 Owner の client_profiles、
+      // 個人プランなら自身の client_profiles（resolveClientProfileForRow で統一）
+      const { data: senderSelf } = await supabase
         .from("users")
-        .select("last_name, first_name, company_name")
+        .select(
+          `last_name, first_name, deleted_at,
+           client_profiles(display_name, image_url)`,
+        )
         .eq("id", user.id)
         .single();
-      let orgName: string | null = null;
+
+      let orgOwnerUser: typeof senderSelf | null = null;
       if (organizationId) {
-        const { data: orgData } = await supabase
+        const { data: orgRow } = await supabase
           .from("organizations")
-          .select("name")
+          .select(
+            `owner_user:users!owner_id(
+              last_name, first_name, deleted_at,
+              client_profiles(display_name, image_url)
+            )`,
+          )
           .eq("id", organizationId)
           .single();
-        orgName = orgData?.name ?? null;
+        orgOwnerUser =
+          (orgRow?.owner_user as typeof senderSelf | null) ?? null;
       }
+
+      const resolution = resolveClientProfileForRow({
+        organization_id: organizationId,
+        owner: senderSelf,
+        organization: orgOwnerUser ? { owner_user: orgOwnerUser } : null,
+      });
       const senderName = resolveParticipantName({
-        organizationName: orgName,
-        companyName: senderData?.company_name,
-        lastName: senderData?.last_name,
-        firstName: senderData?.first_name,
+        displayName: resolution.displayName,
+        lastName: resolution.lastName,
+        firstName: resolution.firstName,
+        deletedAt: resolution.deletedAt,
       });
       const recipientName = `${targetUser.last_name ?? ""}${targetUser.first_name ?? ""}`.trim() || "ユーザー";
 

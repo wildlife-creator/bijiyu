@@ -158,7 +158,7 @@
   - **受注者名（applicantName, L423）**: 旧 `resolveParticipantName({ companyName, ... })` は新シグネチャから companyName 引数が消えるため、`getUserDisplayName(applicant, 'prefer-company')` に置換（受注者の屋号表示を維持。Task 3.1 で追加した新モードを使用）
   - _Requirements: 6.2_
 
-- [ ] 4.4 (P) メッセージ系画面とアクションのクエリ書き換え（メッセージ一覧・スレッド詳細・スカウト送信）
+- [x] 4.4 (P) メッセージ系画面とアクションのクエリ書き換え（メッセージ一覧・スレッド詳細・スカウト送信）
   - `src/app/(authenticated)/messages/page.tsx`
     - **発注者側を見るブランチ（L80-85 付近、participant1）**: standard query pattern + `resolveParticipantName({ displayName, ... })` に置換
     - **受注者側を見るブランチ（L89-93 付近、participant2）**: `resolveParticipantName({ companyName, ... })` を `getUserDisplayName(participant2, 'prefer-company')` に置換（受注者の屋号表示を維持）

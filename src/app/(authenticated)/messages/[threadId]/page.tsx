@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { MessageThreadView } from "@/components/messaging/message-thread-view";
 import type { Message, ScoutJobInfo } from "@/components/messaging/message-list";
 import { MessageHeader } from "@/components/messaging/message-header";
-import { resolveParticipantName } from "@/lib/utils/display-name";
+import {
+  getUserDisplayName,
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 
 interface Props {
   params: Promise<{ threadId: string }>;
@@ -26,9 +30,19 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
     .from("message_threads")
     .select(
       `id, thread_type, participant_1_id, participant_2_id, organization_id,
-       participant_1:users!message_threads_participant_1_id_fkey(id, last_name, first_name, company_name, avatar_url),
-       participant_2:users!message_threads_participant_2_id_fkey(id, last_name, first_name, company_name, avatar_url),
-       organizations(id, name)`,
+       participant_1:users!message_threads_participant_1_id_fkey(
+         id, last_name, first_name, deleted_at,
+         client_profiles(display_name, image_url)
+       ),
+       participant_2:users!message_threads_participant_2_id_fkey(
+         id, last_name, first_name, company_name, avatar_url, deleted_at
+       ),
+       organization:organizations(
+         owner_user:users!owner_id(
+           last_name, first_name, deleted_at,
+           client_profiles(display_name, image_url)
+         )
+       )`,
     )
     .eq("id", threadId)
     .single();
@@ -37,33 +51,53 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
 
   // Determine "other" participant display
   const participant1 = thread.participant_1 as unknown as {
-    id: string; last_name: string | null; first_name: string | null; company_name: string | null; avatar_url: string | null;
+    id: string;
+    last_name: string | null;
+    first_name: string | null;
+    deleted_at: string | null;
+    client_profiles:
+      | Array<{ display_name: string | null; image_url: string | null }>
+      | null;
   } | null;
   const participant2 = thread.participant_2 as unknown as {
-    id: string; last_name: string | null; first_name: string | null; company_name: string | null; avatar_url: string | null;
+    id: string;
+    last_name: string | null;
+    first_name: string | null;
+    company_name: string | null;
+    avatar_url: string | null;
+    deleted_at: string | null;
   } | null;
-  const org = thread.organizations as unknown as { id: string; name: string } | null;
 
-  // From contractor's perspective: org.name → company_name → personal name
-  // From org member's perspective: company_name → personal name
+  // From contractor's perspective: resolveClientProfileForRow で B3 対応
+  // From org member's perspective: 受注者の屋号優先表示
   const isContractorSide = thread.participant_2_id === user.id;
   let otherName: string;
   let otherAvatarUrl: string | null;
 
   if (isContractorSide) {
-    otherName = resolveParticipantName({
-      organizationName: org?.name,
-      companyName: participant1?.company_name,
-      lastName: participant1?.last_name,
-      firstName: participant1?.first_name,
+    const resolution = resolveClientProfileForRow({
+      organization_id: thread.organization_id,
+      owner: participant1,
+      organization: thread.organization,
     });
-    otherAvatarUrl = participant1?.avatar_url ?? null;
+    otherName = resolveParticipantName({
+      displayName: resolution.displayName,
+      lastName: resolution.lastName,
+      firstName: resolution.firstName,
+      deletedAt: resolution.deletedAt,
+    });
+    // Task 5.2: アバターも client_profiles.image_url を優先
+    otherAvatarUrl = resolution.imageUrl;
   } else {
-    otherName = resolveParticipantName({
-      companyName: participant2?.company_name,
-      lastName: participant2?.last_name,
-      firstName: participant2?.first_name,
-    });
+    otherName = getUserDisplayName(
+      {
+        lastName: participant2?.last_name,
+        firstName: participant2?.first_name,
+        companyName: participant2?.company_name,
+        deletedAt: participant2?.deleted_at,
+      },
+      "prefer-company",
+    );
     otherAvatarUrl = participant2?.avatar_url ?? null;
   }
 
