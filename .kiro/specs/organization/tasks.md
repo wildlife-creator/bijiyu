@@ -334,7 +334,7 @@
   - `design-assets/screens/CLI-016.png` に従ったレイアウト
   - _Requirements: 1.1_
 
-- [ ] 9.3 (P) CLI-017 テンプレート詳細画面
+- [x] 9.3 (P) CLI-017 テンプレート詳細画面
   - `/messages/templates/[id]/page.tsx`（RSC）でテンプレートの全内容表示
   - 表示項目: タイトル、本文、メモ、作成日（法人プランは作成者氏名も）
   - 「編集する」ボタン → CLI-018、「削除する」ボタン → 確認ダイアログ → `deleteScoutTemplateAction`
