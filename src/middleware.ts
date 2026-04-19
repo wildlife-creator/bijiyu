@@ -65,6 +65,7 @@ const CLIENT_ONLY_PREFIXES = [
   "/applications/orders", // CLI-010~012: order history
   "/messages/bulk-send", // CLI-014: bulk message send
   "/messages/scout-send", // CLI-015: scout send
+  "/messages/templates", // CLI-016〜019: scout message templates
 ] as const;
 
 /**
