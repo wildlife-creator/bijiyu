@@ -30,7 +30,7 @@
   - 既存データ（`name = ''` を含む）に影響なく適用できることを `supabase db reset` で確認
   - _Requirements: 6.5_
 
-- [ ] 2.2 (P) client_profiles への新規カラム追加
+- [x] 2.2 (P) client_profiles への新規カラム追加
   - `address text NULL`（200 字上限は Zod で制御）を追加
   - `sns_x` / `sns_instagram` / `sns_tiktok` / `sns_youtube` / `sns_facebook` の boolean 列を `NOT NULL DEFAULT false` で追加
   - 既存の `client_profiles` 行にデフォルト値が正しく入ることを確認
