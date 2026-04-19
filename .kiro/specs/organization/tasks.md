@@ -250,7 +250,7 @@
 
 ## Task 7: seed.sql の更新
 
-- [ ] 7. ローカル開発・E2E テスト用のシードデータをリファクタ後の仕様に整合させる
+- [x] 7. ローカル開発・E2E テスト用のシードデータをリファクタ後の仕様に整合させる
 
 - [x] 7.1 organizations.name 削除 + client_profiles.display_name 移行
   - `INSERT INTO organizations (id, name, owner_id) VALUES ...`（現状 L453・L911・L974 の 3 箇所）から `name` フィールドを削除
@@ -259,7 +259,7 @@
   - `sns_*` カラムは全行 `false` のままで OK
   - _Requirements: 2.1, 2.2, 6.2_
 
-- [ ] 7.2 J1 シナリオ用テストデータ追加（法人プラン完全解約済み + 冷凍保存 Admin/Staff）
+- [x] 7.2 J1 シナリオ用テストデータ追加（法人プラン完全解約済み + 冷凍保存 Admin/Staff）
   - 新規テストユーザー `corp-cancelled@test.local`（法人プラン Owner、`subscriptions.status='cancelled'`、`users.role='contractor'` に降格済み）を追加
   - 同組織に `frozen-admin@test.local`（`role='staff'`、`org_role='admin'`、`is_active=false`）と `frozen-staff@test.local`（`role='staff'`、`org_role='staff'`、`is_active=false`）を配置
   - `client_profiles.display_name='解約済み建設'` として保持（再アップグレード時の prefill 検証用）
@@ -267,7 +267,7 @@
   - **用途**: J1 シナリオ E2E（Task 13.45.4）で「冷凍 Admin がログイン試行 → ブロック」「再課金 → is_active=true 復帰 → ログイン再開」「既存 scout_templates がそのまま利用可能」を検証
   - _Requirements: 2.1, 2.2, 6.2_
 
-- [ ] 7.3 C 案シナリオ用テストデータ追加（退会済み Owner + 組織ソフトデリート）
+- [x] 7.3 C 案シナリオ用テストデータ追加（退会済み Owner + 組織ソフトデリート）
   - 新規テストユーザー `withdrawn-owner@test.local`（`users.role='client'`、`users.deleted_at=now()`）を追加
   - 対応する組織 `organizations.deleted_at=now()` でソフトデリート状態に設定
   - `organization_members` レコードは INSERT しない（物理削除済みを模擬）
@@ -276,7 +276,7 @@
   - **用途**: Task 13.4.3 の E2E で「退会後、受注者が過去スレッドを開く → 社名表示維持」「発注者一覧・マイリストで非表示」を検証
   - _Requirements: 2.1, 2.2, 6.2_
 
-- [ ] 7.4 招待フロー用テストデータ追加（password_set_at パターン）
+- [x] 7.4 招待フロー用テストデータ追加（password_set_at パターン）
   - 既存組織（例 `55555555-...`）に以下 2 名を追加:
     - `invited-admin@test.local`（`password_set_at IS NULL`、`org_role='admin'`、招待中バッジ検証用）
     - `completed-admin@test.local`（`password_set_at=now()`、`org_role='admin'`、招待完了検証用）
@@ -284,18 +284,18 @@
   - **用途**: Task 17.3 の E2E で CLI-022（一覧）の招待中バッジ表示、CLI-023 の招待再送ボタン有効化を検証
   - _Requirements: 3.1, 3.4, 6.2_
 
-- [ ] 7.5 代理アカウント重複拒否テスト用データ追加
+- [x] 7.5 代理アカウント重複拒否テスト用データ追加（既存 seed の staff=33333333 が is_proxy_account=true として機能）
   - 既存組織（例 `55555555-...`）に既存代理アカウント `existing-proxy@test.local`（`is_proxy_account=true`）を確実に配置（現在は `staff=33333333` がこの役割を担っているため、そのまま維持 + テスト整合を確認）
   - **用途**: Task 17.3 の E2E で「代理 ON の新規 Admin を CLI-025 で作成しようとすると `PROXY_ACCOUNT_ALREADY_EXISTS` エラー」を検証
   - _Requirements: 3.4, 6.2_
 
-- [ ] 7.6 人数上限近いテストデータ（任意）
+- [x] 7.6 人数上限近いテストデータ（任意）— Vitest 統合テスト側で RPC 直接呼び出しで代替する方針に切替（本 seed では追加しない）
   - 法人プラン組織に Staff 8 名程度を配置（`maxStaff=10` のため、あと 2 名追加で上限到達）
   - **用途**: Task 17.3 の E2E で「上限到達時の STAFF_LIMIT_EXCEEDED エラー」を検証。上限に近い状態を用意しておくことで、テスト内で 3 名追加しようとして 3 人目で失敗する流れが自然に組める
   - 時間的コストが大きい場合は人数上限検証は Vitest 統合テスト側で RPC 直接呼び出しで代替可
   - _Requirements: 3.4, 6.2（優先度低）_
 
-- [ ] 7.7 整合性確認
+- [x] 7.7 整合性確認
   - 上記 7.1〜7.6 実行後、`supabase db reset` でエラー無く適用できること
   - 既存の E2E テスト（`display-name.spec.ts` / `billing.spec.ts` 等）が引き続き通ること（seed データの変更で期待値が壊れないこと）
   - _Requirements: 5.2_

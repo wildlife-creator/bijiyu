@@ -981,3 +981,111 @@ INSERT INTO organizations (id, owner_id) VALUES
   ('b1115555-0000-1000-8000-000000000005', 'b1110000-0000-1000-8000-000000000005');
 INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
   ('b1115555-0000-1000-8000-000000000005', 'b1110000-0000-1000-8000-000000000005', 'owner');
+
+
+-- ============================================================
+-- ORGANIZATION spec テストデータ (Task 7.2 / 7.3 / 7.4)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Task 7.2: J1 シナリオ — 法人プラン完全解約 + 冷凍保存 Admin/Staff
+-- ------------------------------------------------------------
+-- 再アップグレード時の display_name prefill と Admin/Staff 復帰検証用。
+-- Owner は cancelled + role='contractor' 降格済み、Admin/Staff は
+-- users.is_active=false で冷凍保存。organizations はソフト削除せず残す。
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('c2221111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'corp-cancelled@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('c2222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'frozen-admin@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('c2223333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'frozen-staff@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES
+  ('c2221111-1111-1111-1111-111111111111', 'c2221111-1111-1111-1111-111111111111', 'corp-cancelled@test.local', '{"sub":"c2221111-1111-1111-1111-111111111111","email":"corp-cancelled@test.local"}', 'email', now(), now(), now()),
+  ('c2222222-2222-2222-2222-222222222222', 'c2222222-2222-2222-2222-222222222222', 'frozen-admin@test.local', '{"sub":"c2222222-2222-2222-2222-222222222222","email":"frozen-admin@test.local"}', 'email', now(), now(), now()),
+  ('c2223333-3333-3333-3333-333333333333', 'c2223333-3333-3333-3333-333333333333', 'frozen-staff@test.local', '{"sub":"c2223333-3333-3333-3333-333333333333","email":"frozen-staff@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'contractor', last_name = '解約', first_name = '社長', email = 'corp-cancelled@test.local', prefecture = '東京都', is_active = true, password_set_at = now() WHERE id = 'c2221111-1111-1111-1111-111111111111';
+UPDATE public.users SET role = 'staff', last_name = '冷凍', first_name = '管理', email = 'frozen-admin@test.local', is_active = false, password_set_at = now() WHERE id = 'c2222222-2222-2222-2222-222222222222';
+UPDATE public.users SET role = 'staff', last_name = '冷凍', first_name = '担当', email = 'frozen-staff@test.local', is_active = false, password_set_at = now() WHERE id = 'c2223333-3333-3333-3333-333333333333';
+
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end)
+VALUES ('c2221111-1111-1111-1111-111111111111', 'corporate', 'cancelled', now() - interval '60 days', now() - interval '30 days');
+
+INSERT INTO client_profiles (user_id, display_name) VALUES ('c2221111-1111-1111-1111-111111111111', '解約済み建設');
+
+INSERT INTO organizations (id, owner_id) VALUES
+  ('c2225555-5555-5555-5555-555555555555', 'c2221111-1111-1111-1111-111111111111');
+
+INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
+  ('c2225555-5555-5555-5555-555555555555', 'c2221111-1111-1111-1111-111111111111', 'owner'),
+  ('c2225555-5555-5555-5555-555555555555', 'c2222222-2222-2222-2222-222222222222', 'admin'),
+  ('c2225555-5555-5555-5555-555555555555', 'c2223333-3333-3333-3333-333333333333', 'staff');
+
+INSERT INTO scout_templates (organization_id, owner_id, title, body, memo) VALUES
+  ('c2225555-5555-5555-5555-555555555555', 'c2221111-1111-1111-1111-111111111111', '【解約済み】挨拶テンプレ', '弊社ではスカウト対応しています。ご興味ございましたらお知らせください。', '再課金後も継続利用の想定'),
+  ('c2225555-5555-5555-5555-555555555555', 'c2221111-1111-1111-1111-111111111111', '【解約済み】本契約テンプレ', '本契約に向けて条件を共有します。ご確認ください。', '再課金後も継続利用の想定');
+
+-- ------------------------------------------------------------
+-- Task 7.3: C 案シナリオ — 退会済み Owner + 組織ソフトデリート
+-- ------------------------------------------------------------
+-- 受注者側の過去スレッド表示（display_name 維持）と、
+-- 発注者一覧 / マイリスト非表示の検証用。
+-- organization_members は物理削除済みを模擬（INSERT しない）。
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES ('c3331111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'withdrawn-owner@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES ('c3331111-1111-1111-1111-111111111111', 'c3331111-1111-1111-1111-111111111111', 'withdrawn-owner@test.local', '{"sub":"c3331111-1111-1111-1111-111111111111","email":"withdrawn-owner@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'client', last_name = '退会', first_name = '済み', email = 'withdrawn-owner@test.local', prefecture = '大阪府', deleted_at = now() - interval '3 days', password_set_at = now() - interval '60 days' WHERE id = 'c3331111-1111-1111-1111-111111111111';
+
+-- client_profiles.display_name は削除せず保持（C 案: 履歴として残す）
+INSERT INTO client_profiles (user_id, display_name) VALUES ('c3331111-1111-1111-1111-111111111111', '退会済み組織');
+
+-- organizations は deleted_at セット（ソフトデリート）
+INSERT INTO organizations (id, owner_id, deleted_at) VALUES
+  ('c3335555-5555-5555-5555-555555555555', 'c3331111-1111-1111-1111-111111111111', now() - interval '3 days');
+
+-- organization_members は INSERT しない（C 案で物理削除済み）
+
+-- 過去スレッド（受注者 11111111 との間）: 退会後も受注者側が発注者名を確認できること
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, organization_id, thread_type, created_at, updated_at) VALUES
+  ('c333eeee-eeee-eeee-eeee-eeeeeeeeeeee', 'c3331111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'c3335555-5555-5555-5555-555555555555', 'message', now() - interval '10 days', now() - interval '4 days');
+
+INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
+  ('c333eeee-eeee-eeee-eeee-eeeeeeeeeeee', 'c3331111-1111-1111-1111-111111111111', 'ご連絡ありがとうございました。条件を検討します。', false, false, now() - interval '5 days'),
+  ('c333eeee-eeee-eeee-eeee-eeeeeeeeeeee', '11111111-1111-1111-1111-111111111111', 'かしこまりました。ご返信お待ちしています。', false, false, now() - interval '4 days');
+
+-- ------------------------------------------------------------
+-- Task 7.4: 招待フロー（password_set_at パターン）
+-- ------------------------------------------------------------
+-- 既存組織 55555555-... に以下 2 名を追加:
+--   invited-admin@test.local    — password_set_at IS NULL（招待中バッジ検証用）
+--   completed-admin@test.local  — password_set_at セット済み（招待完了検証用）
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('c4441111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'invited-admin@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('c4442222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'completed-admin@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES
+  ('c4441111-1111-1111-1111-111111111111', 'c4441111-1111-1111-1111-111111111111', 'invited-admin@test.local', '{"sub":"c4441111-1111-1111-1111-111111111111","email":"invited-admin@test.local"}', 'email', now(), now(), now()),
+  ('c4442222-2222-2222-2222-222222222222', 'c4442222-2222-2222-2222-222222222222', 'completed-admin@test.local', '{"sub":"c4442222-2222-2222-2222-222222222222","email":"completed-admin@test.local"}', 'email', now(), now(), now());
+
+-- 招待中（password_set_at NULL）/ 完了済み（password_set_at セット）
+UPDATE public.users SET role = 'staff', last_name = '招待', first_name = '中', email = 'invited-admin@test.local', password_set_at = NULL WHERE id = 'c4441111-1111-1111-1111-111111111111';
+UPDATE public.users SET role = 'staff', last_name = '招待', first_name = '完了', email = 'completed-admin@test.local', password_set_at = now() - interval '1 day' WHERE id = 'c4442222-2222-2222-2222-222222222222';
+
+INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
+  ('55555555-5555-5555-5555-555555555555', 'c4441111-1111-1111-1111-111111111111', 'admin'),
+  ('55555555-5555-5555-5555-555555555555', 'c4442222-2222-2222-2222-222222222222', 'admin');
+
+-- ------------------------------------------------------------
+-- Task 7.5: 代理アカウント重複拒否テスト用データ
+-- ------------------------------------------------------------
+-- 既存の staff=33333333（is_proxy_account=true）が代理役を担う。
+-- seed L460 で既に設定済みのため追加不要。確認コメントのみ。
