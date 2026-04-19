@@ -450,9 +450,11 @@ INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, cur
 -- ============================================================
 
 -- 組織（発注者がオーナー）
-INSERT INTO organizations (id, name, owner_id) VALUES
-  ('55555555-5555-5555-5555-555555555555', '鈴木工務店株式会社', '22222222-2222-2222-2222-222222222222'),
-  ('aabbccdd-5555-5555-5555-555555555555', '山田建設株式会社', 'aabbccdd-1111-2222-3333-444455556666');
+-- 発注者表示名は client_profiles.display_name に一本化（organization spec Task 2.7）
+-- organizations.name は Phase 3（Task 19）で DROP COLUMN 予定
+INSERT INTO organizations (id, owner_id) VALUES
+  ('55555555-5555-5555-5555-555555555555', '22222222-2222-2222-2222-222222222222'),
+  ('aabbccdd-5555-5555-5555-555555555555', 'aabbccdd-1111-2222-3333-444455556666');
 
 -- メンバー: 発注者 = owner、組織管理者 = admin、担当者 = staff（代理アカウント）
 INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account) VALUES
@@ -465,10 +467,13 @@ INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_a
 -- 8. client_profiles（発注者プロフィール）
 -- ============================================================
 
-INSERT INTO client_profiles (user_id, display_name, recruit_area, recruit_job_types, working_way, employee_scale, message, language) VALUES
-  ('22222222-2222-2222-2222-222222222222', '鈴木工務店', '{"神奈川県","東京都"}', '{"大工","内装工","電気工事士"}', '1日から可', 15, '一緒に働いてくれる職人さんを募集しています。', '日本語'),
-  ('aabbccdd-1111-2222-3333-444455556666', '山田建設', '{"東京都","埼玉県"}', '{"大工","鉄筋工","型枠大工"}', '長期歓迎', 30, '大規模建築を中心に手がけています。職人さん大募集中です。', '日本語・英語'),
-  ('dd111111-1111-2222-3333-444455556666', '中村リフォーム', '{"埼玉県","東京都"}', '{"大工","内装工"}', '1日から可', 1, '小規模リフォームの発注をしています。', '日本語');
+-- 発注者表示名を client_profiles.display_name に一本化（organization spec）
+-- - display_name は旧 organizations.name を継承（鈴木工務店株式会社 / 山田建設株式会社）
+-- - address は CLI-020/021 の住所表示テスト用に 2 件設定
+INSERT INTO client_profiles (user_id, display_name, address, recruit_area, recruit_job_types, working_way, employee_scale, message, language) VALUES
+  ('22222222-2222-2222-2222-222222222222', '鈴木工務店株式会社', '東京都墨田区向島1-2-3', '{"神奈川県","東京都"}', '{"大工","内装工","電気工事士"}', '1日から可', 15, '一緒に働いてくれる職人さんを募集しています。', '日本語'),
+  ('aabbccdd-1111-2222-3333-444455556666', '山田建設株式会社', '埼玉県さいたま市大宮区4-5-6', '{"東京都","埼玉県"}', '{"大工","鉄筋工","型枠大工"}', '長期歓迎', 30, '大規模建築を中心に手がけています。職人さん大募集中です。', '日本語・英語'),
+  ('dd111111-1111-2222-3333-444455556666', '中村リフォーム', NULL, '{"埼玉県","東京都"}', '{"大工","内装工"}', '1日から可', 1, '小規模リフォームの発注をしています。', '日本語');
 
 -- ============================================================
 -- 9. jobs（テスト用案件）
@@ -908,8 +913,8 @@ VALUES ('b1110000-0000-1000-8000-000000000004', 'corporate', 'active', now(), no
 
 INSERT INTO client_profiles (user_id, display_name) VALUES ('b1110000-0000-1000-8000-000000000004', '法人四郎');
 
-INSERT INTO organizations (id, name, owner_id) VALUES
-  ('b1115555-0000-1000-8000-000000000004', '', 'b1110000-0000-1000-8000-000000000004');
+INSERT INTO organizations (id, owner_id) VALUES
+  ('b1115555-0000-1000-8000-000000000004', 'b1110000-0000-1000-8000-000000000004');
 INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
   ('b1115555-0000-1000-8000-000000000004', 'b1110000-0000-1000-8000-000000000004', 'owner');
 
@@ -966,12 +971,13 @@ WHERE id = 'b1110000-0000-1000-8000-000000000005';
 INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end, stripe_subscription_id)
 VALUES ('b1110000-0000-1000-8000-000000000005', 'corporate', 'active', now(), now() + interval '30 days', 'sub_seed_comp_base');
 
-INSERT INTO client_profiles (user_id, display_name, is_compensation_5000) VALUES ('b1110000-0000-1000-8000-000000000005', '補償五郎', true);
+-- display_name は旧 organizations.name「補償テスト建設」を継承
+INSERT INTO client_profiles (user_id, display_name, is_compensation_5000) VALUES ('b1110000-0000-1000-8000-000000000005', '補償テスト建設', true);
 
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_subscription_id, option_type, status, start_date)
 VALUES ('b1110000-0000-1000-8000-000000000005', 'subscription', 'sub_seed_comp_opt', 'compensation_5000', 'active', now());
 
-INSERT INTO organizations (id, name, owner_id) VALUES
-  ('b1115555-0000-1000-8000-000000000005', '補償テスト建設', 'b1110000-0000-1000-8000-000000000005');
+INSERT INTO organizations (id, owner_id) VALUES
+  ('b1115555-0000-1000-8000-000000000005', 'b1110000-0000-1000-8000-000000000005');
 INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
   ('b1115555-0000-1000-8000-000000000005', 'b1110000-0000-1000-8000-000000000005', 'owner');

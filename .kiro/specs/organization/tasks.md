@@ -252,7 +252,7 @@
 
 - [ ] 7. ローカル開発・E2E テスト用のシードデータをリファクタ後の仕様に整合させる
 
-- [ ] 7.1 organizations.name 削除 + client_profiles.display_name 移行
+- [x] 7.1 organizations.name 削除 + client_profiles.display_name 移行
   - `INSERT INTO organizations (id, name, owner_id) VALUES ...`（現状 L453・L911・L974 の 3 箇所）から `name` フィールドを削除
   - 既存の組織名（例「鈴木工務店株式会社」「山田建設株式会社」「補償テスト建設」）を、対応する Owner の `client_profiles.display_name` に UPDATE/INSERT として同 seed 内で設定
   - 既存 `client_profiles` のうち 1〜2 行に `address` カラムのサンプル値（例「東京都墨田区向島1-2-3」「埼玉県さいたま市大宮区4-5-6」）を追加し、CLI-020/021 の E2E テストで住所表示を検証可能にする
