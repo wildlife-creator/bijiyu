@@ -96,7 +96,7 @@
 
 ## Task 3: 共通ヘルパーの書き換え（付録 A Step 2）
 
-- [ ] 3. 発注者表示名解決とアバター解決の共通関数を新仕様に書き換える
+- [x] 3. 発注者表示名解決とアバター解決の共通関数を新仕様に書き換える
 
 - [x] 3.1 resolveParticipantName の再設計 + B3 対応ヘルパー追加
   - **resolveParticipantName 改修**:
@@ -119,7 +119,7 @@
   - 旧ヘルパー案 `resolveClientDisplayNameForOrgMember(userId)`（DB 問い合わせ型）は採用しない。代わりに上記ピュア関数 + 各クエリ側のネスト埋め込みで解決する
   - _Requirements: 6.1, 6.2_
 
-- [ ] 3.2 (P) resolve-org-names.ts の廃止
+- [x] 3.2 (P) resolve-org-names.ts の廃止
   - `getActiveCorporateOrgNames()` 関数を削除
   - 呼び出し側（付録 A Step 3-A の 14 ファイル）では design.md「ClientProfileResolutionForRow（B3 対応）」の **standard query pattern**（`owner:users!owner_id(...)` + `organization:organizations(owner_user:users!owner_id(...))` のネスト埋め込み）+ `resolveClientProfileForRow()` ヘルパーで解決する方針に統一する。`client_profiles!inner(display_name)` の単純 embed は Staff 作成案件で NULL になるため使わない
   - bulk 取得ヘルパーは追加不要（ネスト埋め込みで N+1 が発生しないため）

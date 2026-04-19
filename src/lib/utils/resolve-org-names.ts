@@ -3,23 +3,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 /**
- * 指定ユーザー群の「現在アクティブな法人プラン組織名」を解決する。
+ * @deprecated
  *
- * データ保持ポリシー上、法人プラン → 個人プランへのダウングレード後も
- * organizations / organization_members のレコードは残る。しかし UI 表示では
- * 「現在法人プラン契約中」のユーザーだけ組織名を使いたいので、
- * subscriptions テーブルを参照して active な corporate / corporate_premium
- * ユーザーだけを対象にする。
+ * 発注者表示名の解決は `client_profiles.display_name` 一本化に移行した。
+ * 本関数は organization spec の Task 3.2 で論理削除済み。Task 4.1〜4.4
+ * で呼び出し側 14 ファイルが `resolveClientProfileForRow()` +
+ * standard query pattern に移行された時点で物理削除する
+ * （本ファイルとユニットテスト `src/__tests__/utils/resolve-org-names.test.ts`
+ * の両方を Task 16 / Task 17 到達時に削除予定）。
  *
- * RLS 回避のため admin client を前提とする（Server Component 内で admin client を渡すこと）。
+ * 新規コードから本関数を呼ばないこと。代わりに
+ * `src/lib/utils/display-name.ts` の `resolveClientProfileForRow()` と
+ * `resolveParticipantName()` を使う。
  *
- * 使い方:
- *   const admin = createAdminClient();
- *   const orgNameByUserId = await getActiveCorporateOrgNames(admin, userIds);
- *   const displayName = resolveParticipantName({
- *     organizationName: orgNameByUserId.get(user.id) ?? null,
- *     ...
- *   });
+ * 下記の既存実装は後方互換のために残す（動作は Phase 1 まで温存）。
  */
 export async function getActiveCorporateOrgNames(
   admin: SupabaseClient<Database>,
