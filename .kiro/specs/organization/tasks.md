@@ -637,7 +637,7 @@
 
 ## Task 15: pgTAP RLS テストの追加
 
-- [ ] 15. 新規 RLS と新規 RPC のテストを pgTAP で追加する
+- [x] 15. 新規 RLS と新規 RPC のテストを pgTAP で追加する
 
 - [x] 15.1 (P) scout_templates RLS テスト
   - `supabase/tests/scout_templates_rls.test.sql` に requirements.md の 10 シナリオを追加
@@ -685,7 +685,7 @@
   - (5) `authenticated` ロールが EXECUTE 可能（RLS policy 評価コンテキストで呼べる）
   - _Requirements: 5.2_
 
-- [ ] 15.7 (P) C 案シナリオの RLS 挙動テスト
+- [x] 15.7 (P) C 案シナリオの RLS 挙動テスト
   - `supabase/tests/organization_soft_delete_rls.test.sql` を新規作成
   - Owner 退会相当の状態（`organizations.deleted_at IS NOT NULL` + `organization_members` 全削除済み + Admin/Staff の `users.deleted_at` セット）を準備し、以下を検証:
     - (1) `organizations_select_public` で該当組織が SELECT 結果から除外される
