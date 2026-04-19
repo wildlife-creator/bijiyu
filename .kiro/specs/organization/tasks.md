@@ -57,7 +57,7 @@
   - **PERMISSIVE による OR 結合**: PostgreSQL の PERMISSIVE ポリシーは複数あれば自動 OR されるため、結果として「自分のフォルダ OR 同一組織 Owner のフォルダ」のいずれかにマッチすれば許可される
   - _Requirements: 2.2, 5.1_
 
-- [ ] 2.6 (P) 担当者管理用の 2 つの SECURITY DEFINER 関数を作成
+- [x] 2.6 (P) 担当者管理用の 2 つの SECURITY DEFINER 関数を作成
   - `insert_staff_member_with_limit(p_user_id, p_organization_id, p_org_role, p_is_proxy_account, p_max_staff)` を CREATE（D 採用により `p_last_name`/`p_first_name` は**渡さない**。氏名・ロールは Task 2.9 のトリガーが INSERT 時にメタデータから直接設定する）
   - 関数内で組織行 `FOR UPDATE` ロック → `organization_members` の非 owner 数を COUNT → `p_max_staff` 未満か検証 → `STAFF_LIMIT_EXCEEDED` 例外なら ROLLBACK → **R4 対応: `p_is_proxy_account = true` の場合は組織内に既存の代理がいないか EXISTS 確認、いれば `PROXY_ACCOUNT_ALREADY_EXISTS` 例外** → `public.users` 行存在確認（無ければ `USER_NOT_FOUND`）→ `organization_members` INSERT を atomic 実行
   - **role UPDATE および name UPDATE は行わない**（D 採用により handle_new_user トリガーが INSERT 時に正しい値で作成済み。RPC で UPDATE すると既存ユーザーのデータを破壊する R3 リスクが発生するため、構造的に UPDATE しない設計とする）
