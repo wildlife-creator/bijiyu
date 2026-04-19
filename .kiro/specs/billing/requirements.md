@@ -97,8 +97,10 @@
   1. Server Action で Stripe Checkout Session を作成
   2. Stripe のホスティングする決済ページにリダイレクト
   3. 決済成功: success_url にリダイレクト
-     - **法人プラン（corporate / corporate_premium）**: CLI-021（発注者情報編集）に `?setup=true` 付きでリダイレクト。企業名（display_name）の入力を必須とし、保存後に CON-001 へ遷移。`setup=true` の場合、CLI-021 の画面上部に「プラン登録が完了しました。企業情報を設定してください。」のガイドメッセージを表示する。企業名は `organizations.name` と同期されるため、メッセージ画面で受注者に表示される名前に直結する
-     - **個人・小規模プラン**: CON-001（マイページ）に `?checkout=success` 付きでリダイレクト。トーストで「プラン登録が完了しました」を表示する。Webhook 未着による一時的な role 不整合（発注者メニューが表示されない等）は許容する（通常 数秒以内に Webhook が届き解消される）
+     - **全プラン共通**: CLI-021（発注者情報編集）に `?setup=true` 付きでリダイレクト。`setup=true` の場合、CLI-021 の画面上部に「プラン登録が完了しました。発注者として利用する場合は、社名または氏名を入力してください。受注者機能のみ利用する方はスキップ可（後からいつでも編集できます）」のガイドバナーを表示する。`client_profiles.display_name` はメッセージ画面で受注者に表示される名前に直結する
+     - **法人プラン（corporate / corporate_premium）**: 社名入力必須。スキップ不可（「スキップ」ボタン非表示）。保存完了後に CON-001 へ遷移
+     - **個人・小規模プラン**: 社名・氏名入力は任意。「スキップして後で設定する」ボタンを表示し、押下時は CON-001 へ遷移。入力せずスキップした場合は、Webhook が `client_profiles` 作成時にデフォルト値として格納した `display_name`（= `users.last_name + first_name`、受注者登録時に入力した姓名）が受注者への表示名としてそのまま使われる
+     - **Webhook 未着時の race condition 対策**: `?setup=true` の CLI-021 アクセスは認証済みユーザーに対して緩和したガードで許可する（`users.role` や `subscriptions.plan_type` の確定を待たない）。保存 Server Action は Webhook 完了を前提とするため、Webhook 未着時は「プラン情報を反映中です。数秒後にもう一度お試しください」のエラーを返す（通常 数秒以内に Webhook が届き解消される）
   4. 決済キャンセル: cancel_url にリダイレクト（CLI-026 プラン案内）
 - **Stripe Customer の作成タイミング**: Checkout Session 作成時の Server Action で、users.stripe_customer_id が null の場合は `stripe.customers.create()` で Stripe Customer を新規作成し、users.stripe_customer_id に保存する。以降の Checkout Session 作成では既存の Customer ID を使い回す。Webhook（checkout.session.completed）でも stripe_customer_id が未設定の場合は Session オブジェクトの customer から取得して保存する（二重防御）
 - **オプション購入の success_url / cancel_url**:
@@ -148,13 +150,14 @@
 
 | イベント | 処理内容 |
 |---------|---------|
-| checkout.session.completed（基本プラン） | **metadata.type = 'plan' で判別**。metadata.plan_type で subscriptions.plan_type を決定。subscriptions テーブルに新規レコード作成。users.role が 'contractor' の場合のみ 'client' に更新（既に 'staff' のユーザーは role を変更しない — 担当者は法人プランのオーナー経由で発注者機能を利用するため）。users.stripe_customer_id を設定。**client_profiles を UPSERT（存在しなければ INSERT、存在すれば何もしない）**。初期値: display_name = users.last_name + users.first_name。※ client_profiles の作成責務はこの Webhook が唯一の正規ルートとする（admin REQ-ADM-007 経由で作成された管理責任者も、課金完了時にこの Webhook で client_profiles が作成される。管理者が作成したユーザーも role='contractor' で作成され、通常の課金フローを通す）。**法人プラン（corporate / corporate_premium）の場合: organizations テーブルにレコードが存在しなければ自動作成（name = '（組織名未設定）'）し、organization_members に購入者を org_role='owner' で追加する** |
+| checkout.session.completed（基本プラン） | **metadata.type = 'plan' で判別**。metadata.plan_type で subscriptions.plan_type を決定。subscriptions テーブルに新規レコード作成。users.role が 'contractor' の場合のみ 'client' に更新（既に 'staff' のユーザーは role を変更しない — 担当者は法人プランのオーナー経由で発注者機能を利用するため）。users.stripe_customer_id を設定。**client_profiles を UPSERT（存在しなければ INSERT、存在すれば何もしない）**。初期値: display_name = users.last_name + users.first_name。※ client_profiles の作成責務はこの Webhook が唯一の正規ルートとする（admin REQ-ADM-007 経由で作成された管理責任者も、課金完了時にこの Webhook で client_profiles が作成される。管理者が作成したユーザーも role='contractor' で作成され、通常の課金フローを通す）。**法人プラン（corporate / corporate_premium）の場合: organizations テーブルにレコードが存在しなければ自動作成（`owner_id` のみ設定、organization spec 実装時に `name` カラムは廃止される）し、organization_members に購入者を org_role='owner' で追加する** |
 | checkout.session.completed（補償オプション） | **metadata.type = 'option' かつ option_type が compensation_5000 / compensation_9800 で判別**。option_subscriptions テーブルに INSERT（payment_type = 'subscription', stripe_subscription_id を設定）。client_profiles の該当フラグ（is_compensation_5000 / is_compensation_9800）を true に更新 |
 | checkout.session.completed（単発オプション） | **metadata.type = 'option' かつ option_type が urgent / video で判別**。option_subscriptions テーブルに INSERT（payment_type = 'one_time'）。急募の場合: end_date = NOW() + 7日、client_profiles.is_urgent_option = true、対象案件の jobs.is_urgent = true に更新。動画掲載の場合: end_date = NULL で INSERT |
 | customer.subscription.updated | **stripe_subscription_id で subscriptions テーブルを検索**。見つかった場合: plan_type, status, 期間を更新（プランアップグレード/ダウングレードの反映）。**plan_type が corporate / corporate_premium に変更された場合: organizations テーブルにレコードが存在しなければ自動作成（checkout.session.completed の法人プラン処理と同じロジック。共通関数 `ensureOrganizationExists(userId)` として切り出す）。organization_members に該当ユーザーを org_role='owner' で追加する**。**見つからない場合: option_subscriptions テーブルを stripe_subscription_id で検索し、補償オプションの status を更新**。**どちらにも見つからない場合: 200 を返して処理をスキップ**（checkout.session.completed が後から届くケースに対応。Stripe はイベントの到着順序を保証しないため） |
-| customer.subscription.deleted | **stripe_subscription_id で subscriptions / option_subscriptions を検索**。subscriptions の場合: status を 'cancelled' に更新。users.role が 'client' の場合は 'contractor' にダウングレード。'staff'（担当者）の場合は users.is_active を false に設定してログインを停止する（roles-and-permissions.md の past_due 動作に準拠）。掲載中の案件（jobs.status = 'open'）を 'closed' に変更。担当者アカウントの users.is_active を false に設定。option_subscriptions の場合: status を 'cancelled' に更新し、client_profiles の該当フラグを false に更新。**見つからない場合: 200 を返して処理をスキップ** |
+| customer.subscription.deleted | **stripe_subscription_id で subscriptions / option_subscriptions を検索**。subscriptions の場合: status を 'cancelled' に更新。users.role が 'client' の場合は 'contractor' にダウングレード。'staff'（担当者）の場合は users.is_active を false に設定してログインを停止する（roles-and-permissions.md の past_due 動作に準拠）。掲載中の案件（jobs.status = 'open'）を 'closed' に変更。**法人プランの場合: 組織配下の Admin / Staff 両方（`org_role IN ('admin', 'staff')`）の users.is_active を false に設定**（2026-04-19 改訂: 旧版は staff のみだったが、Admin も Owner の契約に連動するため対象に含める）。option_subscriptions の場合: status を 'cancelled' に更新し、client_profiles の該当フラグを false に更新。**見つからない場合: 200 を返して処理をスキップ** |
+| customer.subscription.created | **新規サブスクリプション作成時**。`stripe_subscription_id` で subscriptions テーブルを検索し、未登録なら INSERT。法人プラン（corporate / corporate_premium）で既存組織が見つかる（`organizations.owner_id = user_id`）場合: 同一組織の **Admin / Staff 両方**（`org_role IN ('admin', 'staff')`）の users.is_active を true に復帰（再アップグレード時の冷凍解除、organization spec REQ-ORG-006-B J1 と整合。past_due → active 復帰と同じ `reactivateCorporateMembers()` 関数を共通利用。`org_role = 'staff'` のみの絞り込みは不可、Admin も含める必要あり） |
 | invoice.payment_failed | subscriptions.status を 'past_due' に更新。**past_due_since が NULL の場合のみ**現在日時を設定（既に past_due の場合は上書きしない）。支払い失敗通知メール送信（Resend） |
-| invoice.payment_succeeded（past_due 復帰時） | subscriptions.status を 'active' に更新。past_due_since を NULL にリセット。該当ユーザーが法人プランの owner の場合、organization_members 経由で配下の担当者（staff）の users.is_active を true に復帰させる（roles-and-permissions.md の past_due 動作に準拠）。復帰対象は同一組織の全 staff |
+| invoice.payment_succeeded（past_due 復帰時） | subscriptions.status を 'active' に更新。past_due_since を NULL にリセット。該当ユーザーが法人プランの owner の場合、organization_members 経由で配下の **Admin / Staff 両方**（`org_role IN ('admin', 'staff')`）の users.is_active を true に復帰させる（roles-and-permissions.md の past_due 動作に準拠。2026-04-19 改訂: 旧版は staff のみだったが、Admin も契約に連動するため対象に含める）。復帰対象は同一組織の全 Admin / Staff |
 
 - **audit_logs への記録対象（billing 関連）**:
   - role 変更時（contractor → client、client → contractor）: action = 'role_changed', details に変更前後の role を記録
@@ -179,7 +182,7 @@
   2. 該当する subscriptions.status を 'cancelled' に更新
   3. 該当ユーザーの users.role が 'client' の場合は 'contractor' にダウングレード（'staff' の場合はログイン不可にする）
   4. 掲載中の案件（jobs.status = 'open'）を 'closed' に変更（roles-and-permissions.md の past_due 動作に準拠）
-  5. 担当者アカウント（organization_members 経由の staff）の users.is_active を false に設定してログインを停止する（owner が支払いを再開した場合は is_active を true に復帰させる）
+  5. 組織メンバー（organization_members 経由の **Admin / Staff 両方**、`org_role IN ('admin', 'staff')`）の users.is_active を false に設定してログインを停止する（owner が支払いを再開した場合は is_active を true に復帰させる。2026-04-19 改訂: 旧版は staff のみだったが、Admin も契約に連動するため対象に含める）
   6. 対象ユーザーに解約完了通知メールを送信（Resend）
 - Supabase Dashboard の「Database → Extensions → pg_cron」で cron ジョブを登録する
 - **Webhook リトライ方針**: Stripe の自動リトライ（本番: 最大16回・約3日間の指数バックオフ、テスト: 3回・数時間）に委任する。アプリ側で独自のリトライ機構は実装しない。Webhook ハンドラーは 2xx を素早く返すこと（20秒以内）。処理しないイベントタイプも 200 で応答する。3日経過後に失敗が残った場合は Stripe Dashboard から手動で Resend 可能
@@ -308,6 +311,12 @@
 - ユーザーは請求期間終了日まで予約をキャンセル可能
 - **解約予約キャンセル UI**: 解約予約中の場合、現在のプランカード内に「{日付}に解約予定」ラベルと「解約をキャンセルする」ボタン（`variant="outline"`）を表示する。ボタン押下時の確認ダイアログ:「解約の予約をキャンセルし、現在のプラン（{プラン名}）を継続しますか？」→ Server Action で Stripe の `subscription.update({ cancel_at_period_end: false })` を呼び出す
 - 解約実行時（Webhook: customer.subscription.deleted）: users.role → 'contractor'、発注者機能ロック、解約完了通知メール送信
+- **法人プラン完全解約時の Admin / Staff の扱い**（2026-04-19 追加決定）: 
+  - `organization_members` レコードは**物理削除しない**（再アップグレード時の復帰を可能にするため、organization 仕様書 REQ-ORG-006-B と整合）
+  - Admin / Staff の `users.role` は `'staff'` のまま**変更しない**（契約者は Owner のみのため、Admin/Staff は受動的な連鎖影響対象）
+  - Admin / Staff の `users.is_active` を **`false` に設定**してログイン不可にする（past_due 時と同じ扱いの延長）
+  - 再アップグレード時（Owner が再度課金）: Webhook `customer.subscription.created` ハンドラで同一組織の全 Admin / Staff の `is_active` を `true` に復帰（past_due → active 復帰と同じロジックを流用）
+  - これにより「法人プラン契約者の Owner だけが降格（client → contractor）し、Admin / Staff はログイン不可状態で冷凍保存 → 復帰」のライフサイクルが一貫する
 - **解約後の accepted 案件へのアクセス**: 解約して contractor に戻ったユーザーでも、自分がオーナーの accepted（発注済み）案件に対する完了報告・評価画面にはアクセス可能とする。Middleware の role チェックで例外を追加するのではなく、該当ページの Server Component で「案件オーナーかどうか」を判定し、role ではなく所有権でアクセスを制御する。全 accepted 案件が completed になった時点でアクセス不可となる
 
 #### past_due（支払い遅延）中の操作制限
@@ -456,13 +465,15 @@ CLI-026（プラン案内 / past_due 状態）→「解約する」
     └─「解約する」→ 即時解約実行 → CON-001（マイページ / contractor に戻る）
 ```
 
-### 法人プラン購入後の組織設定フロー
+### プラン購入後の発注者情報設定フロー
 ```
-CLI-027（Stripe Checkout 成功 / 法人プラン）
-  → CLI-021（?setup=true / 企業名設定）→ 保存後 → CON-001（マイページ）
-  → CLI-022（担当者一覧）→ CLI-025（担当者新規作成）
-CLI-027（Stripe Checkout 成功 / 個人・小規模プラン）
-  → CON-001（マイページ / ?checkout=success / 成功トースト表示）
+CLI-027（Stripe Checkout 成功 / 全プラン共通）
+  → CLI-021（?setup=true / 発注者情報設定 + 成功トースト）
+     ├─ 法人プラン: 社名必須 → 保存後 → CON-001（マイページ）
+     └─ 個人・小規模プラン: 社名・氏名は任意
+           ├─ 入力して保存 → CON-001
+           └─「スキップして後で設定する」→ CON-001（Webhook が client_profiles.display_name にデフォルト格納した姓名がそのまま表示名として使われる）
+法人プランのみ追加フロー: CON-001 →（任意のタイミングで）CLI-022（担当者一覧）→ CLI-025（担当者新規作成）
 ```
 
 ### Stripe Customer Portal
@@ -477,7 +488,7 @@ past_due 警告バナー「お支払い方法を更新する」→ Stripe Custom
 - subscriptions: サブスクリプション管理（CRUD）
 - option_subscriptions: オプション契約管理
 - client_profiles: 発注者プロフィール作成、オプションフラグ更新
-- organizations: 法人プラン購入時に自動作成。name は client_profiles.display_name と同期
+- organizations: 法人プラン購入時に自動作成（`owner_id` のみ設定）。発注者表示名は `client_profiles.display_name` に一本化されており、`organizations.name` カラムは organization spec で廃止される
 - organization_members: 担当者管理（ダウングレード前提条件チェックで件数確認）
 - audit_logs: ロール変更ログ
 
@@ -494,7 +505,7 @@ past_due 警告バナー「お支払い方法を更新する」→ Stripe Custom
 以下は検討の結果決定した事項。実装時の判断根拠として記録する。
 
 - **補償オプションの保存先**: `option_subscriptions` テーブルに `payment_type='subscription'` で保存。`subscriptions` テーブルは基本プラン専用（1人1つの UNIQUE 制約のため）
-- **組織の自動作成**: 法人プラン購入時に Webhook で自動作成（name='（組織名未設定）'）。ユーザーが後から組織設定画面で名称変更。ダウングレード時は組織データを残す（再アップグレード時に再利用）
+- **組織の自動作成**: 法人プラン購入時に Webhook で自動作成（`owner_id` のみ設定。ユーザーが後から CLI-021 で `client_profiles.display_name` に発注者名を入力する設計）。暫定期間中の `ensure_organization_exists` は `name=''` でレコードを作成するが、organization spec 実装時に `name` カラム自体が廃止される。ダウングレード時は組織データを残す（再アップグレード時に再利用）
 - **初期費用の DB 記録**: 不要。Stripe の決済履歴で管理。初回判定は subscriptions テーブルのレコード有無で行う
 - **急募オプションの再購入**: expired 後は同一案件に再購入可能。チェック条件は `status='active'` のみ
 - **アップグレード課金方式**: 日割り差額精算で即時課金（`proration_behavior: 'create_prorations'`）
@@ -507,11 +518,15 @@ past_due 警告バナー「お支払い方法を更新する」→ Stripe Custom
 - **定期ジョブの実装**: close-expired-jobs と expire-options は pg_cron SQL 直接実行、auto-cancel-past-due のみ Edge Function（メール送信が必要なため）
 - **ダウングレード前提条件**: 3つのチェック（掲載中案件数・未返信応募・担当者数）に集約。代理アカウントは担当者数に含まれるため個別チェック不要。全10パターンが同一ロジックで処理可能
 - **PLAN_LIMITS 定数**: `src/lib/constants/plans.ts` にプランごとの上限値を定義。DB ではなくコード内定数で管理（変更頻度が低いため）
-- **organizations.name と client_profiles.display_name の同期**: CLI-021 で display_name を保存する際に organizations.name も同時更新する（1つの値で管理）
+- **発注者表示名は `client_profiles.display_name` に一本化**: CLI-021 で display_name を保存する。`organizations.name` カラムは organization spec の実装時に廃止されるため同期は不要（詳細は `.kiro/steering/database-schema.md`「発注者表示名のルール」および `.kiro/specs/organization/requirements.md` 付録 A 参照）
 - **解約後のメッセージ**: 進行中（accepted）の案件のスレッドは引き続き利用可能。ただし無料プランのメッセージ制限（月5スレッド）が適用される。既存スレッドへの返信は制限なし（制限は新規スレッド作成のみ）
 - **解約後の完了報告・評価**: 自分がオーナーの accepted 案件に対してはアクセス可能。ページ側で所有権チェック（role ではなく案件オーナーかで判定）。受注者が不利にならないための措置
-- **法人プラン購入後の企業名入力**: success_url を CLI-021（`?setup=true`）にリダイレクトし、display_name（企業名）の入力を強制。個人・小規模プランは CON-001 に直接リダイレクト（企業名は任意）。organizations.name はメッセージ画面で受注者に表示される名前に直結するため、法人プランでは空のまま放置させない
-- **法人プラン success_url の統一**: 法人プラン購入後は CON-001 を経由せず CLI-021（`?setup=true`）に直接リダイレクト。企業名入力をスキップされるリスクを排除する。画面遷移セクションも REQ-BL-002 に合わせて統一済み
+- **プラン購入後の発注者情報入力（全プラン共通）**: success_url を全プランで CLI-021（`?setup=true`）に統一。背景は「`client_profiles.display_name` がメッセージ・案件カード・スカウト等で受注者に表示される唯一の名前源」であり、課金した瞬間に発注者名を設定する導線を持つべきため
+  - **法人プラン**: 社名入力必須、スキップ不可
+  - **個人・小規模プラン**: 社名・氏名は任意。「スキップして後で設定する」ボタンを表示し、スキップ時は Webhook が `client_profiles.display_name` のデフォルト値として格納した姓名（`users.last_name + first_name`）がそのまま表示名として使われる
+  - **理由（なぜ個人・小規模でもスキップ可にするか）**: 受注者機能の制限（登録職種×登録県）解除のみを目的に課金するユーザーも存在するため。発注者機能を使わないなら表示名は誰にも見えず、強制入力はフリクションにしかならない
+  - 詳細は organization spec REQ-ORG-006 参照
+- **課金直後の CLI-021 アクセスガード緩和**: `?setup=true` 付きの CLI-021 アクセスは `users.role` や `subscriptions.plan_type` の確定を待たず認証済みユーザーに許可する。Webhook 未着時でも画面表示は可能にし、保存 Server Action 側で Webhook 完了前のエラーハンドリング（「プラン情報を反映中です」表示）を行う
 - **アップグレード時の組織自動作成**: customer.subscription.updated で plan_type が corporate / corporate_premium に変更された場合も、checkout.session.completed と同じ組織作成ロジックを実行する。共通関数 `ensureOrganizationExists(userId)` として切り出す
 - **補償オプションの解約UI**: CLI-026 のオプションセクションに「解約する」ボタンを表示。Server Action で Stripe サブスクリプションをキャンセルする。Stripe Customer Portal への委任ではなく、アプリ内で完結させる（申し込みと同じ画面で解約できる方がわかりやすいため）
 - **急募オプションの案件選択**: CLI-026 のオプションセクションに案件選択プルダウンを表示。掲載中かつ急募未適用の案件のみ選択可能。案件管理画面（CLI-002）からの導線は設けない

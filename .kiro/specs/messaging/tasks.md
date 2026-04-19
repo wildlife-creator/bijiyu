@@ -92,8 +92,8 @@
 
 - [x] 4.4 thread-list-item コンポーネントの更新
   - 法人プランのスレッド: 相手の名前として受注者名を表示（従来と同じ）
-  - 受注者から見た場合: 相手の名前として組織名（organizations.name）を表示（法人プラン相手の場合）
-  - 名前解決は親ページで resolveParticipantName() により行い、props として participantName を渡す設計
+  - 受注者から見た場合: 相手の名前として `resolveParticipantName()` で取得した発注者表示名（`client_profiles.display_name`）を表示。法人プランの Staff が送信した場合は Owner の `client_profiles.display_name` を使用
+  - 名前解決は親ページで `resolveParticipantName()` により行い、props として participantName を渡す設計（⚠️ organization spec-impl 時に `resolveParticipantName()` のロジックが新方式に変更される。旧方式の `organizations.name` 参照は廃止）
   - _Requirements: 1_
 
 - [x] 4.5 scout-info-card コンポーネント

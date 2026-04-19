@@ -119,12 +119,12 @@
 - 入力内容の確認表示
 - 「作成する」ボタン — Server Action 内で以下を実行:
   1. メールアドレスの重複チェック（auth.users に同じメールが既に存在しないか事前確認）
-  2. `supabase.auth.admin.createUser()` で auth.users にアカウント作成（service_role キーを使用）
-  3. auth.users 作成時のトリガーにより public.users が自動生成される
+  2. `supabase.auth.admin.createUser()` で auth.users にアカウント作成（service_role キーを使用）。**メタデータ（`raw_user_meta_data`）は指定しない** or `invited_role` / `invited_last_name` / `invited_first_name` を付けない（付けると organization 仕様書で書き換える `handle_new_user` トリガーが `role='staff'` として作成してしまうため。本フローは直後に step 4a で `'client'` へ UPDATE することを前提とする）
+  3. auth.users 作成時のトリガーにより public.users が自動生成される（メタデータなしのため `role='contractor'` で初期作成 → step 4a で `'client'` に更新）
   4. 以下をトランザクションで実行（途中で失敗したら全部取り消す）:
      a. public.users.role を 'client' に更新
-     b. client_profiles テーブルに UPSERT（存在しなければ INSERT、存在すれば display_name を更新）。display_name に入力された発注者名を設定。※ client_profiles の正規作成ルートは billing Webhook（checkout.session.completed）だが、admin 経由の場合は課金前に組織を先に作成するため、ここで UPSERT する
-     c. organizations テーブルに組織作成（name に入力された発注者名を設定）
+     b. client_profiles テーブルに UPSERT（存在しなければ INSERT、存在すれば display_name を更新）。display_name に入力された発注者名を設定。※ client_profiles の正規作成ルートは billing Webhook（checkout.session.completed）だが、admin 経由の場合は課金前に組織を先に作成するため、ここで UPSERT する。**発注者表示名は `client_profiles.display_name` を Single Source of Truth とする（organization 仕様書の発注者表示名一本化に準拠）**
+     c. organizations テーブルに組織作成（`owner_id` のみ INSERT。`organizations.name` カラムは organization 仕様書 Phase 3 で廃止されるため、本フローでも `name` には書き込まない。発注者名の保管先は step b の `client_profiles.display_name`）
      d. organization_members テーブルに管理責任者として追加（org_role = 'owner'）
   5. トランザクション失敗時のクリーンアップ: ステップ 2 が成功済みの場合は `supabase.auth.admin.deleteUser()` で auth.users からも削除する（幽霊アカウント防止）
   6. 会員登録メール送信（パスワード設定用リンク）— メール送信失敗時は本体処理をロールバックしない

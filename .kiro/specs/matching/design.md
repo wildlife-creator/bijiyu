@@ -581,7 +581,7 @@ async function acceptApplicationAction(
 - Zod バリデーション: firstWorkDate は有効な日付であること
 - メール送信失敗は catch してログ記録。本体処理はロールバックしない
 - メールテンプレート: `src/lib/email/templates/application-accepted.tsx`
-- **clientName の名前解決**: ハードコード `"発注者"` ではなく、messaging spec「名前表示ルール」に従う。案件の organization_id で organizations テーブルを参照し、法人: `organizations.name`、個人: 案件オーナーの `users.company_name → users.last_name + first_name`
+- **clientName の名前解決**: ハードコード `"発注者"` ではなく、`resolveParticipantName()` で動的に解決。全プラン共通: 案件オーナーの `client_profiles.display_name`（CLI-021 で入力した社名・氏名）→ `users.last_name + first_name`（フォールバック）。法人プランの Staff が操作した場合は Owner の `client_profiles.display_name` を使用
 - **applicantName の名前解決**: `users.company_name → users.last_name + first_name`
 
 #### rejectApplicationAction

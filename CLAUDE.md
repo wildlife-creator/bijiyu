@@ -21,7 +21,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 | product.md | サービス概要、プラン、ビジネスモデル |
 | tech.md | 技術スタック、メール、テスト、Realtime戦略 |
 | structure.md | ディレクトリ構成、命名規則、ルーティング |
-| screen-map.md | 全77画面一覧、画面ID |
+| screen-map.md | 全78画面一覧、画面ID |
 | screen-navigation.md | 画面遷移フロー |
 | roles-and-permissions.md | ロール、権限、プラン制限 |
 | security.md | セキュリティ方針、入力検証 |
@@ -41,7 +41,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 5. `spec-impl` → 実装
 
 ### 開発の進め方
-- 全77画面を機能グループごとに実装する
+- 全78画面を機能グループごとに実装する
 - 各グループの実装完了ごとに動作確認を行う
 - テストはリスクベース: 書き込み+権限系はフルテスト、読み取り系はミニマル
 - spec-impl 開始時に `reference/png-mapping.md` で対象画面の PNG ファイルを特定し、デザインカンプを確認してから実装に入ること
@@ -284,6 +284,17 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - テストデータのクリーンアップは不要（次回の `supabase db reset` でリセットされる）
 - **E2Eテストの期待値は seed.sql のデータと整合させること**: テストが前提とするユーザー状態（本人確認済み、サブスクリプション有効等）が seed.sql の実際のデータと一致しているか確認する。seed.sql でフラグを変更した場合、そのフラグに依存するE2Eテストも同時に更新すること。原因例: seed.sql で `identity_verified = true` を設定しているのに、E2Eテストが「本人確認バッジが表示されない」ことを期待して失敗した
 
+### organization 機能実装時の必須リファクタリング（必ず守ること）
+- organization の spec-impl を開始する際、**CLI-016〜025 の画面実装（Task 9 以降）より先に**、付録 A のリファクタリング全 8 ステップを完了すること
+- リファクタリングの詳細な手順とファイルリストは `.kiro/specs/organization/requirements.md` 付録 A および `tasks.md` Task 2〜8 / Task 16 / Task 16.1 / Task 16.2 に記載
+- リファクタリングの要点: `organizations.name` カラム廃止 → `client_profiles.display_name` に一本化。`getActiveCorporateOrgNames()` 廃止。`resolveParticipantName()` の引数・優先順位変更。全 14 画面のクエリ書き換え。`/mypage/organization-setup` の CLI-021 統合
+- **Task 16.1 / 16.2 を飛ばさないこと**（過去に漏れが発生）:
+  - Task 16.1: `scripts/task16-integration.mjs` の削除または更新（organization-setup 廃止で動作不能になる）
+  - Task 16.2: billing spec 4 ドキュメント（tasks.md / requirements.md / design.md / research.md）の記述を過去形に更新。`impl-memo.md` は歴史的記録として保持
+  - これらはコード変更ではなく「周辺アセット（スクリプト・spec ドキュメント）の更新」のため、テストコマンドでは検知できない。tasks.md を頭から末尾まで辿ることで確実に実施する
+- リファクタリング完了後、`npm run test` / `supabase test db` / `npm run test:e2e` が全て通ることを確認してから画面実装（Task 9 以降）に着手する
+- **このリファクタリングを飛ばして画面実装を始めてはならない**。仕様書と既存コードが食い違った状態で新機能を作ると、画面によって発注者名が異なるバグが発生する
+
 ### デザインカンプとの整合性
 - 画面実装の完了前に、`design-assets/screens/` 内の対応する PNG と実装結果を目視比較すること
 - 特にチェックすべき点: 要素の配置順序、セクションの分割、カードやボタンのスタイル、余白のバランス
@@ -336,22 +347,24 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 
 ### 名前表示・姓名結合のルール
 - 日本語の姓名結合は**スペースなし**で行うこと（`${lastName}${firstName}`）。`${lastName} ${firstName}` のようにスペースを入れると、既存の表示パターンと不一致になりテストが失敗する
-- 名前表示のユーティリティ関数（`resolveParticipantName` 等）を新規作成する際は、既存の結合パターンを必ず確認し、一致させること
-- **すべての UI で発注者表示名の解決は `resolveParticipantName()` を使うこと**。メッセージ UI・メール通知に限らず、発注者一覧・案件カード・マイページ完了案件・お気に入り等、ユーザー名を表示するすべての場所で統一する。過去に `getUserDisplayName(..., "company")` だけを使っていた画面が `organizations.name` を参照しておらず、法人プラン組織名が反映されないバグが発生した
-- 優先順位: `organizations.name`（法人）→ `users.company_name`（屋号）→ `users.last_name + first_name`（個人名）
-- 名前解決ルールの詳細は `.kiro/specs/messaging/requirements.md` の「名前表示ルール」セクションを参照
+- **すべての UI で発注者表示名の解決は `resolveParticipantName()` を使うこと**。メッセージ UI・メール通知に限らず、発注者一覧・案件カード・マイページ完了案件・お気に入り等、ユーザー名を表示するすべての場所で統一する
+- **優先順位（新方針）**: `client_profiles.display_name`（CLI-021 で入力した社名・氏名）→ `users.last_name + first_name`（フォールバック）
+- **旧方式（廃止）**: `organizations.name` → `users.company_name` → 氏名 の 3 段階解決は廃止。`organizations.name` カラム自体を削除済み。`users.company_name` は受注者プロフィール（COM-002）用であり、発注者表示名には使わない
+- **法人プラン Staff の名前解決**: Staff は `client_profiles` を持たないため、所属組織の Owner の `client_profiles.display_name` を使う（Staff → `organization_members` → `organizations.owner_id` → `client_profiles`）
+- **旧ヘルパーの廃止**: `src/lib/utils/resolve-org-names.ts` の `getActiveCorporateOrgNames()` は廃止する。`client_profiles` は公開 SELECT（RLS で全ユーザー閲覧可）のため、admin client を使わなくても他ユーザーの表示名を取得できる
+- 名前解決ルールの詳細は `.kiro/steering/database-schema.md` の「発注者表示名のルール」セクションを参照
 - 表示ロジックを変更すると、**データは変わらなくても画面の表示が変わる**ため、既存テストの期待値更新が必要になる。表示ロジック変更時は関連する E2E テストを必ず確認・更新すること
+- メール通知の sender/recipient 名はハードコードしない。`resolveParticipantName()` で動的に解決すること
 
-### 組織名表示のライフサイクル（必ず守ること）
-- **データ保持と表示制御は分離する**: ダウングレード/解約時も `organizations` / `organization_members` / `organizations.name` は**削除しない**（再アップグレード時の利便性のため）。しかし UI 表示では「現在 active な法人プラン（corporate / corporate_premium）のユーザー」にだけ組織名を使う
-- 複数ユーザーの組織名を一括解決する場合は `src/lib/utils/resolve-org-names.ts` の **`getActiveCorporateOrgNames(admin, userIds)`** を使う。これは `organization_members` と `subscriptions` を両方参照して「active な法人プランのユーザーだけ」の組織名を返す
-- 新しく発注者名を表示する画面を作る際は、この関数を使ってからの `resolveParticipantName()` 呼び出しが定石。直接 `organization_members` を JOIN して組織名を取得する実装は**プラン状態を考慮しない**ため禁止
-- 単一ユーザーでも同じヘルパーを使う（`[userId]` を渡す）。ロジックを分散させない
+### 発注者プロフィールのデータ管理（必ず守ること）
+- 受注者に見える発注者情報は **`client_profiles` テーブルに一元化**されている。CLI-021（発注者情報編集）が唯一の編集画面
+- ダウングレード/解約時も `client_profiles` レコードは削除しない（再アップグレードでの再利用のため）
+- プラン状態による表示切り替えは不要（どのプランでも `client_profiles.display_name` がそのまま使われる）
 
-### 組織情報の RLS と admin client（必ず守ること）
-- `organizations` / `organization_members` テーブルには `is_same_org` RLS が効いており、**他組織のメンバーから組織情報は SELECT できない**。nested join で embed した場合もサイレントに null になる（気づきにくい）
-- 発注者一覧等で「他ユーザーの組織名を表示する」には、必ず **`createAdminClient()`（service_role）経由で取得**すること。通常の `supabase` クライアントでは RLS により null になる
-- 取得する情報が「表示専用の組織名」など機密性の低いデータに限定されていれば admin client の使用は妥当。個人情報や認可判定に関わるデータの取得は別の層（RPC with SECURITY DEFINER など）を検討する
+### 組織テーブルの RLS と admin client
+- `organizations` / `organization_members` テーブルには `is_same_org` RLS が効いており、**他組織のメンバーから組織構造は SELECT できない**。nested join で embed した場合もサイレントに null になる（気づきにくい）
+- ただし **発注者表示名の取得に `organizations` テーブルは使わない**（`client_profiles.display_name` に一本化済み）。`client_profiles` は公開 SELECT なので admin client 不要
+- `organizations` テーブルへの admin client アクセスが必要になるのは、組織メンバーの権限判定（Server Action 内）等のケースに限定される
 
 ### 組織メンバー判定のパターン（必ず守ること）
 - 法人プラン機能で「特定案件に対する権限判定」を行う際、`owner_id === user.id` だけで判定してはならない。組織メンバーが作成した案件も、オーナーが操作できる必要がある

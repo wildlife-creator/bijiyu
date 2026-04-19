@@ -169,17 +169,14 @@ Supabase Realtime を使用したリアルタイム通信を実装する。
 
 #### 発注者側の名前を表示する場合（受注者が見る相手の名前）
 
-法人プランの発注者（organization あり）:
+全プラン共通:
 ```
-organizations.name（企業名）
-```
-→ 担当者（staff）が送信した場合も、受注者には組織名が表示される。個人の `users.company_name` は使わない（複数人が利用する法人プランでは、組織として統一された名前を表示するため）。
-
-個人・小規模プランの発注者（organization なし）:
-```
-1. users.company_name（屋号 — COM-002 で入力）
+1. client_profiles.display_name（CLI-021 で入力した社名・氏名）
 2. users.last_name + first_name（フォールバック）
 ```
+→ 法人プランの担当者（staff）が送信した場合は、所属組織の Owner の `client_profiles.display_name` を使用（Staff → `organization_members` → `organizations.owner_id` → `client_profiles`）。プランによるロジック分岐は不要。
+
+※ 旧方式の `organizations.name` → `users.company_name` → 氏名 の 3 段階解決は廃止。`organizations.name` カラムは削除済み。`users.company_name` は受注者プロフィール（COM-002）用であり、発注者表示名には使わない。詳細は `database-schema.md` の「発注者表示名のルール」参照。
 
 #### 受注者側の名前を表示する場合（発注者が見る相手の名前）
 
@@ -187,7 +184,7 @@ organizations.name（企業名）
 1. users.company_name（屋号 — COM-002 で入力）
 2. users.last_name + first_name（フォールバック）
 ```
-受注者は組織を持たないため `organizations.name` は常に null。
+受注者は `client_profiles` を持たない（発注者としてのプロフィールがない）ため、受注者の表示名は `users` テーブルから取得する。
 
 #### メール宛名（greeting）
 
@@ -198,20 +195,47 @@ users.last_name + first_name
 
 #### 名前解決ユーティリティ
 
-共通の名前解決関数を用意し、メッセージ UI・メール通知・マッチング通知で統一的に使用する。既存の `src/lib/utils/display-name.ts` を拡張するか、新規に `resolveDisplayName()` 関数を作成する。
+共通の名前解決関数 `resolveParticipantName()`（`src/lib/utils/display-name.ts`）を使い、メッセージ UI・メール通知・マッチング通知で統一的に使用する。
 
-#### 現在の実装との差分
+#### 既存実装からの変更点
 
-- **メッセージ UI（スレッド一覧・詳細）**: 法人は `organizations.name` を使用（実装済み）。個人・小規模の場合 `users.company_name` へのフォールバックが未実装 → 追加が必要
-- **メッセージ通知メール**: `senderName` パラメータに上記の名前解決結果を渡す → Server Action 修正が必要
+- **`resolveParticipantName()` のロジック変更**: 旧 3 段階解決（`organizations.name` → `users.company_name` → 氏名）を、新 2 段階解決（`client_profiles.display_name` → 氏名）に書き換える
+- **`getActiveCorporateOrgNames()` の廃止**: `client_profiles` は公開 SELECT（RLS で全ユーザー閲覧可）のため、admin client を使わなくても発注者名を取得できる。旧ヘルパーは不要
+- **メッセージ通知メール**: `senderName` パラメータに `resolveParticipantName()` の結果を渡す。ハードコードしない
 - **スカウト通知メール**: 同上
-- **マッチング通知メール**: `clientName` がハードコード `"発注者"` → 名前解決結果に変更（matching spec で対応）
-- **応募履歴画面**: `organizations.name ?? owner.company_name` のフォールバックは実装済み（参考パターン）
+- **マッチング通知メール**: `clientName` パラメータも `resolveParticipantName()` で動的に解決（matching spec で対応）
+
+#### アバター画像の解決ルール
+
+表示名と同じく、アバター画像もプランを問わず統一ルールで解決する:
+
+- **発注者側のアバター**（受注者が見る相手）: 全プラン共通で `client_profiles.image_url`（CLI-021 で登録した会社ロゴ / 屋号ロゴ）を参照する。法人プランで複数メンバーがスレッドを共有する場合でも、送信者の個人アバターではなく組織の統一アイコンを表示する（過去の個人 `users.avatar_url` を使う実装は誤りで、organization 仕様書 付録 A の 3-B で修正対象）
+- **受注者側のアバター**（発注者が見る相手）: 従来どおり `users.avatar_url`（個人の顔写真、`/profile/edit` で設定）を参照する
+- **未設定時のフォールバック**: `client_profiles.image_url` / `users.avatar_url` のいずれも NULL の場合、`/assets/icons/icon-avatar.png`（グレー人型プレースホルダー）を表示
+
+#### 退会済みユーザー／削除済み担当者の表示名
+
+送信者の `users.deleted_at` が設定されている場合、メッセージ画面・メッセージ通知メール・スレッド一覧の全てで、送信者名を「退会済みユーザー」と表示する（個人情報保護および相手への視覚的フィードバックのため）。
+
+- 対象: `public.users.deleted_at IS NOT NULL` のユーザー全般（自主退会 / 管理者による停止 / 法人プラン担当者の削除のいずれも同じ扱い）
+- 実装: `resolveParticipantName()` および `getUserDisplayName()` の先頭で `deletedAt` をチェックし、設定されていれば即「退会済みユーザー」を返す（既存実装どおり）
+- 画面動作:
+  - スレッド一覧の相手名 → 「退会済みユーザー」
+  - メッセージ詳細の送信者名 → 「退会済みユーザー」
+  - プロフィールへのリンク → リンク自体を無効化
+  - 退会済みユーザーとの新規メッセージ送信 → 不可（送信ボタン非活性化）
+- 法人プラン担当者が CLI-024（organization spec）の削除ボタンから削除された場合:
+  - `organization_members` は物理削除されるが、`public.users.deleted_at` のみセットされるソフトデリート方式のため、過去メッセージの `sender_id` はそのまま残る
+  - 表示は他の退会ケースと同じく「退会済みユーザー」になる
+  - 削除時の詳細ルールは organization spec の REQ-ORG-008「担当者詳細（CLI-023）」参照
 
 ### 設計上の制約（Non-Goals）
 
 - **メッセージの削除・編集は提供しない**: 建設業マッチングサービスにおける業務連絡の証跡保全のため、送信済みメッセージの取り消し・編集機能は意図的に対象外とする
-- **スカウトテンプレートの CRUD（CLI-016〜019）は messaging スコープ外**: organization spec で実装する。CLI-015（スカウト送信）からの「テンプレートから選択」は scout_templates テーブルの SELECT のみ行う
+- **スカウトテンプレートの CRUD（CLI-016〜019）は messaging スコープ外**:
+  - 作成・編集・削除・組織内共有・担当者削除時のオーナー移譲処理の**仕様および権限ルールは organization 仕様書の REQ-ORG-001〜004 を正とする**（`.kiro/specs/organization/requirements.md`）
+  - 本 messaging 仕様書では、CLI-015（スカウト送信）からテンプレートを参照・選択する部分（`scout_templates` テーブルの SELECT）のみ扱う
+  - 権限の二重記載による矛盾を避けるため、CRUD ルールの変更が必要な場合は必ず organization 仕様書側で行うこと
 
 ## 画面遷移
 

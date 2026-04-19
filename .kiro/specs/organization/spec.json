@@ -1,0 +1,22 @@
+{
+  "name": "organization",
+  "description": "組織管理機能（スカウトテンプレ / 発注者プロフィール / 担当者管理 / 招待フロー）と発注者表示名一本化リファクタリング",
+  "language": "ja",
+  "phase": "tasks-approved",
+  "created_at": "2026-04-15T00:00:00Z",
+  "updated_at": "2026-04-19T00:00:00Z",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  }
+}

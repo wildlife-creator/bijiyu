@@ -83,20 +83,23 @@ CON-001 マイページ
 │
 ├→ CLI-026 有料プラン案内
 │   ├→ CLI-027 決済画面（Stripe Checkout / 新規購入時のみ）
-│   │   ├→ 成功（個人/小規模/法人高サポート）: CON-001（マイページ / 成功メッセージ）
-│   │   ├→ 成功（法人プラン corporate / corporate_premium）: /mypage/organization-setup（組織名入力暫定画面。CLI-021 完成後は CLI-021 に統合）
+│   │   ├→ 成功（全プラン共通 / `individual` / `small` / `corporate` / `corporate_premium`）: CLI-021?setup=true（実 URL: `/mypage/client-profile/edit?setup=true`、発注者情報編集・初回設定モード）
+│   │   │   ├─ 法人プラン: 社名必須 → 保存後 CON-001 へ
+│   │   │   └─ 個人・小規模プラン: 任意、「スキップして後で設定する」ボタンを表示 → 押下で CON-001 へ（Webhook が client_profiles.display_name にデフォルト格納した姓名がそのまま表示名として使われる）
+│   │   │   ※ billing 単独リリース時の暫定対応として法人プランのみ `/mypage/organization-setup` 経由、個人・小規模プランは `/mypage?checkout=success` に遷移。organization spec 実装時に両方削除され、全プランで CLI-021?setup=true に統合される
 │   │   └→ キャンセル: CLI-026 に戻る
 │   ├→ アップグレード: 確認ダイアログ → 即時反映（Stripe Checkout は経由しない）
-│   │   └→ 法人プランへのアップグレード時は /mypage/organization-setup へ自動遷移
+│   │   └→ 全プランで CLI-021?setup=true へ自動遷移（暫定期間中は法人プランのみ /mypage/organization-setup 経由、個人・小規模プランはトースト表示のみ）
 │   ├→ ダウングレード/解約: 前提条件チェック → 確認ダイアログ → 予約実行
 │   │   └→ 予約キャンセル可能（請求期間終了日まで）
 │   └→ Stripe Customer Portal（カード更新・請求履歴）
 │
-│   ※ 法人プラン購入/アップグレード後の組織設定（Phase 1 / 暫定）:
-│   /mypage/organization-setup に遷移 → 組織名入力 → /mypage?setup_completed=true
-│   CLI-021 完成後（Phase 2）: この暫定画面は削除し、CLI-021 の `?setup=true` フローに統合
+│   ※ プラン購入/アップグレード後の発注者情報設定（全プラン共通）:
+│   CLI-021?setup=true に遷移 → 社名・氏名（client_profiles.display_name）入力 or スキップ（非法人のみ） → CON-001
 │   CON-001 → CLI-020（発注者情報詳細）→ CLI-021（発注者情報編集）
-│   CON-001 → CLI-022（担当者一覧）→ CLI-025（担当者新規作成）
+│   法人プランのみ追加: CON-001 → CLI-022（担当者一覧）→ CLI-025（担当者新規作成）→ 招待メール送信
+│                                      ↓（受信側）
+│                                      メール内リンク → /auth/callback?type=invite → AUTH-008（/accept-invite/confirm）→ CON-001
 │
 ├→ COM-007 よくある質問
 ├→ COM-008 お問い合わせ

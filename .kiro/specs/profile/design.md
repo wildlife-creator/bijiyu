@@ -208,9 +208,13 @@ sequenceDiagram
         SA->>DB: UPDATE applications SET status = cancelled WHERE applicant_id = uid AND status IN (applied, accepted)
         SA->>DB: UPDATE subscriptions SET status = cancelled WHERE user_id = uid AND status IN (active, past_due)
         SA->>DB: UPDATE option_subscriptions SET status = cancelled WHERE user_id = uid AND status = active
-        SA->>DB: DELETE FROM organization_members WHERE user_id = uid
-        alt 組織オーナーの場合
-            SA->>DB: 他にadminメンバーがいれば組織存続、いなければ organizations SET deleted_at = NOW()
+        alt 組織オーナーの場合（2026-04-19 C 案採用）
+            Note right of SA: Admin の有無に関わらず、組織ごとソフトデリート
+            SA->>DB: UPDATE users SET deleted_at = NOW() WHERE id IN (SELECT user_id FROM organization_members WHERE organization_id = org.id AND org_role IN ('admin', 'staff'))
+            SA->>DB: DELETE FROM organization_members WHERE organization_id = org.id
+            SA->>DB: UPDATE organizations SET deleted_at = NOW() WHERE id = org.id
+        else 組織オーナーでない場合
+            SA->>DB: DELETE FROM organization_members WHERE user_id = uid
         end
         SA->>Stripe: 解約API呼び出し（billing実装後）
         SA->>SA: 退会完了メール送信（失敗しても継続）
@@ -391,14 +395,18 @@ function withdrawAction(input: WithdrawalInput): Promise<ActionResult>;
   - Check②: 発注者として進行中の案件がないこと（applications INNER JOIN jobs ON jobs.id = applications.job_id WHERE jobs.owner_id = userId AND applications.status = 'accepted'）
   - Check③: 法人プランの場合は管理責任者（org_role = 'owner'）であること（担当者・組織管理者は退会不可）
   - confirmed = true
-- Postconditions:（database-schema.md「ユーザーソフトデリート時の連鎖処理ルール」に準拠）
+- Postconditions:（database-schema.md「ユーザーソフトデリート時の連鎖処理ルール」+ organization/requirements.md「退会（COM-006）」C 案（2026-04-19）に準拠）
   - 1. users.deleted_at にタイムスタンプが設定される
   - 2. jobs.status = 'closed' に更新される（owner_id = userId AND status IN ('draft', 'open') の案件）
   - 3. applications.status = 'cancelled' に更新される（applicant_id = userId AND status IN ('applied', 'accepted') の応募）
   - 4. subscriptions.status = 'cancelled' に更新される（user_id = userId AND status IN ('active', 'past_due')）
   - 5. option_subscriptions.status = 'cancelled' に更新される（user_id = userId AND status = 'active'）
-  - 6. organization_members から物理削除される（DELETE FROM organization_members WHERE user_id = userId）※ このテーブルに deleted_at カラムは存在しない
-  - 7. 組織オーナーの場合: 他に admin メンバーがいれば組織存続、いなければ organizations.deleted_at を設定
+  - 6. **組織オーナーの場合（C 案、2026-04-19 採用）**: Admin の有無に関わらず、以下を連動実行
+     - 6-a. 所属メンバー全員（Admin / Staff）の `users.deleted_at` をセット（ログイン不可化）。対象抽出は `SELECT user_id FROM organization_members WHERE organization_id = ? AND org_role IN ('admin', 'staff')`
+     - 6-b. `DELETE FROM organization_members WHERE organization_id = ?`（所属メンバー全員を物理削除。Owner 自身も含む）
+     - 6-c. `organizations.deleted_at` をセット
+     - 6-d. `client_profiles` / `scout_templates` は履歴として保持（削除しない）
+  - 7. **組織オーナーでない場合**: 自身の `organization_members` のみ物理削除（DELETE FROM organization_members WHERE user_id = userId）※ このテーブルに deleted_at カラムは存在しない
   - 8. Stripe 解約 API が呼び出される（billing 実装後）
   - 9. 退会完了メールが送信される（失敗時は非ロールバック）
   - 10. Supabase Admin API（auth.admin.updateUserById(uid, { ban_duration: '876600h' })）で auth.users のアカウントが無効化（ban）される。これにより deleted_at 設定後の再ログインを確実に防止する

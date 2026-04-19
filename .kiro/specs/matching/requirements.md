@@ -46,7 +46,7 @@
 - **カード表示項目**（上から順）:
   1. ステータスバッジ（カード左上）— 表示ラベルはフィルター選択肢と同じ5種類を使用
   2. 案件タイトル
-  3. 発注者の所属企業名（※ 個人名ではなく、organizations.name または users.company_name を表示）
+  3. 発注者の社名・氏名（※ `client_profiles.display_name`（CLI-021 で入力した名前）を表示。フォールバック: `users.last_name + first_name`）
   4. 募集職種・人数（左寄せ）、募集締め切り日（右寄せ）— 同じ行に横並び
   5. 報酬（例: 20,000円（人工））— `assets/icons/icon-coin.png`（コインアイコン）付き
   6. エリア（例: 東京都、埼玉県）— `assets/icons/icon-pin.png`（ピンアイコン）付き
@@ -305,7 +305,7 @@
     - 評価: 作成は当事者のみ（UNIQUE 制約で二重登録防止）
   - UPDATE/DELETE（評価）: 不可（編集・削除は仕様上禁止）
 - メール通知: 発注/お断り結果の通知はサーバーサイドから送信
-  - **clientName（発注者名）の解決**: ハードコード `"発注者"` ではなく、messaging spec の「名前表示ルール」に従って解決する。法人プランは `organizations.name`、個人・小規模は `users.company_name` → `users.last_name + first_name` の優先順位。詳細は `.kiro/specs/messaging/requirements.md` の「名前表示ルール」セクションを参照
+  - **clientName（発注者名）の解決**: ハードコード `"発注者"` ではなく、`resolveParticipantName()` で動的に解決する。全プラン共通で `client_profiles.display_name`（CLI-021 で入力した社名・氏名）→ `users.last_name + first_name`（フォールバック）。Staff が送信した場合は Owner の `client_profiles.display_name` を使用。詳細は `.kiro/specs/messaging/requirements.md` の「名前表示ルール」セクションを参照
   - **applicantName（受注者名）の解決**: `users.company_name` → `users.last_name + first_name` の優先順位
 - メール送信失敗で本体処理をロールバックしない（security.md の「メール送信失敗時の共通方針」に準拠）
 

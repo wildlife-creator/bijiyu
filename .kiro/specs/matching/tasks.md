@@ -277,14 +277,16 @@
 ## メール通知の名前表示修正
 
 - [x] NAME-1. acceptApplicationAction の clientName 修正
-  - `src/app/(authenticated)/applications/actions.ts:30` — `getApplicationWithDetails()` の SELECT に `organizations(name)` と `owner.company_name` の JOIN を追加
-  - `actions.ts:304-316` — `resolveParticipantName()` で clientName を解決（`organizations.name → owner.company_name → owner.last_name + first_name` の優先順）
+  - `src/app/(authenticated)/applications/actions.ts:30` — `getApplicationWithDetails()` の SELECT に `client_profiles(display_name)` の JOIN を追加（旧: `organizations(name)` + `owner.company_name` → 新: `client_profiles.display_name` に一本化）
+  - `actions.ts:304-316` — `resolveParticipantName()` で clientName を解決（新方式: `client_profiles.display_name → users.last_name + first_name` の 2 段階。旧 3 段階解決は廃止）
   - applicantName にも `company_name` フォールバック適用（`:304-308`）
   - ハードコード `"発注者"` は撤去済み
+  - ⚠️ **要リファクタ**: organization spec 実装時に `resolveParticipantName()` のロジック変更に合わせて、SELECT の JOIN 先を `organizations(name)` から `client_profiles(display_name)` に変更すること
   - _Requirements: 6_
 
 - [x] NAME-2. rejectApplicationAction の clientName 修正
   - `src/app/(authenticated)/applications/actions.ts:416-428` — NAME-1 と同じ名前解決パターンを適用
+  - ⚠️ **要リファクタ**: NAME-1 と同様に organization spec 実装時にリファクタ
   - _Requirements: 6_
 
 ## Requirements Coverage

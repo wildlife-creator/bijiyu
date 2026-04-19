@@ -75,7 +75,7 @@
 - [x] 5. (P) 退会機能の実装（COM-006）
 - [x] 5.1 withdrawAction Server Action の実装
   - 退会不可条件の3つのチェックを実装する: (1) 応募者として進行中案件あり（applications WHERE applicant_id = uid AND status IN ('applied', 'accepted')）、(2) 発注者として進行中案件あり（applications JOIN jobs WHERE jobs.owner_id = uid AND applications.status = 'accepted'）、(3) 法人プランの非オーナー（org_role != 'owner'）
-  - database-schema.md「ユーザーソフトデリート時の連鎖処理ルール」に準拠したカスケード処理を実装する: users.deleted_at 設定、jobs を closed に更新（draft/open のみ）、applications を cancelled に更新（applied/accepted）、subscriptions/option_subscriptions を cancelled に更新、organization_members を物理削除、組織オーナーの場合は他に admin メンバーがいるかで組織存続を判定
+  - database-schema.md「ユーザーソフトデリート時の連鎖処理ルール」+ organization/requirements.md「退会（COM-006）」C 案（2026-04-19 採用）に準拠したカスケード処理を実装する: users.deleted_at 設定、jobs を closed に更新（draft/open のみ）、applications を cancelled に更新（applied/accepted）、subscriptions/option_subscriptions を cancelled に更新、**組織オーナーの場合は Admin の有無に関わらず以下を連動実行**: (a) 所属メンバー全員（Admin / Staff）の users.deleted_at セット、(b) organization_members を組織単位で全員物理削除、(c) organizations.deleted_at セット、(d) client_profiles / scout_templates は履歴として保持（削除しない）。組織オーナーでない場合は自身の organization_members のみ物理削除。**本タスクは既に `[x]` 完了表示だが、C 案採用により旧実装と乖離しているため、organization spec の Task 13.4（COM-006 の C 案対応リファクタ）で書き換えを行う**
   - Supabase Admin API で auth.users を ban（ban_duration: '876600h'）してアカウントを無効化する
   - 退会完了メールを Resend で送信する（送信失敗時は非ロールバック）
   - セッションを無効化し、ルートページへリダイレクトする
