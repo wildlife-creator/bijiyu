@@ -358,7 +358,7 @@
 
 ## Task 10: 発注者プロフィール機能の実装（CLI-020, 021）
 
-- [ ] 10. 発注者情報の表示・編集と setup モード遷移を実装する
+- [x] 10. 発注者情報の表示・編集と setup モード遷移を実装する
 
 - [x] 10.1 clientProfile Server Action の実装
   - `saveClientProfileAction(input, { mode: 'edit' | 'setup', skip?: boolean })` — `client_profiles` の UPSERT
@@ -377,7 +377,7 @@
   - `design-assets/screens/CLI-020.png` に従ったレイアウト
   - _Requirements: 2.1_
 
-- [ ] 10.3 (P) CLI-021 発注者情報編集画面（setup モード統合）
+- [x] 10.3 (P) CLI-021 発注者情報編集画面（setup モード統合）
   - `/mypage/client-profile/edit/page.tsx` + クライアントフォーム
   - URL の `?setup=true` でセットアップモード（Webhook 未着時のガード緩和、「スキップ」ボタン表示）
   - 画像アップロードは別 Server Action で実施、URL を form 側の `hidden` input に反映

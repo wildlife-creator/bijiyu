@@ -333,6 +333,15 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith(BILLING_PATH_PREFIX)) {
       return finalize(supabaseResponse);
     }
+    // CLI-021 setup モード（?setup=true）は課金直後の Webhook 未着状態でも
+    // 通過を許可（要件書 REQ-ORG-006 L207）。CLIENT_ONLY_PREFIXES で
+    // ブロックされるよりも前に判定する。
+    if (
+      pathname === "/mypage/client-profile/edit" &&
+      searchParams.get("setup") === "true"
+    ) {
+      return finalize(supabaseResponse);
+    }
     if (isClientOnlyRoute(pathname)) {
       return finalize(redirectTo(request, "/mypage"));
     }
