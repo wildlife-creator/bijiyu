@@ -62,6 +62,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/reset-password/confirm", origin));
   }
 
+  if (flowType.includes("invite")) {
+    // 担当者招待（CLI-025 → auth.admin.inviteUserByEmail）のコールバック。
+    // セッションは確立済みなので AUTH-008（パスワード初回設定）に遷移する。
+    return NextResponse.redirect(new URL("/accept-invite/confirm", origin));
+  }
+
   // Default: signup / email confirmation → redirect to profile registration
   return NextResponse.redirect(new URL("/register/profile", origin));
 }
