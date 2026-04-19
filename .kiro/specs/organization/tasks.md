@@ -390,7 +390,7 @@
 
 ## Task 11: 担当者管理機能の実装（CLI-022〜025）
 
-- [ ] 11. 担当者 CRUD と招待メール再送の Server Action + 4 画面を実装する
+- [x] 11. 担当者 CRUD と招待メール再送の Server Action + 4 画面を実装する
 
 - [x] 11.1 member Server Action の実装
   - `createMemberAction(input)`: Zod → 権限チェック → **メール重複チェック（R2 対応: `admin.from('users').select('id').eq('email', input.email).maybeSingle()` で O(log N) 確認、ヒットしたら早期リターン。`auth.admin.listUsers()` は使わない）** → plan_type 取得 → `inviteUserByEmail(email, { redirectTo, data: { invited_role: 'staff', invited_last_name: input.lastName, invited_first_name: input.firstName, inviter_name, organization_name } })` を呼ぶ（**D 対応**: メタデータ経由でトリガーが INSERT 時に role='staff' と氏名を設定。孤児 auth.users のフォールバックとしてここでも email 重複エラーを掴む 2 段防御）→ `insert_staff_member_with_limit(new_user_id, org_id, org_role, is_proxy, max_staff)` RPC 呼び出し（D 採用により name/role 引数なし。RPC は人数チェック + organization_members INSERT のみ実行）→ RPC 失敗時 `auth.admin.deleteUser` cleanup + `audit_logs` 記録
@@ -417,7 +417,7 @@
   - `design-assets/screens/CLI-023.png` に従ったレイアウト
   - _Requirements: 3.2_
 
-- [ ] 11.4 (P) CLI-024 担当者編集画面
+- [x] 11.4 (P) CLI-024 担当者編集画面
   - `/mypage/members/[id]/edit/page.tsx` + クライアントフォーム
   - 「対象ロール」表に従い編集可能項目を動的切り替え（自己編集 / Admin→Staff / Owner→Admin など）
   - 権限（`org_role`）フィールドは Admin が Staff を編集する場合は非表示
@@ -426,7 +426,7 @@
   - `design-assets/screens/CLI-024.png` に従ったレイアウト
   - _Requirements: 3.3_
 
-- [ ] 11.5 (P) CLI-025 担当者新規作成画面
+- [x] 11.5 (P) CLI-025 担当者新規作成画面
   - `/mypage/members/new/page.tsx` + クライアントフォーム（入力 → 確認 → 送信の 2 ステップ）
   - `org_role` 選択肢は操作者のロールで動的に制限（Owner は admin/staff、Admin は staff のみ）
   - 法人プラン以外では代理アカウントチェックボックス非表示
