@@ -65,7 +65,7 @@
   - どちらも `REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO service_role`
   - _Requirements: 3.2, 3.4, 5.1_
 
-- [ ] 2.7 organizations.name から client_profiles.display_name へのデータ移行
+- [x] 2.7 organizations.name から client_profiles.display_name へのデータ移行
   - 既存の `organizations.name` 値を、対応する Owner の `client_profiles.display_name` に UPDATE でコピー
   - 該当 Owner に `client_profiles` が無ければ INSERT で新規作成（`user_id` + `display_name` のみ、他列はデフォルトまたは NULL）
   - 空文字（`name = ''`）の組織は UPDATE 対象外（display_name 空のままにする）
