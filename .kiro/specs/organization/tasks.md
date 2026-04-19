@@ -48,7 +48,7 @@
   - `organizations_select_admin` は維持（ソフト削除済みも admin は閲覧可）
   - _Requirements: 5.1, 6.2_
 
-- [ ] 2.5 (P) avatars バケットの Storage RLS 追加
+- [x] 2.5 (P) avatars バケットの Storage RLS 追加
   - 既存の「自分のフォルダに INSERT/UPDATE/DELETE 可」ポリシーはそのまま残す（書き換えない）
   - **SECURITY DEFINER 関数 `is_org_admin_or_owner_of(uid uuid, target_owner_user_id uuid)` を本 migration 内で先に CREATE**（RLS 再帰回避。既存 `is_same_org()` と同じパターン。詳細シグネチャは design.md「Storage RLS」セクション参照）。`REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO authenticated`
   - 新ポリシー名 `avatars_client_profile_write` を追加: 組織 Owner/Admin が所属組織 Owner の user_id フォルダに画像をアップロード可能にする
