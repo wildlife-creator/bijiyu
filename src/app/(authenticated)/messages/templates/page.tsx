@@ -19,6 +19,25 @@ function truncatePreview(text: string, max = 80): string {
   return `${text.slice(0, max)}…`;
 }
 
+function formatCreatedAt(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function resolveOwnerName(owner: {
+  last_name: string | null;
+  first_name: string | null;
+  deleted_at: string | null;
+} | null): string {
+  if (!owner) return "未設定";
+  if (owner.deleted_at) return "退会済みユーザー";
+  const last = (owner.last_name ?? "").trim();
+  const first = (owner.first_name ?? "").trim();
+  return last || first ? `${last}${first}` : "未設定";
+}
+
 export default async function ScoutTemplatesListPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const supabase = await createClient();
@@ -33,7 +52,11 @@ export default async function ScoutTemplatesListPage({ searchParams }: PageProps
 
   const { data: templates, count } = await supabase
     .from("scout_templates")
-    .select("id, title, body, memo, updated_at", { count: "exact" })
+    .select(
+      `id, title, body, memo, created_at, updated_at, organization_id,
+       owner:users!owner_id(last_name, first_name, deleted_at)`,
+      { count: "exact" },
+    )
     .order("updated_at", { ascending: false })
     .range(offset, offset + ITEMS_PER_PAGE - 1);
 
@@ -66,6 +89,11 @@ export default async function ScoutTemplatesListPage({ searchParams }: PageProps
         ) : (
           (templates ?? []).map((tpl) => {
             const preview = tpl.memo?.trim() || truncatePreview(tpl.body ?? "");
+            const owner = Array.isArray(tpl.owner) ? tpl.owner[0] : tpl.owner;
+            // 法人プラン共有テンプレ（organization_id あり）のみ作成者氏名を表示
+            const isSharedByOrg = tpl.organization_id !== null;
+            const ownerName = isSharedByOrg ? resolveOwnerName(owner) : null;
+            const createdAtLabel = formatCreatedAt(tpl.created_at);
             return (
               <Link
                 key={tpl.id}
@@ -83,6 +111,10 @@ export default async function ScoutTemplatesListPage({ searchParams }: PageProps
                           {preview}
                         </p>
                       )}
+                      <p className="mt-1 text-body-xs text-muted-foreground">
+                        作成日 {createdAtLabel}
+                        {ownerName ? ` ・ 作成者 ${ownerName}` : ""}
+                      </p>
                     </div>
                     <ChevronRight className="size-5 shrink-0 text-primary/70" />
                   </CardContent>
