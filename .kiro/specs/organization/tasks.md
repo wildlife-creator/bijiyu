@@ -23,7 +23,7 @@
 
 ## Task 2: Phase 1 マイグレーション（9 ファイル、既存コードを壊さない先行配布）
 
-- [ ] 2. Group 1 の 9 つの migration ファイルを作成し `supabase db reset` で適用確認する
+- [x] 2. Group 1 の 9 つの migration ファイルを作成し `supabase db reset` で適用確認する
 
 - [x] 2.1 (P) organizations.name の NOT NULL 制約解除
   - `ALTER TABLE organizations ALTER COLUMN name DROP NOT NULL;` のみの小さな migration を作成
@@ -78,7 +78,7 @@
   - シグネチャは `(uid uuid)` のまま変更しないため、呼び出し側（`plan-actions.ts` / `handle_checkout_completed.ts` / `handle_checkout_completed_plan`）は無変更で継続動作
   - _Requirements: 6.4_
 
-- [ ] 2.9 (P) handle_new_user トリガーの拡張（D 対応: contractor 経由の廃止 + 氏名同時保存）
+- [x] 2.9 (P) handle_new_user トリガーの拡張（D 対応: contractor 経由の廃止 + 氏名同時保存）
   - `CREATE OR REPLACE FUNCTION handle_new_user()` で現行定義を置換
   - 旧: `INSERT INTO public.users (id, role, email) VALUES (NEW.id, 'contractor', NEW.email)`
   - 新: `INSERT INTO public.users (id, role, email, last_name, first_name) VALUES (...)`
