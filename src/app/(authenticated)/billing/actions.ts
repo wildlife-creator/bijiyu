@@ -95,11 +95,10 @@ function priceIdForOption(
 function buildSuccessUrl(input: StartCheckoutInput): string {
   const base = appUrl();
   if (input.type === "plan") {
-    if (input.planType === "corporate" || input.planType === "corporate_premium") {
-      // CLI-021 完成までの暫定遷移先（Task 8.7）
-      return `${base}/mypage/organization-setup`;
-    }
-    return `${base}/mypage?checkout=success`;
+    // 全プラン共通で CLI-021 setup モードに遷移。
+    // 法人プラン: 社名（display_name）必須
+    // 個人/小規模プラン: display_name 任意（スキップ可）
+    return `${base}/mypage/client-profile/edit?setup=true`;
   }
   switch (input.optionType) {
     case "compensation_5000":
