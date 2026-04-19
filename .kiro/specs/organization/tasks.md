@@ -649,7 +649,7 @@
   - (1) `organizations_select_public` で認証済みが生存組織を SELECT 可 (2) 同ポリシーでソフト削除済み組織は非表示 (3) admin がソフト削除済みを含む全組織を SELECT 可 (4) 旧ポリシー `organizations_select` / `organizations_select_thread_participant` が DROP 済み（`pg_policies` 確認） (5) `is_same_org()` 関数が他テーブル RLS から継続利用可能 の 5 シナリオ
   - _Requirements: 5.2_
 
-- [ ] 15.3 (P) insert_staff_member_with_limit RPC テスト
+- [x] 15.3 (P) insert_staff_member_with_limit RPC テスト
   - `supabase/tests/insert_staff_member_with_limit.test.sql` を新規作成
   - (1) 上限内 INSERT 成功 (2) 上限到達で `STAFF_LIMIT_EXCEEDED` 例外 (3) 並行呼び出しで `FOR UPDATE` が直列化し count がずれない (4) `INVALID_ORG_ROLE` / `USER_NOT_FOUND` 例外 (5) `authenticated` ロールからの EXECUTE 拒否 (6) **既存ユーザーのロール・氏名を変更しないこと**（D 採用: RPC は organization_members INSERT のみ実行。auth.users 経由でメタデータから初期化された `role`/`last_name`/`first_name` は変えない） (7) **R4 対応: 既存代理がある組織で `p_is_proxy_account = true` を渡すと `PROXY_ACCOUNT_ALREADY_EXISTS` 例外** (8) `p_is_proxy_account = false` なら既存代理の有無に関わらず INSERT 成功（代理チェックは `false` 時にスキップされる）
   - **追加 pgTAP テスト** `supabase/tests/handle_new_user_invite_metadata.test.sql`（D 対応の新規テスト、4 シナリオ）:
