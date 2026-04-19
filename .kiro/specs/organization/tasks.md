@@ -715,7 +715,7 @@
 
 ## Task 16.1: 周辺スクリプトの処理（付録 A Step 5.5）
 
-- [ ] 16.1. organization-setup 廃止で動作不能になる検証スクリプトを削除または更新する
+- [x] 16.1. organization-setup 廃止で動作不能になる検証スクリプトを削除または更新する
   - `scripts/task16-integration.mjs`（**billing spec の旧 Task 16 として作成された** Stripe CLI 自動化テストスクリプト。本 organization spec の Task 16 とは別物、命名の偶然による混同に注意）は L11 コメント・L128 / L129 / L138 / L139 で `organizations.name` の INSERT / SELECT に依存している
   - 以下のいずれかを選択:
     - **(a) 削除（推奨）**: billing spec の旧 Task 16 は完了済みで、本検証スクリプトは一回限りの用途だったため削除する
