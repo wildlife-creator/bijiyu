@@ -36,7 +36,7 @@
   - 既存の `client_profiles` 行にデフォルト値が正しく入ることを確認
   - _Requirements: 2.1, 2.2_
 
-- [ ] 2.3 (P) users への password_set_at カラム追加 + email インデックス追加（R2 対応）
+- [x] 2.3 (P) users への password_set_at カラム追加 + email インデックス追加（R2 対応）
   - `public.users.password_set_at timestamptz NULL` を追加
   - 招待完了前（NULL）と完了後（timestamptz）を区別するために使用
   - **同 migration で `CREATE INDEX idx_users_email ON public.users(email)` を追加**（R2 対応）。CLI-025 のメール重複チェックを `public.users.email` 経由で O(log N) で実行するため。`auth.users.email` は UNIQUE のため `public.users.email` も実質ユニークだが、トリガー反映の race を許容するため**非 UNIQUE** インデックスとする
