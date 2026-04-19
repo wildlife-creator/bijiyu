@@ -4,10 +4,11 @@ import { ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
-import { resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
+import {
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 import { SuccessToast } from "./success-toast";
 
 // -------------------------------------------------------------------
@@ -192,25 +193,22 @@ export default async function MyPage() {
         recruit_start_date,
         recruit_end_date,
         owner_id,
-        users!jobs_owner_id_fkey (
-          company_name, last_name, first_name, deleted_at
+        organization_id,
+        owner:users!owner_id(
+          last_name, first_name, deleted_at,
+          client_profiles(display_name, image_url)
+        ),
+        organization:organizations(
+          owner_user:users!owner_id(
+            last_name, first_name, deleted_at,
+            client_profiles(display_name, image_url)
+          )
         )
       )
     `)
     .eq("applicant_id", user.id)
     .eq("status", "accepted")
     .order("updated_at", { ascending: false });
-
-  // 法人プラン（active）のオーナーのみ組織名を使う
-  const acceptedJobOwnerIds = Array.from(
-    new Set(
-      (acceptedApplications ?? [])
-        .map((a) => (a.jobs as unknown as { owner_id?: string } | null)?.owner_id)
-        .filter((v): v is string => !!v),
-    ),
-  );
-  const admin = createAdminClient();
-  const ownerOrgNameById = await getActiveCorporateOrgNames(admin, acceptedJobOwnerIds);
 
   // Fetch subscription status for client menu visibility
   const { data: subscription } = await supabase
@@ -374,11 +372,24 @@ export default async function MyPage() {
               prefecture: string | null;
               recruit_start_date: string | null;
               owner_id: string;
-              users: {
-                company_name: string | null;
+              organization_id: string | null;
+              owner: {
                 last_name: string | null;
                 first_name: string | null;
                 deleted_at: string | null;
+                client_profiles:
+                  | Array<{ display_name: string | null; image_url: string | null }>
+                  | null;
+              } | null;
+              organization: {
+                owner_user: {
+                  last_name: string | null;
+                  first_name: string | null;
+                  deleted_at: string | null;
+                  client_profiles:
+                    | Array<{ display_name: string | null; image_url: string | null }>
+                    | null;
+                } | null;
               } | null;
             };
             if (!job) return null;
@@ -387,15 +398,13 @@ export default async function MyPage() {
             const userReview = app.user_reviews as unknown as { id: string } | null;
             const hasClientReview = clientReview !== null;
             const hasUserReview = userReview !== null;
-            const companyName = job.users
-              ? resolveParticipantName({
-                  organizationName: ownerOrgNameById.get(job.owner_id) ?? null,
-                  companyName: job.users.company_name,
-                  lastName: job.users.last_name,
-                  firstName: job.users.first_name,
-                  deletedAt: job.users.deleted_at,
-                })
-              : "";
+            const resolution = resolveClientProfileForRow(job);
+            const companyName = resolveParticipantName({
+              displayName: resolution.displayName,
+              lastName: resolution.lastName,
+              firstName: resolution.firstName,
+              deletedAt: resolution.deletedAt,
+            });
             const tradeLabel = [job.trade_type, job.headcount ? `${job.headcount}人` : null]
               .filter(Boolean)
               .join("・");

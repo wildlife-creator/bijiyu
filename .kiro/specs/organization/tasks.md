@@ -134,7 +134,7 @@
   - **共通方針（4.1〜4.4 すべてに適用、B3 対応）**: design.md「ClientProfileResolutionForRow（B3 対応）」セクションの **standard query pattern** を使う。各クエリの `.select(...)` に `owner:users!owner_id(last_name, first_name, deleted_at, client_profiles(...))` と `organization:organizations(owner_user:users!owner_id(last_name, first_name, deleted_at, client_profiles(...)))` をネスト埋め込みし、TypeScript 側で `resolveClientProfileForRow(row)` → `resolveParticipantName(...)` の順で呼ぶ。これにより Staff 作成案件でも社長の display_name に到達できる
   - **作業着手前**: `supabase gen types` を再実行して型を最新化する（ネスト 3 層の型推論を効かせるため）
 
-- [ ] 4.1 (P) 発注者一覧系画面のクエリ書き換え（CON-005/006/007 + CON-001）
+- [x] 4.1 (P) 発注者一覧系画面のクエリ書き換え（CON-005/006/007 + CON-001）
   - `src/app/(authenticated)/clients/page.tsx`（CON-005 発注者一覧）
   - `src/app/(authenticated)/clients/[id]/page.tsx`（CON-006 発注者詳細）
   - `src/app/(authenticated)/favorites/page.tsx`（CON-007 マイリスト）

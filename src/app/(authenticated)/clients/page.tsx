@@ -9,9 +9,7 @@ import { PaginationControls } from "@/components/job-search/pagination-controls"
 import { BackButton } from "@/components/job-search/back-button";
 import { SearchFilterSheet } from "@/components/job-search/search-filter-sheet";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -44,8 +42,8 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     .from("users")
     .select(
       `
-      id, avatar_url, company_name, last_name, first_name, deleted_at, prefecture,
-      ${profileJoin}(recruit_job_types, recruit_area, working_way)
+      id, avatar_url, last_name, first_name, deleted_at, prefecture,
+      ${profileJoin}(display_name, recruit_job_types, recruit_area, working_way)
     `,
       { count: "exact" },
     )
@@ -55,7 +53,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   // Apply filters
   if (q) {
     query = query.or(
-      `company_name.ilike.%${q}%,last_name.ilike.%${q}%,first_name.ilike.%${q}%`,
+      `last_name.ilike.%${q}%,first_name.ilike.%${q}%`,
     );
   }
   if (prefecture) {
@@ -70,14 +68,6 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     .range(offset, offset + ITEMS_PER_PAGE - 1);
 
   const { data: clients, count } = await query;
-
-  // 法人プラン契約中のユーザーの組織名を admin 経由で解決
-  // （ダウングレード後も organizations データは残るが、active な法人プランのときのみ表示）
-  const admin = createAdminClient();
-  const orgNameByUserId = await getActiveCorporateOrgNames(
-    admin,
-    (clients ?? []).map((c) => c.id),
-  );
 
   // Get user's favorites for these clients
   const clientIds = (clients ?? []).map((c) => c.id);
@@ -113,7 +103,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
                   <input
                     name="q"
                     defaultValue={q}
-                    placeholder="会社名・名前で検索"
+                    placeholder="氏名で検索"
                     className="mt-1 w-full rounded-[8px] border border-border px-3 py-2 text-body-sm"
                   />
                 </div>
@@ -152,11 +142,8 @@ export default async function ClientListPage({ searchParams }: PageProps) {
             const profile = Array.isArray(client.client_profiles)
               ? client.client_profiles[0]
               : client.client_profiles;
-            // 法人プランの場合は organizations.name を優先表示（admin clientで取得済み）
-            const orgName = orgNameByUserId.get(client.id) ?? null;
             const displayName = resolveParticipantName({
-              organizationName: orgName,
-              companyName: client.company_name,
+              displayName: profile?.display_name ?? null,
               lastName: client.last_name,
               firstName: client.first_name,
               deletedAt: client.deleted_at,
