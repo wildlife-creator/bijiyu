@@ -401,7 +401,7 @@
   - Vitest 統合テスト（**D 対応: `inviteUserByEmail` 呼び出し時のメタデータに `invited_role='staff'` + `invited_last_name` + `invited_first_name` が含まれることをモックでアサート** / **メール重複チェックで既存 `public.users.email` を早期拒否（R2 対応）** / `STAFF_LIMIT_EXCEEDED` → cleanup 成功 / cleanup 失敗時の audit_log 記録 / inviteUserByEmail 失敗で RPC を呼ばない / メール変更 2 モード / **R4 対応: createMemberAction で代理 ON 時に既存代理あり → RPC が `PROXY_ACCOUNT_ALREADY_EXISTS` を返し日本語化 / updateMemberAction で代理 ON 切替時に既存代理あり → 事前 SELECT でヒット → 同じ日本語メッセージ**）
   - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 11.2 (P) CLI-022 担当者一覧画面
+- [x] 11.2 (P) CLI-022 担当者一覧画面
   - `/mypage/members/page.tsx`（RSC）で所属組織の `organization_members` + `users` を取得し一覧表示
   - 20 件ページネーション + `?q=` 検索（氏名・メール部分一致）
   - Owner は「管理責任者」タグ付きで表示。`password_set_at IS NULL` のメンバーは「招待中」バッジ表示
