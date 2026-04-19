@@ -130,7 +130,7 @@
 
 ## Task 4: 受注者側 14 画面のクエリ書き換え（付録 A Step 3-A）+ Webhook 1 ファイルの宛先名修正（Task 4.5、追加発見）
 
-- [ ] 4. `organizations.name` / `getActiveCorporateOrgNames()` 参照を `client_profiles.display_name` 経由に置き換える
+- [x] 4. `organizations.name` / `getActiveCorporateOrgNames()` 参照を `client_profiles.display_name` 経由に置き換える
   - **共通方針（4.1〜4.4 すべてに適用、B3 対応）**: design.md「ClientProfileResolutionForRow（B3 対応）」セクションの **standard query pattern** を使う。各クエリの `.select(...)` に `owner:users!owner_id(last_name, first_name, deleted_at, client_profiles(...))` と `organization:organizations(owner_user:users!owner_id(last_name, first_name, deleted_at, client_profiles(...)))` をネスト埋め込みし、TypeScript 側で `resolveClientProfileForRow(row)` → `resolveParticipantName(...)` の順で呼ぶ。これにより Staff 作成案件でも社長の display_name に到達できる
   - **作業着手前**: `supabase gen types` を再実行して型を最新化する（ネスト 3 層の型推論を効かせるため）
 
@@ -169,7 +169,7 @@
   - **B3 注意**: `client_profiles!inner(display_name, image_url)` の単純 embed は使わない（Staff が送信側にいるスレッドで NULL になる）
   - _Requirements: 6.2_
 
-- [ ] 4.5 (P) サブスクリプション通知メールの宛先名解決を `client_profiles.display_name` に切替（追加発見、新仕様準拠）
+- [x] 4.5 (P) サブスクリプション通知メールの宛先名解決を `client_profiles.display_name` に切替（追加発見、新仕様準拠）
   - `src/lib/billing/webhook/handle-subscription-lifecycle.ts` L601-615 の `fetchRecipient()` 関数を修正
   - **背景**: 現コードは `users.company_name`（受注者向け屋号フィールド）を見て名前決定しているが、新仕様では「発注者の表示名は `client_profiles.display_name` に一本化」と決めたため不整合。法人プラン Owner が CLI-021 で正式社名を登録していても、サブスク通知メールでは古い屋号 or 個人名が表示される潜在バグ
   - **影響メール**: `subscriptionChangedEmail`（プラン変更通知）/ `subscriptionCancelledEmail`（プラン解約通知）/ `paymentFailedEmail`（支払い失敗通知）の3種類すべて。宛先はサブスク購入者本人（= `users.role = 'client'`）

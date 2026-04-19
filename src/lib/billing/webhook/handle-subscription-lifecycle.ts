@@ -604,13 +604,17 @@ async function fetchRecipient(
 ): Promise<{ email: string; name: string } | null> {
   const result = await admin
     .from("users")
-    .select("email, last_name, first_name, company_name")
+    .select("email, last_name, first_name, client_profiles(display_name)")
     .eq("id", userId)
     .maybeSingle();
   if (!result.data) return null;
-  // 個人名はスペースなし結合（CLAUDE.md ルール）
+  // 発注者表示名は client_profiles.display_name に一本化（Task 4.5）。
+  // 個人名はスペースなし結合（CLAUDE.md ルール）。
+  const profiles = result.data.client_profiles;
+  const profile = Array.isArray(profiles) ? profiles[0] : profiles;
+  const displayName = profile?.display_name?.trim() ?? "";
   const personalName = `${result.data.last_name ?? ""}${result.data.first_name ?? ""}`;
-  const name = result.data.company_name?.trim() || personalName || "お客様";
+  const name = displayName || personalName || "お客様";
   return { email: result.data.email, name };
 }
 
