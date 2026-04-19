@@ -304,9 +304,15 @@ export async function middleware(request: NextRequest) {
   billingHeadersAvailable = true;
 
   // --- Authenticated user accessing auth pages → redirect to mypage ---
-  // Exception: /reset-password/confirm must be accessible by authenticated users
+  // Exception: /reset-password/confirm and /accept-invite/confirm must be
+  // accessible by authenticated users (both rely on session established by
+  // Supabase Auth callback)
   // (recovery flow sets the session before redirecting to this page)
-  if (isAuthPage(pathname) && pathname !== "/reset-password/confirm") {
+  if (
+    isAuthPage(pathname) &&
+    pathname !== "/reset-password/confirm" &&
+    pathname !== "/accept-invite/confirm"
+  ) {
     if (role === "admin") {
       return finalize(redirectTo(request, "/admin/dashboard"));
     }
