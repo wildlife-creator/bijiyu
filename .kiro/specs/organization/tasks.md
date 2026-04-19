@@ -699,7 +699,7 @@
 
 ## Task 16: リファクタ由来の既存テスト修正（付録 A Step 5）
 
-- [ ] 16. 発注者表示名一本化に伴い、既存のユニット・統合・E2E テストを新仕様に合わせる
+- [x] 16. 発注者表示名一本化に伴い、既存のユニット・統合・E2E テストを新仕様に合わせる
   - Vitest: `src/__tests__/utils/resolve-org-names.test.ts` を全削除（約 155 行、`getActiveCorporateOrgNames` 廃止に伴う）
   - Vitest: `src/__tests__/billing/save-org-name-action.test.ts` を全削除（organization-setup 暫定画面廃止に伴う）
   - Vitest: `src/__tests__/billing/start-checkout-action.test.ts` を書き換え、全プランで success_url が `CLI-021?setup=true` になることをアサート

@@ -38,7 +38,9 @@ VALUES ('ff444444-4444-4444-4444-444444444444', 'ff444444-4444-4444-4444-4444444
 UPDATE public.users SET role = 'contractor', last_name = 'テスト', first_name = '他人' WHERE id = 'ff444444-4444-4444-4444-444444444444';
 
 -- Create organization + members
-INSERT INTO organizations (id, name, owner_id) VALUES ('ff555555-5555-5555-5555-555555555555', 'テスト株式会社', 'ff111111-1111-1111-1111-111111111111');
+-- 発注者表示名は client_profiles.display_name に一本化（organization spec Task 2.7）
+INSERT INTO organizations (id, owner_id) VALUES ('ff555555-5555-5555-5555-555555555555', 'ff111111-1111-1111-1111-111111111111');
+INSERT INTO client_profiles (user_id, display_name) VALUES ('ff111111-1111-1111-1111-111111111111', 'テスト株式会社');
 INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
   ('ff555555-5555-5555-5555-555555555555', 'ff111111-1111-1111-1111-111111111111', 'owner'),
   ('ff555555-5555-5555-5555-555555555555', 'ff222222-2222-2222-2222-222222222222', 'staff');
