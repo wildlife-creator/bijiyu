@@ -304,7 +304,7 @@
 
 ## Task 8: リファクタリング完了後のテスト検証
 
-- [ ] 8. Task 2〜7 完了後、3 コマンドで全テスト緑化を確認する
+- [x] 8. Task 2〜7 完了後、3 コマンドで全テスト緑化を確認する
   - `supabase db reset`（新規 migration 9 ファイル + 更新 seed.sql を反映）
   - `npm run test` → 書き換えた 14 ファイルが Vitest でコケないことを確認
   - `supabase test db` → 既存 pgTAP（RLS）テストが通ることを確認
