@@ -601,15 +601,15 @@
 
 ## Task 14: Error Handling / Monitoring の実装
 
-- [ ] 14. audit_logs イベントと孤児 auth.users 検出フローを実装する
+- [x] 14. audit_logs イベントと孤児 auth.users 検出フローを実装する
 
-- [ ] 14.1 audit_logs エントリの追加と Server Action 内 INSERT
+- [x] 14.1 audit_logs エントリの追加と Server Action 内 INSERT
   - `member_created` / `member_deleted` / `email_changed_by_admin` / `member_create_failed_cleanup_pending` / `member_create_failed_cleanup_failed` / `orphan_cleaned_up` の各イベント
   - Server Action の catch ブロック（RPC の外）で INSERT することで、RPC ロールバック時にも失敗記録が残るようにする
   - イベント付随データ（`user_id`, `organization_id`, `error_message`, etc.）を `details` jsonb に格納
   - _Requirements: 3.4, 5.1_
 
-- [ ] 14.2 孤児 auth.users 検出と運営通知
+- [x] 14.2 孤児 auth.users 検出と運営通知
   - `member_create_failed_cleanup_failed` イベント INSERT 時、Resend で運営宛（`OPS_NOTIFICATION_EMAIL` 環境変数）に即時通知メール送信
   - 件名「【要対応】担当者作成のクリーンアップ失敗」、本文に該当 user_id / email / organization_id / エラーメッセージを記載
   - 通知送信失敗時は audit_logs に追加記録のみ（本体処理をブロックしない）
@@ -626,7 +626,7 @@
     6. **原則「再招待 or 削除」の 2 択**: 孤児を `public.users` に手動 INSERT して蘇生させるのは**禁止**（メタデータ・`handle_new_user` トリガーを経由しない直接 INSERT は、organization_members 側の整合性やメール通知の発火順序が崩れる）
   - _Requirements: 3.4, 5.1_
 
-- [ ] 14.3 (P) 管理者強制メール変更の通知メールテンプレ
+- [x] 14.3 (P) 管理者強制メール変更の通知メールテンプレ
   - `src/lib/email/templates/email-changed-by-admin.tsx` を React Email で作成
   - 件名「メールアドレスが変更されました」、本文「組織の管理者によりメールアドレスが変更されました。身に覚えがない場合は運営までご連絡ください」+ COM-008 リンク
   - 旧メール・新メール両方に送信、送信失敗時は `audit_logs` 記録のみで本体処理はロールバックしない

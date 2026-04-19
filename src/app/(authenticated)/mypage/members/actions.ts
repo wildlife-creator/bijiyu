@@ -12,6 +12,8 @@ import {
   type MemberCreateInput,
   type MemberUpdateInput,
 } from "@/lib/validations/member";
+import { sendEmail } from "@/lib/email/send-email";
+import { emailChangedByAdminEmail } from "@/lib/email/templates/email-changed-by-admin";
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -175,6 +177,28 @@ export async function createMemberAction(
         rpc_error: rpcError.message,
         cleanup_error: cleanupError.message,
       });
+      // Task 14.2: 運営通知メール（孤児発生の即時アラート）
+      const opsEmail = process.env.OPS_NOTIFICATION_EMAIL;
+      if (opsEmail) {
+        sendEmail({
+          to: opsEmail,
+          subject: "【要対応】担当者作成のクリーンアップ失敗",
+          html: `<p>担当者作成で RPC 失敗 + auth.users 削除失敗が発生しました。孤児 auth.users が残っている可能性があります。</p>
+<ul>
+  <li>auth_user_id: ${newUserId}</li>
+  <li>email: ${parsed.data.email}</li>
+  <li>organization_id: ${actor.organizationId}</li>
+  <li>rpc_error: ${rpcError.message}</li>
+  <li>cleanup_error: ${cleanupError.message}</li>
+</ul>
+<p>対応手順は docs/operations/orphan-auth-users-playbook.md を参照してください。</p>`,
+        }).catch((err) => {
+          console.error(
+            "[createMemberAction] OPS notification email failed",
+            err,
+          );
+        });
+      }
     } else {
       await logAudit(admin, actor.userId, "member_create_failed_cleanup_pending", {
         target_user_id: newUserId,
@@ -317,6 +341,14 @@ export async function updateMemberAction(
       }
     } else {
       // パターン B: admin client で強制変更
+      // 旧メール + 対象氏名 + 組織名を Email 通知に載せるため事前取得
+      const { data: oldUser } = await admin
+        .from("users")
+        .select("email, last_name, first_name")
+        .eq("id", targetUserId)
+        .maybeSingle();
+      const oldEmail = oldUser?.email ?? "";
+
       const { error: emailError } = await admin.auth.admin.updateUserById(
         targetUserId,
         { email: parsed.data.email, email_confirm: true },
@@ -326,10 +358,57 @@ export async function updateMemberAction(
       }
       await logAudit(admin, actor.userId, "email_changed_by_admin", {
         target_user_id: targetUserId,
+        old_email: oldEmail,
         new_email: parsed.data.email,
         organization_id: actor.organizationId,
       });
-      // 通知メール送信は別コミット（Task 14.3）で追加予定
+
+      // Task 14.3: 旧・新両方のメールに通知。失敗してもロールバックしない
+      const { data: orgRow } = await admin
+        .from("organizations")
+        .select("id, owner_user:users!owner_id(id)")
+        .eq("id", actor.organizationId)
+        .maybeSingle();
+      const ownerUserId =
+        (
+          (Array.isArray(orgRow?.owner_user)
+            ? orgRow?.owner_user[0]
+            : orgRow?.owner_user) as { id: string } | undefined
+        )?.id ?? null;
+      const { data: orgClientProfile } = ownerUserId
+        ? await admin
+            .from("client_profiles")
+            .select("display_name")
+            .eq("user_id", ownerUserId)
+            .maybeSingle()
+        : { data: null };
+      const organizationName =
+        orgClientProfile?.display_name?.trim() || "ビジ友組織";
+
+      const recipientName =
+        `${oldUser?.last_name ?? ""}${oldUser?.first_name ?? ""}`.trim() ||
+        "ご担当者";
+      const { subject, html } = emailChangedByAdminEmail({
+        recipientName,
+        oldEmail,
+        newEmail: parsed.data.email,
+        organizationName,
+        serviceUrl: SERVICE_URL,
+      });
+
+      const recipients = [oldEmail, parsed.data.email].filter(
+        (e) => e && e.length > 0,
+      );
+      for (const to of recipients) {
+        sendEmail({ to, subject, html }).catch((err) => {
+          console.error("[updateMemberAction] notify email failed", err, to);
+          logAudit(admin, actor.userId, "email_changed_by_admin_notify_failed", {
+            target_user_id: targetUserId,
+            recipient: to,
+            error: err instanceof Error ? err.message : String(err),
+          }).catch(() => {});
+        });
+      }
     }
   }
 

@@ -37,6 +37,10 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock("@/lib/email/send-email", () => ({
+  sendEmail: vi.fn().mockResolvedValue({ success: true }),
+}));
+
 import {
   createMemberAction,
   updateMemberAction,
@@ -326,9 +330,10 @@ describe("updateMemberAction", () => {
     if (!r.success) expect(r.error).toContain("代理アカウントは既に");
   });
 
-  it("admin メール変更（他者）は admin.updateUserById + audit_log", async () => {
+  it("admin メール変更（他者）は admin.updateUserById + audit_log + 通知メール送信", async () => {
     mockAuth(OWNER_ID);
     mockActorContext(OWNER_ID, "owner");
+    // 1. target SELECT
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -342,10 +347,38 @@ describe("updateMemberAction", () => {
         },
       }),
     );
+    // 2. oldUser SELECT (for email notification)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            email: "old@test.local",
+            last_name: "田中",
+            first_name: "太郎",
+          },
+          error: null,
+        },
+      }),
+    );
     mockAdminUpdateUserById.mockResolvedValue({ error: null });
-    // audit_logs
+    // 3. audit_logs insert
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // 4. organizations SELECT for owner_user
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { id: ORG_ID, owner_user: { id: OWNER_ID } },
+          error: null,
+        },
+      }),
+    );
+    // 5. client_profiles SELECT for organization display_name
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト株式会社" }, error: null },
+      }),
     );
 
     const r = await updateMemberAction(STAFF_ID, { email: "new@test.local" });
