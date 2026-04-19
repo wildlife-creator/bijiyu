@@ -25,7 +25,7 @@
 
 - [ ] 2. Group 1 の 9 つの migration ファイルを作成し `supabase db reset` で適用確認する
 
-- [ ] 2.1 (P) organizations.name の NOT NULL 制約解除
+- [x] 2.1 (P) organizations.name の NOT NULL 制約解除
   - `ALTER TABLE organizations ALTER COLUMN name DROP NOT NULL;` のみの小さな migration を作成
   - 既存データ（`name = ''` を含む）に影響なく適用できることを `supabase db reset` で確認
   - _Requirements: 6.5_
