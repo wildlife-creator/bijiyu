@@ -43,10 +43,13 @@ async function resolveProfileUserId(
 }
 
 async function getPlanType(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  _supabase: Awaited<ReturnType<typeof createClient>>,
   profileUserId: string,
 ): Promise<PlanType | null> {
-  const { data } = await supabase
+  // Admin が Owner 代理で保存するケースで、RLS により Owner subscription が
+  // 見えないため admin client 経由で取得する
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("subscriptions")
     .select("plan_type, status")
     .eq("user_id", profileUserId)

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
+const mockAdminFrom = vi.fn();
 const mockStorageFrom = vi.fn();
 const mockAdminStorageFrom = vi.fn();
 
@@ -15,6 +16,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn().mockReturnValue({
+    from: (...args: unknown[]) => mockAdminFrom(...args),
     storage: { from: (...args: unknown[]) => mockAdminStorageFrom(...args) },
   }),
 }));
@@ -93,7 +95,7 @@ describe("saveClientProfileAction", () => {
   it("edit モード + プラン未加入（contractor 等）は「発注者プランに加入していない」エラー", async () => {
     mockAuth(OWNER_ID);
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockAdminFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     const r = await saveClientProfileAction(basePersonalInput, { mode: "edit" });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toContain("発注者プランに加入していない");
@@ -102,7 +104,7 @@ describe("saveClientProfileAction", () => {
   it("setup モード + skip=true + プラン未加入は「発注者プランに加入していない」エラー", async () => {
     mockAuth(OWNER_ID);
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockAdminFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     const r = await saveClientProfileAction(basePersonalInput, { mode: "setup", skip: true });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toContain("発注者プランに加入していない");
@@ -111,7 +113,7 @@ describe("saveClientProfileAction", () => {
   it("setup モード + 通常 save + プラン未加入は soft retry エラー（Webhook race 想定）", async () => {
     mockAuth(OWNER_ID);
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockAdminFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     const r = await saveClientProfileAction(basePersonalInput, { mode: "setup" });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toContain("プラン情報を反映中");
@@ -120,7 +122,7 @@ describe("saveClientProfileAction", () => {
   it("非法人プラン + setup モード + skip → DB 書き込みせず /mypage へ", async () => {
     mockAuth(OWNER_ID);
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
-    mockFrom.mockReturnValueOnce(
+    mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
           data: { plan_type: "individual", status: "active" },
@@ -136,7 +138,7 @@ describe("saveClientProfileAction", () => {
   it("法人プラン + setup モード + skip → スキップ不可エラー", async () => {
     mockAuth(OWNER_ID);
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
-    mockFrom.mockReturnValueOnce(
+    mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
           data: { plan_type: "corporate", status: "active" },
@@ -151,7 +153,7 @@ describe("saveClientProfileAction", () => {
   it("法人プラン + display_name 空文字はバリデーションエラー", async () => {
     mockAuth(OWNER_ID);
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
-    mockFrom.mockReturnValueOnce(
+    mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
           data: { plan_type: "corporate", status: "active" },
@@ -169,7 +171,7 @@ describe("saveClientProfileAction", () => {
   it("正常系: upsert が呼ばれ redirectTo が返る（edit モード）", async () => {
     mockAuth(OWNER_ID);
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
-    mockFrom.mockReturnValueOnce(
+    mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
           data: { plan_type: "individual", status: "active" },

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 import { MemberForm } from "../member-form";
 
@@ -38,7 +39,9 @@ export default async function MemberNewPage() {
     : actorMember.organizations;
   const ownerUserId = (org as { owner_id: string } | null)?.owner_id;
 
-  const { data: subscription } = await supabase
+  // Admin / Staff 自身は RLS で Owner の subscription を見れないため admin client 経由
+  const admin = createAdminClient();
+  const { data: subscription } = await admin
     .from("subscriptions")
     .select("plan_type")
     .eq("user_id", ownerUserId ?? "")

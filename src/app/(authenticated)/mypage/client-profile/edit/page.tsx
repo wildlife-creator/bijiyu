@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { ClientProfileFormInput } from "@/lib/validations/client-profile";
 
 import { ClientProfileEditForm } from "./client-profile-edit-form";
@@ -45,7 +46,10 @@ export default async function ClientProfileEditPage({
 
   const profileUserId = await resolveProfileUserId(supabase, user.id);
 
-  const { data: subscription } = await supabase
+  // Admin が Owner の profile を編集するケースで、Admin は RLS により
+  // Owner subscription を見られないため admin client 経由で取得
+  const admin = createAdminClient();
+  const { data: subscription } = await admin
     .from("subscriptions")
     .select("plan_type, status")
     .eq("user_id", profileUserId)
