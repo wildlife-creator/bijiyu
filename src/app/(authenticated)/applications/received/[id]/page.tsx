@@ -30,7 +30,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     .from("applications")
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at, scout_message_id,
-       applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified, birth_date),
+       applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified, birth_date, skill_tags),
        jobs!inner(id, title, trade_type, headcount, reward_lower, reward_upper, prefecture, address, work_start_date, work_end_date, recruit_start_date, recruit_end_date, work_hours, schedule_detail, owner_id)`,
     )
     .eq("id", id)
@@ -92,6 +92,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     identity_verified: boolean | null;
     ccus_verified: boolean | null;
     birth_date: string | null;
+    skill_tags: string[] | null;
   } | null;
 
   const applicantName = applicant
@@ -132,7 +133,10 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
       ])
     : [{ data: [] }, { data: [] }, { data: [] }];
 
-  const skillNames = skills?.map((s) => s.trade_type).join("、") ?? "";
+  // 対応できる職種（user_skills.trade_type）。applicant ヘッダー下の職種プレビュー用
+  const tradeTypeNames = skills?.map((s) => s.trade_type).join("、") ?? "";
+  // 保有スキル（users.skill_tags）。「保有スキル」ラベルで表示するのはこちら
+  const skillTagNames = (applicant?.skill_tags ?? []).join("、");
   const maxExp = skills?.reduce(
     (max, s) => (s.experience_years && s.experience_years > max ? s.experience_years : max),
     0,
@@ -228,8 +232,8 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
             <p className="text-body-lg font-bold text-foreground">
               {applicantName}{age !== null ? `（${age}歳）` : ""}
             </p>
-            {skillNames && (
-              <p className="text-body-xs text-muted-foreground">{skillNames}</p>
+            {tradeTypeNames && (
+              <p className="text-body-xs text-muted-foreground">{tradeTypeNames}</p>
             )}
             <div className="mt-0.5 flex flex-wrap gap-2">
               {applicant?.identity_verified && (
@@ -263,11 +267,11 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
               <span>{maxExp}年</span>
             </div>
           )}
-          {skillNames && (
+          {skillTagNames && (
             <div className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary/70" />
               <span className="min-w-[8rem] shrink-0">保有スキル</span>
-              <span>{skillNames}</span>
+              <span>{skillTagNames}</span>
             </div>
           )}
           {qualificationNames && (

@@ -32,7 +32,7 @@ export default async function OrderDetailPage({ params }: Props) {
       `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at,
        applicant:users!applications_applicant_id_fkey(
          id, last_name, first_name, avatar_url, birth_date, deleted_at,
-         identity_verified, ccus_verified
+         identity_verified, ccus_verified, skill_tags
        ),
        jobs!inner(id, title, trade_type, headcount, reward_lower, reward_upper,
                   prefecture, address, work_start_date, work_end_date,
@@ -78,6 +78,7 @@ export default async function OrderDetailPage({ params }: Props) {
     deleted_at: string | null;
     identity_verified: boolean;
     ccus_verified: boolean;
+    skill_tags: string[] | null;
   } | null;
 
   const contractorName = applicant
@@ -119,6 +120,8 @@ export default async function OrderDetailPage({ params }: Props) {
   const skills = skillsResult.data ?? [];
   const areas = areasResult.data ?? [];
   const qualifications = qualificationsResult.data ?? [];
+  // 保有スキル（users.skill_tags）。「対応できる職種」（skills）とは別物
+  const skillTagList = (applicant?.skill_tags ?? []) as string[];
 
   // Check if review exists
   const hasUserReview =
@@ -279,13 +282,13 @@ export default async function OrderDetailPage({ params }: Props) {
             </div>
           )}
 
-          {skills.length > 0 && (
+          {skillTagList.length > 0 && (
             <>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary/70" />
                 <span className="font-semibold">保有スキル</span>
               </div>
-              <p className="pl-6 text-body-sm">{skills.map((s) => s.trade_type).join("、")}</p>
+              <p className="pl-6 text-body-sm">{skillTagList.join("、")}</p>
             </>
           )}
 
