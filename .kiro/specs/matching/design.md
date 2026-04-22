@@ -896,8 +896,8 @@ scoutMessageId: z.string().uuid().optional(),
 - `page.tsx`: searchParams から `scout_message_id` を取得し、ApplicationForm に props として渡す
 - `application-form.tsx`: `scoutMessageId` prop を受け取り、FormData に含める。スカウト経由の場合は「スカウト経由の応募です」テキストを表示
 
-**バッジ表示（4画面共通）**:
+**バッジ表示（6画面共通）**:
 - SELECT クエリに `scout_message_id` を含める
 - `scout_message_id IS NOT NULL` の応募に「スカウト経由」バッジを表示
 - バッジスタイル: `bg-[rgba(146,7,131,0.08)] text-primary/70 text-xs rounded-full px-2 py-0.5`
-- 対象画面: CON-011, CON-012, CLI-007, CLI-008
+- 対象画面: CON-011, CON-012, CLI-007, CLI-008, CLI-010, CLI-011（発注確定後の CLI-010/011 でも受発注双方のライフサイクル全体でスカウト由来であることが識別できるようにする）

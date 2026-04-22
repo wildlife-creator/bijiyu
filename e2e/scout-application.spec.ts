@@ -86,6 +86,36 @@ test.describe("発注者: スカウト経由応募のバッジ表示", () => {
     ).toBeVisible();
     await expect(page.getByText("スカウト経由")).toBeVisible();
   });
+
+  test("発注履歴一覧（CLI-010）でスカウト経由バッジが表示される", async ({
+    page,
+  }) => {
+    await page.goto("/applications/orders");
+    await expect(
+      page.getByRole("heading", { name: "発注履歴一覧" }),
+    ).toBeVisible();
+    await expect(page.getByText("スカウト経由").first()).toBeVisible();
+  });
+
+  test("発注履歴詳細（CLI-011）でスカウト経由バッジが表示される", async ({
+    page,
+  }) => {
+    await page.goto(`/applications/orders/${SCOUT_APPLICATION_ID}`);
+    await expect(
+      page.getByRole("heading", { name: "発注内容詳細" }),
+    ).toBeVisible();
+    await expect(page.getByText("スカウト経由")).toBeVisible();
+  });
+
+  test("通常の発注履歴詳細（CLI-011）にはスカウト経由バッジが表示されない", async ({
+    page,
+  }) => {
+    await page.goto(`/applications/orders/${NORMAL_APPLICATION_ID}`);
+    await expect(
+      page.getByRole("heading", { name: "発注内容詳細" }),
+    ).toBeVisible();
+    await expect(page.getByText("スカウト経由")).not.toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -267,6 +267,8 @@
   - CON-012（応募詳細）: `applications/history/[id]/page.tsx:166-169`
   - CLI-007（応募一覧）: `applications/received/page.tsx:45,164-167`
   - CLI-008（応募詳細）: `applications/received/[id]/page.tsx:32,158-161`
+  - CLI-010（発注履歴一覧）: `applications/orders/page.tsx` の SELECT に `scout_message_id` を追加し、カードのステータスバッジ横にバッジ表示
+  - CLI-011（発注履歴詳細）: `applications/orders/[id]/page.tsx` の SELECT に `scout_message_id` を追加し、ヘッダー下のステータスバッジ横にバッジ表示
   - バッジスタイル: `bg-[rgba(146,7,131,0.08)] text-primary/70 text-xs rounded-full px-2 py-0.5`
   - _Requirements: 11_
 

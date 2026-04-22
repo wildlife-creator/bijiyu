@@ -29,7 +29,7 @@ export default async function OrderDetailPage({ params }: Props) {
   const { data: application } = await supabase
     .from("applications")
     .select(
-      `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at,
+      `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(
          id, last_name, first_name, avatar_url, birth_date, deleted_at,
          identity_verified, ccus_verified, skill_tags
@@ -156,7 +156,7 @@ export default async function OrderDetailPage({ params }: Props) {
       <h1 className="text-center text-heading-lg font-bold text-secondary">発注内容詳細</h1>
 
       {/* 2. Status badge */}
-      <div className="mt-2">
+      <div className="mt-2 flex items-center gap-3">
         <ApplicationStatusBadge
           status={application.status}
           displayCategory={getOrderDisplayCategory(
@@ -166,6 +166,11 @@ export default async function OrderDetailPage({ params }: Props) {
               (!Array.isArray(application.client_reviews) || application.client_reviews.length > 0),
           )}
         />
+        {application.scout_message_id && (
+          <span className="rounded-full bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-xs text-primary/70">
+            スカウト経由
+          </span>
+        )}
       </div>
 
       {/* Notice for cancelled/rejected */}
