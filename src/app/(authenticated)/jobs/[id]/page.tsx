@@ -225,7 +225,9 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             className="w-40 rounded-[47px] border-secondary text-secondary"
             asChild
           >
-            <Link href={`/applications/manage?jobId=${id}`}>応募者をみる</Link>
+            <Link href={`/jobs/${id}/applicants`}>
+              応募者をみる{applicationCount ? `（${applicationCount}件）` : ""}
+            </Link>
           </Button>
           <Button
             className="w-40 rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
@@ -325,7 +327,9 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             className="w-40 rounded-[47px] border-secondary text-secondary"
             asChild
           >
-            <Link href={`/applications/manage?jobId=${id}`}>応募者をみる</Link>
+            <Link href={`/jobs/${id}/applicants`}>
+              応募者をみる{applicationCount ? `（${applicationCount}件）` : ""}
+            </Link>
           </Button>
           <Button
             className="w-40 rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"

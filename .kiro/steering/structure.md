@@ -18,11 +18,11 @@ src/app/
 │   └── reset-password/
 ├── (authenticated)/     # ログイン後の一般ユーザー画面
 │   ├── mypage/          # CON-001 マイページ
-│   ├── jobs/            # 案件系（CON-002〜004, CLI-001〜004）
+│   ├── jobs/            # 案件系（CON-002〜004, CLI-001〜004, CLI-007B=/jobs/[id]/applicants）
 │   ├── users/           # ユーザー/発注者検索（CON-005〜006, CLI-005〜006）
 │   ├── favorites/       # マイリスト（CON-007）
 │   ├── messages/        # メッセージ（CON-008〜010, CLI-013〜015）
-│   ├── applications/    # 応募（CON-011〜013, CLI-007〜012）
+│   ├── applications/    # 応募（CON-011〜013, CLI-007〜012。CLI-007=未対応 / CLI-010=決定以降に役割分離）
 │   ├── schedule/        # 空き日程（CON-014〜016）
 │   ├── profile/         # プロフィール・本人確認（COM-001〜006）
 │   ├── organization/    # 担当者管理（CLI-016〜025）
@@ -98,7 +98,7 @@ getClientDisplayName(profile: { display_name: string; user: { deleted_at: string
 - CON-008（メッセージ一覧）: 相手の名前
 - CON-009（メッセージ詳細）: 送信者名
 - CON-011（応募履歴一覧）: 発注者名
-- CLI-007（応募者一覧）: 応募者名
+- CLI-007（応募一覧・未対応）/ CLI-007B（案件応募者一覧）: 応募者名
 - CLI-008〜012（マッチング詳細）: 相手方の名前
 - CLI-028（発注者評価）: 評価対象者名
 - CON-005, CLI-005（ユーザー検索）: 表示名

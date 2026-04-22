@@ -215,6 +215,101 @@ test.describe("発注者: 作業完了報告・評価登録（CLI-012）", () =>
 });
 
 // ---------------------------------------------------------------------------
+// 発注者: CLI-007 / CLI-010 役割分離の検証
+// ---------------------------------------------------------------------------
+// CLI-007 は status='applied' のみ、CLI-010 は applied を除外する。
+// このルールが DB / UI の両方で守られていることを検証する。
+test.describe("発注者: CLI-007/CLI-010 の役割分離", () => {
+  test("CLI-007（応募一覧）は未対応メッセージを正しく表示する", async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto("/applications/received");
+    await expect(page.getByRole("heading", { name: "応募一覧" })).toBeVisible();
+    // applied の応募があるか、または「未対応の応募はありません」が表示される
+    const emptyMsg = page.getByText("未対応の応募はありません");
+    const cards = page.locator("a[href*='/applications/received/']");
+    const hasCards = (await cards.count()) > 0;
+    if (!hasCards) {
+      await expect(emptyMsg).toBeVisible();
+    }
+  });
+
+  test("CLI-010（発注履歴一覧）のステータスフィルタに「応募あり（未対応）」が無い", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto("/applications/orders");
+    await expect(page.getByRole("heading", { name: "発注履歴一覧" })).toBeVisible();
+    await page.getByRole("combobox").click();
+    // 「応募あり（未対応）」は CLI-010 のフィルタから削除済み
+    await expect(
+      page.getByRole("option", { name: "応募あり（未対応）" }),
+    ).toHaveCount(0);
+    // 他のカテゴリは存在する
+    await expect(page.getByRole("option", { name: "発注済み" })).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 発注者: 案件応募者一覧（CLI-007B, /jobs/[id]/applicants）
+// ---------------------------------------------------------------------------
+test.describe("発注者: 案件応募者一覧（CLI-007B）", () => {
+  // TEST_CLIENT 所有の案件（applied + accepted の応募あり）
+  const JOB_WITH_APPLICATIONS = "66666666-6666-6666-6666-666666666666";
+
+  test("CLI-002 から「応募者をみる」ボタンで遷移できる", async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/jobs/${JOB_WITH_APPLICATIONS}?manage=true`);
+    await expect(
+      page.getByRole("heading", { name: "募集現場詳細" }),
+    ).toBeVisible();
+    // 応募者をみるリンクが新画面の URL を指すことを確認
+    const link = page.getByRole("link", { name: /応募者をみる/ }).first();
+    await expect(link).toHaveAttribute(
+      "href",
+      `/jobs/${JOB_WITH_APPLICATIONS}/applicants`,
+    );
+    await link.click();
+    await page.waitForURL(
+      new RegExp(`/jobs/${JOB_WITH_APPLICATIONS}/applicants`),
+      { timeout: 10000 },
+    );
+    await expect(
+      page.getByRole("heading", { name: "案件応募者一覧" }),
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test("CLI-007B は applied と accepted の両方を表示する", async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/jobs/${JOB_WITH_APPLICATIONS}/applicants`);
+    await expect(
+      page.getByRole("heading", { name: "案件応募者一覧" }),
+    ).toBeVisible();
+    // デフォルト（フィルタなし）で全ステータスを含めた検索結果件数が1件以上
+    await expect(page.getByText(/検索結果: [1-9]/)).toBeVisible();
+  });
+
+  test("CLI-007B のステータスフィルタは「応募あり（未対応）」を含む", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/jobs/${JOB_WITH_APPLICATIONS}/applicants`);
+    await page.getByRole("combobox").click();
+    await expect(
+      page.getByRole("option", { name: "応募あり（未対応）" }),
+    ).toBeVisible();
+  });
+
+  test("他社ユーザーは CLI-007B に 404 でブロックされる", async ({ page }) => {
+    // contractor は client の案件の応募者一覧を見られない
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+    const response = await page.goto(
+      `/jobs/${JOB_WITH_APPLICATIONS}/applicants`,
+    );
+    expect(response?.status()).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 発注者評価表示
 // ---------------------------------------------------------------------------
 test.describe("発注者評価表示（CLI-028）", () => {

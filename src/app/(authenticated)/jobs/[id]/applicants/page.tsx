@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { createClient } from "@/lib/supabase/server";
@@ -13,18 +13,24 @@ import { PaginationControls } from "@/components/job-search/pagination-controls"
 import { BackButton } from "@/components/shared/back-button";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
-import { formatDate } from "@/lib/utils/format-date";
-import { StatusFilter } from "./status-filter";
-import { SortButton } from "./sort-button";
+import { StatusFilter } from "@/app/(authenticated)/applications/orders/status-filter";
+import { SortButton } from "@/app/(authenticated)/applications/orders/sort-button";
+
+// NOTE: 応募者一覧 UI は src/app/(authenticated)/applications/orders/page.tsx と
+// ほぼ同一。将来的に共通化候補（現時点では YAGNI で個別実装）。
+// 差分: WHERE 句が job_id 単位 / 全ステータス許可 / 案件情報は上部バナーに集約 /
+//       アクションボタンを applied / 非applied で出し分け。
 
 const ITEMS_PER_PAGE = 20;
 
 interface Props {
+  params: Promise<{ id: string }>;
   searchParams: Promise<{ page?: string; status?: string; sort?: string }>;
 }
 
-export default async function OrderHistoryPage({ searchParams }: Props) {
-  const params = await searchParams;
+export default async function JobApplicantsPage({ params, searchParams }: Props) {
+  const { id } = await params;
+  const sp = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -35,13 +41,41 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
     redirect("/login");
   }
 
-  const currentPage = Number(params.page) || 1;
+  // Fetch job + permission check (same pattern as CLI-002 manage view)
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, title, owner_id, organization_id, trade_type, headcount, recruit_end_date")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
+
+  if (!job) {
+    notFound();
+  }
+
+  const isOwner = job.owner_id === user.id;
+  let isOrganizationMember = false;
+  if (!isOwner && job.organization_id) {
+    const { data: orgMember } = await supabase
+      .from("organization_members")
+      .select("id")
+      .eq("organization_id", job.organization_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    isOrganizationMember = !!orgMember;
+  }
+
+  if (!isOwner && !isOrganizationMember) {
+    notFound();
+  }
+
+  const currentPage = Number(sp.page) || 1;
   const from = (currentPage - 1) * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
-  const filterCategory = params.status || "";
-  const sortOrder = params.sort === "asc" ? true : false;
+  const filterCategory = sp.status || "";
+  const sortOrder = sp.sort === "asc" ? true : false;
 
-  // Build query — fetch ordered applications with applicant details
+  // Fetch applications for this job (all statuses)
   let query = supabase
     .from("applications")
     .select(
@@ -52,71 +86,88 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
          user_skills(trade_type, experience_years),
          user_available_areas(prefecture)
        ),
-       jobs!inner(id, title, owner_id, trade_type, headcount, recruit_end_date),
        user_reviews(id),
        client_reviews(id)`,
     )
-    .eq("jobs.owner_id", user.id)
+    .eq("job_id", id)
     .order("updated_at", { ascending: sortOrder });
 
-  // Apply DB-level status filter.
-  // REQ-MT-007: CLI-010 は発注可否決定以降（status ≠ 'applied'）のみ扱う。
-  // 未対応応募（applied）は CLI-007（応募一覧）側の役割。
-  if (filterCategory === "発注済み" || filterCategory === "評価登録済み" || filterCategory === "評価登録未入力") {
+  // Apply DB-level status filter
+  if (filterCategory === "応募あり（未対応）") {
+    query = query.eq("status", "applied");
+  } else if (
+    filterCategory === "発注済み" ||
+    filterCategory === "評価登録済み" ||
+    filterCategory === "評価登録未入力"
+  ) {
     query = query.eq("status", "accepted");
   } else if (filterCategory === "キャンセル・お断り") {
     query = query.in("status", ["cancelled", "rejected"]);
   } else if (filterCategory === "取引完了") {
     query = query.in("status", ["completed", "lost"]);
-  } else {
-    // No filter — show all post-decision statuses (applied is excluded)
-    query = query.in("status", ["accepted", "completed", "lost", "cancelled", "rejected"]);
   }
+  // No filter — show all statuses (default)
 
   const { data: allApplications } = await query;
 
   // Post-filter for accepted sub-statuses (needs both reviews check)
   let filteredApplications = allApplications ?? [];
   if (filterCategory === "発注済み") {
-    filteredApplications = filteredApplications.filter(
-      (app) => {
-        const hasUR = app.user_reviews != null && (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
-        const hasCR = app.client_reviews != null && (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
-        return !hasUR && !hasCR;
-      },
-    );
+    filteredApplications = filteredApplications.filter((app) => {
+      const hasUR =
+        app.user_reviews != null &&
+        (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
+      const hasCR =
+        app.client_reviews != null &&
+        (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
+      return !hasUR && !hasCR;
+    });
   } else if (filterCategory === "評価登録済み") {
-    filteredApplications = filteredApplications.filter(
-      (app) => {
-        const hasUR = app.user_reviews != null && (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
-        const hasCR = app.client_reviews != null && (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
-        return hasUR && !hasCR;
-      },
-    );
+    filteredApplications = filteredApplications.filter((app) => {
+      const hasUR =
+        app.user_reviews != null &&
+        (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
+      const hasCR =
+        app.client_reviews != null &&
+        (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
+      return hasUR && !hasCR;
+    });
   } else if (filterCategory === "評価登録未入力") {
-    filteredApplications = filteredApplications.filter(
-      (app) => {
-        const hasUR = app.user_reviews != null && (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
-        const hasCR = app.client_reviews != null && (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
-        return !hasUR && hasCR;
-      },
-    );
+    filteredApplications = filteredApplications.filter((app) => {
+      const hasUR =
+        app.user_reviews != null &&
+        (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
+      const hasCR =
+        app.client_reviews != null &&
+        (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
+      return !hasUR && hasCR;
+    });
   }
 
   const totalCount = filteredApplications.length;
-
-  // Manual pagination
   const paginatedApplications = filteredApplications.slice(from, to + 1);
+
+  const basePath = `/jobs/${id}/applicants`;
 
   return (
     <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
-        発注履歴一覧
+        案件応募者一覧
       </h1>
+
+      {/* Job info banner */}
+      <div className="mx-auto mt-4 max-w-2xl rounded-[8px] border border-border bg-background p-4">
+        <p className="text-body-sm text-muted-foreground">対象案件</p>
+        <p className="mt-1 text-body-md font-bold text-foreground">{job.title}</p>
+        <div className="mt-1 text-body-xs text-muted-foreground">
+          {job.trade_type ?? ""}
+          {job.headcount ? `・${job.headcount}人` : ""}
+        </div>
+      </div>
 
       {/* Status filter */}
       <Suspense fallback={null}>
-        <StatusFilter />
+        <StatusFilter basePath={basePath} includeApplied={true} />
       </Suspense>
 
       {/* Search result count + sort */}
@@ -125,13 +176,13 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
           検索結果: {totalCount}件
         </p>
         <Suspense fallback={null}>
-          <SortButton />
+          <SortButton basePath={basePath} />
         </Suspense>
       </div>
 
       {paginatedApplications.length === 0 && (
         <p className="mt-8 text-center text-body-md text-muted-foreground">
-          発注履歴はありません
+          応募者はいません
         </p>
       )}
 
@@ -150,21 +201,18 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
             user_available_areas: { prefecture: string }[] | null;
           } | null;
 
-          const job = app.jobs as {
-            id: string;
-            title: string;
-            owner_id: string;
-            trade_type: string | null;
-            headcount: number | null;
-            recruit_end_date: string | null;
-          } | null;
-
           const hasUserReview =
-            app.user_reviews != null && (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
+            app.user_reviews != null &&
+            (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
           const hasClientReview =
-            app.client_reviews != null && (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
+            app.client_reviews != null &&
+            (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
 
-          const displayCategory = getOrderDisplayCategory(app.status, hasUserReview, hasClientReview);
+          const displayCategory = getOrderDisplayCategory(
+            app.status,
+            hasUserReview,
+            hasClientReview,
+          );
 
           const contractorName = applicant
             ? getUserDisplayName({
@@ -174,17 +222,21 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
               })
             : "不明";
 
-          const age = applicant?.birth_date
-            ? calculateAge(applicant.birth_date)
-            : null;
+          const age = applicant?.birth_date ? calculateAge(applicant.birth_date) : null;
 
           const skills = applicant?.user_skills?.map((s) => s.trade_type) ?? [];
-          const maxExperience = applicant?.user_skills?.reduce(
-            (max, s) => Math.max(max, s.experience_years ?? 0),
-            0,
-          ) ?? 0;
-          const areas =
-            applicant?.user_available_areas?.map((a) => a.prefecture) ?? [];
+          const maxExperience =
+            applicant?.user_skills?.reduce(
+              (max, s) => Math.max(max, s.experience_years ?? 0),
+              0,
+            ) ?? 0;
+          const areas = applicant?.user_available_areas?.map((a) => a.prefecture) ?? [];
+
+          const isApplied = app.status === "applied";
+          const detailHref = isApplied
+            ? `/applications/received/${app.id}`
+            : `/applications/orders/${app.id}`;
+          const detailLabel = isApplied ? "応募詳細をみる" : "発注内容詳細をみる";
 
           return (
             <Card key={app.id} className="overflow-hidden rounded-[8px]">
@@ -231,7 +283,6 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
                       )}
                     </p>
 
-                    {/* Trade type tags */}
                     {skills.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {skills.map((skill) => (
@@ -245,7 +296,6 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
                       </div>
                     )}
 
-                    {/* Verification badges */}
                     <div className="mt-1 flex flex-wrap gap-2">
                       {applicant?.identity_verified && (
                         <span className="flex items-center gap-1 text-body-xs text-muted-foreground">
@@ -297,33 +347,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
                   )}
                 </div>
 
-                {/* 4. Applied job section */}
-                <p className="mt-3 text-body-sm text-muted-foreground">
-                  このユーザーは以下の案件に応募済みです
-                </p>
-
-                {/* 5. Inner job card */}
-                <div className="mt-2 rounded-[8px] border border-border bg-background p-3">
-                  <p className="text-body-md font-semibold text-foreground">
-                    {job?.title ?? "不明な案件"}
-                  </p>
-                  <div className="mt-1 space-y-1 text-body-sm text-muted-foreground">
-                    {job?.trade_type && (
-                      <div className="flex">
-                        <span className="w-16 shrink-0">募集職種</span>
-                        <span>{job.trade_type}{job.headcount ? `・${job.headcount}人` : ""}</span>
-                      </div>
-                    )}
-                    {job?.recruit_end_date && (
-                      <div className="flex">
-                        <span className="w-16 shrink-0">締め切り</span>
-                        <span>{formatDate(job.recruit_end_date)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 6. Action buttons */}
+                {/* 4. Action buttons (status で出し分け) */}
                 <div className="mt-4 flex gap-3">
                   <Button
                     variant="outline"
@@ -340,9 +364,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
                     className="flex-1 rounded-full text-body-xs text-white"
                     asChild
                   >
-                    <Link href={`/applications/orders/${app.id}`}>
-                      発注内容詳細をみる
-                    </Link>
+                    <Link href={detailHref}>{detailLabel}</Link>
                   </Button>
                 </div>
               </CardContent>
@@ -352,14 +374,11 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
       </div>
 
       {totalCount > ITEMS_PER_PAGE && (
-        <PaginationControls
-          totalCount={totalCount}
-          itemsPerPage={ITEMS_PER_PAGE}
-        />
+        <PaginationControls totalCount={totalCount} itemsPerPage={ITEMS_PER_PAGE} />
       )}
 
       <div className="mt-6">
-        <BackButton />
+        <BackButton href={`/jobs/${id}?manage=true`} />
       </div>
     </div>
   );

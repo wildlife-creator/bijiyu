@@ -338,6 +338,24 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   - Middleware: CON系画面は認証済み全ロールに閲覧開放。ただしCON-004（応募入力）、CON-011〜013（応募履歴）、CON-014〜016（空き日程）は担当者（staff）をブロック。CLI系（CLI-026〜027を除く）は発注者・担当者のみ
   - 発注者マイページ: 「仕事を探す」セクション（CON系画面への導線）を非表示にしてはならない。CON-002 への導線は「仕事を探す」セクションで提供する（「発注先を探す」セクションには含めない）
 
+### 応募ステータスの画面分離（必ず守ること — CLI-007 / CLI-007B / CLI-010 の役割）
+- mypage からの発注者導線は **status で画面が分離**されている:
+  - **CLI-007（`/applications/received`）= `status = 'applied'` のみ**（未対応インボックス）
+  - **CLI-010（`/applications/orders`）= `status ≠ 'applied'`**（発注可否決定以降の管理ダッシュボード）
+  - 同じ応募が両画面に重複表示されることはない
+- 案件単位で**全ステータスを俯瞰**したい場合は **CLI-007B（`/jobs/[id]/applicants`）** を使う（CLI-002 からの導線、案件スコープ）
+- WHERE 句レベルの分離ルール:
+  - CLI-007: `.eq("status", "applied")` を必ず付与
+  - CLI-010: `.in("status", ["accepted","completed","lost","cancelled","rejected"])` で applied を除外
+  - CLI-007B: status 制限なし（全ステータス表示）
+- **新しい `applications.status` 値を追加する場合**、CLI-007 / CLI-010 どちら側に含めるかを明記すること:
+  - 未決状態（発注者の判断待ち）→ CLI-007 側
+  - 決着後 → CLI-010 側 + CLI-007B 側（CLI-007B は全ステータスなので自動的に含まれる）
+- **StatusFilter / SortButton は共有コンポーネント**（`src/app/(authenticated)/applications/orders/`）。`basePath` と `includeApplied` props で mypage CLI-010 と CLI-007B の挙動差を吸収する。mypage CLI-010 では `includeApplied={false}`、CLI-007B では `includeApplied={true}`
+- **CLI-007B の認可**は Middleware ではなくページ内 `notFound()` で実施（`/jobs/[id]` は CON-003 と共用パスのため Middleware で一律ブロックできない）。`isOwner || isOrganizationMember` でない場合は 404
+- CLI-002 の「応募者をみる」ボタンは **必ず `/jobs/[id]/applicants` に向ける**こと（過去の `/applications/manage?jobId=xxx` は壊れリンクで廃止済み）
+- 詳細仕様: `.kiro/specs/matching/requirements.md` REQ-MT-004 / REQ-MT-004B / REQ-MT-007
+
 ### 担当者（staff）の受注者アクション制限（必ず守ること）
 - `isPaidUser` の判定に `userData.role === "staff"` を含めてはならない。staff は CON 系画面を閲覧できるが、受注者としてのアクション（応募・空き日程管理等）は不可
 - 受注者アクション系の Server Action（applyJobAction 等）のロールチェックに `'staff'` を含めないこと。許可ロールは `'contractor'` と `'client'` のみ

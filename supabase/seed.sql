@@ -787,8 +787,12 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_type,
 VALUES ('88888888-8888-8888-8888-888888888899', '22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', 'スカウトテスト用案件（内装工事）', 'スカウト経由応募のE2Eテスト用案件', '内装工', 2, 'open', 20000, 25000, CURRENT_DATE, CURRENT_DATE + 60, CURRENT_DATE, CURRENT_DATE + 30, '東京都');
 
 -- スカウト経由応募（scout_message_id 付き）
+-- dddddddd-dddd-dddd-dddd-dddddddddd01: applied 状態 → CLI-007 / CLI-007B / CLI-008 のバッジ表示テスト用
+-- dddddddd-dddd-dddd-dddd-dddddddddd02: accepted 状態 → CLI-010 / CLI-007B / CLI-011 のバッジ表示テスト用
+--   （CLI-010 は applied を含まないため、accepted のスカウト応募が必要）
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, scout_message_id) VALUES
-  ('dddddddd-dddd-dddd-dddd-dddddddddd01', '88888888-8888-8888-8888-888888888899', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'applied', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
+  ('dddddddd-dddd-dddd-dddd-dddddddddd01', '88888888-8888-8888-8888-888888888899', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'applied', 'ffffffff-ffff-ffff-ffff-ffffffffffff'),
+  ('dddddddd-dddd-dddd-dddd-dddddddddd02', '88888888-8888-8888-8888-888888888899', 'cc111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '21 days', 'accepted', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
 
 -- 応募フォーム表示テスト用案件（contractor の職種「内装工」+エリア「東京都」に合致、未応募）
 INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_type, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date, prefecture)

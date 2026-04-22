@@ -2,7 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 
-export function SortButton() {
+interface SortButtonProps {
+  basePath?: string;
+}
+
+export function SortButton({ basePath = "/applications/orders" }: SortButtonProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentSort = searchParams.get("sort") || "desc";
@@ -12,7 +16,7 @@ export function SortButton() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("sort", isAsc ? "desc" : "asc");
     params.delete("page");
-    router.push(`/applications/orders?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   return (
