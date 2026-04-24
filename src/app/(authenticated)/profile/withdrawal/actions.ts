@@ -2,8 +2,12 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/send-email";
+import { withdrawalCompletedEmail } from "@/lib/email/templates/withdrawal-completed";
 import { withdrawalSchema } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
+
+const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
 
 export async function withdrawAction(
   _prevState: ActionResult,
@@ -132,12 +136,28 @@ export async function withdrawAction(
         .map((m) => m.user_id as string)
         .filter(Boolean);
 
-      // 配下メンバーの users.deleted_at をセット（ログイン不可化）
+      // 配下メンバーの users.deleted_at をセット（DB レベルの退会フラグ）
       if (memberIds.length > 0) {
         await adminClientForOrg
           .from("users")
           .update({ deleted_at: new Date().toISOString() })
           .in("id", memberIds);
+      }
+
+      // 配下メンバーも auth.users で ban して signin を即時ブロック
+      // （public.users.deleted_at だけだと auth.users 側の signin は通ってしまい、
+      //   middleware の自己 SELECT も RLS で弾かれて「新規ユーザー扱い」になる）
+      for (const memberId of memberIds) {
+        try {
+          await adminClientForOrg.auth.admin.updateUserById(memberId, {
+            ban_duration: "876600h",
+          });
+        } catch (err) {
+          console.error(
+            "[withdrawAction] failed to ban org member (non-blocking)",
+            { memberId, err },
+          );
+        }
       }
 
       // organization_members を全削除（Owner 含む）
@@ -168,12 +188,30 @@ export async function withdrawAction(
     // Stripe error should not block withdrawal
   }
 
-  // 14. Send withdrawal confirmation email
+  // 14. Send withdrawal confirmation email（REQ-PF-006 step 7）
+  // 失敗時は非ロールバック（security.md「メール送信失敗時の共通方針」）
   try {
-    // TODO: Resend integration
-    // await resend.emails.send({ ... });
+    const { data: deletedUser } = await createAdminClient()
+      .from("users")
+      .select("email, last_name, first_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    const email = deletedUser?.email ?? user.email;
+    const recipientName =
+      `${deletedUser?.last_name ?? ""}${deletedUser?.first_name ?? ""}`.trim() ||
+      "ご利用者";
+    if (email) {
+      const { subject, html } = withdrawalCompletedEmail({
+        recipientName,
+        serviceUrl: SERVICE_URL,
+      });
+      await sendEmail({ to: email, subject, html });
+    }
   } catch (emailError) {
-    console.error("Failed to send withdrawal confirmation email:", emailError);
+    console.error(
+      "[withdrawAction] withdrawal email failed (non-blocking)",
+      emailError,
+    );
   }
 
   // 15. Ban account via admin client
