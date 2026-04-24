@@ -1,6 +1,8 @@
 
 # Implementation Plan
 
+> **注記（2026-04-19 / organization spec 実装後）**: 本 tasks.md 内の `organizations.name` カラム・`/mypage/organization-setup` 暫定画面・`saveOrganizationNameAction` への参照は、すべて organization spec Task 2 / 6 / 7 で置き換え済み。現行実装では発注者表示名は `client_profiles.display_name` に一本化されている。`organizations.name` の DROP COLUMN は organization spec Phase 3（Task 19）予定。当時の仕様書として各タスクの記述は保持しているが、現行挙動は `.kiro/specs/organization/` 側を正とする。
+
 - [x] 0. 既存テストの全実行とデグレ確認
   - `npm run test`（Vitest）を実行し、既存ユニット・統合テストがすべてパスすることを確認する
   - `supabase test db`（pgTAP）を実行し、既存 RLS テストがすべてパスすることを確認する
@@ -234,11 +236,11 @@
   - 基本プラン（mode='subscription'）: line_items に選択 Price ID を設定（初回時は初期費用 Price も追加）
   - 補償オプション（mode='subscription'）: line_items に補償 Price ID を設定
   - 急募・動画掲載オプション（mode='payment'）: line_items にオプション Price ID を設定
-  - success_url の振り分け:
-    - 法人プラン（corporate / corporate_premium）→ **`/mypage/organization-setup`**（Task 8.7 で実装する暫定組織名入力画面）にリダイレクトする。CLI-021 完成までの暫定対応。organization spec 完成後に Task 8.6 で正式な CLI-021 `?setup=true` リダイレクトに差し替える
-    - 個人・小規模プラン → `/mypage?checkout=success`
+  - success_url の振り分け（現行、organization spec Task 6.2 で統一済み）:
+    - **全プラン共通**: `/mypage/client-profile/edit?setup=true`（CLI-021 setup モード）にリダイレクト。法人プランは社名必須、個人・小規模プランはスキップ可
     - 補償オプション → `/billing?option_success=compensation`
     - 急募オプション → `/billing?option_success=urgent`
+    - 〔旧 Phase 1 暫定の「法人は `/mypage/organization-setup` / 個人・小規模は `/mypage?checkout=success`」分岐は organization spec Task 6.2 で廃止済み〕
     - 動画掲載オプション → `/billing?option_success=video`
   - cancel_url はすべて `/billing`（CLI-026）
   - 成功時に `{ checkoutUrl }` を返し、UI 側で `redirect()` する
@@ -412,19 +414,33 @@
   - past_due 中は CLI-026 の現在プラン上に「お支払いが完了していません。お支払い方法を更新するか、解約をお選びください。」のインライン警告メッセージを表示する（PastDueBanner と重複しないよう、CLI-026 内では文言を簡潔にする）
   - _Requirements: 1.1, 5.3, 6.1_
 
-- [ ] 8.6 【organization spec 依存】CLI-021 への ?setup=true フロー統合（将来タスク）
-  - **依存**: 本タスクは organization spec の実装（CLI-021 組織初期設定画面）が完了した後に着手する。現時点では CLI-021 は `.kiro/specs/organization/` に requirements.md のみ存在し、design.md / tasks.md / 実装はいずれも未着手
-  - **billing spec リリース時点の暫定対応**: Task 8.7 で `/mypage/organization-setup` 暫定画面を先行実装し、Task 5.2 で法人プラン購入後の success_url をこの暫定画面に設定する
-  - **organization spec 完成後の作業**:
-    - reference/png-mapping.md で CLI-021 のデザインカンプ PNG ファイル名を確認する
-    - CLI-021 画面の searchParams で `setup=true` を検出するロジックを追加する
-    - setup=true かつ対象組織の `organizations.name` が空文字の場合、組織名入力を必須モードで表示し、入力完了するまで他画面への遷移をブロックする
-    - 組織名入力完了後、自動的に CLI-021（通常モード）または `/mypage` にリダイレクトする
-    - 組織名が既に入力済みの場合は `setup=true` を無視して通常表示する（再アップグレード時の冪等性）
-    - **Task 8.7 で実装した暫定画面（`/mypage/organization-setup`）を削除**し、代わりに CLI-021 の `?setup=true` フローに統合する
-    - **暫定 Server Action `saveOrganizationNameAction` は CLI-021 側の Server Action に統合して削除する**
-    - Task 5.2 の暫定 success_url（`/mypage/organization-setup`）を CLI-021 の `?setup=true` 付きリダイレクトに差し替える
-    - 既存の Playwright テスト（暫定画面用 = Task 15.5）を CLI-021 用に書き直す
+- [x] 8.6 【organization spec 依存】CLI-021 への `?setup=true` フロー統合（organization spec 側で実施） — **organization spec Task 6.1-6.3 で完了済み（2026-04-19）**
+  - **本タスクは organization spec 側の実装作業**として扱う。billing spec 側では追跡・参照のみ。具体的な手順は `.kiro/specs/organization/requirements.md`「付録 A: 実装前提リファクタリング手順」**Step 4**（`organization-setup` の CLI-021 統合）を正とする
+  - **切替時に削除されるもの（本 tasks.md で着手した暫定資産）**:
+    - 暫定画面 `src/app/(authenticated)/mypage/organization-setup/page.tsx`（Task 8.7 で実装）
+    - 暫定 Server Action `saveOrganizationNameAction`（`src/app/(authenticated)/mypage/organization-setup/actions.ts`）
+    - 暫定 Client Component `OrganizationSetupForm.tsx`
+    - `src/__tests__/billing/save-org-name-action.test.ts`（Vitest）
+    - 暫定画面用 E2E シナリオ（Task 15.5 のシナリオ 1〜7、`e2e/billing.spec.ts` 内）
+    - 本 tasks.md 内の **`organizations.name` への参照行**（削除・書き換え対象）:
+      - L436（Task 8.7 の表示条件 `organizations.name=''`）
+      - L519（Task 13 の seed: `organizations.name='ビジ友建設'`）
+      - L520（Task 13 の seed: `organizations.name=''`）
+      - L657・L659・L660・L661（Task 13.14 フォールバックテストの `organizations.name` ケース）
+      - L673（Task 13.14 `organizations.name` 更新確認）
+      - L744・L745（Task 15.5 シナリオ 2・3 の `organizations.name` 反映確認）
+  - **billing spec 側で差し替える箇所**（organization spec 実装中にまとめて修正される）:
+    - `src/app/(authenticated)/billing/actions.ts` L95-100 付近（`buildSuccessUrl`）: **全プラン**の success_url を `CLI-021?setup=true` に統一（現行の法人=organization-setup / 個人/小規模=?checkout=success の分岐を廃止）
+    - `src/app/(authenticated)/billing/BillingClient.tsx` L205 付近: アップグレード成功時の `window.location.href` を全プラン CLI-021?setup=true に変更
+    - `billing/impl-memo.md` L254・L294 の `organizations.name` 参照は**歴史的記録として残す**（未来の開発者が過去の仕様変遷を追えるようにするため、削除しない）
+    - 本 tasks.md の Task 5.2（success_url の振り分け記述）・Task 15.5（E2E シナリオ）は organization spec 完了時に CLI-021 ベースに書き換え
+  - **CLI-021 での `?setup=true` 挙動（全プラン共通）**:
+    - 画面上部にセットアップバナーを表示:
+      - 法人プラン（corporate / corporate_premium）: 「社名の入力が必須です（後からいつでも編集できます）」。`display_name` 必須、スキップボタン非表示
+      - 個人・小規模プラン（`individual` / `small`）: 「発注者として利用する場合は社名または氏名を入力してください。受注者機能のみ利用する方はスキップ可（後からいつでも編集できます）」。`display_name` 任意、「スキップして後で設定する」ボタン表示 → 押下で DB 操作せず CON-001 へ遷移
+    - 入力欄プリフィル: `client_profiles.display_name` の現在値を表示（Webhook がデフォルト格納した `users.last_name + first_name`、またはユーザーが以前編集した値）
+    - Webhook 未着時のアクセスは `users.role` / `subscriptions.plan_type` を待たず許可（ガード緩和）。保存 Server Action は Webhook 完了を前提とし未完了時はエラー返却
+    - 再アップグレード時の冪等性: `?setup=true` は常にセットアップバナーを表示する（簡素化のため「既に編集済みかどうか」の判定は行わない）。再アップグレード時は既存の編集済み display_name が prefill として表示されるため、法人ユーザーはそのまま保存、非法人ユーザーはスキップすればよい
   - _Requirements: 2.2, 5.1_
   - _依存: .kiro/specs/organization/ の design / tasks / 実装完了_
 
@@ -739,6 +755,7 @@
   - _Requirements: 4.1_
 
 - [x] 15.5 (P) 法人プラン購入 → 組織名入力暫定画面の E2E テスト
+  - **〔organization spec Task 6.1 で削除済み〕**: 本シナリオ 1〜7 は `/mypage/organization-setup` 暫定画面の存在を前提としていたが、organization spec Task 6.1 で同画面と `e2e/billing.spec.ts` の該当 describe ブロックを削除済み。CLI-021 `?setup=true` の E2E は organization spec Task 17.2 で新規作成予定。以下のシナリオ記述は当時の仕様書として保持（歴史的記録）
   - **シナリオ 1**: 法人プラン購入フロー（テストカード `4242 4242 4242 4242`）→ Checkout 完了 → `/mypage/organization-setup` にリダイレクトされることを確認
   - **シナリオ 2**: 暫定画面で組織名「テスト株式会社」を入力 → 送信 → `organizations.name='テスト株式会社'` が DB に反映され、`/mypage?setup_completed=true` にリダイレクトされることを確認
   - **シナリオ 3**: 既に組織名入力済みのユーザー（seed: `organizations.name='ビジ友建設'`）が `/mypage/organization-setup` にアクセス → 即 `/mypage` にリダイレクトされることを確認（冪等性）

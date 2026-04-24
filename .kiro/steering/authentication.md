@@ -110,6 +110,100 @@ const event = stripe.webhooks.constructEvent(
 
 ## メール認証フロー
 - 新規登録: メールアドレス入力 → 認証メール送信 → リンククリック → 情報入力 → マイページ直接遷移
-- メールアドレス変更: 新アドレスに認証メール → リンククリック → 変更完了
+- メールアドレス変更: 後述「メールアドレス変更フロー」参照
 - パスワードリセット: メールアドレス入力 → リセットリンク送信 → 新パスワード設定 → 完了メッセージ → ログイン画面
+- 担当者招待（法人プラン）: 後述「担当者招待フロー」参照
 - すべてSupabase Auth の標準機能を活用
+
+## 担当者招待フロー（法人プラン）
+
+法人プランの Owner / Admin が CLI-025 から新規担当者（Admin / Staff）を追加する際の認証フロー。詳細は `.kiro/specs/organization/requirements.md` の「担当者招待メール」セクションを正とする。
+
+### 概要
+- **呼び出し元**: CLI-025（担当者新規作成）の Server Action
+- **送信手段**: `supabase.auth.admin.inviteUserByEmail(email, { redirectTo: '{SITE_URL}/auth/callback?type=invite' })`
+  - この 1 コールで「`auth.users` へのユーザー作成」＋「招待メール送信」が同時に行われる
+- **有効期限**: 24 時間（Supabase 標準 TTL。拡張設定なし）
+- **再送**: CLI-022 / CLI-023 の「招待メールを再送する」ボタン（Owner / Admin のみ表示。表示条件は `public.users.password_set_at IS NULL`、つまり招待リンクからのパスワード設定が未完了のユーザーに対してのみ）
+- **「招待中」バッジ / 「パスワード設定済み」判定**: `last_sign_in_at` は使わず `public.users.password_set_at` カラムで判定する。理由: 招待リンクを踏んで `/auth/callback` でセッション確立した時点で `last_sign_in_at` が更新されうるため、パスワード設定完了と区別できないケースがある。`acceptInviteAction` がパスワード保存成功時に admin client で `UPDATE public.users SET password_set_at = now() WHERE id = auth.uid()` を実行して設定時刻を記録する（`auth.users.user_metadata` ではなく `public.users` の正規カラムに記録することで、一覧画面で N+1 なくクエリ可能）
+
+### 招待された人の画面遷移
+
+```
+メール受信 → リンククリック → /auth/callback?type=invite
+  → /auth/callback が exchangeCodeForSession でセッション確立
+  → AUTH-008（/accept-invite/confirm）にリダイレクト
+  → パスワード設定
+  → CON-001（マイページ）
+```
+
+### AUTH-008 招待承諾・パスワード設定（新規画面）
+
+- **配置**: `src/app/(auth)/accept-invite/confirm/page.tsx`
+- **Server Action**: `acceptInviteAction`（`supabase.auth.updateUser({ password })` を呼び出し）
+- **デザイン**: AUTH-004（パスワード再設定）と同一レイアウト。タイトル・説明文・ボタン文言・遷移先のみ招待向けに差し替え
+- **期限切れ時**: 「リンクの有効期限が切れています。招待元に再送を依頼してください」＋「ログイン画面へ戻る」ボタン
+
+### `/auth/callback` Route Handler の分岐追加
+
+既存の `src/app/auth/callback/route.ts` に `type === 'invite'` の分岐を追加する:
+
+```
+if (flowType === 'invite') {
+  return NextResponse.redirect(new URL('/accept-invite/confirm', origin));
+}
+```
+
+現状の `type === 'recovery'` → `/reset-password/confirm`、デフォルト → `/register/profile` に並ぶ 3 つ目の分岐となる。
+
+## メールアドレス変更フロー
+
+メールアドレス変更時は Supabase Auth の "Secure email change"（新旧両方への確認）を有効化する。乗っ取り被害時に攻撃者が新メールへ書き換えて旧メールをロックアウトする攻撃を防ぐため。
+
+### Supabase 設定
+
+`supabase/config.toml` の `[auth.email]` セクションに既に以下が設定済み（追加作業不要）:
+
+```toml
+[auth.email]
+double_confirm_changes = true
+```
+
+この設定により、メール変更リクエスト時に**旧メールと新メール両方**に確認リンクが送信され、両方クリックされるまで `auth.users.email` は更新されない。旧メールでのログインは確認完了まで維持される。
+
+※ Supabase のダッシュボード上は "Secure email change" という名称で表示される機能と同一。過去のドキュメントで `enable_secure_email_change` と記載されているが、`config.toml` での正しいキー名は `double_confirm_changes`。
+
+### パターンA: 本人が自分自身のメールを変更する
+
+使用される画面: CLI-024（担当者編集 - 自己編集）、COM-006 等のプロフィール画面
+
+1. Server Action 内で本人セッションの `supabase.auth.updateUser({ email: newEmail })` を呼ぶ
+2. Supabase が旧メール・新メール両方に確認リンクを送信
+3. 両方のリンクがクリックされた時点で `auth.users.email` が更新
+4. DB トリガーで `public.users.email` を同期（`database-schema.md` の users テーブル定義参照）
+5. UI: 「新旧メールアドレスに確認メールを送信しました。両方のリンクをクリックすると変更が完了します」トースト
+
+### パターンB: 管理者が他ユーザーのメールを変更する（強制変更）
+
+使用される画面:
+- CLI-024（Owner / Admin が他メンバーを編集）
+- ADM-008 系（システム管理者がユーザーを編集）
+
+1. Server Action で権限検証（対象ユーザーに対する編集権限があるか）
+2. admin client で `supabase.auth.admin.updateUserById(targetUserId, { email: newEmail, email_confirm: true })` を呼ぶ（即時反映）
+3. DB トリガーで `public.users.email` を同期
+4. 旧メール・新メール両方に通知メールを送信（「管理者によりメールアドレスが変更されました。身に覚えがない場合は〜〜」）
+5. UI: 「メールアドレスを変更しました」トースト
+
+**パターンB を使う場面**:
+- 退職者のメールを代替アドレスへ付け替える
+- 新入社員のアカウントのメールを設定し直す
+- 本人が旧メールにアクセスできない等でパターンA を完了できない場合の救済
+
+### 複数回の変更リクエスト
+
+確認メール未クリックのまま新しい変更リクエストが出された場合、最新のリクエストで上書きされる（Supabase のデフォルト挙動）。システム側での特別な制御は行わない。
+
+### 退職者等で旧メールが生きていないケース
+
+パターンA は旧メールの確認が通らないため不可。Owner / Admin がパターンB で強制変更する運用とする。

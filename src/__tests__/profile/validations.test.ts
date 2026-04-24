@@ -48,8 +48,36 @@ describe("profileEditSchema", () => {
       companyName: "テスト建設",
       bio: "自己紹介文",
       qualifications: ["一級建築士"],
+      skillTags: ["型枠設置", "電気工"],
     });
     expect(result.success).toBe(true);
+  });
+
+  it("defaults skillTags to an empty array when omitted", () => {
+    const result = profileEditSchema.safeParse(validInput);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.skillTags).toEqual([]);
+    }
+  });
+
+  it("rejects skillTags containing an empty string", () => {
+    const result = profileEditSchema.safeParse({
+      ...validInput,
+      skillTags: ["有効なスキル", ""],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts multiple skillTags", () => {
+    const result = profileEditSchema.safeParse({
+      ...validInput,
+      skillTags: ["型枠設置", "電気工", "送配電線工", "吹付塗装"],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.skillTags).toHaveLength(4);
+    }
   });
 
   it("accepts empty email string", () => {

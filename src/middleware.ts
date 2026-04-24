@@ -46,6 +46,7 @@ const AUTH_PAGE_PATHS = [
   "/login",
   "/register",
   "/reset-password",
+  "/accept-invite",
 ] as const;
 
 // Public pages accessible without authentication (static/marketing pages)
@@ -58,13 +59,15 @@ const BILLING_PATH_PREFIX = "/billing";
 const CLIENT_ONLY_PREFIXES = [
   "/jobs/create",
   "/jobs/edit",
-  "/organization",
   "/users/search", // CLI-005~006: contractor search for clients
   "/users/contractors", // CLI-005~006: contractor search (alternative path)
   "/applications/received", // CLI-007~009: received applications
   "/applications/orders", // CLI-010~012: order history
   "/messages/bulk-send", // CLI-014: bulk message send
   "/messages/scout-send", // CLI-015: scout send
+  "/messages/templates", // CLI-016〜019: scout message templates
+  "/mypage/client-profile", // CLI-020 / CLI-021: client profile
+  "/mypage/members", // CLI-022〜025: staff members
 ] as const;
 
 /**
@@ -140,12 +143,41 @@ function redirectToLoginWithError(
   return NextResponse.redirect(url);
 }
 
+/**
+ * is_active=false / deleted_at セット時にログイン画面へ戻す際、
+ * Supabase セッション Cookie を削除してリダイレクトループを断つ。
+ */
+function redirectToLoginAndClearSession(
+  request: NextRequest,
+  message: string,
+): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  url.searchParams.set("error", message);
+  const response = NextResponse.redirect(url);
+  request.cookies.getAll().forEach(({ name }) => {
+    if (name.startsWith("sb-")) {
+      response.cookies.delete(name);
+    }
+  });
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
   // Skip public routes (static files, auth callback, webhooks)
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
+  }
+
+  // /mypage/organization-setup は organization spec Task 6.1 で廃止済み。
+  // 旧 URL を直接踏まれた場合は CLI-021 setup モードに 308 リダイレクト
+  if (pathname === "/mypage/organization-setup") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/mypage/client-profile/edit";
+    url.searchParams.set("setup", "true");
+    return NextResponse.redirect(url, 308);
   }
 
   // -----------------------------------------------------------------
@@ -259,9 +291,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check if account is deactivated
+  // Cookie を削除しないと /login にリダイレクト後も session が残ってループする
   if (!userData.is_active) {
     return finalize(
-      redirectToLoginWithError(
+      redirectToLoginAndClearSession(
         request,
         "アカウントが一時停止されています。詳しくは管理者にお問い合わせください",
       ),
@@ -271,7 +304,10 @@ export async function middleware(request: NextRequest) {
   // Check if account is soft-deleted
   if (userData.deleted_at) {
     return finalize(
-      redirectToLoginWithError(request, "このアカウントは退会済みです"),
+      redirectToLoginAndClearSession(
+        request,
+        "このアカウントは退会済みです",
+      ),
     );
   }
 
@@ -301,9 +337,26 @@ export async function middleware(request: NextRequest) {
   billingHeadersAvailable = true;
 
   // --- Authenticated user accessing auth pages → redirect to mypage ---
-  // Exception: /reset-password/confirm must be accessible by authenticated users
+  // Exception: /reset-password/confirm and /accept-invite/confirm must be
+  // accessible by authenticated users (both rely on session established by
+  // Supabase Auth callback)
   // (recovery flow sets the session before redirecting to this page)
-  if (isAuthPage(pathname) && pathname !== "/reset-password/confirm") {
+  if (
+    isAuthPage(pathname) &&
+    pathname !== "/reset-password/confirm" &&
+    pathname !== "/accept-invite/confirm"
+  ) {
+    if (role === "admin") {
+      return finalize(redirectTo(request, "/admin/dashboard"));
+    }
+    return finalize(redirectTo(request, "/mypage"));
+  }
+
+  // --- Authenticated user accessing landing page (/) → redirect to mypage ---
+  // 認証済ユーザーがトップを踏むと「ログイン/新規登録」ボタン付きの LP が出て
+  // 「ログアウトされた？」と錯覚するため、自動的にマイページへ戻す。
+  // LP を確認したい場合はログアウトすれば見れる（シークレットウィンドウでも可）。
+  if (pathname === "/") {
     if (role === "admin") {
       return finalize(redirectTo(request, "/admin/dashboard"));
     }
@@ -330,6 +383,15 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith(BILLING_PATH_PREFIX)) {
       return finalize(supabaseResponse);
     }
+    // CLI-021 setup モード（?setup=true）は課金直後の Webhook 未着状態でも
+    // 通過を許可（要件書 REQ-ORG-006 L207）。CLIENT_ONLY_PREFIXES で
+    // ブロックされるよりも前に判定する。
+    if (
+      pathname === "/mypage/client-profile/edit" &&
+      searchParams.get("setup") === "true"
+    ) {
+      return finalize(supabaseResponse);
+    }
     if (isClientOnlyRoute(pathname)) {
       return finalize(redirectTo(request, "/mypage"));
     }
@@ -338,6 +400,39 @@ export async function middleware(request: NextRequest) {
   // Staff: block contractor action routes (apply, application history, availability)
   // Staff can VIEW CON screens (job search, detail, etc.) but cannot perform contractor actions
   if (role === "staff") {
+    // Staff の /profile（閲覧）と /profile/edit アクセスは CLI-024 自己編集モードに転送
+    // （organization spec REQ-ORG-011 / Task 13）
+    // 注: /profile/verification は本人が身分証提出に使うため素通し
+    if (
+      pathname === "/profile" ||
+      pathname === "/profile/edit" ||
+      pathname.startsWith("/profile/edit/")
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/mypage/members/${user.id}/edit`;
+      url.search = "";
+      return finalize(NextResponse.redirect(url));
+    }
+    // 退会（COM-006）は Owner のみ（REQ-PF-006）。Staff/Admin は入場時点でブロック。
+    if (pathname === "/profile/withdrawal") {
+      return finalize(redirectTo(request, "/mypage"));
+    }
+    // 担当者（org_role='staff'）のみ client-profile 編集不可（REQ-ORG-002: 閲覧のみ）
+    // Admin（org_role='admin'）は編集可。users.role='staff' の単独判定では Admin まで巻き込むため
+    // org_role を引いて分岐する必要がある。
+    if (
+      pathname === "/mypage/client-profile/edit" ||
+      pathname.startsWith("/mypage/client-profile/edit/")
+    ) {
+      const { data: orgMember } = await supabase
+        .from("organization_members")
+        .select("org_role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (orgMember?.org_role === "staff") {
+        return finalize(redirectTo(request, "/mypage/client-profile"));
+      }
+    }
     // Block /jobs/[id]/apply specifically (not /jobs/search or /jobs/[id] viewing)
     if (pathname.match(/^\/jobs\/[^/]+\/apply/)) {
       return finalize(redirectTo(request, "/mypage"));

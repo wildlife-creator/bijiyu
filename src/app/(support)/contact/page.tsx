@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/shared/back-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -202,9 +203,7 @@ export default function ContactPage() {
             {isSubmitting ? "送信中..." : "送信する"}
           </Button>
 
-          <Button variant="outline" className="w-full rounded-full" asChild>
-            <Link href="/">もどる</Link>
-          </Button>
+          <BackButton className="w-full rounded-full" />
         </div>
       </form>
     </div>

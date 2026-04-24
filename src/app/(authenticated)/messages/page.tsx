@@ -5,7 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ThreadListItem } from "@/components/messaging/thread-list-item";
 import { BackButton } from "@/components/shared/back-button";
-import { resolveParticipantName } from "@/lib/utils/display-name";
+import {
+  getUserDisplayName,
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 
 interface Props {
   searchParams: Promise<{ type?: string }>;
@@ -40,13 +44,25 @@ export default async function MessagesPage({ searchParams }: Props) {
   const threadTypeFilter = params.type || "all";
 
   // Fetch threads: RLS handles access (participant OR org member)
+  // standard query pattern on organization で B3 対応（法人プラン Staff が
+  // 相手のスレッドでも社長 client_profiles に到達）
   let query = supabase
     .from("message_threads")
     .select(
       `id, thread_type, organization_id, updated_at,
-       participant_1:users!message_threads_participant_1_id_fkey(id, last_name, first_name, company_name, avatar_url),
-       participant_2:users!message_threads_participant_2_id_fkey(id, last_name, first_name, company_name, avatar_url),
-       organizations(id, name),
+       participant_1:users!message_threads_participant_1_id_fkey(
+         id, last_name, first_name, deleted_at,
+         client_profiles(display_name, image_url)
+       ),
+       participant_2:users!message_threads_participant_2_id_fkey(
+         id, last_name, first_name, company_name, avatar_url, deleted_at
+       ),
+       organization:organizations(
+         owner_user:users!owner_id(
+           last_name, first_name, deleted_at,
+           client_profiles(display_name, image_url)
+         )
+       ),
        messages(id, body, sender_id, read_at, created_at)`,
     )
     .order("updated_at", { ascending: false });
@@ -62,36 +78,56 @@ export default async function MessagesPage({ searchParams }: Props) {
   // Process threads for display
   const threadItems = (threads ?? []).map((thread) => {
     const participant1 = thread.participant_1 as unknown as {
-      id: string; last_name: string | null; first_name: string | null; company_name: string | null; avatar_url: string | null;
+      id: string;
+      last_name: string | null;
+      first_name: string | null;
+      deleted_at: string | null;
+      client_profiles:
+        | Array<{ display_name: string | null; image_url: string | null }>
+        | null;
     } | null;
     const participant2 = thread.participant_2 as unknown as {
-      id: string; last_name: string | null; first_name: string | null; company_name: string | null; avatar_url: string | null;
+      id: string;
+      last_name: string | null;
+      first_name: string | null;
+      company_name: string | null;
+      avatar_url: string | null;
+      deleted_at: string | null;
     } | null;
-    const org = thread.organizations as unknown as { id: string; name: string } | null;
 
     // Determine which side the user is on:
-    // - contractor side: user is participant_2
-    // - org/client side: user is participant_1, or user is org member (not a direct participant)
+    // - contractor side: user is participant_2（受注者が発注者を見る）
+    // - org/client side: user is participant_1, or user is org member
     const isContractorSide = participant2?.id === user.id;
     let participantName: string;
     let participantAvatarUrl: string | null;
 
     if (isContractorSide) {
-      // Contractor viewing: org.name → company_name → personal name
-      participantName = resolveParticipantName({
-        organizationName: org?.name,
-        companyName: participant1?.company_name,
-        lastName: participant1?.last_name,
-        firstName: participant1?.first_name,
+      // 受注者が見る発注者: standard query pattern + resolveParticipantName
+      const resolution = resolveClientProfileForRow({
+        organization_id: thread.organization_id,
+        owner: participant1, // 個人プラン時の直接経路
+        organization: thread.organization,
       });
-      participantAvatarUrl = participant1?.avatar_url ?? null;
+      participantName = resolveParticipantName({
+        displayName: resolution.displayName,
+        lastName: resolution.lastName,
+        firstName: resolution.firstName,
+        deletedAt: resolution.deletedAt,
+      });
+      // Task 5.1: アバターも client_profiles.image_url を優先
+      participantAvatarUrl = resolution.imageUrl;
     } else {
-      // Client/staff/org member viewing: company_name → personal name
-      participantName = resolveParticipantName({
-        companyName: participant2?.company_name,
-        lastName: participant2?.last_name,
-        firstName: participant2?.first_name,
-      });
+      // 発注者/担当者が見る受注者: 屋号優先
+      participantName = getUserDisplayName(
+        {
+          lastName: participant2?.last_name,
+          firstName: participant2?.first_name,
+          companyName: participant2?.company_name,
+          deletedAt: participant2?.deleted_at,
+        },
+        "prefer-company",
+      );
       participantAvatarUrl = participant2?.avatar_url ?? null;
     }
 
@@ -125,12 +161,19 @@ export default async function MessagesPage({ searchParams }: Props) {
         <h1 className="py-4 text-center text-lg font-bold text-secondary">メッセージ</h1>
 
         {isClientOrStaff && (
-          <div className="flex items-center justify-center gap-3 px-4 pb-4">
-            <Button asChild className="rounded-full bg-primary text-white hover:bg-primary/90">
+          <div className="mx-auto flex max-w-md items-center gap-3 px-4 pb-4">
+            <Button
+              asChild
+              className="flex-1 rounded-full bg-primary text-white hover:bg-primary/90"
+            >
               <Link href="/messages/bulk-send">一斉送信</Link>
             </Button>
-            <Button asChild variant="outline" className="rounded-full">
-              <Link href="/messages/scout-send">スカウトのテンプレート</Link>
+            <Button
+              asChild
+              variant="outline"
+              className="flex-1 rounded-full border-primary bg-background text-primary hover:bg-primary/10 hover:text-primary"
+            >
+              <Link href="/messages/templates">スカウトのテンプレート</Link>
             </Button>
           </div>
         )}

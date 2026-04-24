@@ -45,6 +45,7 @@ export const profileEditSchema = z.object({
     .array(skillSchema)
     .min(1, "職種を1つ以上追加してください")
     .max(3, "職種は3つまで登録できます"),
+  skillTags: z.array(z.string().min(1)).optional().default([]),
   qualifications: z.array(z.string()).optional().default([]),
   availableAreas: z
     .array(z.string().min(1))

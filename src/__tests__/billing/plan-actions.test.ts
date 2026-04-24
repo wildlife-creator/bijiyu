@@ -225,7 +225,7 @@ describe("changePlanAction", () => {
     );
     expect(planTypeUpdate).toBeDefined();
     // ensure_organization_exists 先行 RPC（Webhook 到達前にクライアントが
-    // /mypage/organization-setup へ遷移してもガードを通れるようにするため）
+    // /mypage/client-profile/edit?setup=true へ遷移してもガードを通れるようにするため）
     const ensureOrgCall = adminRpcCalls.find(
       (r) => r.fn === "ensure_organization_exists",
     );

@@ -44,17 +44,22 @@ export default async function ContractorDetailPage({ params }: PageProps) {
 
   if (!user) redirect("/login");
 
+  // Self-access guard: 自分自身の詳細ページは表示しない（受注/発注の対象として無意味）
+  if (id === user.id) notFound();
+
   // Fetch contractor user data
+  // - role が 'contractor' または 'client' のユーザーのみ表示（staff/admin は除外）
   const { data: contractor } = await supabase
     .from("users")
     .select(
       `
       id, avatar_url, last_name, first_name, birth_date,
       deleted_at, role, identity_verified, ccus_verified, bio,
-      prefecture, gender
+      prefecture, gender, skill_tags
     `,
     )
     .eq("id", id)
+    .in("role", ["contractor", "client"])
     .single();
 
   if (!contractor) notFound();
@@ -113,7 +118,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
   const againCount = (reviews ?? []).filter((r) => r.rating_again === "yes" || r.rating_again === "true").length;
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="min-h-dvh bg-muted">
       {/* Page title */}
       <div className="px-5 pt-6 pb-2">
         <h1 className="text-center text-heading-lg font-bold text-secondary">ユーザー詳細</h1>
@@ -121,7 +126,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
 
       {/* Profile header */}
       <div className="px-5 flex items-center gap-4">
-        <div className="w-[90px] h-[90px] shrink-0 rounded-full bg-muted overflow-hidden">
+        <div className="w-[90px] h-[90px] shrink-0 rounded-full bg-background overflow-hidden">
           {contractor.avatar_url && !isDeleted ? (
             <img
               src={contractor.avatar_url}
@@ -192,7 +197,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       )}
 
       {isDeleted && (
-        <div className="mx-5 mt-4 rounded-[8px] bg-muted p-4">
+        <div className="mx-5 mt-4 rounded-[8px] bg-background border border-border/10 p-4">
           <p className="text-body-md text-muted-foreground">
             このユーザーは退会済みです。
           </p>
@@ -202,7 +207,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       {/* 基本情報 */}
       <section className="mx-5 mt-6">
         <h3 className="text-[15px] font-bold tracking-wider mb-2">基本情報</h3>
-        <div className="rounded-[8px] border border-border/10 overflow-hidden">
+        <div className="rounded-[8px] border border-border/10 bg-background overflow-hidden">
           <InfoRow label="居住地" value={contractor.prefecture} />
           <InfoRow label="性別" value={contractor.gender} />
           <InfoRow
@@ -216,47 +221,53 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       {contractor.bio && !isDeleted && (
         <section className="mx-5 mt-6">
           <h3 className="text-[15px] font-bold tracking-wider mb-2">自己紹介</h3>
-          <div className="rounded-[8px] bg-muted/40 p-4">
+          <div className="rounded-[8px] border border-border/10 bg-background p-4">
             <p className="text-[13px] leading-[180%]">{contractor.bio}</p>
           </div>
         </section>
       )}
 
       {/* 能力 */}
-      {(skills && skills.length > 0) || (qualifications && qualifications.length > 0) ? (
-        <section className="mx-5 mt-6">
-          <h3 className="text-[15px] font-bold tracking-wider mb-2">能力</h3>
-          <div className="rounded-[8px] border border-border/10 overflow-hidden">
-            {skills && skills.length > 0 && (
-              <>
+      {(() => {
+        const skillTagList = (contractor.skill_tags ?? []) as string[];
+        const hasSkills = skills && skills.length > 0;
+        const hasSkillTags = skillTagList.length > 0;
+        const hasQualifications = qualifications && qualifications.length > 0;
+        if (!hasSkills && !hasSkillTags && !hasQualifications) return null;
+        return (
+          <section className="mx-5 mt-6">
+            <h3 className="text-[15px] font-bold tracking-wider mb-2">能力</h3>
+            <div className="rounded-[8px] border border-border/10 bg-background overflow-hidden">
+              {hasSkills && (
+                <>
+                  <InfoRow
+                    label="対応できる職種"
+                    value={skills!.map((s) => s.trade_type).join("、")}
+                  />
+                  <InfoRow
+                    label="経験年数"
+                    value={skills!
+                      .filter((s) => s.experience_years)
+                      .map((s) => `${s.trade_type} ${s.experience_years}年`)
+                      .join("、") || null}
+                  />
+                </>
+              )}
+              {hasSkillTags && (
+                <InfoRow label="保有スキル" value={skillTagList.join("、")} />
+              )}
+              {hasQualifications && (
                 <InfoRow
-                  label="対応できる職種"
-                  value={skills.map((s) => s.trade_type).join("、")}
+                  label="保有資格"
+                  value={qualifications!
+                    .map((q) => q.qualification_name)
+                    .join("、")}
                 />
-                <InfoRow
-                  label="経験年数"
-                  value={skills
-                    .filter((s) => s.experience_years)
-                    .map((s) => `${s.trade_type} ${s.experience_years}年`)
-                    .join("、") || null}
-                />
-              </>
-            )}
-            {skills && skills.length > 0 && (
-              <InfoRow
-                label="保有スキル"
-                value={skills.map((s) => s.trade_type).join("、")}
-              />
-            )}
-            {qualifications && qualifications.length > 0 && (
-              <InfoRow
-                label="保有資格"
-                value={qualifications.map((q) => q.qualification_name).join("、")}
-              />
-            )}
-          </div>
-        </section>
-      ) : null}
+              )}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* 空き日程 & 発注者評価 — PC では横並び */}
       {((schedules && schedules.length > 0) || reviewCount > 0) && (
@@ -265,17 +276,19 @@ export default async function ContractorDetailPage({ params }: PageProps) {
           {schedules && schedules.length > 0 && (
             <section className="flex-1 min-w-0">
               <h3 className="text-[15px] font-bold tracking-wider mb-2">空き日程</h3>
-              <table className="w-full border-collapse">
-                <tbody>
-                  {schedules.map((s, i) => (
-                    <tr key={i} className="border-b border-primary/20">
-                      <td className="py-2 px-3 text-body-sm">
-                        {formatDate(s.start_date)}〜{formatDate(s.end_date)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="rounded-[8px] border border-border/10 bg-background overflow-hidden">
+                <table className="w-full border-collapse">
+                  <tbody>
+                    {schedules.map((s, i) => (
+                      <tr key={i} className="border-b border-primary/20 last:border-b-0">
+                        <td className="py-2 px-3 text-body-sm">
+                          {formatDate(s.start_date)}〜{formatDate(s.end_date)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </section>
           )}
 

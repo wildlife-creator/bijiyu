@@ -82,3 +82,20 @@ export type Prefecture = (typeof PREFECTURES)[number];
 // ---------------------------------------------------------------------------
 export const GENDERS = ["男性", "女性", "その他"] as const;
 export type Gender = (typeof GENDERS)[number];
+
+// ---------------------------------------------------------------------------
+// Languages (多言語対応のため複数選択可)
+// ---------------------------------------------------------------------------
+export const LANGUAGES = [
+  "日本語",
+  "英語",
+  "中国語",
+  "韓国語",
+  "ベトナム語",
+  "ポルトガル語",
+  "スペイン語",
+  "タガログ語",
+  "ネパール語",
+  "インドネシア語",
+] as const;
+export type Language = (typeof LANGUAGES)[number];

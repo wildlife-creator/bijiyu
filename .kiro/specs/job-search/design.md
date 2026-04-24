@@ -511,6 +511,11 @@ const query = supabase
 
 **職人一覧クエリ（CLI-005）**:
 ```typescript
+// 表示対象: role IN ('contractor','client')（受注者として活動しうる全ユーザー）
+//   - 法人 admin/staff（role='staff'）と運営管理者（role='admin'）は除外
+//   - 自分自身は除外（受注/発注の対象として無意味）
+//   - 設計理由: ビジ友は「1 アカウントで受注・発注両方 OK」設計のため、
+//     個人発注者・小規模・法人 Owner（role='client'）も受注者として検索対象に含める
 const query = supabase
   .from('users')
   .select(`
@@ -519,8 +524,8 @@ const query = supabase
     user_skills(trade_type, experience_years),
     user_available_areas(prefecture)
   `, { count: 'exact' })
-  .eq('role', 'contractor')
-  .eq('is_active', true)
+  .in('role', ['contractor', 'client'])
+  .neq('id', user.id)
   .is('deleted_at', null)
   .order('created_at', { ascending: false })
   .range(offset, offset + ITEMS_PER_PAGE - 1);

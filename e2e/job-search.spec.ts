@@ -41,6 +41,59 @@ test.describe("職人検索機能（CLI-005〜006）— 発注者専用", () => 
   });
 });
 
+test.describe("CLI-005 表示対象（role IN ('contractor','client') + 自分以外 + staff 除外）", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto("/users/contractors");
+    await expect(page.getByRole("heading", { name: "職人一覧" })).toBeVisible({ timeout: 10000 });
+  });
+
+  test("自分自身（client@test.local = 鈴木花子）は検索結果に表示されない", async ({ page }) => {
+    await expect(page.getByRole("heading", { name: /鈴木花子/ })).toHaveCount(0);
+  });
+
+  test("法人の担当者（staff/staff-admin）は検索結果に表示されない", async ({ page }) => {
+    // staff: 佐藤健太、staff-admin: 伊藤真理
+    await expect(page.getByRole("heading", { name: /佐藤健太/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /伊藤真理/ })).toHaveCount(0);
+  });
+
+  test("client roleユーザー（個人発注者プランの中村由美）も検索結果に表示される", async ({ page }) => {
+    // individual-client: 中村由美 (個人発注者プラン)
+    await expect(page.getByRole("heading", { name: /中村由美/ })).toBeVisible();
+  });
+
+  test("受注者（contractor role）は通常通り表示される", async ({ page }) => {
+    // contractor2: 高橋美咲 (無料受注者プラン)
+    await expect(page.getByRole("heading", { name: /高橋美咲/ })).toBeVisible();
+  });
+});
+
+test.describe("CLI-006 アクセス制御（self / role ガード）", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+  });
+
+  test("自分自身のCLI-006詳細はnotFound", async ({ page }) => {
+    // TEST_CLIENT: client@test.local = 22222222-2222-2222-2222-222222222222
+    const response = await page.goto("/users/contractors/22222222-2222-2222-2222-222222222222");
+    expect(response?.status()).toBe(404);
+  });
+
+  test("staff（法人担当者）のCLI-006詳細はnotFound", async ({ page }) => {
+    // staff@test.local: 33333333-3333-3333-3333-333333333333
+    const response = await page.goto("/users/contractors/33333333-3333-3333-3333-333333333333");
+    expect(response?.status()).toBe(404);
+  });
+
+  test("client roleユーザー（中村由美）のCLI-006詳細は表示される", async ({ page }) => {
+    // individual-client: dd111111-1111-2222-3333-444455556666
+    await page.goto("/users/contractors/dd111111-1111-2222-3333-444455556666");
+    await expect(page.getByRole("heading", { name: "ユーザー詳細" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /中村由美/ })).toBeVisible();
+  });
+});
+
 test.describe("発注者のCON-002→CON-003遷移（リグレッション防止）", () => {
   test.beforeEach(async ({ page }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);

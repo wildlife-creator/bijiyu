@@ -12,7 +12,7 @@
 - Stripe Billing による安全な決済と署名検証付き Webhook 処理
 - 二重課金防止と Webhook 冪等性の担保
 - 全プラン変更マトリクス（アップグレード・ダウングレード・解約のすべての組み合わせ）を矛盾なく処理
-- 法人プラン購入時の組織自動作成と企業名強制入力
+- プラン購入直後の発注者情報設定導線（全プラン CLI-021?setup=true へ遷移。法人プランは社名必須・スキップ不可、個人・小規模プランは任意でスキップ可）。法人プランは追加で組織（organizations）の自動作成も行う。Phase 1 暫定の `/mypage/organization-setup` 経由は organization spec Task 6 で廃止済み
 - past_due の7日猶予と自動解約（pg_cron + Edge Function）
 - 担当者（staff）の書き込み操作を三重防御（Middleware + UI + Server Action）でブロック
 - fee=free（初回事務手数料免除）ルートを暗号化 Cookie で実装
@@ -240,13 +240,20 @@ sequenceDiagram
     Plan->>DB: subscriptions INSERT + users.role 更新 + client_profiles UPSERT
     Plan->>DB: 法人プラン時は ensure_organization_exists + audit_logs INSERT
     Webhook-->>Stripe: 200 OK
-    CLI027-->>User: success_url にリダイレクト（個人=mypage?checkout=success / 法人=mypage/organization-setup）
+    CLI027-->>User: success_url にリダイレクト（全プラン=CLI-021?setup=true）
 ```
 
-**法人プラン購入完了後のリダイレクト先**:
-- **Phase 1（billing 単独リリース時）**: `/mypage/organization-setup`（OrganizationNameSetupPage 暫定画面）にリダイレクト。組織名入力フォームを表示し、ユーザーが入力 → `saveOrganizationNameAction` で `organizations.name` を更新。完了後は `/mypage?setup_completed=true` に遷移
-- **将来（organization spec 完成後）**: CLI-021 に `?setup=true` 付きでリダイレクトし、組織名入力を強制するフローに差し替える（billing spec の Task 8.6 で OrganizationNameSetupPage を削除し統合）
-- **二重防御**: ユーザーが暫定画面で組織名入力を離脱した場合、messaging 機能の `resolveParticipantName()` のフォールバック（`users.company_name` → `users.last_name + first_name`）が機能することを Task 13.14 で保証する
+**プラン購入完了後のリダイレクト先（全プラン共通、現行仕様）**:
+- **現行（organization spec Task 6 完了後）**: 全プラン共通で `/mypage/client-profile/edit?setup=true`（CLI-021 setup モード）に遷移。`buildSuccessUrl` 内のプラン分岐は廃止済み
+- **旧 Phase 1 暫定**（organization spec で置き換え済み）: 法人プランは `/mypage/organization-setup`、個人・小規模は `/mypage?checkout=success`。暫定画面と Server Action は organization spec Task 6.1 で削除済み
+- **プラン別の必須/任意**:
+  - 法人プラン（corporate / corporate_premium）: 社名入力必須、スキップ不可
+  - 個人・小規模プラン（`individual` / `small`）: 任意、「スキップして後で設定する」ボタンで CON-001 へ遷移可
+- **スキップ時の表示名**: Webhook（`handle_checkout_completed_plan`）が `client_profiles` を INSERT する際に `display_name` のデフォルト値として `users.last_name + first_name`（受注者登録時に入力された姓名）を格納する（`ON CONFLICT (user_id) DO NOTHING` のため既存値があれば維持）。スキップ時は DB 操作を行わずこの値がそのまま表示名として使われるため、受注者側で「名無し」にはならない
+- **参考**: 切替作業の詳細手順は `.kiro/specs/organization/requirements.md` 付録 A Step 4 + organization spec Task 6.1-6.3 のコミット履歴を参照
+- **Webhook 未着時のガード緩和**: `?setup=true` の CLI-021 アクセスは `users.role` や `subscriptions.plan_type` の確定を待たず認証済みユーザーに許可する。保存 Server Action は Webhook 完了を前提とするため、未完了時は「プラン情報を反映中です。数秒後にもう一度お試しください」エラーを返す
+- **二重防御**: `resolveParticipantName()` のフォールバック（`users.last_name + first_name`）が機能するため、万一 `client_profiles` レコードが存在しない edge case でも表示名が空にならない
+- **詳細**: 発注者表示名の一本化方針は `.kiro/steering/database-schema.md`「発注者表示名のルール」参照
 
 ### アップグレードフロー（即時・日割り）
 
@@ -264,7 +271,7 @@ sequenceDiagram
     CLI026->>SA: targetPlan
     SA->>SA: 認証 + past_due でないことを確認
     SA->>Stripe: subscriptions.update items=[newPrice] proration=create_prorations
-    SA-->>CLI026: 即時反映トースト（法人プランの場合は /mypage/organization-setup に遷移）
+    SA-->>CLI026: 即時反映トースト + 全プランで CLI-021?setup=true に遷移（旧 Phase 1 暫定の /mypage/organization-setup 経由は organization spec Task 6.3 で廃止済み）
     Stripe->>Webhook: customer.subscription.updated
     Webhook->>Webhook: 署名検証 + 冪等性ガード + subscriptions SELECT
     Webhook->>Updated: handle_subscription_lifecycle_updated(event_data)
@@ -273,17 +280,18 @@ sequenceDiagram
     Webhook-->>Stripe: 200 OK
 ```
 
-**法人プランへのアップグレード完了後のリダイレクト先**:
-- 新規購入時と同様に `/mypage/organization-setup`（CLI-021 完成までの暫定画面）にリダイレクトし、組織名入力を求める
-- 再アップグレード時（既に組織名が設定済み）は、暫定画面が既存の組織名を表示するため、ユーザーは確認・変更が可能
-- 個人→小規模等、法人プラン以外へのアップグレード時はリダイレクトなし（トースト表示 + `router.refresh()` のみ）
+**プランアップグレード完了後のリダイレクト先（全プラン共通）**:
+- 新規購入時と同じ遷移先（全プラン `/mypage/client-profile/edit?setup=true` = CLI-021 setup モード）にリダイレクトし、発注者情報の入力を求める（非法人プランはスキップ可）。旧 Phase 1 暫定の `/mypage/organization-setup` 経路は organization spec Task 6 で廃止済み
+- 再アップグレード時（既に発注者情報が設定済み）は、遷移先画面が既存データを表示するため、ユーザーは確認・変更が可能
+- 無料→有料のアップグレードはそもそも Checkout フロー（startCheckoutAction）を通る。本セクションは有料→有料のプラン変更（upgradePlanAction）を対象とする
 
 **Webhook race condition 対策（upgradePlanAction の同期的先行更新）**:
-- `stripe.subscriptions.update()` の直後に `/mypage/organization-setup` へクライアント遷移すると、Webhook が到着する前にページガード（`subscriptions.plan_type IN ('corporate','corporate_premium')` + `organizations` 存在チェック）を通過できず `/mypage` にリダイレクトされる race condition が発生する
+- `stripe.subscriptions.update()` の直後に遷移先画面（organization spec 実装後は全プラン CLI-021?setup=true）へクライアント遷移すると、Webhook が到着する前にページガードを通過できず `/mypage` にリダイレクトされる race condition が発生する
 - 対策: Server Action 内で Stripe 呼び出し成功後、Webhook を待たずに以下を**同期的**に実行する:
   1. `subscriptions.plan_type` の先行 UPDATE（新プランに更新）
   2. 法人プラン昇格時は `ensure_organization_exists(uid)` RPC の先行実行
 - Webhook（`handle_subscription_lifecycle_updated`）で同じ更新が再実行されるが、冪等な操作なので二重実行しても安全
+- CLI-021?setup=true 自体のページガードは緩和済み（`?setup=true` 時は `users.role` / `plan_type` の確定を待たず認証済みユーザーに許可）のため、ガード通過のための先行 UPDATE は主にメニュー表示等のため
 - クライアント側のリダイレクトは Next.js Router Cache によるリダイレクトキャッシュを避けるため `window.location.href` を使う（`router.push` では古い redirect 結果がキャッシュされている可能性がある）
 
 ### ダウングレード予約フロー（次回請求日から反映）
@@ -335,8 +343,17 @@ stateDiagram-v2
 
 **Key Decisions**（上記図に補足）:
 - past_due 中はアップグレード・ダウングレード不可。解約のみ即時実行（前提条件チェックスキップ）
-- past_due → active 復帰時、組織配下の staff の `users.is_active` を true に戻す
+- past_due → active 復帰時、組織配下の **Admin / Staff 両方**（`organization_members.org_role IN ('admin', 'staff')`）の `users.is_active` を true に戻す（2026-04-19 追加: Admin も Owner の契約に連動するため、Staff だけでなく Admin も復帰対象とする）
 - 自動解約（7日経過）は Edge Function `auto-cancel-past-due` が pg_cron 経由で 03:00 JST に実行
+- **完全解約時（`customer.subscription.deleted`）**: 法人プランの場合、組織配下の **Admin / Staff 両方**（`org_role IN ('admin', 'staff')`）の `users.is_active` を false に設定（2026-04-19 追加、organization spec REQ-ORG-006-B + J1 決定と整合）。past_due 時と同じロジックを共通化
+- **再アップグレード時（`customer.subscription.created`）**: 法人プランの場合、組織配下の **Admin / Staff 両方**の `users.is_active` を true に復帰（past_due → active 復帰と同じロジックを流用）
+- **退会済みユーザー（`users.deleted_at IS NOT NULL`）への Webhook 処理スキップ**（2026-04-19 追加、C 案採用に伴うガード）:
+  - Owner が COM-006 で退会した直後に Stripe キャンセル API が呼ばれ、Webhook `customer.subscription.deleted` が到達するケースを想定
+  - Webhook ハンドラは RPC 呼び出し前に `SELECT deleted_at FROM users WHERE id = user_id` をチェックし、`deleted_at IS NOT NULL` の場合は以下の処理をスキップ:
+    - `users.role` の `'contractor'` 降格（既に退会で deleted_at セット済みのため再降格は不要）
+    - `users.is_active` の false 設定（既にログイン不可のため不要）
+  - ただし `subscriptions.status` の `'cancelled'` 更新と `organization_members` / `organizations` 関連の処理は、退会フロー（`withdrawAction`）で既に実行済みのため**冪等に再実行されるだけで問題ない**（organizations.deleted_at は既にセット済み、所属メンバーは既に削除済み）
+  - Webhook の冪等性と並行制御フロー（次項）で詳細を参照
 
 ### Webhook 冪等性と並行制御フロー
 
@@ -423,8 +440,8 @@ sequenceDiagram
 | PlanCard | UI | 個別プラン1枚の表示と CTA ボタン | 1.1 | startCheckoutAction (P0), changePlanAction (P0) | — |
 | OptionSection | UI | オプション一覧 + 急募案件プルダウン + 補償排他 | 1.2, 4.1 | startCheckoutAction (P0), cancelCompensationAction (P0) | — |
 | StaffRestrictionNotice | UI | staff 用の操作不可メッセージ | 1.1 | — | — |
-| OrganizationNameSetupPage | UI | 法人プラン購入直後の組織名入力暫定画面（CLI-021 完成までの暫定対応） | 2.2 | saveOrganizationNameAction (P0), Supabase (P0) | — |
-| saveOrganizationNameAction | Action | organizations.name を更新する暫定 Server Action（CLI-021 完成後に削除予定） | 2.2 | Supabase (P0) | Service |
+| OrganizationNameSetupPage | UI | 法人プラン購入直後の組織名入力暫定画面（**Phase 1 暫定。CLI-021 実装後は CLI-021 へのリダイレクトに差し替え**） | 2.2 | saveOrganizationNameAction (P0), Supabase (P0) | — |
+| saveOrganizationNameAction | Action | 暫定 Server Action（**Phase 1 暫定。CLI-021 実装後に削除予定**。最終的には `client_profiles.display_name` に保存する CLI-021 の Server Action に置き換え） | 2.2 | Supabase (P0) | Service |
 | PastDueBanner | UI | past_due 中の全画面共通バナー | 6.1 | openCustomerPortalAction (P0) | State |
 | CheckoutSuccessToast | UI | success_url 戻り後のトースト | 2.2 | — | — |
 | startCheckoutAction | Action | Checkout Session 作成 + 二重課金防止 | 2.1, 2.2, 4.1 | Stripe SDK (P0), Supabase admin (P0), iron-session (P1), ensureStripeCustomer (P0) | Service |
@@ -525,7 +542,9 @@ sequenceDiagram
 - 検証: 急募プルダウンの選択肢生成ロジックをユニットテスト
 - リスク: 大量の active option_subscriptions がある場合の N+1 → ユーザー単位の集計クエリで事前取得
 
-#### OrganizationNameSetupPage（暫定画面、CLI-021 完成まで）
+#### OrganizationNameSetupPage（旧暫定画面 — organization spec で置き換え済み）
+
+> **〔organization spec Task 6.1 で削除済み〕**: 本暫定画面（`/mypage/organization-setup`）は organization spec Task 6.1 で `src/app/(authenticated)/mypage/organization-setup/*` 3 ファイル + `saveOrganizationNameAction` と共に削除された。後継は CLI-021 setup モード（`/mypage/client-profile/edit?setup=true`）。以下の記述は当時の仕様書として保持する（歴史的記録）。
 
 | Field | Detail |
 |-------|--------|
@@ -534,11 +553,12 @@ sequenceDiagram
 
 **Responsibilities & Constraints**
 - **配置**: `src/app/(authenticated)/mypage/organization-setup/page.tsx`（Server Component）+ Client Component のフォーム
-- **表示条件**: 認証済み AND `users.role='client'` AND `subscriptions.plan_type IN ('corporate', 'corporate_premium')` AND `organizations.name=''`（空文字または null）
+- **表示条件（Phase 1 暫定）**: 認証済み AND `users.role='client'` AND `subscriptions.plan_type IN ('corporate', 'corporate_premium')` AND 組織名（暫定: `organizations.name`）が空文字または null
 - **冪等性**:
-  - `organizations.name` が既に入力済みの場合（非空）は `/mypage` に即リダイレクト
+  - 組織名が既に入力済みの場合（非空）は `/mypage` に即リダイレクト
   - 法人プラン以外のユーザーがアクセスした場合も `/mypage` にリダイレクト
   - staff ロールがアクセスした場合も `/mypage` にリダイレクト（プラン変更権限なし）
+- **⚠️ Phase 2 移行時**: この暫定画面は CLI-021 にリダイレクトに差し替え。表示条件チェックも `client_profiles.display_name` に変更
 - **UI 要素**:
   - タイトル: 「組織名を入力してください」
   - 説明文: 「法人プランにご登録いただきありがとうございます。受注者に表示される組織名を入力してください」
@@ -551,7 +571,7 @@ sequenceDiagram
   - `audit_logs` に `organization_name_set` を action として記録
   - 成功後は `/mypage?setup_completed=true` にリダイレクト
 - **Middleware**: 既存の Middleware には特別な変更不要（マイページ配下のため認証チェックが既に効く）
-- **CLI-021 完成後の扱い**: Task 8.6 で本コンポーネントと saveOrganizationNameAction は削除し、CLI-021 の `?setup=true` フローに統合される
+- **CLI-021 完成後の扱い**: Task 8.6 で本コンポーネントと saveOrganizationNameAction は削除し、CLI-021 の `?setup=true` フローに統合される。その際、success_url の分岐は**全プラン統一（法人・個人・小規模すべて CLI-021?setup=true に遷移）**になる。個人・小規模プランでは CLI-021 上で「スキップして後で設定する」ボタンが表示されるため、受注者機能のみ利用するユーザーも摩擦なく通過できる
 
 **Dependencies**
 - Inbound: startCheckoutAction の success_url（法人プラン購入後のリダイレクト先） — P0
@@ -567,14 +587,14 @@ interface SaveOrganizationNameService {
 }
 ```
 - Preconditions: 認証済み、`role === 'client'`、対象 organization の owner であること、`name` が 1〜100 文字
-- Postconditions: `organizations.name` が更新されている。`audit_logs` に `organization_name_set` レコードが追加されている
+- Postconditions（Phase 1 暫定）: 組織名が保存されている。`audit_logs` に `organization_name_set` レコードが追加されている
 - Invariants: client 以外のロールから呼び出し不可
 
 **Implementation Notes**
 - 統合: page.tsx は Server Component で表示条件をチェック → 条件を満たさなければ即 redirect。条件を満たせば Client Component のフォームをレンダリング
 - 検証: Vitest で「条件を満たさないユーザーのリダイレクト」「Zod バリデーション（空文字 / 1 文字 / 100 文字 / 101 文字）」「成功後のリダイレクト先」を網羅
-- リスク: ユーザーが組織名を入力せず離脱した場合に `organizations.name=''` のまま残る → messaging 機能の `resolveParticipantName()` のフォールバック（`users.company_name` → `users.last_name + first_name`）が二重防御として機能することを Task 13.14 で保証する
-- **CLI-021 への置換手順**: organization spec 完成時に Task 8.6 で削除する。削除対象は本 page.tsx + saveOrganizationNameAction + 関連テスト
+- リスク: ユーザーが組織名を入力せず離脱した場合に組織名が空のまま残る → `resolveParticipantName()` のフォールバック（`users.last_name + first_name`）が二重防御として機能する
+- **⚠️ 移行手順（organization spec 実装時に削除）**: 本暫定画面は organization spec の実装と同時に削除される。具体的な削除・移行手順は `.kiro/specs/organization/requirements.md` の「付録 A: 実装前提リファクタリング手順」**Step 1（データ移行）**および **Step 4（organization-setup の CLI-021 統合）** を正とする。削除対象: 本 `page.tsx` + `saveOrganizationNameAction` + 関連テスト + Task 8.7 / Task 15.5 の E2E シナリオ。暫定期間中に蓄積された `organizations.name` のデータは付録 A Step 1-A-2 の data migration で `client_profiles.display_name` に移行される
 
 #### PastDueBanner
 
@@ -1388,28 +1408,27 @@ type ActionResult<T = void> =
 
 #### 発注者表示名の解決（Cross-cutting）
 
-法人プラン契約者の名前表示は、UI 全体で一貫したロジックで解決する。
+発注者の名前表示は、UI 全体で一貫したロジックで解決する。
 
 **データソースの優先順位**（`resolveParticipantName`）:
-1. `organizations.name` — 現在 active な法人プランユーザーのみ
-2. `users.company_name` — 屋号
-3. `users.last_name + users.first_name` — 個人名
+1. `client_profiles.display_name` — CLI-021 で入力した社名・氏名（全プラン共通）
+2. `users.last_name + users.first_name` — フォールバック（display_name 未入力時）
 
-**ポリシー**: データは保持、表示は現在のプラン状態で切り替え
-- ダウングレード/解約時も `organizations` / `organization_members` / `organizations.name` は削除しない（再アップグレード時の利便性）
-- 表示は **active かつ `plan_type IN ('corporate','corporate_premium')` のユーザーだけ** `organizations.name` を使用。それ以外は屋号/個人名にフォールバック
+※ 法人プランの Staff がメッセージを送信した場合、Staff は `client_profiles` を持たないため、所属組織の Owner の `client_profiles.display_name` を使用する（Staff → `organization_members` → `organizations.owner_id` → `client_profiles`）
 
-**共通ヘルパー**: `src/lib/utils/resolve-org-names.ts` の `getActiveCorporateOrgNames(admin, userIds)` が `organization_members` と `subscriptions` を JOIN し、該当ユーザーの組織名マップを返す
+**旧方式（廃止済み）**: `organizations.name` → `users.company_name` → 氏名 の 3 段階解決は organization spec で廃止。`organizations.name` カラムは削除済み。`getActiveCorporateOrgNames()` ヘルパーも廃止対象。
 
-**RLS 上の注意**:
-- `organizations` / `organization_members` は `is_same_org` RLS で保護されており、通常の `supabase` クライアントでは他組織の組織名を SELECT できない（nested join は null になる）
-- 発注者名の表示など、他ユーザーの組織名を表示する場面では `createAdminClient()` を使用する。機密性の低い表示用データに限定するため admin client の利用は妥当
+**ポリシー**: ダウングレード/解約時も `client_profiles` レコードは削除しない（再アップグレード時の利便性のため）。プラン状態による表示切り替えは不要（どのプランでも `client_profiles.display_name` がそのまま使われる）。
+
+**RLS**: `client_profiles` は公開 SELECT（全ユーザー閲覧可）のため、他ユーザーの発注者名取得に admin client は不要。旧方式で必要だった `createAdminClient()` 経由の組織名取得は廃止。
 
 **適用範囲**（ユーザー名を表示するすべての UI）:
 - 発注者一覧 / 発注者詳細
 - 案件検索 / 案件詳細 / 案件管理 / 応募フォーム
 - お気に入り（発注者タブ・案件タブ）
 - マイページ（完了案件の発注者名）
+- メッセージ（スレッド一覧・詳細の相手名）
+- メール通知（送信者名・受信者名）
 - メッセージ UI / メール通知（`resolveParticipantName` + メッセージ機能のクエリ）
 
 ## Error Handling

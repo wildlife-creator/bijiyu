@@ -21,7 +21,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 | product.md | サービス概要、プラン、ビジネスモデル |
 | tech.md | 技術スタック、メール、テスト、Realtime戦略 |
 | structure.md | ディレクトリ構成、命名規則、ルーティング |
-| screen-map.md | 全77画面一覧、画面ID |
+| screen-map.md | 全78画面一覧、画面ID |
 | screen-navigation.md | 画面遷移フロー |
 | roles-and-permissions.md | ロール、権限、プラン制限 |
 | security.md | セキュリティ方針、入力検証 |
@@ -41,7 +41,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 5. `spec-impl` → 実装
 
 ### 開発の進め方
-- 全77画面を機能グループごとに実装する
+- 全78画面を機能グループごとに実装する
 - 各グループの実装完了ごとに動作確認を行う
 - テストはリスクベース: 書き込み+権限系はフルテスト、読み取り系はミニマル
 - spec-impl 開始時に `reference/png-mapping.md` で対象画面の PNG ファイルを特定し、デザインカンプを確認してから実装に入ること
@@ -283,6 +283,42 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - テスト実行前に `supabase start` + `supabase db reset` + `npm run dev` が必要。seed.sql のテストユーザー（contractor@test.local 等）を使ってテストを書くこと
 - テストデータのクリーンアップは不要（次回の `supabase db reset` でリセットされる）
 - **E2Eテストの期待値は seed.sql のデータと整合させること**: テストが前提とするユーザー状態（本人確認済み、サブスクリプション有効等）が seed.sql の実際のデータと一致しているか確認する。seed.sql でフラグを変更した場合、そのフラグに依存するE2Eテストも同時に更新すること。原因例: seed.sql で `identity_verified = true` を設定しているのに、E2Eテストが「本人確認バッジが表示されない」ことを期待して失敗した
+- **`page.goto(URL)` 直接遷移だけで E2E を完結させない**: 対象画面に直接飛ぶだけのテストは、その画面に**辿り着ける経路**（マイページのメニュー、ヘッダー、前画面のボタン）が壊れていても検出できない。少なくとも主要ユーザーストーリーの起点は「ログイン → マイページ → メニュークリック → 画面到達」まで click で繋ぐこと。機能詳細テスト（フォーム入力等）は page.goto 直接遷移でよい。`e2e/mypage-navigation.spec.ts` がこのロール別導線スモークの基準実装（2026-04 に /mypage のリンク URL が全て誤っていたが、既存 E2E が page.goto 直接遷移型だったため検出されなかった実例の再発防止）
+- **shadcn/ui の Select は `selectOption()` で操作してはならない（必ず守ること）**: shadcn の `<Select>`（Radix UI ベース）は DOM 上 `<button role="combobox">` として描画されるため、Playwright の `selectOption()` は `Element is not a <select> element` で失敗する。正しいパターンは `await page.getByLabel(...).click()` → `await page.getByRole("option", { name: "..." }).click()` の 2 段クリック。基準実装は `e2e/matching.spec.ts` / `e2e/messaging.spec.ts`。同じ落とし穴: フォーム実装を native `<select>` から shadcn Select に置き換えた際に対応する E2E テストの更新が漏れるパターン（2026-04-22 に `e2e/profile.spec.ts` の都道府県変更テストで実例発生）
+
+### ナビゲーションリンクと実ルートの整合（必ず守ること）
+- 新規画面を実装したら、**その画面への導線となる全リンク**（マイページ、ヘッダー、画面内ボタン）の `href` 値を検索し、実在のルートと完全一致することを確認する
+- 具体手順: `grep -r 'href=' src/app/(authenticated)/mypage/page.tsx` 等で該当画面向けの href を列挙し、Next.js の `src/app/` 配下に対応する page.tsx があるか突き合わせる
+- `href="/scouts/templates"` のような「REST 風で一見正しそうな URL」の誤記は typo として見逃されやすい。目視だけでなくアプリを起動してクリック確認する
+- E2E は `page.goto()` 直接遷移だけでは導線ミスを検出できないため、上記「E2Eテスト」セクションのロール別導線スモークで保険をかける
+
+### テストファイル内で本体ロジックの定数を「コピー」してはならない（必ず守ること）
+- 本体コード（middleware, Server Action 等）の定数や関数を、テストファイル冒頭に**ハードコピー**して「isolated testing」する書き方は禁止
+- 必ず `import { CLIENT_ONLY_PREFIXES } from '@/middleware'` のように本体を import して使う
+- コピーすると本体更新と同期が取れず、**テストは古い実装に対して通り続けるが production は動かない**という事態になる（2026-04-21 に `src/__tests__/auth/middleware-routing.test.ts` で実例発生: 実際の middleware から `/organization` prefix が削除され `/mypage/members` 等が追加されていたが、テスト側コピーは古いままで、存在しないルート `/organization/members` に対する「client-only block」が通っていた）
+
+### Staff ユーザーの subscription 参照（必ず守ること）
+- Staff（`users.role = 'staff'`）は**自分の subscription を持たない**。Owner のサブスクに相乗りする設計
+- **用途は「表示・閲覧のみ」**（マイページのメニュー可視性、画面内のプラン別表示切替等）。Staff は支払い系 Server Action を実行しないため、課金実行コンテキストで Staff の subscription を解決する必要は発生しない（`.kiro/specs/organization/requirements.md` REQ-ORG-011 の設計判断参照）
+- 表示用途で Staff のプラン状態を判定する際は、以下の順で解決する:
+  1. `organization_members WHERE user_id = <staff_uid>` → `organization_id`
+  2. `organizations WHERE id = <organization_id> AND deleted_at IS NULL` → `owner_id`
+  3. `subscriptions WHERE user_id = <owner_id> AND status IN ('active', 'past_due')`
+- ステップ 3 は RLS により Staff セッションから直接 SELECT 不可のため、**admin client** を使う
+- `.eq('user_id', user.id)` で自分の subscription を引く書き方を Staff に適用すると常に null になり、「発注者向けメニューが Staff では一切表示されない」バグが発生する（2026-04-21 実例）
+- 基準実装: `src/app/(authenticated)/mypage/page.tsx` の subscription 分岐
+- 支払い系 Server Action（billing 配下）のロールチェックは `'owner'` / `'admin'` のみ許可し、`'staff'` を許可リストに含めない（契約主体を Owner 単一に固定する設計判断。詳細は organization spec REQ-ORG-011）
+
+### organization 機能実装時の必須リファクタリング（必ず守ること）
+- organization の spec-impl を開始する際、**CLI-016〜025 の画面実装（Task 9 以降）より先に**、付録 A のリファクタリング全 8 ステップを完了すること
+- リファクタリングの詳細な手順とファイルリストは `.kiro/specs/organization/requirements.md` 付録 A および `tasks.md` Task 2〜8 / Task 16 / Task 16.1 / Task 16.2 に記載
+- リファクタリングの要点: `organizations.name` カラム廃止 → `client_profiles.display_name` に一本化。`getActiveCorporateOrgNames()` 廃止。`resolveParticipantName()` の引数・優先順位変更。全 14 画面のクエリ書き換え。`/mypage/organization-setup` の CLI-021 統合
+- **Task 16.1 / 16.2 を飛ばさないこと**（過去に漏れが発生）:
+  - Task 16.1: `scripts/task16-integration.mjs` の削除または更新（organization-setup 廃止で動作不能になる）
+  - Task 16.2: billing spec 4 ドキュメント（tasks.md / requirements.md / design.md / research.md）の記述を過去形に更新。`impl-memo.md` は歴史的記録として保持
+  - これらはコード変更ではなく「周辺アセット（スクリプト・spec ドキュメント）の更新」のため、テストコマンドでは検知できない。tasks.md を頭から末尾まで辿ることで確実に実施する
+- リファクタリング完了後、`npm run test` / `supabase test db` / `npm run test:e2e` が全て通ることを確認してから画面実装（Task 9 以降）に着手する
+- **このリファクタリングを飛ばして画面実装を始めてはならない**。仕様書と既存コードが食い違った状態で新機能を作ると、画面によって発注者名が異なるバグが発生する
 
 ### デザインカンプとの整合性
 - 画面実装の完了前に、`design-assets/screens/` 内の対応する PNG と実装結果を目視比較すること
@@ -327,6 +363,37 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   - Middleware: CON系画面は認証済み全ロールに閲覧開放。ただしCON-004（応募入力）、CON-011〜013（応募履歴）、CON-014〜016（空き日程）は担当者（staff）をブロック。CLI系（CLI-026〜027を除く）は発注者・担当者のみ
   - 発注者マイページ: 「仕事を探す」セクション（CON系画面への導線）を非表示にしてはならない。CON-002 への導線は「仕事を探す」セクションで提供する（「発注先を探す」セクションには含めない）
 
+### CLI-005/006 の表示対象（必ず守ること — 「1アカウントで受注・発注両方OK」設計の正しい反映）
+- CLI-005（職人一覧）の検索クエリで `role = 'contractor'` 単独で絞ってはならない。`role IN ('contractor', 'client')` + `id != 自分自身` + `deleted_at IS NULL` の AND 条件で絞ること
+- 設計理由: 個人発注者・小規模・法人 Owner（`role = 'client'`）も自分自身で会員登録した正規ユーザーであり、受注者として活動しうる。`role = 'contractor'` 単独で絞ると、これらのユーザーが永遠に検索されない
+- 法人の admin/staff（`role = 'staff'`）は Owner が招待した代理アカウントで契約主体ではないため除外する
+- CLI-006（職人詳細）も同条件のガードを入れる:
+  - `id === user.id` なら `notFound()`（自分の詳細ページは無意味）
+  - 対象ユーザーの `role` が `'contractor'`/`'client'` 以外（staff/admin）なら `notFound()`
+- **`user_skills` 1 件以上のチェックは入れないこと**: 正規ルート（`/register/profile`）の `registerProfileSchema` が `skills.min(1)` を必須化しているため、自分で会員登録した全ユーザーは必ず skills を持つ。DB レベルで追加チェックを入れるのは「ありえないシナリオに備えた過剰防御」（YAGNI）。同じ理由で `user_available_areas` のチェックも不要
+- **seed.sql は正規ルートを経たデータと整合させること**: 直接 INSERT で「skills や available_areas が空の client/contractor」を作ってはならない。これを seed に入れると「ありえない状態」を本物のデータと誤認し、不要な防御コードを書く動機になる（2026-04-22 に実例: B案として `user_skills!inner` フィルタを追加→ユーザー指摘で A案に巻き戻し）
+- 実装基準: `src/app/(authenticated)/users/contractors/page.tsx`（CLI-005）、`src/app/(authenticated)/users/contractors/[id]/page.tsx`（CLI-006）
+- E2E 検証: `e2e/job-search.spec.ts` の「CLI-005 表示対象」「CLI-006 アクセス制御」describe ブロック
+- Middleware は変更しない（`/users/contractors` は `client`/`staff` のみアクセス可、無料 contractor からは見られない現状維持）
+
+### 応募ステータスの画面分離（必ず守ること — CLI-007 / CLI-007B / CLI-010 の役割）
+- mypage からの発注者導線は **status で画面が分離**されている:
+  - **CLI-007（`/applications/received`）= `status = 'applied'` のみ**（未対応インボックス）
+  - **CLI-010（`/applications/orders`）= `status ≠ 'applied'`**（発注可否決定以降の管理ダッシュボード）
+  - 同じ応募が両画面に重複表示されることはない
+- 案件単位で**全ステータスを俯瞰**したい場合は **CLI-007B（`/jobs/[id]/applicants`）** を使う（CLI-002 からの導線、案件スコープ）
+- WHERE 句レベルの分離ルール:
+  - CLI-007: `.eq("status", "applied")` を必ず付与
+  - CLI-010: `.in("status", ["accepted","completed","lost","cancelled","rejected"])` で applied を除外
+  - CLI-007B: status 制限なし（全ステータス表示）
+- **新しい `applications.status` 値を追加する場合**、CLI-007 / CLI-010 どちら側に含めるかを明記すること:
+  - 未決状態（発注者の判断待ち）→ CLI-007 側
+  - 決着後 → CLI-010 側 + CLI-007B 側（CLI-007B は全ステータスなので自動的に含まれる）
+- **StatusFilter / SortButton は共有コンポーネント**（`src/app/(authenticated)/applications/orders/`）。`basePath` と `includeApplied` props で mypage CLI-010 と CLI-007B の挙動差を吸収する。mypage CLI-010 では `includeApplied={false}`、CLI-007B では `includeApplied={true}`
+- **CLI-007B の認可**は Middleware ではなくページ内 `notFound()` で実施（`/jobs/[id]` は CON-003 と共用パスのため Middleware で一律ブロックできない）。`isOwner || isOrganizationMember` でない場合は 404
+- CLI-002 の「応募者をみる」ボタンは **必ず `/jobs/[id]/applicants` に向ける**こと（過去の `/applications/manage?jobId=xxx` は壊れリンクで廃止済み）
+- 詳細仕様: `.kiro/specs/matching/requirements.md` REQ-MT-004 / REQ-MT-004B / REQ-MT-007
+
 ### 担当者（staff）の受注者アクション制限（必ず守ること）
 - `isPaidUser` の判定に `userData.role === "staff"` を含めてはならない。staff は CON 系画面を閲覧できるが、受注者としてのアクション（応募・空き日程管理等）は不可
 - 受注者アクション系の Server Action（applyJobAction 等）のロールチェックに `'staff'` を含めないこと。許可ロールは `'contractor'` と `'client'` のみ
@@ -334,24 +401,33 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 新しい受注者アクション（応募・評価・完了報告等）を実装する際は、staff がそのアクションを実行できないことを三重防御（Middleware + UI + Server Action）で確認すること
 - `users.role = 'staff'` は `org_role` の値（admin / staff）に関係なく同じ制限が適用される。org_role による違いは CLI 系画面内の操作権限（担当者管理等）のみ
 
+### 「対応できる職種」と「保有スキル」の使い分け（必ず守ること）
+- **対応できる職種**（`user_skills.trade_type`）= `TRADE_TYPES` 固定リストからの選択値（大工・塗装・電気 等）。1ユーザー最大3件
+- **保有スキル**（`users.skill_tags text[]`）= 自由入力タグ（型枠設置・外壁塗装・送配電線工 等）。件数制限なし
+- この2つは意味論が異なる。受注者詳細（CLI-006）や応募詳細（applications/received・orders）で **`trade_type` を「保有スキル」ラベルで表示してはならない**。`users.skill_tags` を参照すること
+- 2026-04-22 実例: COM-001/002 で保有スキル欄が欠落していた。それに合わせて CLI-006 / applications 詳細画面でも `skills.map((s) => s.trade_type).join("、")` を「保有スキル」として表示する hack が入っていたため、`users.skill_tags` に一本化
+- 新しく「保有スキル」を表示する画面を作る際は必ず `users.skill_tags` を SELECT すること。user_skills から引かないこと
+
 ### 名前表示・姓名結合のルール
 - 日本語の姓名結合は**スペースなし**で行うこと（`${lastName}${firstName}`）。`${lastName} ${firstName}` のようにスペースを入れると、既存の表示パターンと不一致になりテストが失敗する
-- 名前表示のユーティリティ関数（`resolveParticipantName` 等）を新規作成する際は、既存の結合パターンを必ず確認し、一致させること
-- **すべての UI で発注者表示名の解決は `resolveParticipantName()` を使うこと**。メッセージ UI・メール通知に限らず、発注者一覧・案件カード・マイページ完了案件・お気に入り等、ユーザー名を表示するすべての場所で統一する。過去に `getUserDisplayName(..., "company")` だけを使っていた画面が `organizations.name` を参照しておらず、法人プラン組織名が反映されないバグが発生した
-- 優先順位: `organizations.name`（法人）→ `users.company_name`（屋号）→ `users.last_name + first_name`（個人名）
-- 名前解決ルールの詳細は `.kiro/specs/messaging/requirements.md` の「名前表示ルール」セクションを参照
+- **すべての UI で発注者表示名の解決は `resolveParticipantName()` を使うこと**。メッセージ UI・メール通知に限らず、発注者一覧・案件カード・マイページ完了案件・お気に入り等、ユーザー名を表示するすべての場所で統一する
+- **優先順位（新方針）**: `client_profiles.display_name`（CLI-021 で入力した社名・氏名）→ `users.last_name + first_name`（フォールバック）
+- **旧方式（廃止）**: `organizations.name` → `users.company_name` → 氏名 の 3 段階解決は廃止。`organizations.name` カラム自体を削除済み。`users.company_name` は受注者プロフィール（COM-002）用であり、発注者表示名には使わない
+- **法人プラン Staff の名前解決**: Staff は `client_profiles` を持たないため、所属組織の Owner の `client_profiles.display_name` を使う（Staff → `organization_members` → `organizations.owner_id` → `client_profiles`）
+- **旧ヘルパーの廃止**: `src/lib/utils/resolve-org-names.ts` の `getActiveCorporateOrgNames()` は廃止する。`client_profiles` は公開 SELECT（RLS で全ユーザー閲覧可）のため、admin client を使わなくても他ユーザーの表示名を取得できる
+- 名前解決ルールの詳細は `.kiro/steering/database-schema.md` の「発注者表示名のルール」セクションを参照
 - 表示ロジックを変更すると、**データは変わらなくても画面の表示が変わる**ため、既存テストの期待値更新が必要になる。表示ロジック変更時は関連する E2E テストを必ず確認・更新すること
+- メール通知の sender/recipient 名はハードコードしない。`resolveParticipantName()` で動的に解決すること
 
-### 組織名表示のライフサイクル（必ず守ること）
-- **データ保持と表示制御は分離する**: ダウングレード/解約時も `organizations` / `organization_members` / `organizations.name` は**削除しない**（再アップグレード時の利便性のため）。しかし UI 表示では「現在 active な法人プラン（corporate / corporate_premium）のユーザー」にだけ組織名を使う
-- 複数ユーザーの組織名を一括解決する場合は `src/lib/utils/resolve-org-names.ts` の **`getActiveCorporateOrgNames(admin, userIds)`** を使う。これは `organization_members` と `subscriptions` を両方参照して「active な法人プランのユーザーだけ」の組織名を返す
-- 新しく発注者名を表示する画面を作る際は、この関数を使ってからの `resolveParticipantName()` 呼び出しが定石。直接 `organization_members` を JOIN して組織名を取得する実装は**プラン状態を考慮しない**ため禁止
-- 単一ユーザーでも同じヘルパーを使う（`[userId]` を渡す）。ロジックを分散させない
+### 発注者プロフィールのデータ管理（必ず守ること）
+- 受注者に見える発注者情報は **`client_profiles` テーブルに一元化**されている。CLI-021（発注者情報編集）が唯一の編集画面
+- ダウングレード/解約時も `client_profiles` レコードは削除しない（再アップグレードでの再利用のため）
+- プラン状態による表示切り替えは不要（どのプランでも `client_profiles.display_name` がそのまま使われる）
 
-### 組織情報の RLS と admin client（必ず守ること）
-- `organizations` / `organization_members` テーブルには `is_same_org` RLS が効いており、**他組織のメンバーから組織情報は SELECT できない**。nested join で embed した場合もサイレントに null になる（気づきにくい）
-- 発注者一覧等で「他ユーザーの組織名を表示する」には、必ず **`createAdminClient()`（service_role）経由で取得**すること。通常の `supabase` クライアントでは RLS により null になる
-- 取得する情報が「表示専用の組織名」など機密性の低いデータに限定されていれば admin client の使用は妥当。個人情報や認可判定に関わるデータの取得は別の層（RPC with SECURITY DEFINER など）を検討する
+### 組織テーブルの RLS と admin client
+- `organizations` / `organization_members` テーブルには `is_same_org` RLS が効いており、**他組織のメンバーから組織構造は SELECT できない**。nested join で embed した場合もサイレントに null になる（気づきにくい）
+- ただし **発注者表示名の取得に `organizations` テーブルは使わない**（`client_profiles.display_name` に一本化済み）。`client_profiles` は公開 SELECT なので admin client 不要
+- `organizations` テーブルへの admin client アクセスが必要になるのは、組織メンバーの権限判定（Server Action 内）等のケースに限定される
 
 ### 組織メンバー判定のパターン（必ず守ること）
 - 法人プラン機能で「特定案件に対する権限判定」を行う際、`owner_id === user.id` だけで判定してはならない。組織メンバーが作成した案件も、オーナーが操作できる必要がある
@@ -390,6 +466,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 ### ナビゲーション・画面遷移（必ず守ること）
 - 全画面に「戻る」ボタンを設置すること。遷移先は `router.back()` を使用しブラウザ履歴に基づかせる（ハードコードされた遷移先パスは原則禁止）
 - ナビゲーションメニュー（ヘッダー、マイページ）のリンク先URLと実際のページファイルパスが一致していることを必ず確認すること。404の原因になる
+- **BackButton の `href` 明示の例外パターン**: Save Server Action の redirect で `window.location.href` / `router.push` によって親画面へ戻るフローがある場合、**履歴に edit 画面のエントリが残ったまま**になり、親画面で `router.back()` すると edit に戻ってしまうループが発生する。ツリー構造で親が固定している画面（CLI-020 / CLI-022 / CLI-023 等）は `<BackButton href="/mypage" />` のように明示して対処する。対応画面と理由は `src/components/shared/back-button.tsx` のコメント参照。2026-04 実例: CLI-021 保存 → CLI-020 戻る → /edit に戻ってループ発生
 
 ### 検索ポップアップ・フィルター
 - 検索条件ポップアップを実装する際は、対応するデザインカンプ（`*-popup-a.png`、`*-popup-b.png` 等）を必ず参照し、フィルター項目・レイアウトを合わせること
@@ -404,3 +481,49 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 受注者（無料）: 登録職種・登録県と合致する案件を必ず含めること（応募フローのテスト用）。合致しない案件も含めること（応募制限の動作確認用）
 - 発注者（課金済み）: 受注者機能も利用可能（制限なしで案件検索・応募）。発注者機能（案件掲載・職人検索・スカウト等）もテスト可能なデータを用意すること
 - テストユーザーごとに user_skills, user_available_areas, subscriptions のデータを整合させること
+- **招待フロー seed の `email_confirmed_at` は NULL を正とする**（必ず守ること）: auth.users に直接 INSERT する seed で「招待送信済・未ログイン」状態を再現するには `email_confirmed_at = NULL` にする。`now()` を入れてしまうと Supabase が「既に確認済み」とみなし `inviteUserByEmail()` がエラーで拒否され、招待再送 E2E が成立しない。一方、既に会員登録を完了したテストユーザー（Owner 本人、seed で事前配置した Admin/Staff 等）は `password_set_at = now()` をセットしないと CLI-022 の「招待中」バッジが全員に付いて回帰テストが壊れる。2026-04-24 に両方の罠を踏んで再現修正したので再発注意。
+
+### ローカル開発環境: localhost と 127.0.0.1 を混在させない（必ず守ること）
+- Supabase Auth（GoTrue）は local dev で `http://127.0.0.1:54321` を外部 URL として返し、invite / reset / verify の session cookie もそのホストスコープで発行する
+- 一方で Next.js dev server は `localhost:3000` でも `127.0.0.1:3000` でも待ち受けるため、開発者が「localhost:3000 で app を開きつつ Supabase が 127.0.0.1:54321 を返す」状況になると、招待リンクを踏んだ後の session cookie が app 側に届かず `/accept-invite/confirm` が「有効期限切れ」扱いになる
+- **対策**: `.env.local` / `supabase/config.toml.site_url` / 実際のブラウザアクセス URL を **全て `127.0.0.1`** に統一する。`.env.local.example` も 127.0.0.1 基準で配布する
+- 関連: `.env.local.example`（`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_APP_URL` とも 127.0.0.1）、`supabase/config.toml` の `additional_redirect_urls` は両ホストをワイルドカード付きで許可
+
+### Next.js 16 dev サーバー固有（必ず守ること）
+- **`allowedDevOrigins` に 127.0.0.1 と localhost の両方を登録**: Next.js 16 では dev mode で origin チェックが厳格化され、`allowedDevOrigins` に入っていないオリジンからの Server Action POST は GET フォールバックされる（= form が「?email=...&password=...」という URL で送信され Server Action が発火しない）。`next.config.ts` に `allowedDevOrigins: ["127.0.0.1", "localhost"]` を明示
+- **`experimental.serverActions.bodySizeLimit` は画像サイズ上限より大きく**: デフォルト 1MB で、Zod バリデーションが 5MB まで許可していても Next.js ボディパーサー段階で拒否されてランタイムエラーになる。CLI-021 の画像アップロードなら `"6mb"` 等、実用上の上限 + 余裕を設定
+
+### SECURITY DEFINER 関数は `SET search_path = public` 必須（必ず守ること）
+- `CREATE OR REPLACE FUNCTION xxx() ... SECURITY DEFINER` で定義する関数は、search_path を明示しないと呼び出し元（auth トリガーなら auth スキーマ）のコンテキストで実行され、`public` スキーマの型・テーブルが解決できずエラーになる
+- 典型的な症状: `type "user_role" does not exist (SQLSTATE 42704)` → auth.users INSERT が 500 で失敗 → `inviteUserByEmail` が「Database error saving new user」を返す
+- **対策**:
+  1. 関数定義末尾に `SET search_path = public` を付ける
+  2. カスタム型参照は `public.user_role` のように完全修飾（防御多層化）
+- 既存関数 `is_same_org` / `insert_staff_member_with_limit` / `delete_staff_member` / `is_org_admin_or_owner_of` は設定済。新規 SECURITY DEFINER を追加する場合は必ず両方付与
+- 実例: 2026-04-24 に `handle_new_user` トリガーが search_path 未設定で招待フロー全体がブロックされた
+
+### Supabase Auth の session cookie とリダイレクトループ対策（必ず守ること）
+- `public.users.deleted_at` セット or `is_active = false` を middleware で検出して `/login` に redirect するだけでは、Supabase session cookie が有効な間ずっとログイン状態なので `/login` → middleware 検出 → 再 redirect の無限ループに陥る（ブラウザで「多くのリダイレクト」エラー）
+- **対策**: 検出時の redirect response に対し、`sb-` で始まる全 cookie を `response.cookies.delete(name)` で削除して session を即時無効化してから redirect する（`redirectToLoginAndClearSession` ヘルパー）
+- 実例: 2026-04-25 に退会 C 案の連動凍結メンバーでループを踏んで修正
+
+### Supabase Auth の invite は implicit flow（必ず守ること）
+- `admin.auth.admin.inviteUserByEmail()` が生成するリンクは `http://127.0.0.1:54321/auth/v1/verify?token=...&type=invite&redirect_to=<app_url>`。ユーザーがクリックすると GoTrue が session を確立し、303 で `redirect_to` へ戻すが、access_token / refresh_token は **URL fragment（`#access_token=...&refresh_token=...`）** で渡ってくる
+- fragment は **サーバーに届かない**ため、app 側の Server Route Handler では session 情報が取れない。`/auth/callback?type=invite` を中継させると「code も session も無い」状態で server-side fallback に落ちる
+- **対策**:
+  1. `inviteUserByEmail({ redirectTo })` の redirectTo を server-route ではなく **client-side page に直結**（例: `/accept-invite/confirm`）
+  2. その client page の `useEffect` で `window.location.hash` から access_token / refresh_token を読み、`supabase.auth.setSession({ access_token, refresh_token })` を **await してから** isReady=true にして form を表示（順番を逆にすると Server Action 呼び出し時に session cookie 未書き込みで getUser が空になる）
+  3. Session 確立後は `history.replaceState` で fragment を URL から除去（再読み込み時の再処理防止）
+- 実例: 2026-04-24 に AUTH-008 実装で上記全てに連続で詰まり修正
+
+### Stripe Webhook の到着順保証なし（必ず守ること）
+- `customer.subscription.created` と `checkout.session.completed` の順序は Stripe の仕様上保証されない。実測で前者が先に来るケースがある
+- 「subscription INSERT → それに依存する後続処理」を `customer.subscription.created` ハンドラだけで行うと、subscription 行未登録で early return して **後続処理がスキップされる**
+- **対策**: 副作用となる後続処理（例: `reactivateCorporateMembers()`）は `checkout.session.completed` 側でも呼ぶ **二重保険**を入れる。関数自体は UPDATE ベースで冪等なので重複呼び出しでも副作用無し
+- 実例: 2026-04-24 の J1 再アップグレード検証で「冷凍 Admin/Staff が is_active 復帰しない」バグの根本原因
+
+### Vitest の `mockReturnValueOnce` キューが `vi.clearAllMocks()` で消えない（必ず守ること）
+- `vi.clearAllMocks()` は `.mock.calls` / `.mock.results` 等の呼び出し履歴はクリアするが、`mockReturnValueOnce()` で積んだ **onceValues queue は保持したまま** 次のテストに漏れる
+- その結果、あるテストで未消費のモック（例: 早期 return する検証で .from() を呼ばないケース）が次のテストで消費されてしまい、意図しない値を返す → 「upsert が呼ばれていない」等の謎の失敗
+- **対策**: 各 spy を `spy.mockReset()` で明示的にリセットしてから必要なモックを再構築する。`beforeEach` で `vi.clearAllMocks()` ではなく `mockFrom.mockReset(); mockAdminFrom.mockReset(); ...` の形を使う
+- 実例: 2026-04-25 に `client-profile-actions.test.ts` の Staff ガードモック追加で queue 漏れが連鎖しデバッグに時間を費やした

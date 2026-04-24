@@ -45,7 +45,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
   let query = supabase
     .from("applications")
     .select(
-      `id, status, created_at, updated_at,
+      `id, status, created_at, updated_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(
          id, last_name, first_name, avatar_url, birth_date,
          identity_verified, ccus_verified, deleted_at,
@@ -59,18 +59,18 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
     .eq("jobs.owner_id", user.id)
     .order("updated_at", { ascending: sortOrder });
 
-  // Apply DB-level status filter
-  if (filterCategory === "応募あり（未対応）") {
-    query = query.eq("status", "applied");
-  } else if (filterCategory === "発注済み" || filterCategory === "評価登録済み" || filterCategory === "評価登録未入力") {
+  // Apply DB-level status filter.
+  // REQ-MT-007: CLI-010 は発注可否決定以降（status ≠ 'applied'）のみ扱う。
+  // 未対応応募（applied）は CLI-007（応募一覧）側の役割。
+  if (filterCategory === "発注済み" || filterCategory === "評価登録済み" || filterCategory === "評価登録未入力") {
     query = query.eq("status", "accepted");
   } else if (filterCategory === "キャンセル・お断り") {
     query = query.in("status", ["cancelled", "rejected"]);
   } else if (filterCategory === "取引完了") {
     query = query.in("status", ["completed", "lost"]);
   } else {
-    // No filter — show all statuses
-    query = query.in("status", ["applied", "accepted", "completed", "lost", "cancelled", "rejected"]);
+    // No filter — show all post-decision statuses (applied is excluded)
+    query = query.in("status", ["accepted", "completed", "lost", "cancelled", "rejected"]);
   }
 
   const { data: allApplications } = await query;
@@ -189,11 +189,16 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
           return (
             <Card key={app.id} className="overflow-hidden rounded-[8px]">
               {/* 1. Status badge */}
-              <div className="px-4 pt-3">
+              <div className="flex items-center gap-2 px-4 pt-3">
                 <ApplicationStatusBadge
                   status={app.status}
                   displayCategory={displayCategory}
                 />
+                {app.scout_message_id && (
+                  <span className="rounded-full bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-xs text-primary/70">
+                    スカウト経由
+                  </span>
+                )}
               </div>
 
               <CardContent className="px-4 pb-4 pt-2">

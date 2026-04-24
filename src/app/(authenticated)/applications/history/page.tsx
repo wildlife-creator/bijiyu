@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
+import {
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,9 +49,19 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
     .from("applications")
     .select(
       `id, status, created_at, applicant_id, scout_message_id,
-       jobs(id, title, owner_id, trade_type, headcount, reward_lower, reward_upper,
+       jobs(id, title, owner_id, organization_id, trade_type, headcount,
+            reward_lower, reward_upper,
             recruit_start_date, recruit_end_date, prefecture,
-            owner:users!jobs_owner_id_fkey(company_name, last_name, first_name, deleted_at)),
+            owner:users!owner_id(
+              last_name, first_name, deleted_at,
+              client_profiles(display_name, image_url)
+            ),
+            organization:organizations(
+              owner_user:users!owner_id(
+                last_name, first_name, deleted_at,
+                client_profiles(display_name, image_url)
+              )
+            )),
        client_reviews(id),
        user_reviews(id)`,
     )
@@ -103,17 +114,6 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
   // Manual pagination
   const paginatedApplications = filteredApplications.slice(from, to + 1);
 
-  // 法人プラン active のオーナーだけ組織名を使う（ダウングレード後は company_name に戻す）
-  const ownerIds = Array.from(
-    new Set(
-      paginatedApplications
-        .map((a) => (a.jobs as unknown as { owner_id?: string } | null)?.owner_id)
-        .filter((v): v is string => !!v),
-    ),
-  );
-  const admin = createAdminClient();
-  const orgNameByOwnerId = await getActiveCorporateOrgNames(admin, ownerIds);
-
   return (
     <div className="min-h-dvh bg-muted px-6 py-6 md:px-12 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">応募履歴</h1>
@@ -150,6 +150,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
             id: string;
             title: string;
             owner_id: string;
+            organization_id: string | null;
             trade_type: string | null;
             headcount: number | null;
             reward_lower: number | null;
@@ -158,10 +159,22 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
             recruit_end_date: string | null;
             prefecture: string | null;
             owner: {
-              company_name: string | null;
               last_name: string | null;
               first_name: string | null;
               deleted_at: string | null;
+              client_profiles:
+                | Array<{ display_name: string | null; image_url: string | null }>
+                | null;
+            } | null;
+            organization: {
+              owner_user: {
+                last_name: string | null;
+                first_name: string | null;
+                deleted_at: string | null;
+                client_profiles:
+                  | Array<{ display_name: string | null; image_url: string | null }>
+                  | null;
+              } | null;
             } | null;
           } | null;
 
@@ -170,15 +183,13 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
           const hasUserReview =
             app.user_reviews != null && (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
 
-          const companyName = job?.owner
+          const resolution = job ? resolveClientProfileForRow(job) : null;
+          const companyName = resolution
             ? resolveParticipantName({
-                organizationName: job.owner_id
-                  ? (orgNameByOwnerId.get(job.owner_id) ?? null)
-                  : null,
-                companyName: job.owner.company_name,
-                lastName: job.owner.last_name,
-                firstName: job.owner.first_name,
-                deletedAt: job.owner.deleted_at,
+                displayName: resolution.displayName,
+                lastName: resolution.lastName,
+                firstName: resolution.firstName,
+                deletedAt: resolution.deletedAt,
               })
             : "不明";
 

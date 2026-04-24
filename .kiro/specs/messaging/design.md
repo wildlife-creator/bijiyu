@@ -298,8 +298,8 @@ sequenceDiagram
 - 法人プラン: 組織メンバー全員のスレッドが表示される（organization_id で紐づく全スレッド）
 - 個人プラン: 自分が participant のスレッドのみ表示される（従来型）
 - messages リレーション JOIN で最新メッセージ（body プレビュー、created_at）を取得
-- users リレーション JOIN で相手の名前（`company_name`, `last_name`, `first_name`）・アイコンを取得
-- **相手の名前解決**: requirements.md「名前表示ルール」に従う。受注者が見る発注者名: `organizations.name → users.company_name → users.last_name + first_name`。発注者が見る受注者名: `users.company_name → users.last_name + first_name`
+- users リレーション JOIN で相手の名前（`last_name`, `first_name`）・アイコンを取得
+- **相手の名前解決**: requirements.md「名前表示ルール」に従う。受注者が見る発注者名: `client_profiles.display_name`（CLI-021 で入力した社名・氏名）→ `users.last_name + first_name`（フォールバック）。法人プランの Staff が送信した場合は Owner の `client_profiles.display_name` を使用。発注者が見る受注者名: `users.company_name → users.last_name + first_name`
 - ソート: 最新メッセージ日時の降順（updated_at DESC）
 - タブまたはフィルターで thread_type（'message' / 'scout'）を切り替え
 - 未読バッジ: messages の read_at IS NULL かつ sender_id != current_user のカウント表示
@@ -545,7 +545,7 @@ async function sendScoutAction(
 - 個人プランの場合: organization_id = NULL、participant_1_id = current_user
 - メール送信失敗は catch してログ記録。本体処理はロールバックしない
 - メールテンプレート: `src/lib/email/templates/scout-notification.ts`
-- **メール送信時の名前解決**: `senderName` は requirements.md「名前表示ルール」に従う（法人: `organizations.name`、個人: `users.company_name → users.last_name + first_name`）。`recipientName` は `users.last_name + first_name`。現在の実装はインライン HTML で送信者名なし → テンプレート使用 + 名前解決に修正が必要
+- **メール送信時の名前解決**: `senderName` は requirements.md「名前表示ルール」に従う（全プラン共通: `client_profiles.display_name` → `users.last_name + first_name` のフォールバック。Staff の場合は Owner の `client_profiles.display_name` を使用）。`recipientName` は `users.last_name + first_name`。現在の実装はインライン HTML で送信者名なし → テンプレート使用 + 名前解決に修正が必要
 
 #### sendBulkMessagesAction
 
@@ -889,6 +889,7 @@ CREATE POLICY "thread_participants_can_view_message_attachments"
   - messages の UPDATE（read_at, scout_status）: **RLS ポリシーなし**。PERMISSIVE ポリシーの OR 結合による意図しない権限昇格を防ぐため、全て admin client（service_role）で実行。Server Action 内で権限チェックを実施
 - **admin client 使用箇所**: markAsRead（read_at 更新）、respondToScout（scout_status 更新）、`/messages/new` でのスレッド作成（受注者が相手の organization_id 付きスレッドを作成する場合、organization_members の RLS を通過できないため）。通常のメッセージ送受信は通常クライアントを使用
 - **organizations SELECT ポリシー追加**: `organizations_select_thread_participant` — メッセージスレッドの受注者側参加者が組織名を表示するために必要。`EXISTS (SELECT 1 FROM message_threads WHERE organization_id = organizations.id AND participant_2_id = auth.uid())`
+  - ※ 本ポリシーは organization spec で認証済みユーザー全員が生存組織を SELECT 可能な新ポリシー `organizations_select_public` に統合され**撤去される**（`organizations.name` カラム廃止とセットで 2026-04-18 以降）。messaging 側のメッセージ画面は `client_profiles.display_name` 経由で発注者名を解決する方式に移行するため、本ポリシーへの依存は消える。詳細は `.kiro/specs/organization/design.md` の「`organizations` RLS 変更」セクション参照
 - **Storage**: message-attachments バケットは private。アップロードは自分のフォルダのみ、閲覧はスレッド参加者または同一組織メンバーのみ（RLS）。表示時は `createSignedUrl()` で Signed URL を生成
 - **XSS 防止**: メッセージ本文内の URL をサニタイズ。外部 URL 表示時は警告を表示
 - **メール通知**: Resend 経由。送信失敗時はログ記録のみでロールバックしない（security.md 準拠）

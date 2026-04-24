@@ -313,7 +313,7 @@ describe("startCheckoutAction — basic plan happy path", () => {
       plan_type: "individual",
     });
     expect(params.success_url).toBe(
-      "http://localhost:3000/mypage?checkout=success",
+      "http://localhost:3000/mypage/client-profile/edit?setup=true",
     );
     expect(params.cancel_url).toBe("http://localhost:3000/billing");
   });
@@ -333,7 +333,7 @@ describe("startCheckoutAction — basic plan happy path", () => {
     ]);
   });
 
-  it("法人プラン: routes success_url to /mypage/organization-setup (Task 8.7 暫定)", async () => {
+  it("全プラン共通: routes success_url to /mypage/client-profile/edit?setup=true", async () => {
     adminResults["select:subscriptions"] = { data: [], error: null };
     const result = await startCheckoutAction({
       type: "plan",
@@ -342,7 +342,20 @@ describe("startCheckoutAction — basic plan happy path", () => {
     expect(result.success).toBe(true);
     const params = stripeMockState.sessionsCreated[0]!;
     expect(params.success_url).toBe(
-      "http://localhost:3000/mypage/organization-setup",
+      "http://localhost:3000/mypage/client-profile/edit?setup=true",
+    );
+  });
+
+  it("個人プランも同じ CLI-021 setup URL に遷移（スキップ可）", async () => {
+    adminResults["select:subscriptions"] = { data: [], error: null };
+    const result = await startCheckoutAction({
+      type: "plan",
+      planType: "individual",
+    });
+    expect(result.success).toBe(true);
+    const params = stripeMockState.sessionsCreated[0]!;
+    expect(params.success_url).toBe(
+      "http://localhost:3000/mypage/client-profile/edit?setup=true",
     );
   });
 

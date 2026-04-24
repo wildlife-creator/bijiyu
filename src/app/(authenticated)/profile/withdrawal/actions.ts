@@ -2,8 +2,12 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/send-email";
+import { withdrawalCompletedEmail } from "@/lib/email/templates/withdrawal-completed";
 import { withdrawalSchema } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
+
+const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
 
 export async function withdrawAction(
   _prevState: ActionResult,
@@ -112,29 +116,68 @@ export async function withdrawAction(
     .eq("user_id", user.id)
     .eq("status", "active");
 
-  // 11. Remove from organization
+  // 11. Organization handling (C 案: organization spec Task 13.4)
+  // Owner 退会時は Admin の有無に関わらず組織ごとソフトデリートし、
+  // 配下 Admin / Staff の users.deleted_at も連動設定してログイン不可化。
+  // client_profiles / scout_templates は削除せず保持（履歴）。
   if (orgMembership) {
     const orgId = orgMembership.organization_id;
+    const adminClientForOrg = createAdminClient();
 
-    await supabase
-      .from("organization_members")
-      .delete()
-      .eq("user_id", user.id);
-
-    // 12. Organization handling: if user was owner, check for remaining admins
     if (orgMembership.org_role === "owner") {
-      const { count: remainingAdmins } = await supabase
+      // 配下メンバー取得（Owner 以外）
+      const { data: memberRows } = await adminClientForOrg
         .from("organization_members")
-        .select("*", { count: "exact", head: true })
+        .select("user_id")
         .eq("organization_id", orgId)
-        .eq("org_role", "admin");
+        .neq("user_id", user.id);
 
-      if (!remainingAdmins || remainingAdmins === 0) {
-        await supabase
-          .from("organizations")
+      const memberIds = (memberRows ?? [])
+        .map((m) => m.user_id as string)
+        .filter(Boolean);
+
+      // 配下メンバーの users.deleted_at をセット（DB レベルの退会フラグ）
+      if (memberIds.length > 0) {
+        await adminClientForOrg
+          .from("users")
           .update({ deleted_at: new Date().toISOString() })
-          .eq("id", orgId);
+          .in("id", memberIds);
       }
+
+      // 配下メンバーも auth.users で ban して signin を即時ブロック
+      // （public.users.deleted_at だけだと auth.users 側の signin は通ってしまい、
+      //   middleware の自己 SELECT も RLS で弾かれて「新規ユーザー扱い」になる）
+      for (const memberId of memberIds) {
+        try {
+          await adminClientForOrg.auth.admin.updateUserById(memberId, {
+            ban_duration: "876600h",
+          });
+        } catch (err) {
+          console.error(
+            "[withdrawAction] failed to ban org member (non-blocking)",
+            { memberId, err },
+          );
+        }
+      }
+
+      // organization_members を全削除（Owner 含む）
+      await adminClientForOrg
+        .from("organization_members")
+        .delete()
+        .eq("organization_id", orgId);
+
+      // 組織をソフトデリート
+      await adminClientForOrg
+        .from("organizations")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", orgId);
+    } else {
+      // Owner 以外の自己退会（現在は上部ガードで Owner のみ到達可能だが
+      // 将来の仕様変更に備え本人分のみ削除）
+      await adminClientForOrg
+        .from("organization_members")
+        .delete()
+        .eq("user_id", user.id);
     }
   }
 
@@ -145,12 +188,30 @@ export async function withdrawAction(
     // Stripe error should not block withdrawal
   }
 
-  // 14. Send withdrawal confirmation email
+  // 14. Send withdrawal confirmation email（REQ-PF-006 step 7）
+  // 失敗時は非ロールバック（security.md「メール送信失敗時の共通方針」）
   try {
-    // TODO: Resend integration
-    // await resend.emails.send({ ... });
+    const { data: deletedUser } = await createAdminClient()
+      .from("users")
+      .select("email, last_name, first_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    const email = deletedUser?.email ?? user.email;
+    const recipientName =
+      `${deletedUser?.last_name ?? ""}${deletedUser?.first_name ?? ""}`.trim() ||
+      "ご利用者";
+    if (email) {
+      const { subject, html } = withdrawalCompletedEmail({
+        recipientName,
+        serviceUrl: SERVICE_URL,
+      });
+      await sendEmail({ to: email, subject, html });
+    }
   } catch (emailError) {
-    console.error("Failed to send withdrawal confirmation email:", emailError);
+    console.error(
+      "[withdrawAction] withdrawal email failed (non-blocking)",
+      emailError,
+    );
   }
 
   // 15. Ban account via admin client

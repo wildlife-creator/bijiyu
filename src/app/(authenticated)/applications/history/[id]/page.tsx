@@ -2,9 +2,10 @@ import { notFound, redirect } from "next/navigation";
 import { Clock, CheckCircle2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
+import {
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 import { ApplicationStatusBadge } from "@/components/shared/application-status-badge";
 import { CancelButton } from "./cancel-button";
 import { BackButton } from "../back-button";
@@ -31,10 +32,20 @@ export default async function ApplicationDetailPage({ params }: Props) {
   const { data: application } = await supabase
     .from("applications")
     .select(
-      `*, jobs(id, title, owner_id, trade_type, headcount, reward_lower, reward_upper, prefecture, address,
+      `*, jobs(id, title, owner_id, organization_id, trade_type, headcount,
+              reward_lower, reward_upper, prefecture, address,
               work_start_date, work_end_date, recruit_start_date, recruit_end_date,
               work_hours, items, required_skills, schedule_detail, etc_message,
-              owner:users!jobs_owner_id_fkey(company_name, last_name, first_name, deleted_at)),
+              owner:users!owner_id(
+                last_name, first_name, deleted_at,
+                client_profiles(display_name, image_url)
+              ),
+              organization:organizations(
+                owner_user:users!owner_id(
+                  last_name, first_name, deleted_at,
+                  client_profiles(display_name, image_url)
+                )
+              )),
        client_reviews(id),
        user_reviews(id)`,
     )
@@ -50,6 +61,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
     id: string;
     title: string;
     owner_id: string;
+    organization_id: string | null;
     trade_type: string | null;
     headcount: number | null;
     reward_lower: number | null;
@@ -66,10 +78,22 @@ export default async function ApplicationDetailPage({ params }: Props) {
     schedule_detail: string | null;
     etc_message: string | null;
     owner: {
-      company_name: string | null;
       last_name: string | null;
       first_name: string | null;
       deleted_at: string | null;
+      client_profiles:
+        | Array<{ display_name: string | null; image_url: string | null }>
+        | null;
+    } | null;
+    organization: {
+      owner_user: {
+        last_name: string | null;
+        first_name: string | null;
+        deleted_at: string | null;
+        client_profiles:
+          | Array<{ display_name: string | null; image_url: string | null }>
+          | null;
+      } | null;
     } | null;
   } | null;
 
@@ -80,18 +104,13 @@ export default async function ApplicationDetailPage({ params }: Props) {
     application.user_reviews != null &&
     (!Array.isArray(application.user_reviews) || application.user_reviews.length > 0);
 
-  // 法人プラン active のオーナーのみ組織名を使う（ダウングレード後は company_name にフォールバック）
-  const admin = createAdminClient();
-  const ownerOrgNameMap = job?.owner_id
-    ? await getActiveCorporateOrgNames(admin, [job.owner_id])
-    : new Map<string, string>();
-  const companyName = job?.owner
+  const resolution = job ? resolveClientProfileForRow(job) : null;
+  const companyName = resolution
     ? resolveParticipantName({
-        organizationName: job.owner_id ? (ownerOrgNameMap.get(job.owner_id) ?? null) : null,
-        companyName: job.owner.company_name,
-        lastName: job.owner.last_name,
-        firstName: job.owner.first_name,
-        deletedAt: job.owner.deleted_at,
+        displayName: resolution.displayName,
+        lastName: resolution.lastName,
+        firstName: resolution.firstName,
+        deletedAt: resolution.deletedAt,
       })
     : "不明";
 

@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       applications: {
@@ -191,6 +166,7 @@ export type Database = {
       }
       client_profiles: {
         Row: {
+          address: string | null
           admin_memo: string | null
           created_at: string
           display_name: string | null
@@ -204,11 +180,17 @@ export type Database = {
           message: string | null
           recruit_area: string[] | null
           recruit_job_types: string[] | null
+          sns_facebook: boolean
+          sns_instagram: boolean
+          sns_tiktok: boolean
+          sns_x: boolean
+          sns_youtube: boolean
           updated_at: string
           user_id: string
           working_way: string | null
         }
         Insert: {
+          address?: string | null
           admin_memo?: string | null
           created_at?: string
           display_name?: string | null
@@ -222,11 +204,17 @@ export type Database = {
           message?: string | null
           recruit_area?: string[] | null
           recruit_job_types?: string[] | null
+          sns_facebook?: boolean
+          sns_instagram?: boolean
+          sns_tiktok?: boolean
+          sns_x?: boolean
+          sns_youtube?: boolean
           updated_at?: string
           user_id: string
           working_way?: string | null
         }
         Update: {
+          address?: string | null
           admin_memo?: string | null
           created_at?: string
           display_name?: string | null
@@ -240,6 +228,11 @@ export type Database = {
           message?: string | null
           recruit_area?: string[] | null
           recruit_job_types?: string[] | null
+          sns_facebook?: boolean
+          sns_instagram?: boolean
+          sns_tiktok?: boolean
+          sns_x?: boolean
+          sns_youtube?: boolean
           updated_at?: string
           user_id?: string
           working_way?: string | null
@@ -816,7 +809,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
-          name: string
+          name: string | null
           owner_id: string
           updated_at: string
         }
@@ -824,7 +817,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
-          name: string
+          name?: string | null
           owner_id: string
           updated_at?: string
         }
@@ -832,7 +825,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
-          name?: string
+          name?: string | null
           owner_id?: string
           updated_at?: string
         }
@@ -1163,8 +1156,10 @@ export type Database = {
           identity_verified: boolean
           is_active: boolean
           last_name: string | null
+          password_set_at: string | null
           prefecture: string | null
           role: Database["public"]["Enums"]["user_role"]
+          skill_tags: string[]
           stripe_customer_id: string | null
           updated_at: string
           video_url: string | null
@@ -1185,8 +1180,10 @@ export type Database = {
           identity_verified?: boolean
           is_active?: boolean
           last_name?: string | null
+          password_set_at?: string | null
           prefecture?: string | null
           role: Database["public"]["Enums"]["user_role"]
+          skill_tags?: string[]
           stripe_customer_id?: string | null
           updated_at?: string
           video_url?: string | null
@@ -1207,8 +1204,10 @@ export type Database = {
           identity_verified?: boolean
           is_active?: boolean
           last_name?: string | null
+          password_set_at?: string | null
           prefecture?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          skill_tags?: string[]
           stripe_customer_id?: string | null
           updated_at?: string
           video_url?: string | null
@@ -1238,6 +1237,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      delete_staff_member: {
+        Args: {
+          p_organization_id: string
+          p_owner_user_id: string
+          p_target_user_id: string
+        }
+        Returns: undefined
+      }
       ensure_organization_exists: { Args: { uid: string }; Returns: Json }
       get_or_lock_stripe_customer: { Args: { uid: string }; Returns: Json }
       handle_checkout_completed_plan: {
@@ -1252,7 +1259,21 @@ export type Database = {
         Args: { event_data: Json }
         Returns: Json
       }
+      insert_staff_member_with_limit: {
+        Args: {
+          p_is_proxy_account: boolean
+          p_max_staff: number
+          p_org_role: string
+          p_organization_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       is_admin: { Args: { uid: string }; Returns: boolean }
+      is_org_admin_or_owner_of: {
+        Args: { target_owner_user_id: string; uid: string }
+        Returns: boolean
+      }
       is_paid_user: { Args: { uid: string }; Returns: boolean }
       is_same_org: { Args: { org_id: string; uid: string }; Returns: boolean }
       set_stripe_customer_id: {
@@ -1269,6 +1290,7 @@ export type Database = {
           p_last_name: string
           p_prefecture: string
           p_qualifications?: string[]
+          p_skill_tags?: string[]
           p_skills?: Json
           p_user_id: string
         }
@@ -1417,9 +1439,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       application_status: [
@@ -1442,4 +1461,3 @@ export const Constants = {
     },
   },
 } as const
-

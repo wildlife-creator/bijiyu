@@ -8,9 +8,11 @@ import { JobListCard } from "@/components/job-search/job-list-card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getUserDisplayName, resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
+import {
+  getUserDisplayName,
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -148,37 +150,33 @@ async function JobFavorites({
       id, title, description, trade_type, prefecture,
       reward_lower, reward_upper, is_urgent,
       recruit_start_date, recruit_end_date, created_at,
-      owner_id,
-      users!jobs_owner_id_fkey(company_name, last_name, first_name, deleted_at),
+      owner_id, organization_id,
+      owner:users!owner_id(
+        last_name, first_name, deleted_at,
+        client_profiles(display_name, image_url)
+      ),
+      organization:organizations(
+        owner_user:users!owner_id(
+          last_name, first_name, deleted_at,
+          client_profiles(display_name, image_url)
+        )
+      ),
       job_images(image_url, sort_order)
     `,
     )
     .in("id", targetIds)
     .is("deleted_at", null);
 
-  // 法人プラン（active）のオーナーのみ組織名を使う
-  const ownerIds = Array.from(new Set((jobs ?? []).map((j) => j.owner_id)));
-  const admin = createAdminClient();
-  const orgNameByOwnerId = await getActiveCorporateOrgNames(admin, ownerIds);
-
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">
       {(jobs ?? []).map((job) => {
-        const ownerUser = job.users as unknown as {
-          company_name: string | null;
-          last_name: string | null;
-          first_name: string | null;
-          deleted_at: string | null;
-        } | null;
-        const companyName = ownerUser
-          ? resolveParticipantName({
-              organizationName: orgNameByOwnerId.get(job.owner_id) ?? null,
-              companyName: ownerUser.company_name,
-              lastName: ownerUser.last_name,
-              firstName: ownerUser.first_name,
-              deletedAt: ownerUser.deleted_at,
-            })
-          : null;
+        const resolution = resolveClientProfileForRow(job);
+        const companyName = resolveParticipantName({
+          displayName: resolution.displayName,
+          lastName: resolution.lastName,
+          firstName: resolution.firstName,
+          deletedAt: resolution.deletedAt,
+        });
         const images =
           (job.job_images as Array<{
             image_url: string;
@@ -224,16 +222,12 @@ async function ClientFavorites({
     .from("users")
     .select(
       `
-      id, avatar_url, company_name, last_name, first_name, deleted_at, prefecture,
-      client_profiles(recruit_job_types, recruit_area, working_way)
+      id, avatar_url, last_name, first_name, deleted_at, prefecture,
+      client_profiles(display_name, recruit_job_types, recruit_area, working_way)
     `,
     )
     .in("id", targetIds)
     .eq("role", "client");
-
-  // 法人プラン（active）の発注者のみ組織名を使う
-  const admin = createAdminClient();
-  const orgNameByUserId = await getActiveCorporateOrgNames(admin, targetIds);
 
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">
@@ -242,8 +236,7 @@ async function ClientFavorites({
           ? client.client_profiles[0]
           : client.client_profiles;
         const displayName = resolveParticipantName({
-          organizationName: orgNameByUserId.get(client.id) ?? null,
-          companyName: client.company_name,
+          displayName: profile?.display_name ?? null,
           lastName: client.last_name,
           firstName: client.first_name,
           deletedAt: client.deleted_at,
@@ -335,6 +328,9 @@ async function UserFavorites({
 }) {
   if (targetIds.length === 0) return null;
 
+  // CLI-005（職人一覧）と整合: client role（個人発注者・小規模・法人 Owner）も
+  // 受注者として活動しうるため、見込みユーザーとして表示対象に含める。
+  // staff/admin はそもそも CLI-005 で favorite 登録できないため、ここでは role 絞りで除外する。
   const { data: users } = await supabase
     .from("users")
     .select(
@@ -346,7 +342,7 @@ async function UserFavorites({
     `,
     )
     .in("id", targetIds)
-    .eq("role", "contractor");
+    .in("role", ["contractor", "client"]);
 
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">

@@ -12,8 +12,11 @@ import {
 import { sendEmail } from "@/lib/email/send-email";
 import { matchingAcceptedEmail } from "@/lib/email/templates/matching-accepted";
 import { matchingRejectedEmail } from "@/lib/email/templates/matching-rejected";
-import { resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
+import {
+  getUserDisplayName,
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 import type { ActionResult } from "@/lib/types/action-result";
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -28,7 +31,22 @@ async function getApplicationWithDetails(
   return supabase
     .from("applications")
     .select(
-      "*, jobs(id, title, owner_id, organization_id, organizations(name), owner:users!jobs_owner_id_fkey(last_name, first_name, company_name)), applicant:users!applications_applicant_id_fkey(id, email, last_name, first_name, company_name, deleted_at)",
+      `*, jobs(
+        id, title, owner_id, organization_id,
+        owner:users!owner_id(
+          last_name, first_name, deleted_at,
+          client_profiles(display_name, image_url)
+        ),
+        organization:organizations(
+          owner_user:users!owner_id(
+            last_name, first_name, deleted_at,
+            client_profiles(display_name, image_url)
+          )
+        )
+      ),
+      applicant:users!applications_applicant_id_fkey(
+        id, email, last_name, first_name, company_name, deleted_at
+      )`,
     )
     .eq("id", applicationId)
     .single();
@@ -302,24 +320,21 @@ export async function acceptApplicationAction(
     // Send email notification (failure does NOT rollback)
     const applicant = application.applicant;
     if (applicant && applicant.email && !applicant.deleted_at) {
-      const applicantName = resolveParticipantName({
-        companyName: (applicant as { company_name?: string | null }).company_name,
-        lastName: applicant.last_name,
-        firstName: applicant.first_name,
-      });
-      const owner = (job as { owner?: { last_name: string | null; first_name: string | null; company_name: string | null } | null }).owner;
-      // 法人プラン active のオーナーのみ組織名を使う（ダウングレード後は company_name にフォールバック）
-      const admin = createAdminClient();
-      const ownerOrgNameMap = job.owner_id
-        ? await getActiveCorporateOrgNames(admin, [job.owner_id as string])
-        : new Map<string, string>();
+      const applicantName = getUserDisplayName(
+        {
+          lastName: applicant.last_name,
+          firstName: applicant.first_name,
+          companyName: (applicant as { company_name?: string | null }).company_name,
+          deletedAt: applicant.deleted_at,
+        },
+        "prefer-company",
+      );
+      const resolution = resolveClientProfileForRow(job);
       const clientName = resolveParticipantName({
-        organizationName: job.owner_id
-          ? (ownerOrgNameMap.get(job.owner_id as string) ?? null)
-          : null,
-        companyName: owner?.company_name,
-        lastName: owner?.last_name,
-        firstName: owner?.first_name,
+        displayName: resolution.displayName,
+        lastName: resolution.lastName,
+        firstName: resolution.firstName,
+        deletedAt: resolution.deletedAt,
       });
       const { subject, html } = matchingAcceptedEmail({
         applicantName,
@@ -420,24 +435,21 @@ export async function rejectApplicationAction(
     // Send email notification
     const applicant = application.applicant;
     if (applicant && applicant.email && !applicant.deleted_at) {
-      const applicantName = resolveParticipantName({
-        companyName: (applicant as { company_name?: string | null }).company_name,
-        lastName: applicant.last_name,
-        firstName: applicant.first_name,
-      });
-      const owner = (job as { owner?: { last_name: string | null; first_name: string | null; company_name: string | null } | null }).owner;
-      // 法人プラン active のオーナーのみ組織名を使う
-      const admin = createAdminClient();
-      const ownerOrgNameMap = job.owner_id
-        ? await getActiveCorporateOrgNames(admin, [job.owner_id as string])
-        : new Map<string, string>();
+      const applicantName = getUserDisplayName(
+        {
+          lastName: applicant.last_name,
+          firstName: applicant.first_name,
+          companyName: (applicant as { company_name?: string | null }).company_name,
+          deletedAt: applicant.deleted_at,
+        },
+        "prefer-company",
+      );
+      const resolution = resolveClientProfileForRow(job);
       const clientName = resolveParticipantName({
-        organizationName: job.owner_id
-          ? (ownerOrgNameMap.get(job.owner_id as string) ?? null)
-          : null,
-        companyName: owner?.company_name,
-        lastName: owner?.last_name,
-        firstName: owner?.first_name,
+        displayName: resolution.displayName,
+        lastName: resolution.lastName,
+        firstName: resolution.firstName,
+        deletedAt: resolution.deletedAt,
       });
       const { subject, html } = matchingRejectedEmail({
         applicantName,

@@ -33,11 +33,14 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
   const from = (currentPage - 1) * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
 
-  // Build query: get applications for jobs owned by this user
+  // Build query: get applications for jobs owned by this user.
+  // REQ-MT-004: この画面は未対応の応募（status = 'applied'）のみを表示する
+  // インボックス。判断済みの応募は CLI-010（発注履歴一覧）側の役割。
   let countQuery = supabase
     .from("applications")
     .select("*, jobs!inner(owner_id)", { count: "exact", head: true })
-    .eq("jobs.owner_id", user.id);
+    .eq("jobs.owner_id", user.id)
+    .eq("status", "applied");
 
   let dataQuery = supabase
     .from("applications")
@@ -47,6 +50,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
        jobs!inner(id, title, owner_id, trade_type, recruit_end_date, headcount)`,
     )
     .eq("jobs.owner_id", user.id)
+    .eq("status", "applied")
     .order("created_at", { ascending: sortAsc })
     .range(from, to);
 
@@ -115,7 +119,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
 
       {(!applications || applications.length === 0) && (
         <p className="mt-8 text-center text-body-md text-muted-foreground">
-          応募はありません
+          未対応の応募はありません
         </p>
       )}
 

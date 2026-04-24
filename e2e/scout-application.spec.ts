@@ -6,6 +6,8 @@ import { login, TEST_CONTRACTOR, TEST_CLIENT } from "./helpers";
 // ---------------------------------------------------------------------------
 const SCOUT_MESSAGE_ID = "ffffffff-ffff-ffff-ffff-ffffffffffff";
 const SCOUT_APPLICATION_ID = "dddddddd-dddd-dddd-dddd-dddddddddd01";
+// CLI-010 は applied を除外するため、accepted 状態のスカウト応募を別途用意
+const SCOUT_APPLICATION_ACCEPTED_ID = "dddddddd-dddd-dddd-dddd-dddddddddd02";
 const SCOUT_JOB_ID = "88888888-8888-8888-8888-888888888899";
 // Normal application (no scout) — seed section 12
 const NORMAL_APPLICATION_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -85,6 +87,37 @@ test.describe("発注者: スカウト経由応募のバッジ表示", () => {
       page.getByRole("heading", { name: "応募詳細" }),
     ).toBeVisible();
     await expect(page.getByText("スカウト経由")).toBeVisible();
+  });
+
+  test("発注履歴一覧（CLI-010）でスカウト経由バッジが表示される（accepted 状態）", async ({
+    page,
+  }) => {
+    // CLI-010 は applied を除外するため、accepted 状態のスカウト応募で検証
+    await page.goto("/applications/orders");
+    await expect(
+      page.getByRole("heading", { name: "発注履歴一覧" }),
+    ).toBeVisible();
+    await expect(page.getByText("スカウト経由").first()).toBeVisible();
+  });
+
+  test("発注履歴詳細（CLI-011）でスカウト経由バッジが表示される", async ({
+    page,
+  }) => {
+    await page.goto(`/applications/orders/${SCOUT_APPLICATION_ACCEPTED_ID}`);
+    await expect(
+      page.getByRole("heading", { name: "発注内容詳細" }),
+    ).toBeVisible();
+    await expect(page.getByText("スカウト経由")).toBeVisible();
+  });
+
+  test("通常の発注履歴詳細（CLI-011）にはスカウト経由バッジが表示されない", async ({
+    page,
+  }) => {
+    await page.goto(`/applications/orders/${NORMAL_APPLICATION_ID}`);
+    await expect(
+      page.getByRole("heading", { name: "発注内容詳細" }),
+    ).toBeVisible();
+    await expect(page.getByText("スカウト経由")).not.toBeVisible();
   });
 });
 

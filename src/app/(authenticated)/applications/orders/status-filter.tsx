@@ -9,9 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const FILTER_OPTIONS = [
+const BASE_OPTIONS = [
   { value: "all", label: "すべて" },
-  { value: "応募あり（未対応）", label: "応募あり（未対応）" },
   { value: "発注済み", label: "発注済み" },
   { value: "評価登録未入力", label: "評価登録未入力" },
   { value: "評価登録済み", label: "評価登録済み" },
@@ -19,10 +18,24 @@ const FILTER_OPTIONS = [
   { value: "取引完了", label: "取引完了" },
 ];
 
-export function StatusFilter() {
+const APPLIED_OPTION = { value: "応募あり（未対応）", label: "応募あり（未対応）" };
+
+interface StatusFilterProps {
+  basePath?: string;
+  includeApplied?: boolean;
+}
+
+export function StatusFilter({
+  basePath = "/applications/orders",
+  includeApplied = false,
+}: StatusFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const filter = searchParams.get("status") || "all";
+
+  const options = includeApplied
+    ? [BASE_OPTIONS[0], APPLIED_OPTION, ...BASE_OPTIONS.slice(1)]
+    : BASE_OPTIONS;
 
   function handleFilterChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -32,7 +45,7 @@ export function StatusFilter() {
       params.delete("status");
     }
     params.delete("page");
-    router.push(`/applications/orders?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   return (
@@ -43,7 +56,7 @@ export function StatusFilter() {
           <SelectValue placeholder="お選びください" />
         </SelectTrigger>
         <SelectContent>
-          {FILTER_OPTIONS.map((opt) => (
+          {options.map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>
               {opt.label}
             </SelectItem>

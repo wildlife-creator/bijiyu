@@ -18,6 +18,14 @@ const nextConfig: NextConfig = {
     ],
   },
   devIndicators: false,
+  // Next.js 16: Server Actions を 127.0.0.1 からも許可する。
+  // Supabase Auth の Cookie スコープ都合で app を 127.0.0.1:3000 でアクセスしているため必須。
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
+  },
 };
 
 export default nextConfig;

@@ -3,9 +3,10 @@ import { redirect, notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
+import {
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
 import { canApplyJob } from "@/lib/utils/can-apply-job";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
@@ -88,13 +89,21 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
     .eq("id", user.id)
     .single();
 
-  // Fetch job with owner info
+  // Fetch job with owner info（standard query pattern + organization.owner_user で
+  // Staff 作成案件でも社長の client_profiles に到達する / B3 対応）
   const { data: job } = await supabase
     .from("jobs")
     .select(`
       *,
-      users!jobs_owner_id_fkey(
-        company_name, last_name, first_name, deleted_at
+      owner:users!owner_id(
+        last_name, first_name, deleted_at,
+        client_profiles(display_name, image_url)
+      ),
+      organization:organizations(
+        owner_user:users!owner_id(
+          last_name, first_name, deleted_at,
+          client_profiles(display_name, image_url)
+        )
       )
     `)
     .eq("id", id)
@@ -128,25 +137,13 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
 
   const canManage = isOwner || isOrganizationMember;
 
-  const ownerUser = job.users as unknown as {
-    company_name: string | null;
-    last_name: string | null;
-    first_name: string | null;
-    deleted_at: string | null;
-  } | null;
-  // 法人プラン（active）の場合のみ組織名を使う
-  const admin = createAdminClient();
-  const ownerOrgNameMap = await getActiveCorporateOrgNames(admin, [job.owner_id]);
-  const ownerOrgName = ownerOrgNameMap.get(job.owner_id) ?? null;
-  const ownerCompanyName = ownerUser
-    ? resolveParticipantName({
-        organizationName: ownerOrgName,
-        companyName: ownerUser.company_name,
-        lastName: ownerUser.last_name,
-        firstName: ownerUser.first_name,
-        deletedAt: ownerUser.deleted_at,
-      })
-    : null;
+  const ownerResolution = resolveClientProfileForRow(job);
+  const ownerCompanyName = resolveParticipantName({
+    displayName: ownerResolution.displayName,
+    lastName: ownerResolution.lastName,
+    firstName: ownerResolution.firstName,
+    deletedAt: ownerResolution.deletedAt,
+  });
 
   // --- Owner/Organization view (CLI-002) --- only when accessed via ?manage=true from CLI-001
   if (canManage && isManageView) {
@@ -228,7 +225,9 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             className="w-40 rounded-[47px] border-secondary text-secondary"
             asChild
           >
-            <Link href={`/applications/manage?jobId=${id}`}>応募者をみる</Link>
+            <Link href={`/jobs/${id}/applicants`}>
+              応募者をみる{applicationCount ? `（${applicationCount}件）` : ""}
+            </Link>
           </Button>
           <Button
             className="w-40 rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
@@ -328,7 +327,9 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             className="w-40 rounded-[47px] border-secondary text-secondary"
             asChild
           >
-            <Link href={`/applications/manage?jobId=${id}`}>応募者をみる</Link>
+            <Link href={`/jobs/${id}/applicants`}>
+              応募者をみる{applicationCount ? `（${applicationCount}件）` : ""}
+            </Link>
           </Button>
           <Button
             className="w-40 rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"

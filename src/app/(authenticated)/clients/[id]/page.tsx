@@ -6,9 +6,7 @@ import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveParticipantName } from "@/lib/utils/display-name";
-import { getActiveCorporateOrgNames } from "@/lib/utils/resolve-org-names";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -47,10 +45,11 @@ export default async function ClientDetailPage({ params }: PageProps) {
     .from("users")
     .select(
       `
-      id, avatar_url, company_name, last_name, first_name,
+      id, avatar_url, last_name, first_name,
       deleted_at, role, prefecture,
       client_profiles(
-        display_name, recruit_job_types, recruit_area, working_way,
+        display_name, image_url, address,
+        recruit_job_types, recruit_area, working_way,
         employee_scale, message, language
       )
     `,
@@ -66,17 +65,14 @@ export default async function ClientDetailPage({ params }: PageProps) {
     ? client.client_profiles[0]
     : client.client_profiles;
 
-  // 法人プラン（active）の場合のみ organizations.name を表示
-  const admin = createAdminClient();
-  const orgNameMap = await getActiveCorporateOrgNames(admin, [id]);
-  const orgName = orgNameMap.get(id) ?? null;
   const displayName = resolveParticipantName({
-    organizationName: orgName,
-    companyName: client.company_name,
+    displayName: profile?.display_name ?? null,
     lastName: client.last_name,
     firstName: client.first_name,
     deletedAt: client.deleted_at,
   });
+  // 発注者アバターは client_profiles.image_url を優先し、未設定なら users.avatar_url
+  const avatarUrl = profile?.image_url ?? client.avatar_url;
 
   // Fetch client's open jobs with thumbnail + urgency info
   const { data: jobs } = await supabase
@@ -84,7 +80,6 @@ export default async function ClientDetailPage({ params }: PageProps) {
     .select(
       `id, title, trade_type, prefecture, reward_lower, reward_upper,
        is_urgent, recruit_end_date,
-       owner:users!jobs_owner_id_fkey(company_name),
        job_images(image_url, sort_order)`,
     )
     .eq("owner_id", id)
@@ -122,9 +117,9 @@ export default async function ClientDetailPage({ params }: PageProps) {
       {/* Profile header */}
       <div className="mt-4 flex items-center gap-4">
         <div className="w-16 h-16 shrink-0 rounded-full bg-muted overflow-hidden">
-          {client.avatar_url && !isDeleted ? (
+          {avatarUrl && !isDeleted ? (
             <img
-              src={client.avatar_url}
+              src={avatarUrl}
               alt={displayName}
               className="w-full h-full object-cover"
             />
@@ -142,11 +137,6 @@ export default async function ClientDetailPage({ params }: PageProps) {
           <h2 className="text-heading-md font-bold text-foreground truncate">
             {displayName}
           </h2>
-          {profile?.display_name && !isDeleted && (
-            <p className="text-body-sm text-muted-foreground">
-              {profile.display_name}
-            </p>
-          )}
         </div>
       </div>
 
@@ -179,6 +169,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
       {/* Detail rows */}
       <div className="mt-6">
+        <DetailRow label="住所" value={profile?.address ?? null} />
         <DetailRow label="エリア" value={client.prefecture} />
         <DetailRow
           label="募集職種"

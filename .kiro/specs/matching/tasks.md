@@ -265,8 +265,11 @@
 - [x] S-3. 各画面に「スカウト経由」バッジを表示する
   - CON-011（応募履歴一覧）: `applications/history/page.tsx:47,178-181`
   - CON-012（応募詳細）: `applications/history/[id]/page.tsx:166-169`
-  - CLI-007（応募一覧）: `applications/received/page.tsx:45,164-167`
+  - CLI-007（応募一覧・未対応）: `applications/received/page.tsx:45,164-167`
+  - CLI-007B（案件応募者一覧）: `jobs/[id]/applicants/page.tsx` — カードのステータスバッジ横にバッジ表示
   - CLI-008（応募詳細）: `applications/received/[id]/page.tsx:32,158-161`
+  - CLI-010（発注履歴一覧）: `applications/orders/page.tsx` の SELECT に `scout_message_id` を追加し、カードのステータスバッジ横にバッジ表示
+  - CLI-011（発注履歴詳細）: `applications/orders/[id]/page.tsx` の SELECT に `scout_message_id` を追加し、ヘッダー下のステータスバッジ横にバッジ表示
   - バッジスタイル: `bg-[rgba(146,7,131,0.08)] text-primary/70 text-xs rounded-full px-2 py-0.5`
   - _Requirements: 11_
 
@@ -277,14 +280,16 @@
 ## メール通知の名前表示修正
 
 - [x] NAME-1. acceptApplicationAction の clientName 修正
-  - `src/app/(authenticated)/applications/actions.ts:30` — `getApplicationWithDetails()` の SELECT に `organizations(name)` と `owner.company_name` の JOIN を追加
-  - `actions.ts:304-316` — `resolveParticipantName()` で clientName を解決（`organizations.name → owner.company_name → owner.last_name + first_name` の優先順）
+  - `src/app/(authenticated)/applications/actions.ts:30` — `getApplicationWithDetails()` の SELECT に `client_profiles(display_name)` の JOIN を追加（旧: `organizations(name)` + `owner.company_name` → 新: `client_profiles.display_name` に一本化）
+  - `actions.ts:304-316` — `resolveParticipantName()` で clientName を解決（新方式: `client_profiles.display_name → users.last_name + first_name` の 2 段階。旧 3 段階解決は廃止）
   - applicantName にも `company_name` フォールバック適用（`:304-308`）
   - ハードコード `"発注者"` は撤去済み
+  - ⚠️ **要リファクタ**: organization spec 実装時に `resolveParticipantName()` のロジック変更に合わせて、SELECT の JOIN 先を `organizations(name)` から `client_profiles(display_name)` に変更すること
   - _Requirements: 6_
 
 - [x] NAME-2. rejectApplicationAction の clientName 修正
   - `src/app/(authenticated)/applications/actions.ts:416-428` — NAME-1 と同じ名前解決パターンを適用
+  - ⚠️ **要リファクタ**: NAME-1 と同様に organization spec 実装時にリファクタ
   - _Requirements: 6_
 
 ## Requirements Coverage
@@ -294,11 +299,41 @@
 | 1 (REQ-MT-001) 応募履歴一覧 | 5.0, 5.1 |
 | 2 (REQ-MT-002) 応募詳細 + キャンセル | 1.1, 2.1, 3.1, 5.2, 8.1, 8.2, 8.3 |
 | 3 (REQ-MT-003) 受注者 完了報告・評価 | 2.1, 3.2, 5.3, 8.1, 8.3 |
-| 4 (REQ-MT-004) 応募一覧（発注者） | 1.2, 5.0, 6.1, 8.3 |
+| 4 (REQ-MT-004) 応募一覧（発注者・未対応） | 1.2, 5.0, 6.1, 8.3, SPLIT-1 |
+| 4B (REQ-MT-004B) 案件応募者一覧（CLI-007B） | SPLIT-2, SPLIT-3 |
 | 5 (REQ-MT-005) 応募詳細（発注者） | 1.2, 6.2 |
 | 6 (REQ-MT-006) 発注可否 | 1.1, 1.2, 2.1, 2.2, 4.1, 4.2, 6.3, 8.1, 8.2, 8.3 |
-| 7 (REQ-MT-007) 発注履歴一覧 | 1.2, 5.0, 7.1, 8.3 |
+| 7 (REQ-MT-007) 発注履歴一覧（決定以降） | 1.2, 5.0, 7.1, 8.3, SPLIT-1 |
 | 8 (REQ-MT-008) 発注履歴詳細 | 1.2, 7.2 |
 | 9 (REQ-MT-009) 発注者 完了報告・評価 | 1.2, 2.1, 4.3, 7.3, 8.1, 8.3 |
 | 10 (REQ-MT-010) 発注者評価表示 | 7.4 |
 | 11 (REQ-MT-011) スカウト経由応募の連携 | S-1, S-2, S-3, S-4 |
+
+## CLI-007 / CLI-010 役割分離と CLI-007B 新規追加（2026-04-23）
+
+- [x] SPLIT-1. CLI-007 と CLI-010 のステータス範囲を分離する
+  - CLI-007: WHERE 句に `.eq("status", "applied")` を追加（`src/app/(authenticated)/applications/received/page.tsx`）。空メッセージを「未対応の応募はありません」に
+  - CLI-010: デフォルト WHERE から `applied` を除外（`src/app/(authenticated)/applications/orders/page.tsx`）。StatusFilter から「応募あり（未対応）」選択肢を削除
+  - StatusFilter / SortButton を `basePath` / `includeApplied` props 対応の共有コンポーネントに変更
+  - _Requirements: 4, 7_
+
+- [x] SPLIT-2. 新画面 CLI-007B（案件応募者一覧）を実装する
+  - `src/app/(authenticated)/jobs/[id]/applicants/page.tsx` を新規作成
+  - 権限チェック: Owner または組織メンバーのみ。それ以外は `notFound()`
+  - WHERE: `applications.job_id = :id`（全ステータス）
+  - 案件情報は上部バナーに1回だけ表示、カード内では重複させない
+  - アクションボタンは applied / それ以外でラベルと遷移先を出し分け
+  - StatusFilter は `includeApplied={true}` variant で使用
+  - `<BackButton href="/jobs/[id]?manage=true" />` で CLI-002 に戻る
+  - _Requirements: 4B_
+
+- [x] SPLIT-3. CLI-002 からの導線を CLI-007B に接続する
+  - `src/app/(authenticated)/jobs/[id]/page.tsx`: 壊れリンク `/applications/manage?jobId=xxx` を `/jobs/[id]/applicants` に差し替え（2 箇所）
+  - ボタンラベルに応募件数（`applicationCount`）を表示
+  - _Requirements: 4B_
+
+- [x] SPLIT-4. E2E テストと seed 更新
+  - `supabase/seed.sql`: accepted 状態のスカウト応募 `dddddddd-dddd-dddd-dddd-dddddddddd02` を追加（CLI-010 で applied を除外したためバッジ表示テストに必要）
+  - `e2e/matching.spec.ts`: 「CLI-007/CLI-010 の役割分離」と「CLI-007B」describe ブロックを新規追加
+  - `e2e/scout-application.spec.ts`: CLI-010 のスカウトバッジテストを accepted 応募で検証するよう更新
+  - _Requirements: 4, 4B, 7, 11_

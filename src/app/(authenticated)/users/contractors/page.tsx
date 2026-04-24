@@ -34,7 +34,10 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
   const prefecture = (sp.prefecture as string) ?? "";
   const tradeType = (sp.tradeType as string) ?? "";
 
-  // Build query - fetch users with role='contractor'
+  // Build query — 受注者として活動しうるユーザー（role IN ('contractor','client')）を対象とする。
+  // staff（法人 admin/staff）は受注者アクション不可なので除外。自分自身も除外。
+  // 設計理由: ビジ友は「1 アカウントで受注・発注両方 OK」設計。client は元 contractor または個人発注者・小規模・法人 Owner で、
+  // 正規ルート（/register/profile）を経た全ユーザーは user_skills/available_areas を必ず持つ（registerProfileSchema が min(1) で必須化）。
   let query = supabase
     .from("users")
     .select(
@@ -46,7 +49,8 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
     `,
       { count: "exact" },
     )
-    .eq("role", "contractor")
+    .in("role", ["contractor", "client"])
+    .neq("id", user.id)
     .is("deleted_at", null);
 
   // Apply keyword filter

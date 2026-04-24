@@ -9,7 +9,7 @@
   - 補償オプションは `subscriptions` テーブルの UNIQUE 制約と衝突するため `option_subscriptions` テーブルに分離する
   - past_due の自動解約はメール送信を伴うため pg_cron + Edge Function、その他のオプション期限切れは pg_cron 直接 SQL で実装する
   - fee=free（初回事務手数料免除）は iron-session の暗号化 Cookie をミドルウェアでセットして判定する
-  - 法人プラン購入後は CLI-021 にリダイレクトし企業名入力を強制（`organizations.name` がメッセージ画面の表示名に直結するため）
+  - プラン購入後（全プラン共通）は CLI-021?setup=true にリダイレクトして発注者情報入力を促す。法人プランは社名必須、個人・小規模プランはスキップ可（受注者機能のみ利用するユーザーへの配慮 + `client_profiles.display_name` がメッセージ画面の表示名に直結するため課金直後に設定導線を持つ）。`organizations.name` カラムは organization spec で廃止済み（Phase 1 Task 2.1 で NOT NULL 解除、Phase 3 Task 19 で DROP COLUMN 予定）
 
 ## Research Log
 
@@ -205,7 +205,7 @@
 - **Webhook イベント順序の逆転**（`subscription.updated` が `checkout.session.completed` より先に届く）→ subscription レコードが見つからない場合は 200 を返してスキップ。後続イベントで正規化される
 - **Webhook 重複処理**（Stripe のリトライ、同時並行）→ `stripe_webhook_events` の UNIQUE 制約 + 同時並行時は 200 スキップ
 - **Stripe API 障害時の Checkout Session 作成失敗** → Server Action がエラーを返し、ユーザーにトースト表示。リトライはユーザー側操作に委任
-- **法人プラン購入後に企業名未入力で離脱** → success_url を CLI-021（`?setup=true`）に直接リダイレクトし、CLI-021 で必須バリデーション
+- **プラン購入後に発注者情報未入力で離脱** → success_url を**全プランで** CLI-021（`?setup=true`）に統一。法人プランは必須バリデーション、個人・小規模プランはスキップ可（Webhook が `client_profiles.display_name` にデフォルト格納した `users.last_name + first_name` がそのまま表示名として使われる）
 - **pg_cron ジョブの実行失敗** → `cron.job_run_details` で失敗ログ確認可能。Phase 2 で Slack 通知を追加
 - **iron-session の SESSION_SECRET 漏洩** → 環境変数管理。コードへのハードコード禁止。漏洩時はキー再生成 + 全 Cookie 無効化
 - **二重課金**（Server Action と Webhook の競合）→ Server Action 側でアクティブサブスク存在チェック + Webhook 側でも UPSERT 防御の二重チェック

@@ -160,6 +160,12 @@
 
 - 発注者が職人を検索・一覧表示する
 - 表示項目: アイコン、氏名、年齢、職種、エリア、経験年数、本人確認バッジ、CCUSバッジ
+- 表示対象（必須条件、AND）:
+  - `users.role IN ('contractor', 'client')` — 「受注者として活動しうるユーザー」。法人 admin/staff（`role = 'staff'`）と運営管理者（`role = 'admin'`）は除外
+  - `users.deleted_at IS NULL`
+  - `users.id != 自分自身`
+- 設計理由: ビジ友は「1 アカウントで受注・発注の両方が可能」設計のため、個人発注者・小規模事業主・法人 Owner（`role = 'client'`）も受注者として検索対象に含める。法人の admin/staff は契約主体ではなく代理アカウントなので除外
+- 補足: `user_skills` の存在チェックは行わない。正規ルート（`/register/profile`）の `registerProfileSchema` で skills.min(1) が必須化されているため、自分で会員登録した全ユーザーは必ず skills を持つ（DB レベルでの追加防御は不要）
 - 検索・フィルター:
   - キーワード検索（氏名）
   - 職種フィルター（OptionSets）
@@ -172,6 +178,9 @@
 ### REQ-JS-008: ユーザー詳細 / 職人詳細（CLI-006）— 発注者専用
 
 - 職人のプロフィール詳細を表示する
+- アクセス制御（REQ-JS-007 と同条件、URL 直打ち防止）:
+  - `id == 自分自身` の場合は `notFound()`（自分の詳細ページは無意味、`/profile` に行くべき）
+  - 対象ユーザーの `role` が `'contractor'` または `'client'` 以外（staff/admin）の場合は `notFound()`
 - 表示項目:
   - アイコン、氏名、年齢
   - バッジ: 本人確認済み、CCUS登録済み

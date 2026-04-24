@@ -43,10 +43,11 @@ graph TB
     end
 
     subgraph ClientPages
-        CLI007[CLI-007 応募一覧]
+        CLI007[CLI-007 応募一覧・未対応]
+        CLI007B[CLI-007B 案件応募者一覧・全ステータス]
         CLI008[CLI-008 応募詳細]
         CLI009[CLI-009 発注可否]
-        CLI010[CLI-010 発注履歴一覧]
+        CLI010[CLI-010 発注履歴一覧・決定以降]
         CLI011[CLI-011 発注履歴詳細]
         CLI012[CLI-012 完了報告 評価]
         CLI028[CLI-028 発注者評価]
@@ -73,6 +74,7 @@ graph TB
     CON012 --> CancelAction
     CON013 --> ContractorReportAction
     CLI007 --> Applications
+    CLI007B --> Applications
     CLI008 --> Applications
     CLI009 --> DecideAction
     CLI010 --> Applications
@@ -91,7 +93,8 @@ graph TB
 
 **Architecture Integration**:
 - Selected pattern: Next.js App Router Server Components + Server Actions（既存パターン踏襲）
-- Domain boundaries: 受注者系（/applications/history/）と発注者系（/applications/received/, /applications/orders/）をサブパスで分離
+- Domain boundaries: 受注者系（/applications/history/）と発注者系（/applications/received/, /applications/orders/）をサブパスで分離。**案件スコープの応募者一覧（CLI-007B）は `/jobs/[id]/applicants/` に配置**（CLI-002 からの導線で、案件単位で全ステータスを俯瞰するため）
+- 発注者系の役割分離: **CLI-007（/applications/received/）= status='applied' のみ**、**CLI-010（/applications/orders/）= status≠'applied'**、**CLI-007B（/jobs/[id]/applicants/）= 全ステータス（案件スコープ）**
 - Existing patterns preserved: ActionResult<T>、Zod バリデーション、Supabase Server Client
 - New components rationale: 各画面は独立した RSC ページ。Server Actions は操作種別ごとに分離
 - Steering compliance: 三重防御（Middleware + Server Action + RLS）、メール送信失敗時の非ロールバック方針を遵守
@@ -217,10 +220,11 @@ sequenceDiagram
 | 1 (REQ-MT-001) | 応募履歴一覧 | ApplicationHistoryPage | — | — |
 | 2 (REQ-MT-002) | 応募詳細 + キャンセル | ApplicationDetailPage, cancelApplicationAction | Service | ステータスライフサイクル |
 | 3 (REQ-MT-003) | 受注者 完了報告・評価 | ContractorReportPage, submitContractorReportAction | Service | 完了報告フロー |
-| 4 (REQ-MT-004) | 応募一覧（発注者） | ReceivedApplicationsPage | — | — |
+| 4 (REQ-MT-004) | 応募一覧（発注者・未対応） | ReceivedApplicationsPage | — | — |
+| 4B (REQ-MT-004B) | 案件応募者一覧（案件スコープ・全ステータス） | JobApplicantsPage | — | — |
 | 5 (REQ-MT-005) | 応募詳細（発注者） | ReceivedApplicationDetailPage | — | — |
 | 6 (REQ-MT-006) | 発注可否 | DecisionPage, acceptApplicationAction, rejectApplicationAction | Service | 発注可否フロー |
-| 7 (REQ-MT-007) | 発注履歴一覧 | OrderHistoryPage | — | — |
+| 7 (REQ-MT-007) | 発注履歴一覧（発注可否決定以降） | OrderHistoryPage | — | — |
 | 8 (REQ-MT-008) | 発注履歴詳細 | OrderDetailPage | — | — |
 | 9 (REQ-MT-009) | 発注者 完了報告・評価 | ClientReportPage, submitClientReportAction | Service | 完了報告フロー |
 | 10 (REQ-MT-010) | 発注者評価表示 | ClientReviewsPage | — | — |
@@ -232,10 +236,11 @@ sequenceDiagram
 | ApplicationHistoryPage | UI/受注者 | 応募履歴一覧表示 | 1 | Supabase (P0) | — |
 | ApplicationDetailPage | UI/受注者 | 応募詳細 + キャンセル | 2 | cancelApplicationAction (P0) | — |
 | ContractorReportPage | UI/受注者 | 完了報告 + 発注者評価 | 3 | submitContractorReportAction (P0) | — |
-| ReceivedApplicationsPage | UI/発注者 | 応募一覧表示 | 4 | Supabase (P0) | — |
+| ReceivedApplicationsPage | UI/発注者 | 応募一覧表示（status='applied' のみ・未対応インボックス） | 4 | Supabase (P0) | — |
+| JobApplicantsPage | UI/発注者 | 案件スコープの全ステータス応募者一覧（CLI-007B, /jobs/[id]/applicants） | 4B | Supabase (P0), StatusFilter/SortButton 共有 | — |
 | ReceivedApplicationDetailPage | UI/発注者 | 応募詳細 + 評価履歴 | 5 | Supabase (P0) | — |
 | DecisionPage | UI/発注者 | 発注/お断り画面 | 6 | accept/rejectApplicationAction (P0) | — |
-| OrderHistoryPage | UI/発注者 | 発注履歴一覧 | 7 | Supabase (P0) | — |
+| OrderHistoryPage | UI/発注者 | 発注履歴一覧（status≠'applied'・決定以降） | 7 | Supabase (P0) | — |
 | OrderDetailPage | UI/発注者 | 発注履歴詳細 | 8 | Supabase (P0) | — |
 | ClientReportPage | UI/発注者 | 完了報告 + 受注者評価 | 9 | submitClientReportAction (P0) | — |
 | ContractorReviewsPage | UI/共通 | 受注者への評価（6項目）集計表示 | 10 | Supabase (P0) | — |
@@ -342,20 +347,21 @@ sequenceDiagram
 
 ### UI Layer — 発注者系
 
-#### ReceivedApplicationsPage (CLI-007)
+#### ReceivedApplicationsPage (CLI-007) — 未対応インボックス
 
 | Field | Detail |
 |-------|--------|
-| Intent | 自社案件への応募者一覧を表示する |
+| Intent | 自社案件への **未対応応募（status='applied'）のみ** を表示する未対応インボックス |
 | Requirements | 4 |
 
 **Responsibilities & Constraints**
 - Server Component。案件ごとのフィルタリング可能
-- applications テーブルから自社案件（`jobs.owner_id = current_user` or 同一組織）への応募を取得
+- WHERE 句: `jobs.owner_id = current_user AND applications.status = 'applied'`（唯一の条件）。発注可否が決まった応募は CLI-010 側の役割なのでここには出ない
 - users リレーション JOIN で応募者情報を取得。user_skills, user_available_areas も JOIN して対応可能エリア・経験年数を表示
-- ステータスバッジをカード左上に配置
+- ステータスバッジは常に「応募あり」（applied 固定）
 - カードリスト: `max-w-6xl mx-auto` で中央寄せ。レスポンシブグリッド（`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4`）
 - ソート: searchParams `sort=asc|desc` で created_at の昇順/降順トグル。`icon-sort.png` アイコンをクリックでトグル
+- 空メッセージ: 「未対応の応募はありません」
 - ページネーション: 20件
 
 **Implementation Notes**
@@ -367,6 +373,35 @@ sequenceDiagram
 - Middleware: 発注者（client）・担当者（staff）のみアクセス可能
 - 各カードの「応募詳細をみる」ボタンで `/applications/received/[id]` に遷移
 - アイコン使い分け: 対応可能エリア=`icon-globe.png`、経験年数=`icon-briefcase.png`
+- 案件単位で全ステータスを俯瞰したい場合は CLI-007B（JobApplicantsPage）を使う
+
+#### JobApplicantsPage (CLI-007B) — 案件スコープの全ステータス表示
+
+| Field | Detail |
+|-------|--------|
+| Intent | 指定案件に紐づく **全ステータスの応募者** を俯瞰する案件スコープ画面。CLI-002 の「応募者をみる」からの導線 |
+| Requirements | 4B |
+
+**Responsibilities & Constraints**
+- Server Component。URL: `/jobs/[id]/applicants`
+- WHERE 句: `applications.job_id = :id`（案件単位、status 制限なし = 全ステータス）
+- 認可: 対象案件の owner_id、または案件の organization の組織メンバーのみ閲覧可。それ以外は `notFound()`
+- 案件情報を上部バナーに **1 回だけ**表示。カード内では案件情報を重複表示しない
+- ステータスフィルタ: StatusFilter 共有コンポーネント（`includeApplied={true}` variant）。「応募あり（未対応）」を含む全カテゴリ選択可
+- アクションボタン: ステータスで出し分け
+  - `status === 'applied'` → 「応募詳細をみる」→ `/applications/received/[id]`（CLI-008）
+  - それ以外 → 「発注内容詳細をみる」→ `/applications/orders/[id]`（CLI-011）
+- 「ユーザー詳細をみる」ボタンは CLI-010 と同じ
+- スカウト経由バッジ: `scout_message_id IS NOT NULL` のとき表示
+- デフォルトソート: updated_at DESC
+- ページネーション: 20件
+
+**Implementation Notes**
+- ファイル: `src/app/(authenticated)/jobs/[id]/applicants/page.tsx`
+- デザインカンプ: 無し（CLI-010 の UI を流用）
+- 「戻る」ボタン: `<BackButton href="/jobs/[id]?manage=true" />` で CLI-002 に戻る
+- 権限チェックは CLI-002 管理ビューと同じパターン（isOwner || isOrganizationMember）
+- StatusFilter / SortButton は CLI-010 と共有（`basePath`, `includeApplied` props でバリアント化）
 
 #### ReceivedApplicationDetailPage (CLI-008)
 
@@ -422,29 +457,30 @@ sequenceDiagram
   - rejection_reason は受注者には非公開
 - 送信成功後: AlertDialog「ユーザーへ結果を送信しました」→ OK → `/applications/received` へ遷移
 
-#### OrderHistoryPage (CLI-010)
+#### OrderHistoryPage (CLI-010) — 発注可否決定以降の管理ダッシュボード
 
 | Field | Detail |
 |-------|--------|
-| Intent | 発注済み案件の一覧を表示する |
+| Intent | 発注可否決定以降（status ≠ 'applied'）の応募一覧を表示する。未対応応募は CLI-007 側 |
 | Requirements | 7 |
 
 **Responsibilities & Constraints**
-- applications から `status IN ('accepted', 'completed', 'lost', 'cancelled', 'rejected')` のレコードを取得
+- applications から `status IN ('accepted', 'completed', 'lost', 'cancelled', 'rejected')` のレコードを取得。**`applied` は含めない**（CLI-007 側の役割）
 - 自社案件（jobs.owner_id = current_user）に限定
-- ステータスフィルター: プルダウン変更時に即座にフィルタリング（検索ボタンなし、CON-011 と同じ方式）
-  - すべて / 応募あり（未対応） / 発注済み / 評価登録未入力 / 評価登録済み / キャンセル・お断り / 取引完了
-  - 「応募あり（未対応）」= applied、「発注済み」= accepted + 両方なし、「評価登録未入力」= accepted + client_reviews あり + user_reviews なし、「評価登録済み」= accepted + user_reviews あり + client_reviews なし
+- ステータスフィルター: プルダウン変更時に即座にフィルタリング（検索ボタンなし、CON-011 と同じ方式）。StatusFilter 共有コンポーネント（`includeApplied={false}` variant）
+  - すべて / 発注済み / 評価登録未入力 / 評価登録済み / キャンセル・お断り / 取引完了
+  - 「応募あり（未対応）」は CLI-010 では選択肢から**除外**（CLI-007 側の役割）
+  - 「発注済み」= accepted + 両方なし、「評価登録未入力」= accepted + client_reviews あり + user_reviews なし、「評価登録済み」= accepted + user_reviews あり + client_reviews なし
 - フィルター状態: URL searchParams（`status`, `sort`, `page`）を Single Source of Truth とする
 - 並び替え: `icon-sort.png` クリックで updated_at DESC ↔ ASC トグル
 - カード表示項目:
-  - ステータスバッジ（応募あり（未対応）=赤、発注済み=紫、評価登録未入力=黄、評価登録済み=オレンジ、キャンセル・お断り=グレー、取引完了=緑）
+  - ステータスバッジ（発注済み=紫、評価登録未入力=黄、評価登録済み=オレンジ、キャンセル・お断り=グレー、取引完了=緑）
   - 受注者情報: アバター、氏名（年齢）、職種タグ、本人確認/CCUSバッジ、対応可能エリア、経験年数
   - 「このユーザーは以下の案件に応募済みです」テキスト
   - 内側カード: 案件タイトル、募集職種・人数、締め切り
   - アクションボタン: 「ユーザー詳細をみる」（outline）/ 「発注内容詳細をみる」（primary → CLI-011）
 - ページネーション: 20件
-- クライアントコンポーネント: `status-filter.tsx`、`sort-button.tsx`
+- クライアントコンポーネント: `status-filter.tsx`（`basePath`, `includeApplied` props を持つ共有）、`sort-button.tsx`（`basePath` props を持つ共有）
 
 **Implementation Notes**
 - ファイル: `src/app/(authenticated)/applications/orders/page.tsx`
@@ -581,7 +617,7 @@ async function acceptApplicationAction(
 - Zod バリデーション: firstWorkDate は有効な日付であること
 - メール送信失敗は catch してログ記録。本体処理はロールバックしない
 - メールテンプレート: `src/lib/email/templates/application-accepted.tsx`
-- **clientName の名前解決**: ハードコード `"発注者"` ではなく、messaging spec「名前表示ルール」に従う。案件の organization_id で organizations テーブルを参照し、法人: `organizations.name`、個人: 案件オーナーの `users.company_name → users.last_name + first_name`
+- **clientName の名前解決**: ハードコード `"発注者"` ではなく、`resolveParticipantName()` で動的に解決。全プラン共通: 案件オーナーの `client_profiles.display_name`（CLI-021 で入力した社名・氏名）→ `users.last_name + first_name`（フォールバック）。法人プランの Staff が操作した場合は Owner の `client_profiles.display_name` を使用
 - **applicantName の名前解決**: `users.company_name → users.last_name + first_name`
 
 #### rejectApplicationAction
@@ -805,13 +841,18 @@ CREATE POLICY "job_owners_can_decide_applications"
 
 ### E2E Tests（Playwright）
 - 受注者: 応募履歴一覧 → 詳細 → キャンセル
-- 発注者: 応募一覧 → 詳細 → 発注 → 発注履歴確認
-- 発注者: 応募一覧 → 詳細 → お断り
+- 発注者: 応募一覧（CLI-007・applied のみ）→ 詳細 → 発注 → 発注履歴（CLI-010）に表示を確認
+- 発注者: 応募一覧（CLI-007）→ 詳細 → お断り
 - 発注者: 発注履歴詳細 → 完了報告 + 評価登録
+- 発注者: CLI-007/CLI-010 の役割分離（CLI-010 のフィルタに「応募あり（未対応）」が無い、CLI-007 の空メッセージ表記）
+- 発注者: CLI-002（募集現場詳細）→「応募者をみる」→ CLI-007B（案件応募者一覧・全ステータス）の導線
+- CLI-007B の権限チェック（他社ユーザーは 404）
+- CLI-007B のステータスフィルタに「応募あり（未対応）」が含まれる
 
 ## Security Considerations
 
 - **Middleware**: 受注者系画面（/applications/history/）は受注者（contractor）・発注者（client）のみアクセス可。担当者（staff）はブロック（staffは応募できないのでデータなし）。発注者系画面（/applications/received/, /applications/orders/）は発注者（client）・担当者（staff）のみ。**実装時に src/middleware.ts で "/applications/history" を staff ブロック対象に、"/applications/received", "/applications/orders" を CLIENT_ONLY_PREFIXES に追加すること。**
+- **CLI-007B（/jobs/[id]/applicants）**: Middleware ではブロックしない（`/jobs/[id]` は CON-003 として全ロール閲覧可のため）。権限制御は **ページ内で `notFound()`** により実施（isOwner || isOrganizationMember でない場合は 404）。`notFound()` に到達する前に RLS も二重防御として働く
 - **Server Action**: 全アクションで認証チェック + 所有権チェック（applicant_id or job.owner_id）を実施
 - **RLS**: 既存ポリシー + 受注者キャンセル用 UPDATE ポリシー + 発注者 accept/reject 用 UPDATE ポリシーの追加
 - **admin client 使用箇所**: 完了報告 + 評価の原子的実行のみ。通常の CRUD は通常クライアントを使用
@@ -829,17 +870,22 @@ src/app/(authenticated)/applications/
 │       └── report/
 │           └── page.tsx                    # CON-013 完了報告・評価
 ├── received/
-│   ├── page.tsx                            # CLI-007 応募一覧
+│   ├── page.tsx                            # CLI-007 応募一覧（status='applied' のみ）
 │   └── [id]/
 │       ├── page.tsx                        # CLI-008 応募詳細
 │       └── decide/
 │           └── page.tsx                    # CLI-009 発注可否
 └── orders/
-    ├── page.tsx                            # CLI-010 発注履歴一覧
+    ├── page.tsx                            # CLI-010 発注履歴一覧（status≠'applied'）
+    ├── status-filter.tsx                   # 共有コンポーネント（basePath/includeApplied props）
+    ├── sort-button.tsx                     # 共有コンポーネント（basePath props）
     └── [id]/
         ├── page.tsx                        # CLI-011 発注履歴詳細
         └── report/
             └── page.tsx                    # CLI-012 完了報告・評価
+
+src/app/(authenticated)/jobs/[id]/applicants/
+└── page.tsx                                # CLI-007B 案件応募者一覧（案件スコープ・全ステータス）
 
 src/app/(authenticated)/users/[id]/reviews/
 └── page.tsx                                # CLI-028 発注者評価
@@ -896,8 +942,8 @@ scoutMessageId: z.string().uuid().optional(),
 - `page.tsx`: searchParams から `scout_message_id` を取得し、ApplicationForm に props として渡す
 - `application-form.tsx`: `scoutMessageId` prop を受け取り、FormData に含める。スカウト経由の場合は「スカウト経由の応募です」テキストを表示
 
-**バッジ表示（4画面共通）**:
+**バッジ表示（6画面共通）**:
 - SELECT クエリに `scout_message_id` を含める
 - `scout_message_id IS NOT NULL` の応募に「スカウト経由」バッジを表示
 - バッジスタイル: `bg-[rgba(146,7,131,0.08)] text-primary/70 text-xs rounded-full px-2 py-0.5`
-- 対象画面: CON-011, CON-012, CLI-007, CLI-008
+- 対象画面: CON-011, CON-012, CLI-007, CLI-007B, CLI-008, CLI-010, CLI-011（発注確定後の CLI-010/011 でも受発注双方のライフサイクル全体でスカウト由来であることが識別できるようにする）

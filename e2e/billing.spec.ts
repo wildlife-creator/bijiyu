@@ -23,11 +23,6 @@ const TEST_DOWNGRADE_RESERVED = {
   password: "testpass123",
 };
 
-const TEST_CORP_NONAME = {
-  email: "corp-noname@test.local",
-  password: "testpass123",
-};
-
 // ===========================================================================
 // 15.1: CLI-026 表示パターン
 // ===========================================================================
@@ -188,41 +183,6 @@ test.describe("CLI-026: checkout=success トースト", () => {
   });
 });
 
-// ===========================================================================
-// 15.5: 組織名入力暫定画面
-// ===========================================================================
-
-test.describe("組織名入力暫定画面 (/mypage/organization-setup)", () => {
-  test("組織名未入力ユーザーにフォームが表示される", async ({ page }) => {
-    await login(page, TEST_CORP_NONAME.email, TEST_CORP_NONAME.password);
-    await page.goto("/mypage/organization-setup");
-    await expect(
-      page.getByRole("heading", { name: "組織名を入力してください" }),
-    ).toBeVisible();
-    await expect(page.getByLabel("組織名")).toBeVisible();
-  });
-
-  test("既に組織名入力済みのユーザーは /mypage にリダイレクトされる", async ({
-    page,
-  }) => {
-    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
-    await page.goto("/mypage/organization-setup");
-    await page.waitForURL(/\/mypage(?!\/)/, { timeout: 5000 });
-  });
-
-  test("staff は /mypage にリダイレクトされる", async ({ page }) => {
-    await login(page, TEST_STAFF.email, TEST_STAFF.password);
-    await page.goto("/mypage/organization-setup");
-    await page.waitForURL(/\/mypage(?!\/)/, { timeout: 5000 });
-  });
-
-  test("contractor は /mypage にリダイレクトされる", async ({ page }) => {
-    await login(
-      page,
-      TEST_CONTRACTOR.email,
-      TEST_CONTRACTOR.password,
-    );
-    await page.goto("/mypage/organization-setup");
-    await page.waitForURL(/\/mypage(?!\/)/, { timeout: 5000 });
-  });
-});
+// 旧「組織名入力暫定画面 (/mypage/organization-setup)」の describe は
+// organization spec Task 6.1 で削除された。CLI-021（/mypage/client-profile/edit?setup=true）
+// の E2E は Task 17.2 で追加予定。
