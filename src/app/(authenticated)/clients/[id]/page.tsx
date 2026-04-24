@@ -71,6 +71,8 @@ export default async function ClientDetailPage({ params }: PageProps) {
     firstName: client.first_name,
     deletedAt: client.deleted_at,
   });
+  // 発注者アバターは client_profiles.image_url を優先し、未設定なら users.avatar_url
+  const avatarUrl = profile?.image_url ?? client.avatar_url;
 
   // Fetch client's open jobs with thumbnail + urgency info
   const { data: jobs } = await supabase
@@ -115,9 +117,9 @@ export default async function ClientDetailPage({ params }: PageProps) {
       {/* Profile header */}
       <div className="mt-4 flex items-center gap-4">
         <div className="w-16 h-16 shrink-0 rounded-full bg-muted overflow-hidden">
-          {client.avatar_url && !isDeleted ? (
+          {avatarUrl && !isDeleted ? (
             <img
-              src={client.avatar_url}
+              src={avatarUrl}
               alt={displayName}
               className="w-full h-full object-cover"
             />

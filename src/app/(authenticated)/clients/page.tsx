@@ -43,7 +43,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     .select(
       `
       id, avatar_url, last_name, first_name, deleted_at, prefecture,
-      ${profileJoin}(display_name, recruit_job_types, recruit_area, working_way)
+      ${profileJoin}(display_name, image_url, recruit_job_types, recruit_area, working_way)
     `,
       { count: "exact" },
     )
@@ -148,6 +148,8 @@ export default async function ClientListPage({ searchParams }: PageProps) {
               firstName: client.first_name,
               deletedAt: client.deleted_at,
             });
+            // 発注者アバターは client_profiles.image_url を優先し、未設定なら users.avatar_url
+            const avatarUrl = profile?.image_url ?? client.avatar_url;
 
             return (
               <Card key={client.id} className="overflow-hidden rounded-[8px]">
@@ -155,9 +157,9 @@ export default async function ClientListPage({ searchParams }: PageProps) {
                   {/* Avatar + Name + Address */}
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 shrink-0 rounded-full bg-muted overflow-hidden">
-                      {client.avatar_url ? (
+                      {avatarUrl ? (
                         <img
-                          src={client.avatar_url}
+                          src={avatarUrl}
                           alt={displayName}
                           className="w-full h-full object-cover"
                         />

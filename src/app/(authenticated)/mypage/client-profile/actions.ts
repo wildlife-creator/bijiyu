@@ -79,6 +79,20 @@ export async function saveClientProfileAction(
     return { success: false, error: "認証が必要です" };
   }
 
+  // 担当者（org_role='staff'）は発注者情報を編集できない（REQ-ORG-002: 閲覧のみ）。
+  // Admin（org_role='admin'）は編集可。Middleware でも同じガードがあるが Server Action の二重防御。
+  const { data: orgMember } = await supabase
+    .from("organization_members")
+    .select("org_role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (orgMember?.org_role === "staff") {
+    return {
+      success: false,
+      error: "担当者は発注者情報を編集できません",
+    };
+  }
+
   const profileUserId = await resolveProfileUserId(supabase, user.id);
   const planType = await getPlanType(supabase, profileUserId);
 
@@ -173,6 +187,20 @@ export async function uploadClientProfileImageAction(
     return { success: false, error: "認証が必要です" };
   }
 
+  // 担当者（org_role='staff'）は画像アップロード不可（REQ-ORG-002: 閲覧のみ）。
+  // Admin（org_role='admin'）は編集可。
+  const { data: orgMember } = await supabase
+    .from("organization_members")
+    .select("org_role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (orgMember?.org_role === "staff") {
+    return {
+      success: false,
+      error: "担当者は発注者情報を編集できません",
+    };
+  }
+
   const file = formData.get("image");
   if (!(file instanceof File) || file.size === 0) {
     return { success: false, error: "画像ファイルを選択してください" };
@@ -212,5 +240,8 @@ export async function uploadClientProfileImageAction(
     data: { publicUrl },
   } = admin.storage.from("avatars").getPublicUrl(storagePath);
 
-  return { success: true, data: { imageUrl: publicUrl } };
+  // Storage パスが `{uid}/client-profile.{ext}` で固定されるため、同一 URL が返り
+  // ブラウザキャッシュで古い画像が表示されたままになる。cache buster を付与して
+  // React state と DOM の画像を確実に差し替える。
+  return { success: true, data: { imageUrl: `${publicUrl}?t=${Date.now()}` } };
 }
