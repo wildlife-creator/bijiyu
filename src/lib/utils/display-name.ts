@@ -62,10 +62,10 @@ export function getUserDisplayName(
  *
  * 優先順位:
  *   1. `displayName`（= `client_profiles.display_name`）
- *   2. `${lastName}${firstName}`（スペース無し結合）
- *   3. "未設定"
- *
- * 退会済み（`deletedAt` 非 NULL）は最優先で "退会済みユーザー" を返す。
+ *      → C 案退会で users.deleted_at がセットされていても、保持された社名を表示
+ *   2. 退会済み（`deletedAt` 非 NULL）→ "退会済みユーザー"
+ *   3. `${lastName}${firstName}`（スペース無し結合）
+ *   4. "未設定"
  *
  * 旧シグネチャ（`organizationName` / `companyName`）は廃止。
  * 受注者の屋号表示は `getUserDisplayName(user, 'prefer-company')` を使用する。
@@ -76,13 +76,13 @@ export function resolveParticipantName(participant: {
   firstName?: string | null;
   deletedAt?: string | null;
 }): string {
-  if (participant.deletedAt) {
-    return "退会済みユーザー";
-  }
-
   const displayName = participant.displayName?.trim() ?? "";
   if (displayName) {
     return displayName;
+  }
+
+  if (participant.deletedAt) {
+    return "退会済みユーザー";
   }
 
   const last = participant.lastName?.trim() ?? "";

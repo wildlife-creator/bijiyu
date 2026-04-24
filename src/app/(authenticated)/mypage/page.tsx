@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import {
@@ -47,22 +48,27 @@ const MANAGE_ORDERS_MENU: MenuItem[] = [
   { label: "募集現場一覧", href: "/jobs/manage" },
 ];
 
-// Section 5: Update info - base (all users)
-const UPDATE_INFO_MENU: MenuItem[] = [
+// Section 5: Update info - base items shown to everyone
+// 注: Staff 固有のフィルタリング・ユーザープロフィール変更の遷移先差し替えは
+// コンポーネント内部で組み立てる（REQ-ORG-011 参照）
+const UPDATE_INFO_BASE_MENU: MenuItem[] = [
   { label: "プラン変更", href: "/billing" },
-  { label: "本人確認・CCUS登録", href: "/profile/verification" },
-  { label: "ユーザープロフィール変更", href: "/profile" },
 ];
+
+const UPDATE_INFO_VERIFICATION_MENU: MenuItem = {
+  label: "本人確認・CCUS登録",
+  href: "/profile/verification",
+};
 
 // Section 5: Update info - client additions
 const UPDATE_INFO_CLIENT_MENU: MenuItem[] = [
-  { label: "スカウトメッセージテンプレート一覧", href: "/scouts/templates" },
-  { label: "発注者情報詳細", href: "/clients/profile" },
+  { label: "スカウトメッセージテンプレート一覧", href: "/messages/templates" },
+  { label: "発注者情報詳細", href: "/mypage/client-profile" },
 ];
 
 const CORPORATE_ONLY_MENU: MenuItem = {
   label: "担当者一覧",
-  href: "/organization/members",
+  href: "/mypage/members",
 };
 
 // FAQ & Contact (at the end of update info section)
@@ -210,13 +216,59 @@ export default async function MyPage() {
     .eq("status", "accepted")
     .order("updated_at", { ascending: false });
 
-  // Fetch subscription status for client menu visibility
-  const { data: subscription } = await supabase
-    .from("subscriptions")
-    .select("status, plan_type")
-    .eq("user_id", user.id)
-    .in("status", ["active", "past_due"])
-    .maybeSingle();
+  // Fetch subscription status for client/staff menu visibility.
+  // client: own subscription. staff: the owner of their organization owns the
+  // subscription, so resolve it via admin client (staff cannot read other
+  // users' subscriptions under RLS).
+  // Also fetch client_profiles.image_url (company logo) for staff to use as
+  // their mypage avatar — staff has no personal avatar by design
+  // (REQ-ORG-011 / spec L291 参照)
+  let subscription: { status: string; plan_type: string } | null = null;
+  let staffOrgImageUrl: string | null = null;
+
+  if (userData.role === "client") {
+    const { data } = await supabase
+      .from("subscriptions")
+      .select("status, plan_type")
+      .eq("user_id", user.id)
+      .in("status", ["active", "past_due"])
+      .maybeSingle();
+    subscription = data;
+  } else if (userData.role === "staff") {
+    const admin = createAdminClient();
+    const { data: member } = await admin
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (member?.organization_id) {
+      const { data: org } = await admin
+        .from("organizations")
+        .select("owner_id, deleted_at")
+        .eq("id", member.organization_id)
+        .maybeSingle();
+
+      if (org?.owner_id && !org.deleted_at) {
+        // subscription と client_profiles.image_url を並列取得
+        const [subResult, profileResult] = await Promise.all([
+          admin
+            .from("subscriptions")
+            .select("status, plan_type")
+            .eq("user_id", org.owner_id)
+            .in("status", ["active", "past_due"])
+            .maybeSingle(),
+          admin
+            .from("client_profiles")
+            .select("image_url")
+            .eq("user_id", org.owner_id)
+            .maybeSingle(),
+        ]);
+        subscription = subResult.data;
+        staffOrgImageUrl = profileResult.data?.image_url ?? null;
+      }
+    }
+  }
 
   const isClient =
     (userData.role === "client" || userData.role === "staff") &&
@@ -230,7 +282,7 @@ export default async function MyPage() {
 
   const displayName =
     userData.last_name && userData.first_name
-      ? `${userData.last_name}\u3000${userData.first_name}`
+      ? `${userData.last_name}${userData.first_name}`
       : "ユーザー";
 
   const age = userData.birth_date ? calculateAge(userData.birth_date) : null;
@@ -250,12 +302,27 @@ export default async function MyPage() {
         ? "pending"
         : "none";
 
-  // avatar_url already stores the full public URL from upload action
-  const avatarUrl = userData.avatar_url;
+  // アバター解決:
+  // - Staff（Admin 含む）: 所属組織の会社ロゴ（client_profiles.image_url）を使う。
+  //   未登録ならフォールバック icon（個人アバターは持たない設計、spec L291）
+  // - それ以外: users.avatar_url を使う（従来通り）
+  const avatarUrl =
+    userData.role === "staff" ? staffOrgImageUrl : userData.avatar_url;
 
-  // Build section 5 menu items
+  // Build section 5 menu items (REQ-ORG-011 に準拠したロール別可視性)
+  // Staff（法人 Admin/Staff）の特別扱い:
+  // - 本人確認・CCUS登録 は非表示（受注者向け機能のため）
+  // - ユーザープロフィール変更 の遷移先は CLI-024 自己編集モードに直リンク
+  //   （/profile は受注者データ画面なので Staff には不適切）
+  const isStaff = userData.role === "staff";
+  const profileHref: string = isStaff
+    ? `/mypage/members/${user.id}/edit`
+    : "/profile";
+
   const updateInfoItems: MenuItem[] = [
-    ...UPDATE_INFO_MENU,
+    ...UPDATE_INFO_BASE_MENU,
+    ...(isStaff ? [] : [UPDATE_INFO_VERIFICATION_MENU]),
+    { label: "ユーザープロフィール変更", href: profileHref },
     ...(isClient ? UPDATE_INFO_CLIENT_MENU : []),
     ...(isCorporate ? [CORPORATE_ONLY_MENU] : []),
     ...SUPPORT_MENU,
@@ -298,38 +365,45 @@ export default async function MyPage() {
         </div>
 
         {/* User info — CSS: name 16px bold, skills 11px, badges 11px medium */}
+        {/* Staff（法人 Admin/Staff）は受注者データを持たないため、年齢・職種・経験年数・
+            本人確認/CCUS バッジは一律非表示。表示は「アバター + 氏名」のみに絞る
+            （REQ-ORG-011 マイページトップ表示項目ルール） */}
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-[16px] leading-[23px] font-bold text-foreground">
             {displayName}
-            {age !== null && `（${age}歳）`}
+            {!isStaff && age !== null && `（${age}歳）`}
           </p>
-          {skillNames && (
-            <p className="text-body-xs text-foreground">{skillNames}</p>
+          {!isStaff && (
+            <>
+              {skillNames && (
+                <p className="text-body-xs text-foreground">{skillNames}</p>
+              )}
+              {maxExperienceYears > 0 && (
+                <p className="text-body-xs text-foreground">
+                  経験年数　{maxExperienceYears}年
+                </p>
+              )}
+              <div className="flex flex-wrap gap-3 pt-0.5">
+                <VerificationBadge
+                  state={identityState}
+                  approvedLabel="本人確認済み"
+                  pendingLabel="本人確認申請中"
+                  noneLabel="本人確認未承認"
+                />
+                <VerificationBadge
+                  state={ccusState}
+                  approvedLabel="CCUS登録済み"
+                  pendingLabel="CCUS申請中"
+                  noneLabel="CCUS未登録"
+                />
+              </div>
+            </>
           )}
-          {maxExperienceYears > 0 && (
-            <p className="text-body-xs text-foreground">
-              経験年数　{maxExperienceYears}年
-            </p>
-          )}
-          <div className="flex flex-wrap gap-3 pt-0.5">
-            <VerificationBadge
-              state={identityState}
-              approvedLabel="本人確認済み"
-              pendingLabel="本人確認申請中"
-              noneLabel="本人確認未承認"
-            />
-            <VerificationBadge
-              state={ccusState}
-              approvedLabel="CCUS登録済み"
-              pendingLabel="CCUS申請中"
-              noneLabel="CCUS未登録"
-            />
-          </div>
         </div>
       </div>
 
-      {/* Bio section — heading CSS: 15px, bold */}
-      {userData.bio && (
+      {/* Bio section — 自己紹介は受注者向けデータ。Staff では必ず非表示 */}
+      {!isStaff && userData.bio && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">自己紹介</h2>
           <div className="mt-2 rounded-lg border border-[rgba(30,30,30,0.1)] bg-white p-4">
@@ -340,10 +414,10 @@ export default async function MyPage() {
         </section>
       )}
 
-      {/* Edit profile button */}
+      {/* Edit profile button — Staff は CLI-024 自己編集モードに直リンク */}
       <div className="mt-4">
         <Button size="lg" className="w-full rounded-pill bg-primary text-white hover:bg-primary/90" asChild>
-          <Link href="/profile">プロフィールを変更する</Link>
+          <Link href={profileHref}>プロフィールを変更する</Link>
         </Button>
       </div>
 
