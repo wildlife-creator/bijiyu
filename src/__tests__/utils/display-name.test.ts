@@ -134,10 +134,21 @@ describe("resolveParticipantName", () => {
     ).toBe("山田建設株式会社");
   });
 
-  it("退会済みは常に '退会済みユーザー' を返す（displayName より優先）", () => {
+  it("退会済みでも displayName があれば displayName を返す（C 案: client_profiles.display_name 保持）", () => {
     expect(
       resolveParticipantName({
         displayName: "山田建設株式会社",
+        lastName: "山田",
+        firstName: "太郎",
+        deletedAt: "2026-04-01",
+      }),
+    ).toBe("山田建設株式会社");
+  });
+
+  it("退会済みで displayName も空なら '退会済みユーザー' を返す", () => {
+    expect(
+      resolveParticipantName({
+        displayName: null,
         lastName: "山田",
         firstName: "太郎",
         deletedAt: "2026-04-01",

@@ -62,15 +62,20 @@ VALUES (
 );
 
 -- ============================================================
--- Test 1: organizations_select_public で該当組織が除外される
+-- Test 1: 受注者は過去スレッドに紐づく退会組織を SELECT 可能
+--   organizations_select_public は deleted_at で弾くが、
+--   後から追加した organizations_select_thread_participant_deleted ポリシー
+--   （migration 20260424010000）で、自分が参加する thread の organization_id を
+--   通じて SELECT できる。C 案で受注者が「退会済み組織」の display_name を
+--   引き続き表示するために必要な挙動。
 -- ============================================================
 SET LOCAL role TO authenticated;
 SET LOCAL request.jwt.claims TO '{"sub":"88888888-aaaa-bbbb-cccc-000000000003","role":"authenticated"}';
 
 SELECT is(
   (SELECT count(*)::int FROM organizations WHERE id = '88888888-aaaa-bbbb-cccc-100000000001'),
-  0,
-  'soft-deleted organization is hidden by organizations_select_public'
+  1,
+  'soft-deleted organization is visible to thread participant contractor (C案: display_name preservation)'
 );
 
 -- ============================================================

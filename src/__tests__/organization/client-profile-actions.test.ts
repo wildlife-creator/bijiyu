@@ -65,7 +65,20 @@ function createQueryMock(t: Terminator = {}) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // mockClear() / vi.clearAllMocks() は mockReturnValueOnce の queue を残すので
+  // 各 spy を mockReset() で完全クリア（仮想モジュール側の createClient mock は
+  // 引数無しでプロパティアクセス時にこれら spy を参照するので影響なし）。
+  mockGetUser.mockReset();
+  mockFrom.mockReset();
+  mockAdminFrom.mockReset();
+  mockStorageFrom.mockReset();
+  mockAdminStorageFrom.mockReset();
+  // saveClientProfileAction / uploadClientProfileImageAction の冒頭で走る Staff ガード
+  // （organization_members.org_role === 'staff' か確認する SELECT）は
+  // 各テストで共通に通過させる: data=null を返して非 staff 扱い。
+  mockFrom.mockReturnValueOnce(
+    createQueryMock({ maybeSingle: { data: null, error: null } }),
+  );
 });
 
 const basePersonalInput = {
@@ -246,7 +259,9 @@ describe("uploadClientProfileImageAction", () => {
     fd.set("image", good);
     const r = await uploadClientProfileImageAction(fd);
     expect(r.success).toBe(true);
-    if (r.success) expect(r.data?.imageUrl).toBe("https://example.com/a.jpg");
+    // cache buster `?t=<timestamp>` が付与されることを想定（React state 差し替え検知）
+    if (r.success)
+      expect(r.data?.imageUrl).toMatch(/^https:\/\/example\.com\/a\.jpg\?t=\d+$/);
     expect(uploadMock).toHaveBeenCalledWith(
       `${OWNER_ID}/client-profile.jpg`,
       good,
