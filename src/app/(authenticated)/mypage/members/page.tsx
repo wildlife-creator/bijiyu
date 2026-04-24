@@ -25,6 +25,18 @@ function roleLabel(role: "owner" | "admin" | "staff"): string {
   return "担当者";
 }
 
+// CLI-022-design-sp.png のロールバッジカラー
+// 管理責任者: サーモン/ピーチ、管理者: ミディアムモーヴ、担当者: ソフトピンク
+function roleBadgeClass(role: "owner" | "admin" | "staff"): string {
+  if (role === "owner") {
+    return "bg-[#FFB089] text-[#4A2210]";
+  }
+  if (role === "admin") {
+    return "bg-[#AF89A9] text-white";
+  }
+  return "bg-[#E4A9CD] text-[#4A1E40]";
+}
+
 function formatName(lastName: string | null, firstName: string | null): string {
   const last = (lastName ?? "").trim();
   const first = (firstName ?? "").trim();
@@ -162,7 +174,12 @@ export default async function MembersListPage({ searchParams }: PageProps) {
             const u = m.user!;
             const displayName = formatName(u.last_name, u.first_name);
             const isDeleted = !!u.deleted_at;
-            const isPending = u.password_set_at === null && !isDeleted;
+            // Owner は通常サインアップ経由のため招待フローを通らない。
+            // password_set_at が空でも「招待中」扱いしない。
+            const isPending =
+              u.password_set_at === null &&
+              !isDeleted &&
+              m.org_role !== "owner";
 
             return (
               <Link
@@ -172,7 +189,9 @@ export default async function MembersListPage({ searchParams }: PageProps) {
               >
                 <Card className="rounded-[8px] transition-colors hover:bg-background/60">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <span className="shrink-0 rounded-[4px] bg-muted px-2 py-1 text-body-xs font-medium text-muted-foreground">
+                    <span
+                      className={`shrink-0 rounded-[4px] px-2 py-1 text-body-xs font-medium ${roleBadgeClass(m.org_role)}`}
+                    >
                       {roleLabel(m.org_role)}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -226,7 +245,8 @@ export default async function MembersListPage({ searchParams }: PageProps) {
             <Link href="/mypage/members/new">担当者新規登録</Link>
           </Button>
         )}
-        <BackButton className="w-full max-w-xs" />
+        {/* CLI-025 保存後の history 汚染回避のため /mypage に明示遷移 */}
+        <BackButton className="w-full max-w-xs" href="/mypage" />
       </div>
     </div>
   );

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
 import { createClient } from "@/lib/supabase/server";
 
@@ -133,9 +132,11 @@ export default async function MemberDetailPage({ params }: PageProps) {
   const actions = resolveActions(actorRole, targetRole, isSelf);
   const editHref = actions.editHref ?? `/mypage/members/${id}/edit`;
 
-  // 招待再送ボタン: Owner/Admin + password_set_at IS NULL + 本人以外
+  // 招待再送ボタン: Owner/Admin + password_set_at IS NULL + 本人以外。
+  // ただし Owner 自身は通常サインアップ経由のため招待対象から除外する安全網。
   const showResendInvite =
     (actorRole === "owner" || actorRole === "admin") &&
+    target.org_role !== "owner" &&
     target.user.password_set_at === null &&
     !target.user.deleted_at &&
     !isSelf;
@@ -153,54 +154,46 @@ export default async function MemberDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* カード: 名前 / メール / 権限 */}
-      <Card className="mt-4 overflow-hidden rounded-[8px] p-0">
+      {/* 情報テーブル — CLI-006 と同じく plain div で rows を密着させる（Card の gap-4 を避ける） */}
+      <div className="mt-4 overflow-hidden rounded-[8px] border border-border/10 bg-background">
         <SectionLabel>名前</SectionLabel>
-        <div className="bg-background px-4 py-3">
-          <p className="text-body-md text-foreground">
+        <div className="flex min-h-[40px] items-center px-4 py-2">
+          <span className="text-body-sm">
             {formatName(target.user.last_name, target.user.first_name)}
             {target.user.deleted_at && (
               <span className="ml-2 text-body-xs text-destructive">
                 ※削除済
               </span>
             )}
-          </p>
+          </span>
         </div>
 
         <SectionLabel>メールアドレス</SectionLabel>
-        <div className="bg-background px-4 py-3">
-          <p className="text-body-md text-foreground break-all">
-            {target.user.email}
-          </p>
+        <div className="flex min-h-[40px] items-center px-4 py-2">
+          <span className="break-all text-body-sm">{target.user.email}</span>
         </div>
 
         <SectionLabel>権限</SectionLabel>
-        <div className="bg-background px-4 py-3">
-          <div className="flex items-center gap-2 text-body-md text-foreground">
+        <div className="flex min-h-[40px] items-center px-4 py-2">
+          <div className="flex items-center gap-2 text-body-sm">
             <span>{roleLabel(target.org_role)}</span>
             {target.is_proxy_account && (
-              <span className="rounded-full bg-secondary/10 px-2 py-0.5 text-body-xs text-secondary">
+              <span className="rounded-full bg-secondary/10 px-2 text-body-xs leading-5 text-secondary">
                 代理
               </span>
             )}
             {target.user.password_set_at === null &&
-              !target.user.deleted_at && (
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-body-xs text-primary">
+              !target.user.deleted_at &&
+              target.org_role !== "owner" && (
+                <span className="rounded-full bg-primary/10 px-2 text-body-xs leading-5 text-primary">
                   招待中
                 </span>
               )}
           </div>
         </div>
-      </Card>
+      </div>
 
-      {/* 招待再送ボタン */}
-      {showResendInvite && (
-        <div className="mt-4 flex justify-center">
-          <ResendInviteButton targetUserId={id} />
-        </div>
-      )}
-
-      {/* 編集する + もどる */}
+      {/* アクションボタン: 編集する → 招待を再送する → もどる を等間隔で縦並び */}
       <div className="mt-8 flex flex-col items-center gap-3">
         {actions.editLabel && (
           <Button
@@ -211,7 +204,15 @@ export default async function MemberDetailPage({ params }: PageProps) {
             <Link href={editHref}>{actions.editLabel}</Link>
           </Button>
         )}
-        <BackButton className="w-full max-w-xs" />
+        {showResendInvite && <ResendInviteButton targetUserId={id} />}
+        {/* 戻り先は isSelf で分岐（REQ-ORG-011）:
+            - 自分の詳細 → /mypage（mypage の「プロフィールを変更する」「ユーザープロフィール変更」
+              経由でここに来た場合の mental model に合わせる）
+            - 他人の詳細 → /mypage/members（CLI-022 担当者一覧から drill-down した場合の想定） */}
+        <BackButton
+          className="w-full max-w-xs"
+          href={isSelf ? "/mypage" : "/mypage/members"}
+        />
       </div>
     </div>
   );
@@ -219,10 +220,8 @@ export default async function MemberDetailPage({ params }: PageProps) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-t border-border bg-muted/60 px-4 py-2 first:border-t-0">
-      <p className="text-body-sm font-medium text-muted-foreground">
-        {children}
-      </p>
+    <div className="flex min-h-[40px] items-center bg-primary/[0.08] px-4 py-2">
+      <span className="text-body-sm font-medium">{children}</span>
     </div>
   );
 }

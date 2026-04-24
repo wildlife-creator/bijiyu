@@ -69,28 +69,11 @@ export default async function ScoutTemplateDetailPage({ params }: PageProps) {
         <DeleteTemplateButton templateId={template.id} />
       </div>
 
-      {/* 3 セクションのカード */}
-      <Card className="mt-4 rounded-[8px] overflow-hidden p-0">
-        <SectionLabel>タイトル</SectionLabel>
-        <div className="bg-background px-4 py-3">
-          <p className="whitespace-pre-wrap text-body-md text-foreground">
-            {template.title}
-          </p>
-        </div>
-
-        <SectionLabel>本文</SectionLabel>
-        <div className="bg-background px-4 py-3">
-          <p className="whitespace-pre-wrap text-body-md text-foreground">
-            {template.body}
-          </p>
-        </div>
-
-        <SectionLabel>メモ</SectionLabel>
-        <div className="bg-background px-4 py-3">
-          <p className="whitespace-pre-wrap text-body-md text-foreground">
-            {template.memo || "—"}
-          </p>
-        </div>
+      {/* 3 項目のテーブル（ラベル=薄紫 bg-primary/[0.08] + 本文=白 の縦交互） */}
+      <Card className="mt-4 rounded-[8px] overflow-hidden bg-background p-0">
+        <InfoRow label="タイトル" value={template.title} />
+        <InfoRow label="本文" value={template.body} />
+        <InfoRow label="メモ" value={template.memo || "—"} />
       </Card>
 
       {/* 作成日（法人プラン共有テンプレのみ作成者氏名も表示） */}
@@ -114,10 +97,17 @@ export default async function ScoutTemplateDetailPage({ params }: PageProps) {
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-t border-border bg-muted/60 px-4 py-2 first:border-t-0">
-      <p className="text-body-sm font-medium text-muted-foreground">{children}</p>
-    </div>
+    <>
+      <div className="bg-primary/[0.08] px-4 py-2">
+        <span className="text-body-sm font-medium">{label}</span>
+      </div>
+      <div className="px-4 py-3">
+        <p className="whitespace-pre-wrap break-words text-body-md text-foreground">
+          {value}
+        </p>
+      </div>
+    </>
   );
 }
