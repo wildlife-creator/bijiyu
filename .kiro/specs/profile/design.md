@@ -296,24 +296,27 @@ interface ProfileEditInput {
   companyName?: string;
   bio?: string;
   skills: Array<{ tradeType: string; experienceYears: number }>;
-  qualifications: string[];
+  skillTags: string[];         // 保有スキル（自由入力タグ → users.skill_tags）
+  qualifications: string[];    // 保有資格 → user_qualifications
   availableAreas: string[];
 }
 
 function updateProfileAction(input: ProfileEditInput): Promise<ActionResult>;
 ```
 - Preconditions: ユーザーが認証済み
-- Postconditions: users, user_skills, user_qualifications, user_available_areas が更新される
+- Postconditions: users（skill_tags 含む）, user_skills, user_qualifications, user_available_areas が更新される
 - Invariants: メールアドレス変更時は Supabase Auth の認証フローを経由する
 
-**「スキル」フィールドに関する設計判断**:
+**「保有スキル」フィールドの設計判断**（2026-04-22 更新）:
 
-REQ-PF-002 では「職種」「資格」とは別に「スキル（任意、追加可能）」を記載しているが、現行の database-schema.md にはスキル専用テーブルが存在しない。現時点では以下の方針とする:
+保有スキルは `users.skill_tags text[] NOT NULL DEFAULT '{}'` に保存する。過去は MVP スコープ簡素化のため `user_qualifications` に相乗りさせる方針だったが、以下の理由で専用カラムを新設した:
 
-1. 「スキル」は user_qualifications テーブルの qualification_name カラムで管理する（資格とスキルを同一テーブルで扱う）
-2. UI 上では「資格・スキル」として1つのセクションにまとめ、自由入力 + 選択肢の併用とする
-3. 将来、検索・マッチングで職種とスキルを厳密に区別する必要が出た場合は、user_skills テーブルに skill_tags カラムを追加するか、専用テーブル（user_skill_tags）を新設する
-4. この判断は MVP スコープの簡素化を優先しており、データ移行が必要になった場合のコストは低い（qualification_name のデータを新テーブルに移すだけ）
+1. 「対応できる職種」（`user_skills.trade_type`、TRADE_TYPES 固定リスト）と「保有スキル」（自由入力タグ）は意味論的に別物。COM-001 の画面カンプも別行として配置している
+2. 資格（`user_qualifications.qualification_name`）と同居させると、CLI-005 の検索フィルターや CLI-006 の表示で「資格なのかスキルなのか」の区別がつかなくなる
+3. タグ以上の属性（ID・作成日時）が不要なので、別テーブルではなく `text[]` カラムで十分
+4. 既存データには `DEFAULT '{}'` で空配列が入るため、後方互換性の破壊なし（マイグレーション: `20260422100000_add_skill_tags_to_users.sql`）
+
+**実装時の注意**: CLI-006 / applications/received・orders の詳細画面が過去 `user_skills.trade_type` を「保有スキル」ラベルで重複表示していたが、同移行時に `users.skill_tags` を参照するよう修正済み。新規画面では `skill_tags` を使うこと。
 
 #### UploadAvatarAction
 
@@ -526,6 +529,7 @@ CREATE OR REPLACE FUNCTION update_profile(
   p_company_name text DEFAULT NULL,
   p_bio text DEFAULT NULL,
   p_skills jsonb DEFAULT '[]'::jsonb,
+  p_skill_tags text[] DEFAULT '{}'::text[],
   p_qualifications text[] DEFAULT '{}'::text[],
   p_areas text[] DEFAULT '{}'::text[]
 ) RETURNS void AS $$
@@ -542,7 +546,8 @@ BEGIN
     gender = p_gender,
     prefecture = p_prefecture,
     company_name = p_company_name,
-    bio = p_bio
+    bio = p_bio,
+    skill_tags = p_skill_tags  -- 保有スキル（自由入力タグ）
   WHERE id = p_user_id;
 
   -- Replace skills (delete all + insert new)
@@ -590,6 +595,7 @@ export const profileEditSchema = z.object({
   companyName: z.string().optional(),
   bio: z.string().optional(),
   skills: z.array(skillSchema).min(1).max(3),
+  skillTags: z.array(z.string().min(1)).optional().default([]),
   qualifications: z.array(z.string()).optional().default([]),
   availableAreas: z.array(z.string()).min(1, "対応エリアを1つ以上選択してください"),
 });

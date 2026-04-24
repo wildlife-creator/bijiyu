@@ -161,12 +161,19 @@ export default async function MessagesPage({ searchParams }: Props) {
         <h1 className="py-4 text-center text-lg font-bold text-secondary">メッセージ</h1>
 
         {isClientOrStaff && (
-          <div className="flex items-center justify-center gap-3 px-4 pb-4">
-            <Button asChild className="rounded-full bg-primary text-white hover:bg-primary/90">
+          <div className="mx-auto flex max-w-md items-center gap-3 px-4 pb-4">
+            <Button
+              asChild
+              className="flex-1 rounded-full bg-primary text-white hover:bg-primary/90"
+            >
               <Link href="/messages/bulk-send">一斉送信</Link>
             </Button>
-            <Button asChild variant="outline" className="rounded-full">
-              <Link href="/messages/scout-send">スカウトのテンプレート</Link>
+            <Button
+              asChild
+              variant="outline"
+              className="flex-1 rounded-full border-primary bg-background text-primary hover:bg-primary/10 hover:text-primary"
+            >
+              <Link href="/messages/templates">スカウトのテンプレート</Link>
             </Button>
           </div>
         )}

@@ -59,16 +59,16 @@ function DetailRow({
   value: string | null | undefined;
 }) {
   return (
-    <div className="border-t border-border first:border-t-0">
-      <div className="bg-muted/60 px-4 py-2">
-        <p className="text-body-sm font-medium text-muted-foreground">{label}</p>
+    <>
+      <div className="flex min-h-[40px] items-center bg-primary/[0.08] px-4 py-2">
+        <span className="text-body-sm font-medium">{label}</span>
       </div>
-      <div className="bg-background px-4 py-3">
-        <p className="whitespace-pre-wrap text-body-md text-foreground">
+      <div className="flex min-h-[40px] items-center px-4 py-2">
+        <span className="whitespace-pre-wrap text-body-sm">
           {value && value.trim() ? value : "—"}
-        </p>
+        </span>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -169,10 +169,10 @@ export default async function ClientProfilePage() {
         </div>
       </div>
 
-      {/* 基本情報 */}
+      {/* 基本情報 — CLI-006 と同じく plain div で rows を密着させる（Card の gap-4 を避ける） */}
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">基本情報</h2>
-        <Card className="mt-2 overflow-hidden rounded-[8px] p-0">
+        <div className="mt-2 overflow-hidden rounded-[8px] border border-border/10 bg-background">
           <DetailRow
             label="募集職種"
             value={
@@ -197,7 +197,7 @@ export default async function ClientProfilePage() {
           />
           <DetailRow label="求める働き方" value={profile?.working_way ?? null} />
           <DetailRow label="言語" value={profile?.language ?? null} />
-        </Card>
+        </div>
       </section>
 
       {/* メッセージ */}
@@ -240,7 +240,9 @@ export default async function ClientProfilePage() {
             <Link href="/mypage/client-profile/edit">編集する</Link>
           </Button>
         )}
-        <BackButton className="w-full max-w-xs" />
+        {/* CLI-021 保存後の history 汚染（/edit が履歴に残り router.back で戻ってしまう）を
+            避けるため、CLI-020 の戻るは親（/mypage）に明示遷移 */}
+        <BackButton className="w-full max-w-xs" href="/mypage" />
       </div>
     </div>
   );

@@ -2,7 +2,8 @@
 
 - [x] 1. 基盤セットアップ（バリデーション・ユーティリティ・DB関数）
 - [x] 1.1 Zod バリデーションスキーマの作成
-  - プロフィール編集用スキーマ（姓名必須、性別必須、メール任意、都道府県必須、職種1〜3件×経験年数、資格・スキル任意、対応エリア1件以上）を定義する
+  - プロフィール編集用スキーマ（姓名必須、性別必須、メール任意、都道府県必須、職種1〜3件×経験年数、保有スキル任意、保有資格任意、対応エリア1件以上）を定義する
+    - 保有スキルは `skillTags: z.array(z.string().min(1)).optional().default([])`、保有資格は `qualifications: z.array(z.string()).optional().default([])` の別フィールドとする（意味論が異なるため統合しない）
   - 本人確認書類アップロード用スキーマ（JPEG/PNG/PDF、各最大10MB、2ファイル必須）を定義する
   - CCUS登録申請用スキーマ（JPEG/PNG/PDF、最大10MB、技能者ID必須）を定義する
   - 退会手続き用スキーマ（退会理由必須、詳細任意、同意チェック必須）を定義する
@@ -18,16 +19,17 @@
   - _Requirements: 1.1_
 
 - [x] 1.3 (P) update_profile データベース関数のマイグレーション作成
-  - users, user_skills, user_qualifications, user_available_areas の4テーブルをトランザクション内で一括更新する PostgreSQL 関数を作成する
+  - users（skill_tags 含む）, user_skills, user_qualifications, user_available_areas の4テーブルをトランザクション内で一括更新する PostgreSQL 関数を作成する
   - SECURITY DEFINER で実行する（4テーブル跨ぎの RLS バイパスが必要。入力値の検証は Server Action で実施済みの前提）
   - 関数内で auth.uid() との一致を検証し、不正な user_id での呼び出しを拒否する
   - skills は DELETE + INSERT（最大3件制限）、qualifications と areas も DELETE + INSERT で洗い替えする
+  - users.skill_tags（text[]）は UPDATE で値ごと置き換える（テーブルではなくカラムなので DELETE+INSERT 不要）
   - マイグレーションファイルを既存の 001〜006 の後に配置する
   - _Requirements: 2.1_
 
 - [x] 2. (P) プロフィール詳細画面の実装（COM-001）
   - users, user_skills, user_qualifications, user_available_areas を JOIN して自分のプロフィール情報を取得・表示する Server Component を作成する
-  - 表示項目: アイコン画像、氏名、年齢（birth_date から算出）、本人確認済み / CCUS登録済みバッジ、PR動画（video_url が存在し動画掲載オプションが有効な場合）、性別、都道府県、会社名/屋号、自己紹介、職種×経験年数、資格・スキル、対応可能エリア
+  - 表示項目: アイコン画像、氏名、年齢（birth_date から算出）、本人確認済み / CCUS登録済みバッジ、PR動画（video_url が存在し動画掲載オプションが有効な場合）、性別、都道府県、会社名/屋号、自己紹介、職種×経験年数、保有スキル（users.skill_tags）、保有資格（user_qualifications）、対応可能エリア
   - 「編集する」ボタン（COM-002 へ遷移）と「退会する」リンク（COM-006 へ遷移）をページ下部に配置する
   - _Requirements: 1.1_
 
@@ -39,9 +41,9 @@
 
 - [x] 3.2 プロフィール編集フォーム画面の実装
   - 画像アップロード + 全フィールドの編集フォームを Client Component で作成する
-  - 職種は最大3つまで選択可能とし、各職種に対して経験年数を設定できるようにする
+  - 職種は最大3つまで選択可能とし、各職種に対して経験年数を設定できるようにする（列見出し「職種」「経験年数（年）」を明示）
   - 対応可能エリアは都道府県の複数選択を実装する
-  - 資格・スキルは自由入力 + 選択肢の併用とする（user_qualifications テーブルで統合管理）
+  - 保有スキル（`users.skill_tags`）と保有資格（`user_qualifications`）はそれぞれ独立した chips 入力 UI（自由入力テキスト + 「追加する」ボタン + 削除可能なチップ表示）として実装する。資格とスキルは意味論が異なるため統合しない
   - Zod スキーマによるクライアント側バリデーションを実装する
   - 保存成功時にプロフィール詳細画面（COM-001）へ遷移する
   - _Requirements: 2.1_

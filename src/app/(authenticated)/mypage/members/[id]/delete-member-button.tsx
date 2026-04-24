@@ -36,8 +36,8 @@ export function DeleteMemberButton({ targetUserId }: Props) {
   return (
     <Button
       type="button"
-      variant="secondary"
-      className="rounded-pill px-8"
+      variant="outline"
+      className="rounded-pill border-destructive bg-background px-8 text-destructive hover:bg-destructive/5 hover:text-destructive"
       onClick={handleClick}
       disabled={isPending}
     >

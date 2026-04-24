@@ -28,7 +28,8 @@ export function ResendInviteButton({ targetUserId }: Props) {
     <Button
       type="button"
       variant="outline"
-      className="rounded-pill"
+      size="lg"
+      className="w-full max-w-xs rounded-pill border-primary bg-background text-primary hover:bg-primary/10 hover:text-primary"
       onClick={handleClick}
       disabled={isPending}
     >

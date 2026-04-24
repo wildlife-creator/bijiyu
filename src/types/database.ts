@@ -1159,6 +1159,7 @@ export type Database = {
           password_set_at: string | null
           prefecture: string | null
           role: Database["public"]["Enums"]["user_role"]
+          skill_tags: string[]
           stripe_customer_id: string | null
           updated_at: string
           video_url: string | null
@@ -1182,6 +1183,7 @@ export type Database = {
           password_set_at?: string | null
           prefecture?: string | null
           role: Database["public"]["Enums"]["user_role"]
+          skill_tags?: string[]
           stripe_customer_id?: string | null
           updated_at?: string
           video_url?: string | null
@@ -1205,6 +1207,7 @@ export type Database = {
           password_set_at?: string | null
           prefecture?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          skill_tags?: string[]
           stripe_customer_id?: string | null
           updated_at?: string
           video_url?: string | null
@@ -1287,6 +1290,7 @@ export type Database = {
           p_last_name: string
           p_prefecture: string
           p_qualifications?: string[]
+          p_skill_tags?: string[]
           p_skills?: Json
           p_user_id: string
         }

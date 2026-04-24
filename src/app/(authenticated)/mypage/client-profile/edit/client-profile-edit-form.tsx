@@ -9,9 +9,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/shared/back-button";
-import { PREFECTURES, TRADE_TYPES } from "@/lib/constants/options";
+import { LANGUAGES, PREFECTURES, TRADE_TYPES } from "@/lib/constants/options";
 import {
   clientProfilePersonalSchema,
   clientProfileSchema,
@@ -205,9 +206,9 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
         <FieldError message={errors.address?.message} />
       </FieldGroup>
 
-      {/* 募集職種 */}
+      {/* 募集職種 — 複数選択可能なプルダウン */}
       <FieldGroup>
-        <FieldLabel>
+        <FieldLabel htmlFor="recruitJobTypes">
           募集職種
           <RequiredBadge />
         </FieldLabel>
@@ -215,20 +216,22 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
           control={control}
           name="recruitJobTypes"
           render={({ field }) => (
-            <CheckboxGroup
+            <MultiSelect
+              id="recruitJobTypes"
               options={TRADE_TYPES}
               value={field.value ?? []}
               onChange={field.onChange}
               disabled={isPending}
+              placeholder="お選びください"
             />
           )}
         />
         <FieldError message={errors.recruitJobTypes?.message} />
       </FieldGroup>
 
-      {/* 募集エリア */}
+      {/* 募集エリア — 複数選択可能なプルダウン */}
       <FieldGroup>
-        <FieldLabel>
+        <FieldLabel htmlFor="recruitArea">
           募集エリア
           <RequiredBadge />
         </FieldLabel>
@@ -236,11 +239,13 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
           control={control}
           name="recruitArea"
           render={({ field }) => (
-            <CheckboxGroup
+            <MultiSelect
+              id="recruitArea"
               options={PREFECTURES}
               value={field.value ?? []}
               onChange={field.onChange}
               disabled={isPending}
+              placeholder="お選びください"
             />
           )}
         />
@@ -275,15 +280,33 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
         <FieldError message={errors.workingWay?.message} />
       </FieldGroup>
 
-      {/* 言語 */}
+      {/* 言語 — 複数選択可能なプルダウン（DB は「、」区切り text で保存） */}
       <FieldGroup>
         <FieldLabel htmlFor="language">言語</FieldLabel>
-        <Input
-          id="language"
-          placeholder="例: 日本語、日本語・英語"
-          className="bg-background"
-          {...register("language")}
-          disabled={isPending}
+        <Controller
+          control={control}
+          name="language"
+          render={({ field }) => {
+            // 既存データの互換: 「、」「・」「,」のいずれでも分割してロード
+            const arrayValue = field.value
+              ? field.value
+                  .split(/[、・,]/)
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : [];
+            return (
+              <MultiSelect
+                id="language"
+                options={LANGUAGES}
+                value={arrayValue}
+                onChange={(next) =>
+                  field.onChange(next.length > 0 ? next.join("、") : null)
+                }
+                disabled={isPending}
+                placeholder="お選びください"
+              />
+            );
+          }}
         />
         <FieldError message={errors.language?.message} />
       </FieldGroup>
@@ -301,28 +324,43 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
         <FieldError message={errors.message?.message} />
       </FieldGroup>
 
-      {/* 利用 SNS */}
+      {/* 利用 SNS — CON-001-design-pc/sp.png を参考にしたチップ型選択 */}
       <section>
         <h2 className="text-body-lg font-bold text-foreground">利用SNS</h2>
         <p className="mt-1 text-body-xs text-muted-foreground">
           ※ 運営上の集計等のみに使用し、webアプリ上に表示はされません
         </p>
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           {SNS_FIELDS.map(({ key, label }) => (
             <Controller
               key={key}
               control={control}
               name={key}
-              render={({ field }) => (
-                <label className="flex items-center gap-3">
-                  <Checkbox
-                    checked={!!field.value}
-                    onCheckedChange={(v) => field.onChange(v === true)}
-                    disabled={isPending}
-                  />
-                  <span className="text-body-md text-foreground">{label}</span>
-                </label>
-              )}
+              render={({ field }) => {
+                const checked = !!field.value;
+                return (
+                  <label
+                    className={`flex cursor-pointer items-center gap-3 rounded-[8px] border px-3 py-2.5 transition-colors ${
+                      checked
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-background hover:bg-muted/40"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(v) => field.onChange(v === true)}
+                      disabled={isPending}
+                    />
+                    <span
+                      className={`text-body-sm font-medium ${
+                        checked ? "text-primary" : "text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </label>
+                );
+              }}
             />
           ))}
         </div>
@@ -386,36 +424,3 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-body-sm text-destructive">{message}</p>;
 }
 
-function CheckboxGroup({
-  options,
-  value,
-  onChange,
-  disabled,
-}: {
-  options: readonly string[];
-  value: string[];
-  onChange: (v: string[]) => void;
-  disabled?: boolean;
-}) {
-  function toggle(opt: string) {
-    if (value.includes(opt)) {
-      onChange(value.filter((v) => v !== opt));
-    } else {
-      onChange([...value, opt]);
-    }
-  }
-  return (
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-      {options.map((opt) => (
-        <label key={opt} className="flex items-center gap-2">
-          <Checkbox
-            checked={value.includes(opt)}
-            onCheckedChange={() => toggle(opt)}
-            disabled={disabled}
-          />
-          <span className="text-body-sm text-foreground">{opt}</span>
-        </label>
-      ))}
-    </div>
-  );
-}

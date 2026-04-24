@@ -33,6 +33,7 @@ export async function updateProfileAction(
       companyName: formData.get("companyName"),
       bio: formData.get("bio"),
       skills: JSON.parse((formData.get("skills") as string) ?? "[]"),
+      skillTags: JSON.parse((formData.get("skillTags") as string) ?? "[]"),
       qualifications: JSON.parse(
         (formData.get("qualifications") as string) ?? "[]"
       ),
@@ -66,6 +67,7 @@ export async function updateProfileAction(
         prefecture: data.prefecture,
         company_name: data.companyName ?? null,
         bio: data.bio ?? null,
+        skill_tags: data.skillTags ?? [],
       })
       .eq("id", user.id);
 

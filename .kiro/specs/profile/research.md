@@ -5,7 +5,7 @@
 - **Discovery Scope**: Extension（auth 基盤の拡張）
 - **Key Findings**:
   - Supabase Storage のファイルアップロードは `supabase.storage.from(bucket).upload(path, file)` で実行。MIMEタイプ検証はクライアント側 + サーバー側の両方で実施する必要がある
-  - プロフィール編集は users + user_skills + user_qualifications + user_available_areas の4テーブルを更新。auth の complete_registration と同様にトランザクション処理が必要
+  - プロフィール編集は users（skill_tags text[] 含む）+ user_skills + user_qualifications + user_available_areas の4テーブルを更新。auth の complete_registration と同様にトランザクション処理が必要
   - 退会処理はソフトデリート（deleted_at 設定）+ Supabase Auth 無効化 + Stripe 解約の複合操作。application の進行中チェックが前提条件
 
 ## Research Log

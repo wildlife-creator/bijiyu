@@ -328,6 +328,9 @@ async function UserFavorites({
 }) {
   if (targetIds.length === 0) return null;
 
+  // CLI-005（職人一覧）と整合: client role（個人発注者・小規模・法人 Owner）も
+  // 受注者として活動しうるため、見込みユーザーとして表示対象に含める。
+  // staff/admin はそもそも CLI-005 で favorite 登録できないため、ここでは role 絞りで除外する。
   const { data: users } = await supabase
     .from("users")
     .select(
@@ -339,7 +342,7 @@ async function UserFavorites({
     `,
     )
     .in("id", targetIds)
-    .eq("role", "contractor");
+    .in("role", ["contractor", "client"]);
 
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">

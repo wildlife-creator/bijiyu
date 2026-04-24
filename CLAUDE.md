@@ -283,6 +283,31 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - テスト実行前に `supabase start` + `supabase db reset` + `npm run dev` が必要。seed.sql のテストユーザー（contractor@test.local 等）を使ってテストを書くこと
 - テストデータのクリーンアップは不要（次回の `supabase db reset` でリセットされる）
 - **E2Eテストの期待値は seed.sql のデータと整合させること**: テストが前提とするユーザー状態（本人確認済み、サブスクリプション有効等）が seed.sql の実際のデータと一致しているか確認する。seed.sql でフラグを変更した場合、そのフラグに依存するE2Eテストも同時に更新すること。原因例: seed.sql で `identity_verified = true` を設定しているのに、E2Eテストが「本人確認バッジが表示されない」ことを期待して失敗した
+- **`page.goto(URL)` 直接遷移だけで E2E を完結させない**: 対象画面に直接飛ぶだけのテストは、その画面に**辿り着ける経路**（マイページのメニュー、ヘッダー、前画面のボタン）が壊れていても検出できない。少なくとも主要ユーザーストーリーの起点は「ログイン → マイページ → メニュークリック → 画面到達」まで click で繋ぐこと。機能詳細テスト（フォーム入力等）は page.goto 直接遷移でよい。`e2e/mypage-navigation.spec.ts` がこのロール別導線スモークの基準実装（2026-04 に /mypage のリンク URL が全て誤っていたが、既存 E2E が page.goto 直接遷移型だったため検出されなかった実例の再発防止）
+- **shadcn/ui の Select は `selectOption()` で操作してはならない（必ず守ること）**: shadcn の `<Select>`（Radix UI ベース）は DOM 上 `<button role="combobox">` として描画されるため、Playwright の `selectOption()` は `Element is not a <select> element` で失敗する。正しいパターンは `await page.getByLabel(...).click()` → `await page.getByRole("option", { name: "..." }).click()` の 2 段クリック。基準実装は `e2e/matching.spec.ts` / `e2e/messaging.spec.ts`。同じ落とし穴: フォーム実装を native `<select>` から shadcn Select に置き換えた際に対応する E2E テストの更新が漏れるパターン（2026-04-22 に `e2e/profile.spec.ts` の都道府県変更テストで実例発生）
+
+### ナビゲーションリンクと実ルートの整合（必ず守ること）
+- 新規画面を実装したら、**その画面への導線となる全リンク**（マイページ、ヘッダー、画面内ボタン）の `href` 値を検索し、実在のルートと完全一致することを確認する
+- 具体手順: `grep -r 'href=' src/app/(authenticated)/mypage/page.tsx` 等で該当画面向けの href を列挙し、Next.js の `src/app/` 配下に対応する page.tsx があるか突き合わせる
+- `href="/scouts/templates"` のような「REST 風で一見正しそうな URL」の誤記は typo として見逃されやすい。目視だけでなくアプリを起動してクリック確認する
+- E2E は `page.goto()` 直接遷移だけでは導線ミスを検出できないため、上記「E2Eテスト」セクションのロール別導線スモークで保険をかける
+
+### テストファイル内で本体ロジックの定数を「コピー」してはならない（必ず守ること）
+- 本体コード（middleware, Server Action 等）の定数や関数を、テストファイル冒頭に**ハードコピー**して「isolated testing」する書き方は禁止
+- 必ず `import { CLIENT_ONLY_PREFIXES } from '@/middleware'` のように本体を import して使う
+- コピーすると本体更新と同期が取れず、**テストは古い実装に対して通り続けるが production は動かない**という事態になる（2026-04-21 に `src/__tests__/auth/middleware-routing.test.ts` で実例発生: 実際の middleware から `/organization` prefix が削除され `/mypage/members` 等が追加されていたが、テスト側コピーは古いままで、存在しないルート `/organization/members` に対する「client-only block」が通っていた）
+
+### Staff ユーザーの subscription 参照（必ず守ること）
+- Staff（`users.role = 'staff'`）は**自分の subscription を持たない**。Owner のサブスクに相乗りする設計
+- **用途は「表示・閲覧のみ」**（マイページのメニュー可視性、画面内のプラン別表示切替等）。Staff は支払い系 Server Action を実行しないため、課金実行コンテキストで Staff の subscription を解決する必要は発生しない（`.kiro/specs/organization/requirements.md` REQ-ORG-011 の設計判断参照）
+- 表示用途で Staff のプラン状態を判定する際は、以下の順で解決する:
+  1. `organization_members WHERE user_id = <staff_uid>` → `organization_id`
+  2. `organizations WHERE id = <organization_id> AND deleted_at IS NULL` → `owner_id`
+  3. `subscriptions WHERE user_id = <owner_id> AND status IN ('active', 'past_due')`
+- ステップ 3 は RLS により Staff セッションから直接 SELECT 不可のため、**admin client** を使う
+- `.eq('user_id', user.id)` で自分の subscription を引く書き方を Staff に適用すると常に null になり、「発注者向けメニューが Staff では一切表示されない」バグが発生する（2026-04-21 実例）
+- 基準実装: `src/app/(authenticated)/mypage/page.tsx` の subscription 分岐
+- 支払い系 Server Action（billing 配下）のロールチェックは `'owner'` / `'admin'` のみ許可し、`'staff'` を許可リストに含めない（契約主体を Owner 単一に固定する設計判断。詳細は organization spec REQ-ORG-011）
 
 ### organization 機能実装時の必須リファクタリング（必ず守ること）
 - organization の spec-impl を開始する際、**CLI-016〜025 の画面実装（Task 9 以降）より先に**、付録 A のリファクタリング全 8 ステップを完了すること
@@ -338,6 +363,19 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   - Middleware: CON系画面は認証済み全ロールに閲覧開放。ただしCON-004（応募入力）、CON-011〜013（応募履歴）、CON-014〜016（空き日程）は担当者（staff）をブロック。CLI系（CLI-026〜027を除く）は発注者・担当者のみ
   - 発注者マイページ: 「仕事を探す」セクション（CON系画面への導線）を非表示にしてはならない。CON-002 への導線は「仕事を探す」セクションで提供する（「発注先を探す」セクションには含めない）
 
+### CLI-005/006 の表示対象（必ず守ること — 「1アカウントで受注・発注両方OK」設計の正しい反映）
+- CLI-005（職人一覧）の検索クエリで `role = 'contractor'` 単独で絞ってはならない。`role IN ('contractor', 'client')` + `id != 自分自身` + `deleted_at IS NULL` の AND 条件で絞ること
+- 設計理由: 個人発注者・小規模・法人 Owner（`role = 'client'`）も自分自身で会員登録した正規ユーザーであり、受注者として活動しうる。`role = 'contractor'` 単独で絞ると、これらのユーザーが永遠に検索されない
+- 法人の admin/staff（`role = 'staff'`）は Owner が招待した代理アカウントで契約主体ではないため除外する
+- CLI-006（職人詳細）も同条件のガードを入れる:
+  - `id === user.id` なら `notFound()`（自分の詳細ページは無意味）
+  - 対象ユーザーの `role` が `'contractor'`/`'client'` 以外（staff/admin）なら `notFound()`
+- **`user_skills` 1 件以上のチェックは入れないこと**: 正規ルート（`/register/profile`）の `registerProfileSchema` が `skills.min(1)` を必須化しているため、自分で会員登録した全ユーザーは必ず skills を持つ。DB レベルで追加チェックを入れるのは「ありえないシナリオに備えた過剰防御」（YAGNI）。同じ理由で `user_available_areas` のチェックも不要
+- **seed.sql は正規ルートを経たデータと整合させること**: 直接 INSERT で「skills や available_areas が空の client/contractor」を作ってはならない。これを seed に入れると「ありえない状態」を本物のデータと誤認し、不要な防御コードを書く動機になる（2026-04-22 に実例: B案として `user_skills!inner` フィルタを追加→ユーザー指摘で A案に巻き戻し）
+- 実装基準: `src/app/(authenticated)/users/contractors/page.tsx`（CLI-005）、`src/app/(authenticated)/users/contractors/[id]/page.tsx`（CLI-006）
+- E2E 検証: `e2e/job-search.spec.ts` の「CLI-005 表示対象」「CLI-006 アクセス制御」describe ブロック
+- Middleware は変更しない（`/users/contractors` は `client`/`staff` のみアクセス可、無料 contractor からは見られない現状維持）
+
 ### 応募ステータスの画面分離（必ず守ること — CLI-007 / CLI-007B / CLI-010 の役割）
 - mypage からの発注者導線は **status で画面が分離**されている:
   - **CLI-007（`/applications/received`）= `status = 'applied'` のみ**（未対応インボックス）
@@ -362,6 +400,13 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - CON-003 の応募ボタン表示条件には `role === 'staff'` による非表示チェックを必ず含めること
 - 新しい受注者アクション（応募・評価・完了報告等）を実装する際は、staff がそのアクションを実行できないことを三重防御（Middleware + UI + Server Action）で確認すること
 - `users.role = 'staff'` は `org_role` の値（admin / staff）に関係なく同じ制限が適用される。org_role による違いは CLI 系画面内の操作権限（担当者管理等）のみ
+
+### 「対応できる職種」と「保有スキル」の使い分け（必ず守ること）
+- **対応できる職種**（`user_skills.trade_type`）= `TRADE_TYPES` 固定リストからの選択値（大工・塗装・電気 等）。1ユーザー最大3件
+- **保有スキル**（`users.skill_tags text[]`）= 自由入力タグ（型枠設置・外壁塗装・送配電線工 等）。件数制限なし
+- この2つは意味論が異なる。受注者詳細（CLI-006）や応募詳細（applications/received・orders）で **`trade_type` を「保有スキル」ラベルで表示してはならない**。`users.skill_tags` を参照すること
+- 2026-04-22 実例: COM-001/002 で保有スキル欄が欠落していた。それに合わせて CLI-006 / applications 詳細画面でも `skills.map((s) => s.trade_type).join("、")` を「保有スキル」として表示する hack が入っていたため、`users.skill_tags` に一本化
+- 新しく「保有スキル」を表示する画面を作る際は必ず `users.skill_tags` を SELECT すること。user_skills から引かないこと
 
 ### 名前表示・姓名結合のルール
 - 日本語の姓名結合は**スペースなし**で行うこと（`${lastName}${firstName}`）。`${lastName} ${firstName}` のようにスペースを入れると、既存の表示パターンと不一致になりテストが失敗する
@@ -421,6 +466,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 ### ナビゲーション・画面遷移（必ず守ること）
 - 全画面に「戻る」ボタンを設置すること。遷移先は `router.back()` を使用しブラウザ履歴に基づかせる（ハードコードされた遷移先パスは原則禁止）
 - ナビゲーションメニュー（ヘッダー、マイページ）のリンク先URLと実際のページファイルパスが一致していることを必ず確認すること。404の原因になる
+- **BackButton の `href` 明示の例外パターン**: Save Server Action の redirect で `window.location.href` / `router.push` によって親画面へ戻るフローがある場合、**履歴に edit 画面のエントリが残ったまま**になり、親画面で `router.back()` すると edit に戻ってしまうループが発生する。ツリー構造で親が固定している画面（CLI-020 / CLI-022 / CLI-023 等）は `<BackButton href="/mypage" />` のように明示して対処する。対応画面と理由は `src/components/shared/back-button.tsx` のコメント参照。2026-04 実例: CLI-021 保存 → CLI-020 戻る → /edit に戻ってループ発生
 
 ### 検索ポップアップ・フィルター
 - 検索条件ポップアップを実装する際は、対応するデザインカンプ（`*-popup-a.png`、`*-popup-b.png` 等）を必ず参照し、フィルター項目・レイアウトを合わせること

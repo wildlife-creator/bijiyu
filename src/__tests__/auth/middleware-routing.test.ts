@@ -19,8 +19,15 @@ const PUBLIC_PAGES = [
 const CLIENT_ONLY_PREFIXES = [
   "/jobs/create",
   "/jobs/edit",
-  "/organization",
   "/users/search",
+  "/users/contractors",
+  "/applications/received",
+  "/applications/orders",
+  "/messages/bulk-send",
+  "/messages/scout-send",
+  "/messages/templates",
+  "/mypage/client-profile",
+  "/mypage/members",
 ] as const;
 
 function isAuthPage(pathname: string): boolean {
@@ -181,8 +188,8 @@ describe("authenticated contractor routing", () => {
     expect(result.redirectTo).toBe("/mypage");
   });
 
-  it("blocks /organization (client-only)", () => {
-    const result = getRoutingResult(role, "/organization/members", true);
+  it("blocks /mypage/members (client-only)", () => {
+    const result = getRoutingResult(role, "/mypage/members", true);
     expect(result.allowed).toBe(false);
     expect(result.redirectTo).toBe("/mypage");
   });
@@ -220,8 +227,8 @@ describe("authenticated client routing", () => {
     expect(result.allowed).toBe(true);
   });
 
-  it("allows /organization/members", () => {
-    const result = getRoutingResult(role, "/organization/members", true);
+  it("allows /mypage/members", () => {
+    const result = getRoutingResult(role, "/mypage/members", true);
     expect(result.allowed).toBe(true);
   });
 
