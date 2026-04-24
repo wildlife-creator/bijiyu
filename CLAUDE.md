@@ -481,3 +481,49 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 受注者（無料）: 登録職種・登録県と合致する案件を必ず含めること（応募フローのテスト用）。合致しない案件も含めること（応募制限の動作確認用）
 - 発注者（課金済み）: 受注者機能も利用可能（制限なしで案件検索・応募）。発注者機能（案件掲載・職人検索・スカウト等）もテスト可能なデータを用意すること
 - テストユーザーごとに user_skills, user_available_areas, subscriptions のデータを整合させること
+- **招待フロー seed の `email_confirmed_at` は NULL を正とする**（必ず守ること）: auth.users に直接 INSERT する seed で「招待送信済・未ログイン」状態を再現するには `email_confirmed_at = NULL` にする。`now()` を入れてしまうと Supabase が「既に確認済み」とみなし `inviteUserByEmail()` がエラーで拒否され、招待再送 E2E が成立しない。一方、既に会員登録を完了したテストユーザー（Owner 本人、seed で事前配置した Admin/Staff 等）は `password_set_at = now()` をセットしないと CLI-022 の「招待中」バッジが全員に付いて回帰テストが壊れる。2026-04-24 に両方の罠を踏んで再現修正したので再発注意。
+
+### ローカル開発環境: localhost と 127.0.0.1 を混在させない（必ず守ること）
+- Supabase Auth（GoTrue）は local dev で `http://127.0.0.1:54321` を外部 URL として返し、invite / reset / verify の session cookie もそのホストスコープで発行する
+- 一方で Next.js dev server は `localhost:3000` でも `127.0.0.1:3000` でも待ち受けるため、開発者が「localhost:3000 で app を開きつつ Supabase が 127.0.0.1:54321 を返す」状況になると、招待リンクを踏んだ後の session cookie が app 側に届かず `/accept-invite/confirm` が「有効期限切れ」扱いになる
+- **対策**: `.env.local` / `supabase/config.toml.site_url` / 実際のブラウザアクセス URL を **全て `127.0.0.1`** に統一する。`.env.local.example` も 127.0.0.1 基準で配布する
+- 関連: `.env.local.example`（`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_APP_URL` とも 127.0.0.1）、`supabase/config.toml` の `additional_redirect_urls` は両ホストをワイルドカード付きで許可
+
+### Next.js 16 dev サーバー固有（必ず守ること）
+- **`allowedDevOrigins` に 127.0.0.1 と localhost の両方を登録**: Next.js 16 では dev mode で origin チェックが厳格化され、`allowedDevOrigins` に入っていないオリジンからの Server Action POST は GET フォールバックされる（= form が「?email=...&password=...」という URL で送信され Server Action が発火しない）。`next.config.ts` に `allowedDevOrigins: ["127.0.0.1", "localhost"]` を明示
+- **`experimental.serverActions.bodySizeLimit` は画像サイズ上限より大きく**: デフォルト 1MB で、Zod バリデーションが 5MB まで許可していても Next.js ボディパーサー段階で拒否されてランタイムエラーになる。CLI-021 の画像アップロードなら `"6mb"` 等、実用上の上限 + 余裕を設定
+
+### SECURITY DEFINER 関数は `SET search_path = public` 必須（必ず守ること）
+- `CREATE OR REPLACE FUNCTION xxx() ... SECURITY DEFINER` で定義する関数は、search_path を明示しないと呼び出し元（auth トリガーなら auth スキーマ）のコンテキストで実行され、`public` スキーマの型・テーブルが解決できずエラーになる
+- 典型的な症状: `type "user_role" does not exist (SQLSTATE 42704)` → auth.users INSERT が 500 で失敗 → `inviteUserByEmail` が「Database error saving new user」を返す
+- **対策**:
+  1. 関数定義末尾に `SET search_path = public` を付ける
+  2. カスタム型参照は `public.user_role` のように完全修飾（防御多層化）
+- 既存関数 `is_same_org` / `insert_staff_member_with_limit` / `delete_staff_member` / `is_org_admin_or_owner_of` は設定済。新規 SECURITY DEFINER を追加する場合は必ず両方付与
+- 実例: 2026-04-24 に `handle_new_user` トリガーが search_path 未設定で招待フロー全体がブロックされた
+
+### Supabase Auth の session cookie とリダイレクトループ対策（必ず守ること）
+- `public.users.deleted_at` セット or `is_active = false` を middleware で検出して `/login` に redirect するだけでは、Supabase session cookie が有効な間ずっとログイン状態なので `/login` → middleware 検出 → 再 redirect の無限ループに陥る（ブラウザで「多くのリダイレクト」エラー）
+- **対策**: 検出時の redirect response に対し、`sb-` で始まる全 cookie を `response.cookies.delete(name)` で削除して session を即時無効化してから redirect する（`redirectToLoginAndClearSession` ヘルパー）
+- 実例: 2026-04-25 に退会 C 案の連動凍結メンバーでループを踏んで修正
+
+### Supabase Auth の invite は implicit flow（必ず守ること）
+- `admin.auth.admin.inviteUserByEmail()` が生成するリンクは `http://127.0.0.1:54321/auth/v1/verify?token=...&type=invite&redirect_to=<app_url>`。ユーザーがクリックすると GoTrue が session を確立し、303 で `redirect_to` へ戻すが、access_token / refresh_token は **URL fragment（`#access_token=...&refresh_token=...`）** で渡ってくる
+- fragment は **サーバーに届かない**ため、app 側の Server Route Handler では session 情報が取れない。`/auth/callback?type=invite` を中継させると「code も session も無い」状態で server-side fallback に落ちる
+- **対策**:
+  1. `inviteUserByEmail({ redirectTo })` の redirectTo を server-route ではなく **client-side page に直結**（例: `/accept-invite/confirm`）
+  2. その client page の `useEffect` で `window.location.hash` から access_token / refresh_token を読み、`supabase.auth.setSession({ access_token, refresh_token })` を **await してから** isReady=true にして form を表示（順番を逆にすると Server Action 呼び出し時に session cookie 未書き込みで getUser が空になる）
+  3. Session 確立後は `history.replaceState` で fragment を URL から除去（再読み込み時の再処理防止）
+- 実例: 2026-04-24 に AUTH-008 実装で上記全てに連続で詰まり修正
+
+### Stripe Webhook の到着順保証なし（必ず守ること）
+- `customer.subscription.created` と `checkout.session.completed` の順序は Stripe の仕様上保証されない。実測で前者が先に来るケースがある
+- 「subscription INSERT → それに依存する後続処理」を `customer.subscription.created` ハンドラだけで行うと、subscription 行未登録で early return して **後続処理がスキップされる**
+- **対策**: 副作用となる後続処理（例: `reactivateCorporateMembers()`）は `checkout.session.completed` 側でも呼ぶ **二重保険**を入れる。関数自体は UPDATE ベースで冪等なので重複呼び出しでも副作用無し
+- 実例: 2026-04-24 の J1 再アップグレード検証で「冷凍 Admin/Staff が is_active 復帰しない」バグの根本原因
+
+### Vitest の `mockReturnValueOnce` キューが `vi.clearAllMocks()` で消えない（必ず守ること）
+- `vi.clearAllMocks()` は `.mock.calls` / `.mock.results` 等の呼び出し履歴はクリアするが、`mockReturnValueOnce()` で積んだ **onceValues queue は保持したまま** 次のテストに漏れる
+- その結果、あるテストで未消費のモック（例: 早期 return する検証で .from() を呼ばないケース）が次のテストで消費されてしまい、意図しない値を返す → 「upsert が呼ばれていない」等の謎の失敗
+- **対策**: 各 spy を `spy.mockReset()` で明示的にリセットしてから必要なモックを再構築する。`beforeEach` で `vi.clearAllMocks()` ではなく `mockFrom.mockReset(); mockAdminFrom.mockReset(); ...` の形を使う
+- 実例: 2026-04-25 に `client-profile-actions.test.ts` の Staff ガードモック追加で queue 漏れが連鎖しデバッグに時間を費やした
