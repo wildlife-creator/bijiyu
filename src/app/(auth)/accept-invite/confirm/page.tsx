@@ -39,14 +39,43 @@ export default function AcceptInviteConfirmPage() {
     resolver: zodResolver(updatePasswordSchema),
   });
 
-  // 既に password_set_at がセット済み = 招待完了済みのユーザーが
-  // 再度リンクを踏んだ場合は無言で /mypage にリダイレクト
+  // 招待リンク（implicit flow）で URL フラグメントに載ってくる access_token /
+  // refresh_token を明示的に受け取り、setSession で session を Cookie に書き込む。
+  // これを待ってから isReady=true にすることで、Server Action の getUser() が
+  // Cookie 未書き込みのまま呼ばれて「有効期限切れ」扱いになるのを防ぐ。
   useEffect(() => {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     );
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
+
+    async function hydrate() {
+      // URL フラグメントからトークンを抽出（#access_token=...&refresh_token=...）
+      if (typeof window !== "undefined" && window.location.hash) {
+        const params = new URLSearchParams(window.location.hash.slice(1));
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) {
+            setIsExpired(true);
+            setServerError(
+              "リンクの有効期限が切れています。招待元に再送を依頼してください",
+            );
+            setIsReady(true);
+            return;
+          }
+          // フラグメントを URL から除去（見た目を綺麗にする）
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         setIsReady(true);
         return;
@@ -61,7 +90,9 @@ export default function AcceptInviteConfirmPage() {
         return;
       }
       setIsReady(true);
-    });
+    }
+
+    hydrate();
   }, [router]);
 
   async function onSubmit(data: UpdatePasswordInput) {

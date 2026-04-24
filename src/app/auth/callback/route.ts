@@ -15,13 +15,6 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type");
   const next = searchParams.get("next");
 
-  if (!code) {
-    // No code provided — redirect to login with error
-    const loginUrl = new URL("/login", origin);
-    loginUrl.searchParams.set("error", "認証コードが見つかりません");
-    return NextResponse.redirect(loginUrl);
-  }
-
   const cookieStore = await cookies();
 
   const supabase = createServerClient<Database>(
@@ -46,12 +39,28 @@ export async function GET(request: NextRequest) {
     },
   );
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-  if (error) {
-    const loginUrl = new URL("/login", origin);
-    loginUrl.searchParams.set("error", "認証に失敗しました。もう一度お試しください");
-    return NextResponse.redirect(loginUrl);
+  // PKCE flow: code exchange
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      const loginUrl = new URL("/login", origin);
+      loginUrl.searchParams.set(
+        "error",
+        "認証に失敗しました。もう一度お試しください",
+      );
+      return NextResponse.redirect(loginUrl);
+    }
+  } else {
+    // Implicit flow (Supabase invite links): セッションが既に Cookie で確立されているはず。
+    // getUser() で確認し、未確立なら /login にエラー誘導する。
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      const loginUrl = new URL("/login", origin);
+      loginUrl.searchParams.set("error", "認証情報が見つかりません");
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   // Determine redirect destination based on flow type

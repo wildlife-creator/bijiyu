@@ -137,9 +137,12 @@ export async function createMemberAction(
   }
 
   // 招待メール送信 + auth.users 作成（D 対応: メタデータで staff + 氏名を自動設定）
+  // redirectTo は /auth/callback を経由せず直接 /accept-invite/confirm に向ける。
+  // AUTH-008 は client component で createBrowserClient 経由で session を確立できるため、
+  // implicit flow のトークン（URL fragment / Cookie）を素直に受けられる。
   const { data: invited, error: inviteError } =
     await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
-      redirectTo: `${SERVICE_URL}/auth/callback?type=invite`,
+      redirectTo: `${SERVICE_URL}/accept-invite/confirm`,
       data: {
         invited_role: "staff",
         invited_last_name: parsed.data.lastName,
@@ -530,10 +533,15 @@ export async function resendInviteAction(
   }
 
   const { error } = await admin.auth.admin.inviteUserByEmail(target.email, {
-    redirectTo: `${SERVICE_URL}/auth/callback?type=invite`,
+    redirectTo: `${SERVICE_URL}/accept-invite/confirm`,
   });
 
   if (error) {
+    console.error("[resendInviteAction] inviteUserByEmail failed", {
+      email: target.email,
+      code: error.code,
+      message: error.message,
+    });
     return {
       success: false,
       error: "招待メールの再送に失敗しました。時間をおいて再度お試しください",

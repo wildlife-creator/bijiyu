@@ -31,7 +31,7 @@ DECLARE
   v_invited_role       text;
   v_invited_last_name  text;
   v_invited_first_name text;
-  v_role               user_role;
+  v_role               public.user_role;
 BEGIN
   v_invited_role       := NEW.raw_user_meta_data->>'invited_role';
   v_invited_last_name  := NEW.raw_user_meta_data->>'invited_last_name';
@@ -39,9 +39,9 @@ BEGIN
 
   -- ホワイトリスト: 'staff' のみ受理。それ以外は全て contractor にフォールバック。
   IF v_invited_role = 'staff' THEN
-    v_role := 'staff'::user_role;
+    v_role := 'staff'::public.user_role;
   ELSE
-    v_role := 'contractor'::user_role;
+    v_role := 'contractor'::public.user_role;
   END IF;
 
   INSERT INTO public.users (id, role, email, last_name, first_name)
@@ -55,7 +55,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- トリガー本体は 005_auth_trigger.sql で作成済み（on_auth_user_created）。
 -- 関数を CREATE OR REPLACE するだけでトリガーは自動的に新実装を使用する。

@@ -261,7 +261,8 @@ UPDATE public.users SET
   company_name = '田中建設',
   bio = '大工歴10年。木造住宅を得意としています。',
   identity_verified = true,
-  ccus_verified = true
+  ccus_verified = true,
+  skill_tags = ARRAY['木造住宅建築', '造作工事', 'リフォーム', '内装仕上げ']
 WHERE id = '11111111-1111-1111-1111-111111111111';
 
 -- 発注者
@@ -337,7 +338,8 @@ UPDATE public.users SET
   company_name = NULL,
   bio = '塗装工歴8年。外壁・内壁の塗装を専門にしています。左官工事も対応可能です。',
   identity_verified = true,
-  ccus_verified = true
+  ccus_verified = true,
+  skill_tags = ARRAY['外壁塗装', '内壁塗装', '吹付塗装', '左官仕上げ']
 WHERE id = 'cc111111-1111-1111-1111-111111111111';
 
 -- 受注者3（電気工事士・配管工）
@@ -351,7 +353,8 @@ UPDATE public.users SET
   company_name = '渡辺電設',
   bio = '電気工事士として15年の経験があります。商業施設・住宅問わず対応可能です。',
   identity_verified = true,
-  ccus_verified = false
+  ccus_verified = false,
+  skill_tags = ARRAY['屋内配線', '送配電線工', '受変電設備工', '配管工']
 WHERE id = 'cc222222-2222-2222-2222-222222222222';
 
 -- 受注者4（内装工）— 無料ユーザー、本人確認なし
@@ -363,7 +366,8 @@ UPDATE public.users SET
   birth_date = '1998-12-03',
   prefecture = '千葉県',
   company_name = NULL,
-  bio = '内装工事を中心に活動しています。クロス張り替えが得意です。'
+  bio = '内装工事を中心に活動しています。クロス張り替えが得意です。',
+  skill_tags = ARRAY['クロス張り替え', '内装仕上げ', '床材施工']
 WHERE id = 'cc333333-3333-3333-3333-333333333333';
 
 -- 個人発注者（組織なし）— 個人発注者様向けプラン
@@ -407,7 +411,14 @@ INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
   ('cc111111-1111-1111-1111-111111111111', '左官', 4),
   ('cc222222-2222-2222-2222-222222222222', '電気工事士', 15),
   ('cc222222-2222-2222-2222-222222222222', '配管工', 6),
-  ('cc333333-3333-3333-3333-333333333333', '内装工', 3);
+  ('cc333333-3333-3333-3333-333333333333', '内装工', 3),
+  -- 発注者ユーザー（client role）にも user_skills を登録する。
+  -- 理由: 正規ルート（/register/profile）の registerProfileSchema で skills.min(1) が必須のため、
+  -- 自分で会員登録した全ユーザー（後に client にアップグレードする人含む）は必ず skills を持つ。
+  -- seed もそのフローに合わせる（直接 INSERT で skills 無しユーザーを作ってはならない）。
+  ('22222222-2222-2222-2222-222222222222', '内装工', 8),
+  ('aabbccdd-1111-2222-3333-444455556666', '鉄筋工', 12),
+  ('dd111111-1111-2222-3333-444455556666', '内装工', 5);
 
 -- ============================================================
 -- 4. user_qualifications（受注者の資格）
@@ -434,7 +445,15 @@ INSERT INTO user_available_areas (user_id, prefecture) VALUES
   ('cc222222-2222-2222-2222-222222222222', '埼玉県'),
   ('cc222222-2222-2222-2222-222222222222', '千葉県'),
   ('cc333333-3333-3333-3333-333333333333', '千葉県'),
-  ('cc333333-3333-3333-3333-333333333333', '東京都');
+  ('cc333333-3333-3333-3333-333333333333', '東京都'),
+  -- 発注者ユーザー（client role）の対応可能エリア。
+  -- 理由: registerProfileSchema で availableAreas.min(1) も必須のため、正規ルートを経た全ユーザーは持つ。
+  ('22222222-2222-2222-2222-222222222222', '神奈川県'),
+  ('22222222-2222-2222-2222-222222222222', '東京都'),
+  ('aabbccdd-1111-2222-3333-444455556666', '東京都'),
+  ('aabbccdd-1111-2222-3333-444455556666', '埼玉県'),
+  ('dd111111-1111-2222-3333-444455556666', '埼玉県'),
+  ('dd111111-1111-2222-3333-444455556666', '東京都');
 
 -- ============================================================
 -- 6. subscriptions（発注者のサブスクリプション）
@@ -472,7 +491,7 @@ INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_a
 -- - address は CLI-020/021 の住所表示テスト用に 2 件設定
 INSERT INTO client_profiles (user_id, display_name, address, recruit_area, recruit_job_types, working_way, employee_scale, message, language) VALUES
   ('22222222-2222-2222-2222-222222222222', '鈴木工務店株式会社', '東京都墨田区向島1-2-3', '{"神奈川県","東京都"}', '{"大工","内装工","電気工事士"}', '1日から可', 15, '一緒に働いてくれる職人さんを募集しています。', '日本語'),
-  ('aabbccdd-1111-2222-3333-444455556666', '山田建設株式会社', '埼玉県さいたま市大宮区4-5-6', '{"東京都","埼玉県"}', '{"大工","鉄筋工","型枠大工"}', '長期歓迎', 30, '大規模建築を中心に手がけています。職人さん大募集中です。', '日本語・英語'),
+  ('aabbccdd-1111-2222-3333-444455556666', '山田建設株式会社', '埼玉県さいたま市大宮区4-5-6', '{"東京都","埼玉県"}', '{"大工","鉄筋工","型枠大工"}', '長期歓迎', 30, '大規模建築を中心に手がけています。職人さん大募集中です。', '日本語、英語'),
   ('dd111111-1111-2222-3333-444455556666', '中村リフォーム', NULL, '{"埼玉県","東京都"}', '{"大工","内装工"}', '1日から可', 1, '小規模リフォームの発注をしています。', '日本語');
 
 -- ============================================================
@@ -1072,7 +1091,9 @@ INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at
 
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
 VALUES
-  ('c4441111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'invited-admin@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  -- invited-admin: email_confirmed_at = NULL で「招待送信済み・未ログイン」状態を再現
+  -- （email_confirmed_at が now() だと Supabase が inviteUserByEmail を拒否するため）
+  ('c4441111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'invited-admin@test.local', crypt('testpass123', gen_salt('bf')), NULL, '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
   ('c4442222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'completed-admin@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
 
 INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
@@ -1093,3 +1114,14 @@ INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
 -- ------------------------------------------------------------
 -- 既存の staff=33333333（is_proxy_account=true）が代理役を担う。
 -- seed L460 で既に設定済みのため追加不要。確認コメントのみ。
+
+-- ------------------------------------------------------------
+-- Bulk: 既に会員登録を完了している pre-existing テストユーザー全員に
+-- password_set_at = now() を付与（CLI-022 の「招待中」バッジ誤表示の回避）。
+-- invited-admin@test.local のみ NULL を保ち「招待中」バッジ検証用に残す。
+-- ------------------------------------------------------------
+UPDATE public.users
+SET password_set_at = now()
+WHERE email LIKE '%@test.local'
+  AND email <> 'invited-admin@test.local'
+  AND password_set_at IS NULL;
