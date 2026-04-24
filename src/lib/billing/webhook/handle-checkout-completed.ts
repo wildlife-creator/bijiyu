@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
 import type { Database } from "@/types/database";
+import { reactivateCorporateMembers } from "./handle-subscription-lifecycle";
 
 /**
  * Handle a Stripe `checkout.session.completed` event.
@@ -90,6 +91,16 @@ async function handlePlanCheckout(
     throw new Error(
       `handle_checkout_completed_plan RPC failed: ${error.message ?? String(error)}`,
     );
+  }
+
+  // J1 再アップグレード対応: 法人プランの場合は配下 Admin/Staff を is_active=true に復帰。
+  // customer.subscription.created ハンドラと重複して呼ばれうるが、reactivateCorporateMembers
+  // は冪等（UPDATE ... SET is_active=true）なので副作用無し。
+  // Stripe Webhook のイベント順序は保証されないため、checkout.session.completed 側でも
+  // 確実に実行するようにする（subscription.created が先に来て subscription 行未登録で
+  // 早期 return するケースを救済）。
+  if (planType === "corporate" || planType === "corporate_premium") {
+    await reactivateCorporateMembers(admin, userId);
   }
 }
 
