@@ -50,22 +50,7 @@ export async function withdrawAction(
     };
   }
 
-  // 4. Check 2: Active applications on user's owned jobs
-  const { data: ownedJobApplications } = await supabase
-    .from("applications")
-    .select("id, jobs!inner(owner_id)")
-    .eq("jobs.owner_id", user.id)
-    .eq("status", "accepted");
-
-  if (ownedJobApplications && ownedJobApplications.length > 0) {
-    return {
-      success: false,
-      error:
-        "受注者が作業中の案件があるため退会できません。案件の完了後に再度お試しください。",
-    };
-  }
-
-  // 5. Check 3: Organization membership check
+  // 4. Organization membership check（以降の accepted 応募チェック範囲の判定に使う）
   const { data: orgMembership } = await supabase
     .from("organization_members")
     .select("org_role, organization_id")
@@ -77,6 +62,36 @@ export async function withdrawAction(
       success: false,
       error:
         "法人プランの管理責任者のみ退会手続きが可能です。管理責任者にお問い合わせください。",
+    };
+  }
+
+  // 5. Check 2: Active applications on jobs the user is responsible for
+  //    - 個人発注者 / 小規模プラン Owner（組織無し・単独メンバー）: jobs.owner_id = user.id
+  //    - 法人プラン Owner: 組織全体の案件 (jobs.organization_id = org.id)
+  //      Admin/Staff が組織名義で作成した案件も含めないと、退会後に進行中案件の
+  //      発注責任者が不在になる（REQ-PF-006 の「発注中案件がある場合は退会不可」
+  //      の本来の意図に反する）。
+  let ownedJobQuery = supabase
+    .from("applications")
+    .select("id, jobs!inner(owner_id, organization_id)")
+    .eq("status", "accepted");
+
+  if (orgMembership?.org_role === "owner" && orgMembership.organization_id) {
+    ownedJobQuery = ownedJobQuery.eq(
+      "jobs.organization_id",
+      orgMembership.organization_id,
+    );
+  } else {
+    ownedJobQuery = ownedJobQuery.eq("jobs.owner_id", user.id);
+  }
+
+  const { data: ownedJobApplications } = await ownedJobQuery;
+
+  if (ownedJobApplications && ownedJobApplications.length > 0) {
+    return {
+      success: false,
+      error:
+        "受注者が作業中の案件があるため退会できません。案件の完了後に再度お試しください。",
     };
   }
 

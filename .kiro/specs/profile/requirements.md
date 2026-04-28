@@ -128,9 +128,12 @@
   - 詳細・改善事項（任意、テキスト）
   - 同意チェックボックス（必須）
 - 退会不可条件:
-  - 応募中（status = 'applied'）の案件がある場合
-  - 発注中（status = 'accepted' で未完了）の案件がある場合
-  - 課金ユーザー（法人プラン）の場合、管理責任者以外は退会不可
+  - 退会申請者本人が「応募中」（status = 'applied'）の案件がある場合（受注者立場として）
+  - 退会申請者が**責任を持つ**「発注中」（status = 'accepted' で未完了）の案件がある場合
+    - 個人発注者プラン Owner / 小規模プラン Owner: `jobs.owner_id = user.id` のみ判定
+    - **法人プラン Owner**: `jobs.organization_id = 所属組織の id` で判定
+      （**組織メンバー=Admin/Staff が作成した案件も含む**。Owner は組織全体の発注責任を負うため、自分以外が作成した組織案件の進行中を見落とすと、退会後に発注責任者不在になる）
+  - 法人プラン Staff / Admin: そもそも退会不可（管理責任者に依頼。Server Action の事前ガード + Middleware でブロック）
 - **法人プラン管理責任者（Owner）向けの警告ダイアログ**（2026-04-19 追加、C 案採用に伴う）:
   - 対象: `role = 'client'` かつ `org_role = 'owner'` かつ `subscriptions.plan_type IN ('corporate', 'corporate_premium')` のユーザー
   - 表示タイミング: 退会理由入力後、「退会する」ボタン押下時の確認ダイアログ内に表示
