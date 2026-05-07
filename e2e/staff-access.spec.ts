@@ -86,6 +86,15 @@ test.describe("担当者（org_role=staff）の受注者アクション制限", 
     await page.waitForURL(/\/mypage/);
     await expect(page).toHaveURL(/\/mypage/);
   });
+
+  test("空き日程（CON-014）にアクセスするとマイページにリダイレクトされる", async ({
+    page,
+  }) => {
+    await login(page, TEST_STAFF.email, TEST_STAFF.password);
+    await page.goto("/schedule");
+    await page.waitForURL(/\/mypage/);
+    await expect(page).toHaveURL(/\/mypage/);
+  });
 });
 
 // ============================================================

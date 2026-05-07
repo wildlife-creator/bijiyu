@@ -1,0 +1,22 @@
+{
+  "name": "schedule",
+  "description": "空き日程機能（受注者の空き予定の登録・更新・削除と発注者からの閲覧）",
+  "language": "ja",
+  "phase": "implemented",
+  "created_at": "2026-04-28T00:00:00Z",
+  "updated_at": "2026-04-29T00:00:00Z",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  }
+}

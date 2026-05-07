@@ -122,6 +122,22 @@ test.describe("/mypage ナビゲーション（法人プラン Staff）", () => 
     );
   });
 
+  test("Staff: 「予定を確認する」セクション全体が非表示（REQ-SC 三層防御 第 1 層）", async ({
+    page,
+  }) => {
+    await login(page, TEST_STAFF.email, TEST_STAFF.password);
+    await page.goto("/mypage");
+    await expect(
+      page.getByRole("heading", { name: "予定を確認する" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "空き日程一覧" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "応募履歴" }),
+    ).toHaveCount(0);
+  });
+
   test("Staff: マイページ上部に本人確認/CCUS バッジが表示されない（REQ-ORG-011）", async ({
     page,
   }) => {

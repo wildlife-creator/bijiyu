@@ -437,10 +437,10 @@ export async function middleware(request: NextRequest) {
     if (pathname.match(/^\/jobs\/[^/]+\/apply/)) {
       return finalize(redirectTo(request, "/mypage"));
     }
-    // Block application history and availability routes
+    // Block application history and schedule routes
     if (
       pathname.startsWith("/applications/history") ||
-      pathname.startsWith("/availability")
+      pathname.startsWith("/schedule")
     ) {
       return finalize(redirectTo(request, "/mypage"));
     }

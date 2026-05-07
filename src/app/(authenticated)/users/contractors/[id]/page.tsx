@@ -64,6 +64,9 @@ export default async function ContractorDetailPage({ params }: PageProps) {
 
   if (!contractor) notFound();
 
+  // 直近の未来 3 件のみ閲覧側で表示（過去日程は除外）— REQ-SC-004
+  const todayIso = new Date().toISOString().slice(0, 10);
+
   const isDeleted = !!contractor.deleted_at;
   const displayName = getUserDisplayName({
     lastName: contractor.last_name,
@@ -100,7 +103,9 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       .from("available_schedules")
       .select("start_date, end_date, note")
       .eq("user_id", id)
-      .order("start_date", { ascending: true }),
+      .gte("end_date", todayIso)
+      .order("start_date", { ascending: true })
+      .limit(3),
     supabase
       .from("user_reviews")
       .select("id, rating_again")
