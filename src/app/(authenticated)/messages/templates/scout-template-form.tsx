@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import type { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/shared/back-button";
@@ -25,17 +26,17 @@ interface Props {
   initialValues?: ScoutTemplateInput;
 }
 
-type FormValues = {
-  title: string;
-  body: string;
-  memo: string;
-};
+type FormInput = z.input<typeof scoutTemplateSchema>;
 
 export function ScoutTemplateForm({ mode, templateId, initialValues }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const { register, handleSubmit, formState } = useForm<FormValues>({
+  const { register, handleSubmit, formState } = useForm<
+    FormInput,
+    unknown,
+    ScoutTemplateInput
+  >({
     resolver: zodResolver(scoutTemplateSchema),
     defaultValues: {
       title: initialValues?.title ?? "",
@@ -44,16 +45,10 @@ export function ScoutTemplateForm({ mode, templateId, initialValues }: Props) {
     },
   });
 
-  function onSubmit(values: FormValues) {
+  function onSubmit(values: ScoutTemplateInput) {
     startTransition(async () => {
-      const input: ScoutTemplateInput = {
-        title: values.title,
-        body: values.body,
-        memo: values.memo,
-      };
-
       if (mode === "create") {
-        const result = await createScoutTemplateAction(input);
+        const result = await createScoutTemplateAction(values);
         if (!result.success) {
           toast.error(result.error);
           return;
@@ -68,7 +63,7 @@ export function ScoutTemplateForm({ mode, templateId, initialValues }: Props) {
         toast.error("テンプレート ID が不正です");
         return;
       }
-      const result = await updateScoutTemplateAction(templateId, input);
+      const result = await updateScoutTemplateAction(templateId, values);
       if (!result.success) {
         toast.error(result.error);
         return;

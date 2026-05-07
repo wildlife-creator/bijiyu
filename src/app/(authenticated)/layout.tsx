@@ -39,10 +39,10 @@ export default async function AuthenticatedLayout({
   let pastDueBanner: { daysRemaining: number; severity: "warning" | "critical" } | null = null;
   if (billingStatus === "past_due" && pastDueSince) {
     const since = new Date(pastDueSince).getTime();
-    const daysRemaining = Math.max(
-      0,
-      7 - Math.floor((Date.now() - since) / 86_400_000),
-    );
+    // Server Component なのでリクエスト毎に 1 回評価。React Compiler の純粋性チェックは過剰反応。
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now();
+    const daysRemaining = Math.max(0, 7 - Math.floor((now - since) / 86_400_000));
     const severity = daysRemaining >= 4 ? "warning" : "critical";
     pastDueBanner = { daysRemaining, severity };
   }

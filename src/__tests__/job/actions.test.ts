@@ -139,7 +139,6 @@ describe("createJobAction", () => {
       data: { user: { id: "user-1" } },
     });
 
-    let callCount = 0;
     mockFrom.mockImplementation((table: string) => {
       if (table === "users") {
         return createQueryMock({

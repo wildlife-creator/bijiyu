@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -66,7 +66,10 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
     control,
     formState: { errors },
   } = useForm<ClientProfileFormInput>({
-    resolver: zodResolver(schema),
+    // schema は法人/個人で動的に切り替わり、preprocess + transform で
+    // 入力型（unknown 多数）と出力型（ClientProfileFormInput）が乖離する。
+    // 入出力ともに ClientProfileFormInput として扱う（runtime は変わらない）。
+    resolver: zodResolver(schema) as unknown as Resolver<ClientProfileFormInput>,
     defaultValues: initialValues,
   });
 

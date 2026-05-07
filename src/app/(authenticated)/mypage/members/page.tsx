@@ -72,7 +72,7 @@ export default async function MembersListPage({ searchParams }: PageProps) {
 
   // 全メンバー取得（ページネーションは並び順ロジックの都合で一旦全件 → slice）
   // 組織の規模上限（maxStaff=30）からして影響軽微
-  let query = supabase
+  const query = supabase
     .from("organization_members")
     .select(
       `org_role, is_proxy_account, created_at,

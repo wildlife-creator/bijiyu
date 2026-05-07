@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PLAN_LIMITS, type PlanType } from "@/lib/constants/plans";
 import type { ActionResult } from "@/lib/types/action-result";
+import type { Json } from "@/types/database";
 import {
   memberCreateSchema,
   memberUpdateSchema,
@@ -53,7 +54,7 @@ async function logAudit(
   admin: ReturnType<typeof createAdminClient>,
   actorId: string,
   action: string,
-  details: Record<string, unknown>,
+  details: Record<string, Json>,
 ): Promise<void> {
   await admin
     .from("audit_logs")

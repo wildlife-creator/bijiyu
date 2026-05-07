@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import type { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,13 +38,8 @@ interface Props {
   };
 }
 
-type FormValues = {
-  lastName: string;
-  firstName: string;
-  email: string;
-  orgRole: "admin" | "staff";
-  isProxyAccount: boolean;
-};
+type FormInput = z.input<typeof memberCreateSchema>;
+type FormValues = MemberCreateInput;
 
 function RequiredBadge() {
   return (
@@ -70,7 +66,7 @@ export function MemberForm({
     watch,
     setValue,
     formState: { errors },
-  } = useForm<FormValues>({
+  } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(memberCreateSchema),
     defaultValues: {
       lastName: initialValues?.lastName ?? "",
