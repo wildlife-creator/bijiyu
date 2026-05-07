@@ -45,7 +45,10 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # v2.98 系で SECURITY DEFINER + role 切替 + pgTAP の組合せが Postgres を
+          # 倒す現象が再現するため、ローカル開発と同じ既知動作版に固定。
+          # 根本原因の調査・追従はフォローアップで行う。
+          version: 2.75.0
 
       - name: Start Supabase
         run: supabase start -x realtime,storage-api,imgproxy,inbucket,postgrest-caller-id,edge-runtime,logflare,vector,supavisor
