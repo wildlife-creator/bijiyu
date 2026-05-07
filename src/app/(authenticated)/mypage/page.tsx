@@ -571,13 +571,15 @@ export default async function MyPage() {
         </section>
       )}
 
-      {/* Section 2: Check schedule */}
-      <section className="mt-8">
-        <h2 className="text-body-lg font-bold text-foreground">予定を確認する</h2>
-        <nav className="mt-3">
-          <MenuList items={CHECK_SCHEDULE_MENU} />
-        </nav>
-      </section>
+      {/* Section 2: Check schedule (staff は受注者アクション不可のため非表示) */}
+      {!isStaff && (
+        <section className="mt-8">
+          <h2 className="text-body-lg font-bold text-foreground">予定を確認する</h2>
+          <nav className="mt-3">
+            <MenuList items={CHECK_SCHEDULE_MENU} />
+          </nav>
+        </section>
+      )}
 
       {/* Section 3: Find contractors (client only) */}
       {isClient && (
