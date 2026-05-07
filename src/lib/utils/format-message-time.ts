@@ -3,29 +3,54 @@
  * - Same day: HH:mm
  * - Same year: MM/DD
  * - Different year: YYYY/MM/DD
+ *
+ * 常に JST(Asia/Tokyo) で評価する。Server Component で動くため、
+ * デプロイ先のサーバー TZ(通常 UTC)に依存させない。
  */
+
+const JST = "Asia/Tokyo";
+
+function getJstParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: JST,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type: string) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    hour: get("hour"),
+    minute: get("minute"),
+  };
+}
+
 export function formatMessageTime(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
 
-  const date = new Date(dateStr);
-  const now = new Date();
+  const target = getJstParts(new Date(dateStr));
+  const today = getJstParts(new Date());
 
   const isToday =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
+    target.year === today.year &&
+    target.month === today.month &&
+    target.day === today.day;
 
   if (isToday) {
-    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+    return `${target.hour}:${target.minute}`;
   }
 
-  const isSameYear = date.getFullYear() === now.getFullYear();
-
-  if (isSameYear) {
-    return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+  if (target.year === today.year) {
+    return `${target.month}/${target.day}`;
   }
 
-  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+  return `${target.year}/${target.month}/${target.day}`;
 }
 
 /**
@@ -34,11 +59,6 @@ export function formatMessageTime(dateStr: string | null | undefined): string {
 export function formatBubbleTime(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
 
-  const date = new Date(dateStr);
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-
-  return `${month}/${day} ${hours}:${minutes}`;
+  const p = getJstParts(new Date(dateStr));
+  return `${p.month}/${p.day} ${p.hour}:${p.minute}`;
 }
