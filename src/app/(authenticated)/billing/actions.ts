@@ -183,27 +183,10 @@ export async function startCheckoutAction(
       input.optionType === "compensation_5000" ||
       input.optionType === "compensation_9800"
     ) {
-      // 補償オプションは有料プラン（client）契約者のみ
-      if (userRow.role !== "client") {
-        return {
-          success: false,
-          error:
-            "補償オプションは有料プランご加入のお客様のみお申し込みいただけます",
-        };
-      }
-      const activePlan = await admin
-        .from("subscriptions")
-        .select("id")
-        .eq("user_id", user.id)
-        .in("status", ["active", "past_due"])
-        .limit(1);
-      if ((activePlan.data?.length ?? 0) === 0) {
-        return {
-          success: false,
-          error:
-            "補償オプションは有料プランご加入のお客様のみお申し込みいただけます",
-        };
-      }
+      // 補償オプション（受注者向け給与未払い保険）は contractor / client(owner)
+      // のいずれも購入可。staff / admin は global ガード（step 4）で既に拒否
+      // されているためここでは何もしない。基本プラン active の要件はない
+      // （無料 contractor も購入可能）
       // 排他制御: 既に1つの補償が active なら拒否
       const existingComp = await admin
         .from("option_subscriptions")
@@ -303,14 +286,22 @@ export async function startCheckoutAction(
   // 7.5. Stripe API-level duplicate guard
   // DB check (step 5) can miss subscriptions when webhooks are delayed.
   // Query Stripe directly as the authoritative second line of defence.
+  //
+  // 補償オプション（受注者向け給与未払い保険）は basic plan とは独立した
+  // 別契約で、metadata.type='option' を持つ。basic plan の二重契約のみを
+  // 防ぎたいので、metadata.type='plan' のサブスクが既にあるときだけ拒否する。
+  // metadata 無しのレガシーサブスクは含めない（test mode では無視可、本番
+  // にも該当する旧データは存在しない前提）。
   if (input.type === "plan") {
     try {
       const stripeSubs = await stripe.subscriptions.list({
         customer: customerId,
         status: "active",
-        limit: 1,
       });
-      if (stripeSubs.data.length > 0) {
+      const hasActiveBasicPlan = stripeSubs.data.some(
+        (s) => s.metadata?.type === "plan",
+      );
+      if (hasActiveBasicPlan) {
         return {
           success: false,
           error:

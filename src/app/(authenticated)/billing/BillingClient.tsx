@@ -73,8 +73,6 @@ interface ActiveOption {
 
 interface ClientProfile {
   isUrgentOption: boolean;
-  isCompensation5000: boolean;
-  isCompensation9800: boolean;
 }
 
 interface BillingClientProps {
@@ -129,6 +127,15 @@ export function BillingClient({
 }: BillingClientProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+
+  // 補償オプションの active 状態は option_subscriptions（active なレコード）
+  // 単独で判定する（client_profiles のフラグカラムは廃止済み）。
+  const hasComp5000 = activeOptions.some(
+    (o) => o.optionType === "compensation_5000",
+  );
+  const hasComp9800 = activeOptions.some(
+    (o) => o.optionType === "compensation_9800",
+  );
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -530,16 +537,16 @@ export function BillingClient({
             )}
           </div>
 
-          {/* 補償 ¥5,000/月 */}
+          {/* 補償 ¥5,000/月（受注者向け 給与未払い保険） */}
           <div className="py-4">
             <div className="flex items-center justify-between">
-              <span className="text-body-md font-bold">補償</span>
+              <span className="text-body-md font-bold">補償（受注者向け）</span>
               <span className="text-body-md">5,000円/月</span>
             </div>
             <p className="mt-1 text-body-sm text-muted-foreground">
-              月5,000円で、有事の際最大200万円の補償があります。
+              現場での給与未払いトラブル発生時、最大200万円までを補償します。
             </p>
-            {clientProfile.isCompensation5000 && (
+            {hasComp5000 && (
               <div className="mt-2">
                 <Badge variant="outline" className="border-emerald-600 bg-emerald-50 text-xs text-emerald-700">
                   ご利用中
@@ -547,7 +554,7 @@ export function BillingClient({
               </div>
             )}
             <div className="mt-3 flex justify-center">
-              {clientProfile.isCompensation5000 ? (
+              {hasComp5000 ? (
                 <Button
                   variant="outline"
                   className="w-full max-w-xs rounded-full text-destructive border-destructive/50"
@@ -565,12 +572,7 @@ export function BillingClient({
                 <Button
                   variant="default"
                   className="w-full max-w-xs rounded-full text-white"
-                  disabled={
-                    clientProfile.isCompensation9800 ||
-                    pending ||
-                    isStaff ||
-                    currentPlan === "free"
-                  }
+                  disabled={hasComp9800 || pending || isStaff}
                   onClick={() => handleOptionCheckout("compensation_5000")}
                 >
                   補償（5,000円）を申し込む
@@ -579,16 +581,16 @@ export function BillingClient({
             </div>
           </div>
 
-          {/* 補償 ¥9,800/月 */}
+          {/* 補償 ¥9,800/月（受注者向け 給与未払い保険） */}
           <div className="py-4 last:pb-0">
             <div className="flex items-center justify-between">
-              <span className="text-body-md font-bold">補償</span>
+              <span className="text-body-md font-bold">補償（受注者向け）</span>
               <span className="text-body-md">9,800円/月</span>
             </div>
             <p className="mt-1 text-body-sm text-muted-foreground">
-              月9,800円で、有事の際最大500万円の補償があります。
+              現場での給与未払いトラブル発生時、最大500万円までを補償します。
             </p>
-            {clientProfile.isCompensation9800 && (
+            {hasComp9800 && (
               <div className="mt-2">
                 <Badge variant="outline" className="border-emerald-600 bg-emerald-50 text-xs text-emerald-700">
                   ご利用中
@@ -596,7 +598,7 @@ export function BillingClient({
               </div>
             )}
             <div className="mt-3 flex justify-center">
-              {clientProfile.isCompensation9800 ? (
+              {hasComp9800 ? (
                 <Button
                   variant="outline"
                   className="w-full max-w-xs rounded-full text-destructive border-destructive/50"
@@ -614,12 +616,7 @@ export function BillingClient({
                 <Button
                   variant="default"
                   className="w-full max-w-xs rounded-full text-white"
-                  disabled={
-                    clientProfile.isCompensation5000 ||
-                    pending ||
-                    isStaff ||
-                    currentPlan === "free"
-                  }
+                  disabled={hasComp5000 || pending || isStaff}
                   onClick={() => handleOptionCheckout("compensation_9800")}
                 >
                   補償（9,800円）を申し込む
@@ -743,6 +740,11 @@ export function BillingClient({
                 <p className="text-muted-foreground">
                   解約後は発注者機能がご利用いただけなくなります。
                 </p>
+                {(hasComp5000 || hasComp9800) && (
+                  <p className="text-body-xs text-muted-foreground mt-2">
+                    ※ 加入中の補償オプションは基本プラン解約後も継続課金されます。補償も停止する場合は、別途オプションプラン欄から解約してください。
+                  </p>
+                )}
               </div>
               <DialogFooter className="gap-2">
                 <DialogClose asChild>
@@ -779,8 +781,12 @@ export function BillingClient({
                 <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                   <li>掲載中の案件がすべてクローズされます</li>
                   <li>担当者のログインが停止されます</li>
-                  <li>加入中の補償オプションも解約されます</li>
                 </ul>
+                {(hasComp5000 || hasComp9800) && (
+                  <p className="text-body-xs text-muted-foreground mt-2">
+                    ※ 加入中の補償オプションは基本プラン解約後も継続課金されます。補償も停止する場合は、別途オプションプラン欄から解約してください。
+                  </p>
+                )}
               </div>
               <DialogFooter className="gap-2">
                 <Button

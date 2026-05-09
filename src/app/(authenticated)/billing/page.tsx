@@ -42,7 +42,7 @@ export default async function BillingPage({
       .eq("user_id", user.id)
       .eq("status", "active"),
     admin.from("client_profiles")
-      .select("is_urgent_option, is_compensation_5000, is_compensation_9800")
+      .select("is_urgent_option")
       .eq("user_id", user.id)
       .maybeSingle(),
   ]);
@@ -178,8 +178,6 @@ export default async function BillingPage({
       }))}
       clientProfile={{
         isUrgentOption: clientProfile?.is_urgent_option ?? false,
-        isCompensation5000: clientProfile?.is_compensation_5000 ?? false,
-        isCompensation9800: clientProfile?.is_compensation_9800 ?? false,
       }}
       urgentEligibleJobs={urgentEligibleJobs.map((j) => ({ id: j.id, title: j.title }))}
       checkoutSuccess={sp.checkout === "success" ? "plan" : sp.option_success as string | undefined}

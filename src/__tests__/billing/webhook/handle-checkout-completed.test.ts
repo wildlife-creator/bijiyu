@@ -222,7 +222,7 @@ describe("handleCheckoutCompleted (plan)", () => {
 // ---------------------------------------------------------------------------
 
 describe("handleCheckoutCompleted (compensation option)", () => {
-  it("inserts an option_subscriptions row + flips client_profiles flag", async () => {
+  it("inserts an option_subscriptions row (no client_profiles write)", async () => {
     const { admin, calls } = makeAdmin({
       selectByTable: { option_subscriptions: { data: [], error: null } },
     });
@@ -247,13 +247,13 @@ describe("handleCheckoutCompleted (compensation option)", () => {
       status: "active",
     });
 
-    const update = calls.find(
-      (c) => c.op === "update" && c.table === "client_profiles",
-    );
-    expect(update?.payload).toEqual({ is_compensation_5000: true });
+    // client_profiles のフラグカラムは廃止済み。書き込みが発生しないことを検証
+    expect(
+      calls.find((c) => c.op === "update" && c.table === "client_profiles"),
+    ).toBeUndefined();
   });
 
-  it("uses compensation_9800 flag for the higher tier", async () => {
+  it("uses compensation_9800 option_type for the higher tier (no client_profiles write)", async () => {
     const { admin, calls } = makeAdmin({
       selectByTable: { option_subscriptions: { data: [], error: null } },
     });
@@ -265,10 +265,16 @@ describe("handleCheckoutCompleted (compensation option)", () => {
         user_id: "user-cmp",
       }),
     );
-    const update = calls.find(
-      (c) => c.op === "update" && c.table === "client_profiles",
+    const insert = calls.find(
+      (c) => c.op === "insert" && c.table === "option_subscriptions",
     );
-    expect(update?.payload).toEqual({ is_compensation_9800: true });
+    expect(insert?.payload).toMatchObject({
+      option_type: "compensation_9800",
+      status: "active",
+    });
+    expect(
+      calls.find((c) => c.op === "update" && c.table === "client_profiles"),
+    ).toBeUndefined();
   });
 
   it("二重防御: throws when an active compensation already exists", async () => {

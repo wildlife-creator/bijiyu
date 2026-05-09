@@ -74,8 +74,10 @@
 - **オプションプラン**:
   - 動画掲載: 100,000円/動画（ビジ友TikTokにユーザー紹介動画として掲載、管理者がADM-010で登録）
   - 急募: 20,000円（7日間、募集が最上位表示 + 急募タグ表示）
-  - 補償 ¥5,000/月: 有事の際最大200万円の補償
-  - 補償 ¥9,800/月: 有事の際最大500万円の補償
+  - 補償 ¥5,000/月（受注者向け）: 給与未払いトラブル発生時、最大200万円までの補償
+  - 補償 ¥9,800/月（受注者向け）: 給与未払いトラブル発生時、最大500万円までの補償
+  - **補償オプションの購入対象**: contractor および client（owner）の全ユーザー。**無料 contractor も含めて購入可能**（受注者の現場給与未払いに備える保険のため、基本プランの加入要件はない）。staff（法人代理アカウント）と admin は購入不可（契約主体は本人単一の設計、CLAUDE.md「Staff ユーザーの subscription 参照」と整合）
+  - **補償オプションは基本プランから独立**: 基本プラン（subscriptions）と補償オプション（option_subscriptions）は完全に独立した契約として扱う。基本プラン解約時に補償オプションは自動キャンセルされない（連鎖キャンセル廃止）
   - 各オプションの「申し込む」ボタン → Stripe Checkout へ遷移
   - **急募オプションの案件選択**: 急募の「申し込む」ボタンの上に、対象案件を選ぶプルダウンを表示する
     - プルダウンの選択肢: 自分がオーナーの `status='open'`（掲載中）かつ `jobs.is_urgent = false`（急募未適用）の案件。表示形式:「{案件タイトル}」
@@ -151,10 +153,10 @@
 | イベント | 処理内容 |
 |---------|---------|
 | checkout.session.completed（基本プラン） | **metadata.type = 'plan' で判別**。metadata.plan_type で subscriptions.plan_type を決定。subscriptions テーブルに新規レコード作成。users.role が 'contractor' の場合のみ 'client' に更新（既に 'staff' のユーザーは role を変更しない — 担当者は法人プランのオーナー経由で発注者機能を利用するため）。users.stripe_customer_id を設定。**client_profiles を UPSERT（存在しなければ INSERT、存在すれば何もしない）**。初期値: display_name = users.last_name + users.first_name。※ client_profiles の作成責務はこの Webhook が唯一の正規ルートとする（admin REQ-ADM-007 経由で作成された管理責任者も、課金完了時にこの Webhook で client_profiles が作成される。管理者が作成したユーザーも role='contractor' で作成され、通常の課金フローを通す）。**法人プラン（corporate / corporate_premium）の場合: organizations テーブルにレコードが存在しなければ自動作成（`owner_id` のみ設定、organization spec 実装時に `name` カラムは廃止される）し、organization_members に購入者を org_role='owner' で追加する** |
-| checkout.session.completed（補償オプション） | **metadata.type = 'option' かつ option_type が compensation_5000 / compensation_9800 で判別**。option_subscriptions テーブルに INSERT（payment_type = 'subscription', stripe_subscription_id を設定）。client_profiles の該当フラグ（is_compensation_5000 / is_compensation_9800）を true に更新 |
+| checkout.session.completed（補償オプション） | **metadata.type = 'option' かつ option_type が compensation_5000 / compensation_9800 で判別**。option_subscriptions テーブルに INSERT（payment_type = 'subscription', stripe_subscription_id を設定、status='active'）。**`client_profiles` への書き込みは行わない**（受注者は client_profiles を持たないため。active 判定は option_subscriptions 単独で行う） |
 | checkout.session.completed（単発オプション） | **metadata.type = 'option' かつ option_type が urgent / video で判別**。option_subscriptions テーブルに INSERT（payment_type = 'one_time'）。急募の場合: end_date = NOW() + 7日、client_profiles.is_urgent_option = true、対象案件の jobs.is_urgent = true に更新。動画掲載の場合: end_date = NULL で INSERT |
 | customer.subscription.updated | **stripe_subscription_id で subscriptions テーブルを検索**。見つかった場合: plan_type, status, 期間を更新（プランアップグレード/ダウングレードの反映）。**plan_type が corporate / corporate_premium に変更された場合: organizations テーブルにレコードが存在しなければ自動作成（checkout.session.completed の法人プラン処理と同じロジック。共通関数 `ensureOrganizationExists(userId)` として切り出す）。organization_members に該当ユーザーを org_role='owner' で追加する**。**見つからない場合: option_subscriptions テーブルを stripe_subscription_id で検索し、補償オプションの status を更新**。**どちらにも見つからない場合: 200 を返して処理をスキップ**（checkout.session.completed が後から届くケースに対応。Stripe はイベントの到着順序を保証しないため） |
-| customer.subscription.deleted | **stripe_subscription_id で subscriptions / option_subscriptions を検索**。subscriptions の場合: status を 'cancelled' に更新。users.role が 'client' の場合は 'contractor' にダウングレード。'staff'（担当者）の場合は users.is_active を false に設定してログインを停止する（roles-and-permissions.md の past_due 動作に準拠）。掲載中の案件（jobs.status = 'open'）を 'closed' に変更。**法人プランの場合: 組織配下の Admin / Staff 両方（`org_role IN ('admin', 'staff')`）の users.is_active を false に設定**（2026-04-19 改訂: 旧版は staff のみだったが、Admin も Owner の契約に連動するため対象に含める）。option_subscriptions の場合: status を 'cancelled' に更新し、client_profiles の該当フラグを false に更新。**見つからない場合: 200 を返して処理をスキップ** |
+| customer.subscription.deleted | **stripe_subscription_id で subscriptions / option_subscriptions を検索**。subscriptions の場合: status を 'cancelled' に更新。users.role が 'client' の場合は 'contractor' にダウングレード。'staff'（担当者）の場合は users.is_active を false に設定してログインを停止する（roles-and-permissions.md の past_due 動作に準拠）。掲載中の案件（jobs.status = 'open'）を 'closed' に変更。**法人プランの場合: 組織配下の Admin / Staff 両方（`org_role IN ('admin', 'staff')`）の users.is_active を false に設定**（2026-04-19 改訂: 旧版は staff のみだったが、Admin も Owner の契約に連動するため対象に含める）。**`subscriptions.status='cancelled'` 時に同ユーザーの補償オプションを連鎖キャンセルしない**（補償は基本プランから独立、受注者の保険として継続課金される）。option_subscriptions の場合: status を 'cancelled' に更新する（`client_profiles` への書き込みは不要）。**見つからない場合: 200 を返して処理をスキップ** |
 | customer.subscription.created | **新規サブスクリプション作成時**。`stripe_subscription_id` で subscriptions テーブルを検索し、未登録なら INSERT。法人プラン（corporate / corporate_premium）で既存組織が見つかる（`organizations.owner_id = user_id`）場合: 同一組織の **Admin / Staff 両方**（`org_role IN ('admin', 'staff')`）の users.is_active を true に復帰（再アップグレード時の冷凍解除、organization spec REQ-ORG-006-B J1 と整合。past_due → active 復帰と同じ `reactivateCorporateMembers()` 関数を共通利用。`org_role = 'staff'` のみの絞り込みは不可、Admin も含める必要あり） |
 | invoice.payment_failed | subscriptions.status を 'past_due' に更新。**past_due_since が NULL の場合のみ**現在日時を設定（既に past_due の場合は上書きしない）。支払い失敗通知メール送信（Resend） |
 | invoice.payment_succeeded（past_due 復帰時） | subscriptions.status を 'active' に更新。past_due_since を NULL にリセット。該当ユーザーが法人プランの owner の場合、organization_members 経由で配下の **Admin / Staff 両方**（`org_role IN ('admin', 'staff')`）の users.is_active を true に復帰させる（roles-and-permissions.md の past_due 動作に準拠。2026-04-19 改訂: 旧版は staff のみだったが、Admin も契約に連動するため対象に含める）。復帰対象は同一組織の全 Admin / Staff |
@@ -214,12 +216,14 @@
 
 #### 月額課金オプション（補償）
 
-- **補償 ¥5,000/月、補償 ¥9,800/月**:
+- **補償 ¥5,000/月、補償 ¥9,800/月（受注者向け）**:
+  - 給与未払いトラブルに備える受注者向け保険。**全 contractor および client（owner）が購入可能**（無料 contractor も含む）。staff / admin は購入不可
   - Stripe Checkout `mode: 'subscription'` で決済
   - **保存先: `option_subscriptions` テーブル**（`payment_type = 'subscription'`）。基本プラン（`subscriptions` テーブル）とは別管理。基本プランは1人1つの UNIQUE 制約があるため、補償オプションは option_subscriptions に格納する
-  - Webhook で `checkout.session.completed` 受信時: option_subscriptions に INSERT（metadata.option_type で判別）。client_profiles の該当フラグを true に更新
-  - Webhook で `customer.subscription.updated` / `deleted` 受信時: stripe_subscription_id で option_subscriptions を検索し、status を同期
-  - 解約時: client_profiles の該当フラグ（is_compensation_5000 / is_compensation_9800）を false に更新
+  - **active 判定の Single Source of Truth は `option_subscriptions`**: `WHERE user_id=? AND option_type IN ('compensation_5000','compensation_9800') AND status='active'` で active を判定する。`client_profiles.is_compensation_5000 / 9800` カラムは廃止する（受注者は client_profiles を持たないため、フラグでは管理できない）
+  - Webhook で `checkout.session.completed` 受信時: option_subscriptions に INSERT（metadata.option_type で判別、status='active'）。`client_profiles` への書き込みは行わない
+  - Webhook で `customer.subscription.updated` / `deleted` 受信時: stripe_subscription_id で option_subscriptions を検索し、status を同期。`client_profiles` への書き込みは行わない
+  - **基本プラン解約時の連鎖キャンセルは行わない**: 補償オプションは基本プランから独立して継続課金される（受注者の保険のため、発注者プランの有無と関係なく必要）。基本プランを解約しても補償は active のまま維持される
 
 #### Edge Function: expire-options（オプション自動期限切れ）
 
@@ -580,4 +584,4 @@ past_due 警告バナー「お支払い方法を更新する」→ Stripe Custom
   - past_due ユーザー（past_due_since を7日以上前に設定）: 自動解約のテスト
   - cancelled ユーザー（元 client、現 contractor）: 再課金フローのテスト
   - 急募オプション active のユーザー + 対象案件: 期限切れ処理のテスト
-  - 補償オプション active のユーザー: 解約フローのテスト
+  - 補償オプション active のユーザー（受注者）: 解約フローのテスト。**無料 contractor 単独で補償オプション active のケースも必ず含めること**（基本プラン契約なしで補償だけ加入できる新仕様の検証用）

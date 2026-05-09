@@ -52,8 +52,8 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await expect(page.getByText("急募", { exact: true })).toBeVisible();
     // 「動画掲載」は説明文にも含まれるため見出し単独をターゲット
     await expect(page.getByText("動画掲載", { exact: true })).toBeVisible();
-    await expect(page.getByText("月5,000円で、有事の際最大200万円の補償があります。")).toBeVisible();
-    await expect(page.getByText("月9,800円で、有事の際最大500万円の補償があります。")).toBeVisible();
+    await expect(page.getByText("現場での給与未払いトラブル発生時、最大200万円までを補償します。")).toBeVisible();
+    await expect(page.getByText("現場での給与未払いトラブル発生時、最大500万円までを補償します。")).toBeVisible();
   });
 });
 

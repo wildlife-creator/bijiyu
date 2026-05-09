@@ -371,66 +371,51 @@ describe("startCheckoutAction — basic plan happy path", () => {
     expect(result.success).toBe(false);
     expect(stripeMockState.sessionsCreated).toHaveLength(0);
   });
+
+  it("rejects when Stripe API still shows an active basic plan (DB lag fallback)", async () => {
+    // DB では未反映だが Stripe API には basic plan が active として存在する
+    // ケース。metadata.type='plan' で検出して拒否する
+    adminResults["select:subscriptions"] = { data: [], error: null };
+    stripeMockState.activeSubscriptions = [
+      { id: "sub_basic", metadata: { type: "plan", plan_type: "individual" } },
+    ];
+    const result = await startCheckoutAction({
+      type: "plan",
+      planType: "individual",
+    });
+    expect(result.success).toBe(false);
+    expect(stripeMockState.sessionsCreated).toHaveLength(0);
+  });
+
+  it("補償 active のユーザーでも basic plan は購入できる (regression: metadata.type='option' は二重課金カウントから除外)", async () => {
+    // 仕様変更（2026-05-09）: 無料 contractor が補償加入可能になった結果、
+    // 補償 active な状態で basic plan 購入を試すケースが発生。Stripe API
+    // チェックは metadata.type='plan' でフィルタするので、補償（type='option'）
+    // は basic plan のカウントに含まれず、購入が許可される。
+    adminResults["select:subscriptions"] = { data: [], error: null };
+    stripeMockState.activeSubscriptions = [
+      {
+        id: "sub_compensation",
+        metadata: { type: "option", option_type: "compensation_5000" },
+      },
+    ];
+    const result = await startCheckoutAction({
+      type: "plan",
+      planType: "individual",
+    });
+    expect(result.success).toBe(true);
+    expect(stripeMockState.sessionsCreated).toHaveLength(1);
+    expect(stripeMockState.sessionsCreated[0]!.mode).toBe("subscription");
+  });
 });
 
-describe("startCheckoutAction — compensation option", () => {
-  it("rejects contractor (no paid plan) with the documented message", async () => {
-    // contractor role
-    const result = await startCheckoutAction({
-      type: "option",
-      optionType: "compensation_5000",
-    });
-    expect(result).toEqual({
-      success: false,
-      error:
-        "補償オプションは有料プランご加入のお客様のみお申し込みいただけます",
-    });
-  });
-
-  it("rejects when client has no active basic plan", async () => {
+describe("startCheckoutAction — compensation option (受注者向け給与未払い保険)", () => {
+  it("happy path: 無料 contractor が補償オプションを購入できる", async () => {
+    // contractor (無料・基本プラン未加入) でも補償は購入可能
     supabaseAuthState.userRow = {
       id: "user-c1",
-      role: "client",
-      email: "client@test.local",
-    };
-    adminResults["select:subscriptions"] = { data: [], error: null };
-    const result = await startCheckoutAction({
-      type: "option",
-      optionType: "compensation_5000",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects when an active compensation already exists (排他制御)", async () => {
-    supabaseAuthState.userRow = {
-      id: "user-c1",
-      role: "client",
-      email: "client@test.local",
-    };
-    adminResults["select:subscriptions"] = {
-      data: [{ id: "existing" }],
-      error: null,
-    };
-    adminResults["select:option_subscriptions"] = {
-      data: [{ id: "existing-comp" }],
-      error: null,
-    };
-    const result = await startCheckoutAction({
-      type: "option",
-      optionType: "compensation_9800",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("happy path: subscription mode + correct metadata + success_url", async () => {
-    supabaseAuthState.userRow = {
-      id: "user-c1",
-      role: "client",
-      email: "client@test.local",
-    };
-    adminResults["select:subscriptions"] = {
-      data: [{ id: "active-sub" }],
-      error: null,
+      role: "contractor",
+      email: "contractor@test.local",
     };
     adminResults["select:option_subscriptions"] = { data: [], error: null };
 
@@ -452,6 +437,76 @@ describe("startCheckoutAction — compensation option", () => {
     expect(params.success_url).toBe(
       "http://localhost:3000/billing?option_success=compensation",
     );
+  });
+
+  it("happy path: 有料 client(owner) も補償オプションを購入できる", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "client",
+      email: "client@test.local",
+    };
+    adminResults["select:option_subscriptions"] = { data: [], error: null };
+
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "compensation_9800",
+    });
+    expect(result.success).toBe(true);
+    const params = stripeMockState.sessionsCreated[0]!;
+    expect(params.mode).toBe("subscription");
+    expect(params.metadata).toEqual({
+      type: "option",
+      user_id: "user-c1",
+      option_type: "compensation_9800",
+    });
+  });
+
+  it("rejects staff (グローバルロールガードで拒否)", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "staff",
+      email: "staff@test.local",
+    };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "compensation_5000",
+    });
+    expect(result.success).toBe(false);
+    expect(stripeMockState.sessionsCreated).toHaveLength(0);
+  });
+
+  it("rejects admin (グローバルロールガードで拒否)", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "admin",
+      email: "admin@test.local",
+    };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "compensation_9800",
+    });
+    expect(result.success).toBe(false);
+    expect(stripeMockState.sessionsCreated).toHaveLength(0);
+  });
+
+  it("rejects when an active compensation already exists (排他制御)", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "contractor",
+      email: "contractor@test.local",
+    };
+    adminResults["select:option_subscriptions"] = {
+      data: [{ id: "existing-comp" }],
+      error: null,
+    };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "compensation_9800",
+    });
+    expect(result).toEqual({
+      success: false,
+      error: "既に補償オプションにご加入いただいています",
+    });
   });
 });
 

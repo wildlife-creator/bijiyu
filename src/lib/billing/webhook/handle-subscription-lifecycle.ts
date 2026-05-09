@@ -49,7 +49,9 @@ export type SubscriptionLifecycleEvent =
  * Top-level dispatcher for subscription lifecycle events.
  *
  * - `customer.subscription.updated`: branches on subscriptions vs option_subscriptions
- * - `customer.subscription.deleted`: same, plus chained option cancellation
+ * - `customer.subscription.deleted`: same. Compensation options (受注者向け
+ *   給与未払い保険) are independent contracts — no chained cancellation when
+ *   the basic plan ends.
  * - `invoice.payment_failed`: marks past_due + sends paymentFailedEmail
  * - `invoice.payment_succeeded`: recovers from past_due + reactivates staff
  *
@@ -72,7 +74,7 @@ export async function handleSubscriptionLifecycle(
       await handleSubscriptionUpdated(admin, stripe, event.data, send);
       return;
     case "customer.subscription.deleted":
-      await handleSubscriptionDeleted(admin, stripe, event.data, send);
+      await handleSubscriptionDeleted(admin, event.data, send);
       return;
     case "invoice.payment_failed":
       await handleInvoicePaymentFailed(admin, event.data, send);
@@ -221,7 +223,6 @@ async function handleSubscriptionUpdated(
 
 async function handleSubscriptionDeleted(
   admin: SupabaseClient<Database>,
-  stripe: Stripe,
   sub: Stripe.Subscription,
   send: typeof sendEmail,
 ): Promise<void> {
@@ -248,8 +249,10 @@ async function handleSubscriptionDeleted(
       );
     }
 
-    // 3. Chained cancellation of compensation options (Gap 3)
-    await cancelCompensationOptionsForUser(admin, stripe, userId);
+    // 3. 補償オプション（受注者向け給与未払い保険）は基本プランから独立した
+    //    契約。基本プラン解約時の連鎖キャンセルは行わない（旧 Gap 3 ロジック
+    //    廃止）。ユーザーが補償も停止したい場合は別途 cancelCompensationAction
+    //    を呼ぶ。
 
     // 4. Send subscriptionCancelledEmail (basic plan path only)
     await sendCancelledEmail(admin, send, userId, planType);
@@ -273,25 +276,9 @@ async function handleSubscriptionDeleted(
         `option_subscriptions update failed: ${updateOption.error.message}`,
       );
     }
-
-    const flagColumn =
-      existingOption.data.option_type === "compensation_5000"
-        ? "is_compensation_5000"
-        : existingOption.data.option_type === "compensation_9800"
-          ? "is_compensation_9800"
-          : null;
-    if (flagColumn) {
-      const updateProfile = await admin
-        .from("client_profiles")
-        .update({ [flagColumn]: false })
-        .eq("user_id", existingOption.data.user_id);
-      if (updateProfile.error) {
-        throw new Error(
-          `client_profiles update for ${flagColumn} failed: ${updateProfile.error.message}`,
-        );
-      }
-    }
-    // No email — option-only cancellation should not look like full cancellation
+    // 補償オプション解約は単一テーブル更新のみ。client_profiles のフラグ
+    // カラムは廃止済みのため追加 UPDATE は不要。基本プランの解約とは別の
+    // ユーザー操作として扱うため、subscriptionCancelledEmail も送信しない。
     return;
   }
 
@@ -655,39 +642,6 @@ async function fetchRecipient(
   const personalName = `${result.data.last_name ?? ""}${result.data.first_name ?? ""}`;
   const name = displayName || personalName || "お客様";
   return { email: result.data.email, name };
-}
-
-/**
- * Cancel all active compensation options on Stripe for the given user.
- * The DB updates flow through subsequent customer.subscription.deleted
- * webhooks (option_subscriptions branch).
- */
-async function cancelCompensationOptionsForUser(
-  admin: SupabaseClient<Database>,
-  stripe: Stripe,
-  userId: string,
-): Promise<void> {
-  const options = await admin
-    .from("option_subscriptions")
-    .select("id, stripe_subscription_id")
-    .eq("user_id", userId)
-    .eq("payment_type", "subscription")
-    .eq("status", "active");
-
-  if (options.error || !options.data) return;
-
-  for (const opt of options.data) {
-    if (!opt.stripe_subscription_id) continue;
-    try {
-      await stripe.subscriptions.cancel(opt.stripe_subscription_id);
-    } catch (err) {
-      console.error(
-        "[handleSubscriptionLifecycle] chained option cancel failed",
-        { id: opt.id, err },
-      );
-      // Don't throw — best-effort cleanup
-    }
-  }
 }
 
 /**

@@ -440,8 +440,6 @@ CLI-005 や CLI-006 等で「保有スキル」として表示するのは `user
 | sns_facebook | boolean (DEFAULT false NOT NULL) | Facebook を利用しているかのチェック値。同上 |
 | admin_memo | text | 内部管理者のメモ（管理画面用） |
 | is_urgent_option | boolean | 急募オプション有効フラグ |
-| is_compensation_5000 | boolean | 補償5,000円オプション有効フラグ |
-| is_compensation_9800 | boolean | 補償9,800円オプション有効フラグ |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 

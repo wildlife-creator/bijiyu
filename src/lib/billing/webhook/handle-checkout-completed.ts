@@ -168,6 +168,10 @@ async function handleCompensationOption(
     );
   }
 
+  // 補償オプションは受注者向け給与未払い保険として contractor / client(owner)
+  // 全ユーザーが購入対象。active 判定の Single Source of Truth は
+  // option_subscriptions に一本化済みのため、client_profiles 側のフラグ
+  // 更新は不要（カラム自体が廃止）。
   const insert = await admin.from("option_subscriptions").insert({
     user_id: userId,
     payment_type: "subscription",
@@ -177,20 +181,6 @@ async function handleCompensationOption(
   });
   if (insert.error) {
     throw new Error(`option_subscriptions insert failed: ${insert.error.message}`);
-  }
-
-  const flagColumn =
-    optionType === "compensation_5000"
-      ? "is_compensation_5000"
-      : "is_compensation_9800";
-  const updateProfile = await admin
-    .from("client_profiles")
-    .update({ [flagColumn]: true })
-    .eq("user_id", userId);
-  if (updateProfile.error) {
-    throw new Error(
-      `client_profiles update for ${flagColumn} failed: ${updateProfile.error.message}`,
-    );
   }
 }
 

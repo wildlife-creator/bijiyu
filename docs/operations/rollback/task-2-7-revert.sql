@@ -47,9 +47,10 @@ DELETE FROM client_profiles cp
    AND cp.sns_tiktok    = false
    AND cp.sns_youtube   = false
    AND cp.sns_facebook  = false
-   AND cp.is_urgent_option     = false
-   AND cp.is_compensation_5000 = false
-   AND cp.is_compensation_9800 = false;
+   AND cp.is_urgent_option     = false;
+-- 注: 旧 is_compensation_5000 / is_compensation_9800 は
+-- 20260509100000_drop_client_profiles_compensation_flags.sql で削除済み。
+-- 補償オプションの active 判定は option_subscriptions 単独で行う。
 
 -- (b) バックフィル UPDATE 由来の display_name を NULL に戻す
 --     条件: display_name が organizations.name と等しい（= 上書き由来）かつ

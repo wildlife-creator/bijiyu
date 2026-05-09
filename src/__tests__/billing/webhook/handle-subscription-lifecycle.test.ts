@@ -523,7 +523,10 @@ describe("customer.subscription.updated", () => {
 // ===========================================================================
 
 describe("customer.subscription.deleted", () => {
-  it("hits subscriptions: RPC + chained option cancel + cancelled email", async () => {
+  it("hits subscriptions: RPC + cancelled email, **no chained option cancel**", async () => {
+    // 仕様変更（2026-05-09）: 補償オプションは受注者向け給与未払い保険として
+    // 基本プランから独立。基本プラン解約時に補償オプションを連鎖キャンセル
+    // しないことを検証する（旧 Gap 3 ロジックは廃止）。
     const sub = buildSubscription();
     const { admin, calls } = makeAdmin({
       results: {
@@ -563,14 +566,17 @@ describe("customer.subscription.deleted", () => {
     expect(calls.find((c) => c.op === "rpc")?.fn).toBe(
       "handle_subscription_lifecycle_deleted",
     );
-    expect(stripe._calls).toContain("subscriptions.cancel:sub_compensation_1");
+    // 連鎖キャンセル廃止: stripe.subscriptions.cancel は呼ばれない
+    expect(stripe._calls).not.toContain(
+      "subscriptions.cancel:sub_compensation_1",
+    );
     expect(SEND).toHaveBeenCalledOnce();
     const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
     expect(args.subject).toBe("【ビジ友】解約が完了しました");
     expect(args.html).toContain("法人向けプラン");
   });
 
-  it("hits option_subscriptions only: status + flag updates, no email", async () => {
+  it("hits option_subscriptions only: status='cancelled' update, no client_profiles write, no email", async () => {
     const sub = buildSubscription();
     const { admin, calls } = makeAdmin({
       results: {
@@ -596,10 +602,10 @@ describe("customer.subscription.deleted", () => {
       (c) => c.op === "update" && c.table === "option_subscriptions",
     );
     expect(optionUpdate?.payload).toEqual({ status: "cancelled" });
-    const profileUpdate = calls.find(
-      (c) => c.op === "update" && c.table === "client_profiles",
-    );
-    expect(profileUpdate?.payload).toEqual({ is_compensation_5000: false });
+    // client_profiles のフラグカラムは廃止済み。書き込みが発生しないことを検証
+    expect(
+      calls.find((c) => c.op === "update" && c.table === "client_profiles"),
+    ).toBeUndefined();
     expect(SEND).not.toHaveBeenCalled();
   });
 });

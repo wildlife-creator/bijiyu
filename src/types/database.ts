@@ -173,8 +173,6 @@ export type Database = {
           employee_scale: number | null
           id: string
           image_url: string | null
-          is_compensation_5000: boolean
-          is_compensation_9800: boolean
           is_urgent_option: boolean
           language: string | null
           message: string | null
@@ -197,8 +195,6 @@ export type Database = {
           employee_scale?: number | null
           id?: string
           image_url?: string | null
-          is_compensation_5000?: boolean
-          is_compensation_9800?: boolean
           is_urgent_option?: boolean
           language?: string | null
           message?: string | null
@@ -221,8 +217,6 @@ export type Database = {
           employee_scale?: number | null
           id?: string
           image_url?: string | null
-          is_compensation_5000?: boolean
-          is_compensation_9800?: boolean
           is_urgent_option?: boolean
           language?: string | null
           message?: string | null

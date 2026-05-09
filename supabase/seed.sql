@@ -981,7 +981,10 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, prefecture,
     'open'
   );
 
--- ---------- 法人 + 補償 active ユーザー (連鎖キャンセルテスト用) ----------
+-- ---------- 法人 + 補償 active ユーザー（旧: 連鎖キャンセルテスト用 / 現: 法人プラン × 補償併用パターン）----------
+-- 仕様変更（2026-05-09）: 補償オプションは受注者向け給与未払い保険となり
+-- 基本プランから独立。連鎖キャンセルは廃止済み。本フィクスチャは「法人プラン
+-- 契約者が併せて補償にも加入」したケースの検証用として継続利用する。
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
 VALUES ('b1110000-0000-1000-8000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'corp-comp@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
 
@@ -995,7 +998,7 @@ INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, cur
 VALUES ('b1110000-0000-1000-8000-000000000005', 'corporate', 'active', now(), now() + interval '30 days', 'sub_seed_comp_base');
 
 -- display_name は旧 organizations.name「補償テスト建設」を継承
-INSERT INTO client_profiles (user_id, display_name, is_compensation_5000) VALUES ('b1110000-0000-1000-8000-000000000005', '補償テスト建設', true);
+INSERT INTO client_profiles (user_id, display_name) VALUES ('b1110000-0000-1000-8000-000000000005', '補償テスト建設');
 
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_subscription_id, option_type, status, start_date)
 VALUES ('b1110000-0000-1000-8000-000000000005', 'subscription', 'sub_seed_comp_opt', 'compensation_5000', 'active', now());
@@ -1004,6 +1007,24 @@ INSERT INTO organizations (id, owner_id) VALUES
   ('b1115555-0000-1000-8000-000000000005', 'b1110000-0000-1000-8000-000000000005');
 INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
   ('b1115555-0000-1000-8000-000000000005', 'b1110000-0000-1000-8000-000000000005', 'owner');
+
+
+-- ---------- 無料 contractor + 補償単独 active ユーザー (新仕様検証用) ----------
+-- 仕様変更（2026-05-09）: 補償オプションは無料 contractor も購入可能。
+-- 基本プラン契約のない無料受注者が補償だけを契約しているケースを再現する。
+-- 受注者は client_profiles を持たないため、補償の active 状態は
+-- option_subscriptions 単独で管理される。
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES ('b1110000-0000-1000-8000-000000000006', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'free-comp@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES ('b1110000-0000-1000-8000-000000000006', 'b1110000-0000-1000-8000-000000000006', 'free-comp@test.local', '{"sub":"b1110000-0000-1000-8000-000000000006","email":"free-comp@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'contractor', last_name = '補償', first_name = '六郎', email = 'free-comp@test.local', prefecture = '東京都'
+WHERE id = 'b1110000-0000-1000-8000-000000000006';
+
+INSERT INTO option_subscriptions (user_id, payment_type, stripe_subscription_id, option_type, status, start_date)
+VALUES ('b1110000-0000-1000-8000-000000000006', 'subscription', 'sub_seed_free_comp_opt', 'compensation_9800', 'active', now());
 
 
 -- ============================================================
