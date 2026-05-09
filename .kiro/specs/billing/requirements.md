@@ -89,7 +89,7 @@
   - **補償オプションの解約**: active な補償オプションがある場合、該当オプションに「解約する」ボタンを表示する
     - 押下時に確認ダイアログ:「補償オプション（¥{金額}/月）を解約しますか？　解約すると補償が適用されなくなります。」
     - Server Action で `stripe.subscriptions.cancel()` を呼び出し、即時解約する
-    - Webhook（customer.subscription.deleted）で option_subscriptions.status と client_profiles のフラグを更新する
+    - Webhook（customer.subscription.deleted）で option_subscriptions.status を 'cancelled' に更新する（`client_profiles` への書き込みは行わない。フラグカラム廃止により `option_subscriptions` が active 判定の Single Source of Truth）
   - **動画掲載オプションの解約**: 動画掲載は買い切り（one_time）のため、ユーザー側の解約UIは設けない。掲載停止が必要な場合は管理者が ADM-010 で対応する運用とする
 
 ### REQ-BL-002: 決済画面（CLI-027）
@@ -491,7 +491,7 @@ past_due 警告バナー「お支払い方法を更新する」→ Stripe Custom
 - users: role 更新、stripe_customer_id
 - subscriptions: サブスクリプション管理（CRUD）
 - option_subscriptions: オプション契約管理
-- client_profiles: 発注者プロフィール作成、オプションフラグ更新
+- client_profiles: 発注者プロフィール作成、急募オプションフラグ（`is_urgent_option`）更新（補償オプションの `is_compensation_5000 / 9800` カラムは廃止済み。補償の active 判定は `option_subscriptions` を SoT とする）
 - organizations: 法人プラン購入時に自動作成（`owner_id` のみ設定）。発注者表示名は `client_profiles.display_name` に一本化されており、`organizations.name` カラムは organization spec で廃止済み（Phase 1 Task 2.1 で NOT NULL 解除、Phase 3 Task 19 で DROP COLUMN 予定）
 - organization_members: 担当者管理（ダウングレード前提条件チェックで件数確認）
 - audit_logs: ロール変更ログ

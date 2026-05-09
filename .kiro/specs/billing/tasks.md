@@ -147,13 +147,13 @@
   - イベントの `metadata.type === 'option'` の場合、option_type で振り分ける（補償 / 急募 / 動画掲載）
   - 補償オプション（`compensation_5000` / `compensation_9800`）:
     - **二重防御チェック（軽 2）**: INSERT 前に同ユーザーの active な補償オプションが存在しないかを `SELECT 1 FROM option_subscriptions WHERE user_id=? AND option_type IN ('compensation_5000','compensation_9800') AND status='active'` で確認。既存があれば `stripe_webhook_events.status='failed'` に記録（error_message: `"duplicate compensation option detected"`）+ 処理を中断
-    - TypeScript 側で `option_subscriptions` に `payment_type='subscription'` + `stripe_subscription_id = session.subscription` で INSERT し、`client_profiles.is_compensation_*` を true に更新する
+    - TypeScript 側で `option_subscriptions` に `payment_type='subscription'` + `stripe_subscription_id = session.subscription` で INSERT する（**`client_profiles` への書き込みは行わない**。`is_compensation_5000 / 9800` カラム廃止により `option_subscriptions` が active 判定の Single Source of Truth。受注者は `client_profiles` を持たないためフラグでは管理できない）
   - 急募オプション（`urgent`）:
     - `option_subscriptions` に `payment_type='one_time'`, **`stripe_payment_intent_id = session.payment_intent`**（軽 1）, `start_date=NOW()`, `end_date=NOW()+7日` で INSERT
     - `client_profiles.is_urgent_option=true` + 対象 `jobs.is_urgent=true` を更新する（job_id は metadata から取得）
   - 動画掲載オプション（`video`）:
     - `option_subscriptions` に `payment_type='one_time'`, **`stripe_payment_intent_id = session.payment_intent`**（軽 1）, `end_date=NULL` で INSERT する
-  - 補償オプションの2テーブル更新は独立性が高く RPC 関数化は不要（admin client で順次実行）
+  - 補償オプションは `option_subscriptions` への単一テーブル INSERT のため RPC 関数化は不要（admin client で実行）
   - **`stripe_payment_intent_id` の保存理由**: 返金やトラブル対応時のトレーサビリティ確保のため、one_time オプションは必ず payment_intent を記録する
   - _Requirements: 3.2, 4.1_
 
@@ -165,11 +165,11 @@
     - どちらにも該当しなければ 200 スキップ（順序逆転対策）
   - **`customer.subscription.deleted` の処理**:
     - 同様に SELECT で分岐。subscriptions ヒット時は `handle_subscription_lifecycle_deleted` RPC 関数に委譲
-    - **subscriptions ヒット時のトランザクション後処理（致命 B 防御 + Gap 3 対応）**:
-      - **(a) 補償オプション連鎖キャンセル**: 同ユーザーの `option_subscriptions WHERE payment_type='subscription' AND status='active'` を SELECT し、各レコードの `stripe_subscription_id` に対して `stripe.subscriptions.cancel()` を呼び出す。それぞれの cancellation により Stripe から個別の `customer.subscription.deleted` Webhook が届き、option_subscriptions 分岐で DB が更新される。これにより「無料ユーザー × 補償オプション継続課金」を防ぐ
-      - **(b) 解約完了通知メール送信**: `subscriptionCancelledEmail` を送信。**subscriptions ヒット時のみ送信**する（option_subscriptions ヒット時は送信しない）。メール送信失敗で本体処理をロールバックしない
+    - **subscriptions ヒット時のトランザクション後処理（致命 B 防御）**:
+      - **補償オプション連鎖キャンセルは行わない**（旧 Gap 3 ロジックは廃止）。補償オプションは受注者向けの給与未払い保険として基本プランから独立して継続課金される。基本プラン解約と補償解約は別個のユーザー操作として扱う
+      - **解約完了通知メール送信**: `subscriptionCancelledEmail` を送信。**subscriptions ヒット時のみ送信**する（option_subscriptions ヒット時は送信しない）。メール送信失敗で本体処理をロールバックしない
     - **option_subscriptions ヒット時の処理（致命 B 防御）**:
-      - status='cancelled' + `client_profiles.is_compensation_*=false` を TypeScript 側で直接 UPDATE
+      - status='cancelled' を TypeScript 側で直接 UPDATE（**`client_profiles` への書き込みは行わない**。フラグカラム廃止）
       - **メール送信は行わない**（補償オプション解約だけで「解約が完了しました」メールが届くとユーザーが基本プラン解約と誤認するため）
   - audit_logs への INSERT は RPC 関数内（基本プラン系）または TypeScript 側（オプション系）で記録する。DB 列名は **`action`**（`action_type` ではない）で、値は Task 1.5 で定義した ACTION_TYPES 定数から参照する:
     - `customer.subscription.updated` × subscriptions ヒット → `action = ACTION_TYPES.subscription_updated`
@@ -222,11 +222,11 @@
   - 二重課金防止: 基本プラン購入時、subscriptions に status IN ('active', 'past_due') のレコードがあれば拒否（プラン変更フローへ誘導するエラーメッセージ）
   - 急募オプションの場合: 案件所有権チェック（owner_id = current user）+ 同案件で既に active な urgent オプションがないことを確認
   - 補償オプション排他制御: 既に1つの補償オプションが active の場合は別の補償の購入を拒否
-  - **補償オプションのロールチェック（Gap 3 防御）**: `optionType === 'compensation_5000'` または `'compensation_9800'` の場合、以下を必須要件とする:
-    - `users.role === 'client'` であること
-    - `subscriptions` に `status IN ('active', 'past_due')` の基本プランレコードが存在すること
-    - 満たさない場合はエラー「補償オプションは有料プランご加入のお客様のみお申し込みいただけます」を返す
-    - 理由: 補償は発注業務に対する保険であり、無料ユーザーには対象がない。「無料ユーザー × 補償オプション継続課金」状態を入口で塞ぐ
+  - **補償オプションのロールチェック**: `optionType === 'compensation_5000'` または `'compensation_9800'` の場合、以下を必須要件とする:
+    - `users.role` が `'contractor'` または `'client'` であること（`'staff'` / `'admin'` は拒否）
+    - 満たさない場合はエラー「担当者・管理者は補償オプションをご契約いただけません」を返す
+    - **基本プランの加入要件はなし**（無料 contractor も購入可能）。subscriptions テーブルの存在チェックは行わない
+    - 理由: 補償オプションは受注者向けの給与未払い保険として基本プランから独立して契約・継続される。対象は受注業務を行いうる実体ユーザー（contractor / client(owner)）。staff は契約主体が Owner 単一の設計、admin はシステム管理者のため購入不可
   - Checkout Session の metadata を構築する: `{ type, plan_type | option_type, user_id, job_id（急募のみ） }`
   - 初回判定で初回かつ fee=free Cookie がない場合、line_items に初期費用 Price ID を追加する
   - _Requirements: 1.1, 2.1, 4.1_
@@ -389,7 +389,7 @@
   - 急募オプションには案件選択プルダウンを表示する。選択肢は「自分がオーナーの `status='open'` かつ `is_urgent=false` かつ既存 active urgent オプションがない案件」のみ
   - 0件の場合は「掲載中の案件がありません」を表示し、申込ボタンを非活性
   - 案件未選択時も申込ボタンを非活性
-  - 補償オプションの排他制御: `client_profiles.is_compensation_5000` または `is_compensation_9800` のいずれかが true の場合、もう一方の申込ボタンを非活性
+  - 補償オプションの排他制御: `option_subscriptions WHERE user_id=current_user AND option_type IN ('compensation_5000','compensation_9800') AND status='active'` を SELECT し、ヒットがあればもう一方の申込ボタンを非活性にする（`client_profiles` フラグは廃止のため使わない）
   - active な補償オプションには「解約する」ボタンを表示する。押下時に確認ダイアログ → cancelCompensationAction を呼び出す
   - 動画掲載は買い切りのため解約ボタンを表示しない
   - _Requirements: 1.1, 1.2, 4.1_
@@ -398,7 +398,7 @@
   - プラン変更ダイアログ: ダウングレード予約時に「現在のプラン」「変更後のプラン」「current_period_end までの利用案内」「次回課金日と金額」を表示し、「キャンセルする」「プラン変更を予約する」ボタンを配置する
   - アップグレードダイアログ: 「現在のプラン」「変更後のプラン」「日割り差額即時課金」を表示し、「キャンセルする」「プラン変更する」ボタンを配置する
   - 解約ダイアログ: 「current_period_end までの利用案内」「無料プランへの切替時期」「発注者機能ロック」を表示する
-  - past_due 解約ダイアログ: 警告アイコン付きで「即時解約」「掲載中案件の強制クローズ」「担当者ログイン停止」「補償オプションも連鎖キャンセル」を明示し、「お支払い方法を更新する」「解約する」を提示する
+  - past_due 解約ダイアログ: 警告アイコン付きで「即時解約」「掲載中案件の強制クローズ」「担当者ログイン停止」を明示し、「お支払い方法を更新する」「解約する」を提示する（**補償オプションは連鎖キャンセルしないため記載しない**。受注者向けの給与未払い保険として基本プランから独立して継続課金される旨を、補償 active 時は別途案内する）
   - **changePlanAction の戻り値 `performedType` で出し分け**:
     - `'upgrade'` → 「{newPlanName} にアップグレードしました」
     - `'downgrade'` → 「{scheduledAt} に {newPlanName} への変更を予約しました」
@@ -516,7 +516,7 @@
   - 認証ヘッダ `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` を検証する。**不一致または欠落の場合は 401 Unauthorized を返して即終了**（軽 3）。エラー詳細はログのみに出力し、レスポンスボディには含めない
   - admin client で `subscriptions WHERE status='past_due' AND past_due_since + INTERVAL '7 days' < NOW()` を取得する
   - 各レコードを順次処理（try-catch で個別エラーハンドリング）:
-    - `stripe.subscriptions.cancel(stripeSubscriptionId)` で Stripe 側を即時解約（DB 更新は Webhook 経由）。**Webhook の `customer.subscription.deleted` ハンドラ内で補償オプション連鎖キャンセルが自動実行される**ため、Edge Function 側では補償オプションを個別に処理する必要はない（Gap 3 対応）
+    - `stripe.subscriptions.cancel(stripeSubscriptionId)` で Stripe 側を即時解約（DB 更新は Webhook 経由）。**補償オプションは連鎖キャンセルしない**（受注者向けの給与未払い保険として基本プランから独立して継続課金される設計）。Webhook 側でも option_subscriptions に手を付けないため、Edge Function 側でも補償オプションを処理する必要はない
     - 解約完了通知メール（subscriptionCancelledEmail）を送信
     - audit_logs に `auto_cancelled_past_due` を記録（actor_id=null、action 列は `ACTION_TYPES.auto_cancelled_past_due`）
   - レスポンス: `{ total: N, succeeded: N, failed: N, errors: [{ userId, message }] }`
@@ -534,12 +534,12 @@
     - active な個人プラン client（subscriptions に status='active', plan_type='individual'）
     - active な法人プラン owner + 配下 staff 1〜2 名（organizations + organization_members、`organizations.name='ビジ友建設'` 設定済み）
     - **法人プラン購入直後で組織名未入力のユーザー**（subscriptions: status='active' plan_type='corporate', `organizations.name=''` 空文字、organization_members に owner レコードあり。Task 8.7 暫定画面の E2E テスト + Task 13.14 フォールバックテスト用）
-    - **active な法人プラン owner + 補償オプション active のユーザー**（補償連鎖キャンセル E2E テスト用。subscriptions + option_subscriptions[compensation_5000 or 9800] + client_profiles.is_compensation_*=true）
+    - **active な法人プラン owner + 補償オプション active のユーザー**（基本プラン解約後も補償が継続することの E2E 検証用。subscriptions + option_subscriptions[compensation_5000 or 9800]。`client_profiles.is_compensation_*` は廃止カラムのため設定しない）
     - past_due ユーザー（past_due_since を7日以上前に設定して自動解約テストに使う）
     - cancelled ユーザー（過去 client、現在 contractor。再課金フローの確認用、cancelled の subscriptions レコードが残っている）
     - **ダウングレード予約中のユーザー**（subscriptions に schedule_id 非 null + scheduled_plan_type / scheduled_at 設定済み。Gap 1 のボタン非活性 E2E テスト用）
     - 急募オプション active のユーザー + 対象案件（option_subscriptions.option_type='urgent', end_date=未来）
-    - 補償オプション active のユーザー（is_compensation_5000=true）
+    - 補償オプション active のユーザー（option_subscriptions: option_type='compensation_5000', status='active'）。**無料 contractor も対象に1名含める**（受注者向け給与未払い保険として無料ユーザーも購入可能なため）
   - 各ユーザーの client_profiles / organization_members も整合させる
   - `supabase db reset` で seed が正しく投入されることを確認する
   - _Requirements: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3, 6.1, 7.1, 8.1, 8.2, 9.1_
@@ -582,7 +582,8 @@
   - staff ロールで呼び出し → エラー（担当者制限）
   - 急募オプション（他人の案件 ID）→ 所有権エラー
   - 補償オプション（既に1つ加入）→ 排他制御エラー
-  - **補償オプション × contractor ロール → エラー**「補償オプションは有料プランご加入のお客様のみ...」（Gap 3 防御）
+  - **補償オプション × 無料 contractor → 成功**（受注者向け保険として基本プランの加入要件なし、無料ユーザーも購入可能）
+  - **補償オプション × staff / admin → エラー**「担当者・管理者は補償オプションをご契約いただけません」（契約主体が Owner 単一の設計）
   - _Requirements: 2.1, 4.1_
 
 - [x] 13.7 Webhook ハンドラの統合テスト
@@ -645,19 +646,22 @@
   - _Requirements: 3.3, 5.1, 5.2_
 
 - [x] 13.11 (P) 補償オプション購入時のロールチェックテスト
-  - contractor（無料ユーザー）が補償オプション購入を試みる → エラー「補償オプションは有料プランご加入のお客様のみ...」
-  - active な client が購入を試みる → 成功（Stripe Checkout URL が返される）
-  - past_due の client が購入を試みる → 成功（past_due でも基本プラン契約は存在するため）
-  - cancelled のみの ex-client が購入を試みる → エラー（active/past_due の subscription なし）
-  - staff が購入を試みる → エラー（既存の staff 拒否）
+  - **無料 contractor** が補償オプション購入を試みる → 成功（Stripe Checkout URL が返される。受注者向け給与未払い保険として基本プランの加入要件なし）
+  - **active な client（owner）** が購入を試みる → 成功（受注業務もしうる実体ユーザーのため購入対象）
+  - **past_due の client** が購入を試みる → 成功（補償と基本プランは独立契約のため、基本プランの状態に依らず購入可能）
+  - **cancelled のみの ex-client** が購入を試みる → 成功（基本プラン契約の有無は補償購入の条件ではない）
+  - **staff** が購入を試みる → エラー「担当者・管理者は補償オプションをご契約いただけません」
+  - **admin** が購入を試みる → エラー（同上）
+  - **既に補償 active のユーザー** が別の補償を購入を試みる → 排他制御エラー「既に補償オプションにご加入いただいています」
   - _Requirements: 4.1_
 
-- [x] 13.12 (P) 補償オプション連鎖キャンセルのテスト
-  - **基本プラン解約 → 連鎖キャンセル発動**:
+- [x] 13.12 (P) 補償オプションが基本プラン解約に連動しないことの検証テスト
+  - **基本プラン解約 → 補償オプションは active のまま継続**:
     - 法人プラン active + 補償 ¥9,800 active のユーザーで `customer.subscription.deleted`（基本プラン）を受信
-    - handle_subscription_lifecycle_deleted RPC 完了後、TypeScript 側で同ユーザーの active な option_subscriptions が SELECT され、`stripe.subscriptions.cancel()` が呼ばれることを確認
-    - 複数の補償オプション（実際には排他で1つのみだが、テストでは強制的に複数存在させる）でも全て cancel されることを確認
-  - **option_subscriptions ヒット時のメール送信なし**:
+    - handle_subscription_lifecycle_deleted RPC 完了後、同ユーザーの `option_subscriptions WHERE option_type IN ('compensation_5000','compensation_9800')` が **status='active' のまま変化しない** ことを確認
+    - `stripe.subscriptions.cancel()` が補償の subscription に対して **呼ばれない** ことを確認（旧 Gap 3 ロジックの不在を検証）
+    - subscriptions ヒット時の `subscriptionCancelledEmail` 送信は基本プラン解約のメール1通のみ（補償解約のメールは存在しない）
+  - **option_subscriptions 単独解約時のメール送信なし**:
     - 補償オプションのみの解約（subscriptions ヒットせず option_subscriptions ヒット）で `subscriptionCancelledEmail` が送信されないことを確認
   - _Requirements: 3.3, 4.1_
 
@@ -784,6 +788,6 @@
     - `stripe trigger customer.subscription.deleted` → users.role が contractor に戻ることを確認
     - `stripe trigger invoice.payment_failed` → subscriptions.status が past_due に変わり PastDueBanner が表示されることを確認
     - 急募オプション購入 → 対象案件の jobs.is_urgent が true になり、option_subscriptions に1件追加されることを確認
-    - 補償オプション購入 → client_profiles.is_compensation_5000 / 9800 が true に更新されることを確認
+    - 補償オプション購入 → option_subscriptions に `option_type='compensation_5000' or 'compensation_9800'` のレコードが status='active' で挿入されることを確認（`client_profiles.is_compensation_*` カラムは廃止のため確認不要）
   - すべての手動テストが成功した後、`npm run test` / `supabase test db` / `npm run test:e2e` を再実行してデグレなしを確認する
   - _Requirements: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3, 6.1, 7.1, 8.1, 8.2, 9.1_

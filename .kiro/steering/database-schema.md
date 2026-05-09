@@ -360,7 +360,8 @@ CLI-005 や CLI-006 等で「保有スキル」として表示するのは `user
 
 <!--
   オプションの有効/無効はこのテーブルの status で管理する。
-  client_profiles の is_urgent_option 等のフラグは、Webhook または Edge Function で自動更新する（キャッシュ的な役割）。
+  client_profiles の is_urgent_option フラグは、Webhook または Edge Function で自動更新する（キャッシュ的な役割）。
+  補償オプションは client_profiles のフラグでは管理せず、option_subscriptions テーブルを active 判定の Single Source of Truth とする（旧 is_compensation_5000 / 9800 カラムは廃止済み。受注者は client_profiles を持たないため）。
   将来的にStripe管理から手動管理に変更する場合も、テーブル構造はそのまま使える。
 
   ■ 単発課金オプションの処理（checkout.session.completed Webhook で実行）:
@@ -378,8 +379,8 @@ CLI-005 や CLI-006 等で「保有スキル」として表示するのは `user
 
   ■ 月額課金オプションの処理（Stripe Webhook で実行）:
   - 補償オプション解約時:
-    1. option_subscriptions.status を 'cancelled' に更新
-    2. client_profiles の該当フラグを false に更新
+    1. option_subscriptions.status を 'cancelled' に更新（`client_profiles` への書き込みは行わない。フラグカラム廃止により `option_subscriptions` が active 判定の Single Source of Truth）
+    - 補償オプションは受注者向け給与未払い保険として基本プランから独立して契約・継続される。基本プラン解約時に自動キャンセルしない（連鎖キャンセル廃止）
   - 動画掲載オプション解約時:
     1. option_subscriptions.status を 'cancelled' に更新
     2. users.video_url は保持（削除しない）、ただし表示時にオプション有効判定で非表示にする
