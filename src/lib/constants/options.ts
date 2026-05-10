@@ -99,3 +99,29 @@ export const LANGUAGES = [
   "インドネシア語",
 ] as const;
 export type Language = (typeof LANGUAGES)[number];
+
+// ---------------------------------------------------------------------------
+// Experience years (案件作成・検索の経験年数プルダウン)
+// ---------------------------------------------------------------------------
+export const EXPERIENCE_YEARS = [
+  "不問",
+  "1年以上",
+  "3年以上",
+  "5年以上",
+  "10年以上",
+] as const;
+export type ExperienceYears = (typeof EXPERIENCE_YEARS)[number];
+
+// ---------------------------------------------------------------------------
+// Work start period presets (CON-002 検索条件「希望日程」)
+// 着工日（jobs.work_start_date）が今日からプリセット日数以内に開始する案件、
+// または「3ヶ月以上先」の場合は 90 日後以降に開始する案件を絞り込む。
+// ---------------------------------------------------------------------------
+export const WORK_START_PERIODS = [
+  "1週間以内",
+  "2週間以内",
+  "1ヶ月以内",
+  "2ヶ月以内",
+  "3ヶ月以上先",
+] as const;
+export type WorkStartPeriod = (typeof WORK_START_PERIODS)[number];

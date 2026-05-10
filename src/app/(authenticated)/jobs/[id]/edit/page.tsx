@@ -55,7 +55,7 @@ export default async function JobEditPage({ params }: PageProps) {
     workHours: job.work_hours ?? "",
     experienceYears: job.experience_years ?? "",
     requiredSkills: job.required_skills ?? "",
-    nationalityLanguage: job.nationality_language ?? "",
+    language: job.language ?? [],
     items: job.items ?? "",
     scheduleDetail: job.schedule_detail ?? "",
     projectDetails: job.project_details ?? "",

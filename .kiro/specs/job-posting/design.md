@@ -229,7 +229,7 @@ stateDiagram-v2
   3. 画像エリア（job_images。画像なしの場合はプレースホルダー表示）
   4. タイトル + 会社名（users.company_name）
   5. アクションボタン上部（「応募者をみる」outline / 「編集する」primary — 同幅・中央配置）
-  6. 条件セクション — DetailRow（alwaysShow）形式: 報酬、エリア、住所、募集職種、募集人数、現場工期、募集期間、稼働時間、締め切り、経験年数、必須スキル、国籍・言語、持ち物
+  6. 条件セクション — DetailRow（alwaysShow）形式: 報酬、エリア、住所、募集職種、募集人数、現場工期、募集期間、稼働時間、締め切り、経験年数、必須スキル、言語、持ち物
   7. 業務内容セクション — スケジュール詳細、請負案件詳細（ラベル + 本文の縦並び）
   8. 発注者からのメッセージセクション — border 枠付きカード
   9. アクションボタン下部（上部と同じ「応募者をみる」「編集する」を再配置 — 同幅・中央配置）
@@ -306,7 +306,7 @@ interface JobFormValues {
   workHours: string;
   experienceYears: string;
   requiredSkills: string;
-  nationalityLanguage: string;
+  language: string[];
   items: string;
   scheduleDetail: string;
   projectDetails: string;
@@ -552,7 +552,7 @@ export const jobSchema = z.object({
   workHours: z.string().max(200).optional().or(z.literal("")),
   experienceYears: z.string().max(100).optional().or(z.literal("")),
   requiredSkills: z.string().max(500).optional().or(z.literal("")),
-  nationalityLanguage: z.string().max(200).optional().or(z.literal("")),
+  language: z.array(z.string().trim().min(1)),
   items: z.string().max(500).optional().or(z.literal("")),
   scheduleDetail: z.string().max(2000).optional().or(z.literal("")),
   projectDetails: z.string().max(2000).optional().or(z.literal("")),
@@ -626,7 +626,7 @@ export const jobDraftSchema = z.object({
 | work_hours | text | |
 | experience_years | text | |
 | required_skills | text | |
-| nationality_language | text | |
+| language | text[] | LANGUAGES 定数の値の配列。空配列または NULL は「言語要件なし」 |
 | items | text | |
 | schedule_detail | text | |
 | project_details | text | |

@@ -59,7 +59,7 @@ const sharedFields = {
     .min(1, "募集エリアを選択してください"),
   employeeScale: optionalInt(EMPLOYEE_SCALE_MIN, EMPLOYEE_SCALE_MAX),
   workingWay: optionalString(100, "求める働き方が長すぎます"),
-  language: optionalString(100, "言語の入力が長すぎます"),
+  language: z.array(z.string().trim().min(1)),
   message: optionalString(
     MESSAGE_MAX,
     `メッセージは${MESSAGE_MAX}文字以内で入力してください`,

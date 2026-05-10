@@ -284,7 +284,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             />
             <DetailRow label="経験年数" value={job.experience_years} alwaysShow />
             <DetailRow label="必須スキル" value={job.required_skills} alwaysShow />
-            <DetailRow label="国籍・言語" value={job.nationality_language} alwaysShow />
+            <DetailRow label="言語" value={(job.language ?? []).join("、") || null} alwaysShow />
             <DetailRow label="持ち物" value={job.items} alwaysShow />
           </div>
         </section>
@@ -537,7 +537,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
           />
           <DetailRow label="経験年数" value={job.experience_years} alwaysShow />
           <DetailRow label="必須スキル" value={job.required_skills} alwaysShow />
-          <DetailRow label="国籍・言語" value={job.nationality_language} alwaysShow />
+          <DetailRow label="言語" value={(job.language ?? []).join("、") || null} alwaysShow />
           <DetailRow label="持ち物" value={job.items} alwaysShow />
         </div>
       </section>

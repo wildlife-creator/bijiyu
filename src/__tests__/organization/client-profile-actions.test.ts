@@ -89,7 +89,7 @@ const basePersonalInput = {
   recruitArea: ["東京都"],
   employeeScale: null,
   workingWay: null,
-  language: null,
+  language: [],
   message: null,
   snsX: false,
   snsInstagram: false,

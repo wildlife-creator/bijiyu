@@ -192,7 +192,10 @@ export default async function ClientDetailPage({ params }: PageProps) {
           value={profile?.employee_scale ? `${profile.employee_scale}名` : null}
         />
         <DetailRow label="稼働方法" value={profile?.working_way} />
-        <DetailRow label="言語" value={profile?.language} />
+        <DetailRow
+          label="言語"
+          value={(profile?.language ?? []).join("、") || null}
+        />
       </div>
 
       {/* Message from client */}

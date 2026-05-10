@@ -196,7 +196,10 @@ export default async function ClientProfilePage() {
             }
           />
           <DetailRow label="求める働き方" value={profile?.working_way ?? null} />
-          <DetailRow label="言語" value={profile?.language ?? null} />
+          <DetailRow
+            label="言語"
+            value={(profile?.language ?? []).join("、") || null}
+          />
         </div>
       </section>
 

@@ -283,33 +283,22 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
         <FieldError message={errors.workingWay?.message} />
       </FieldGroup>
 
-      {/* 言語 — 複数選択可能なプルダウン（DB は「、」区切り text で保存） */}
+      {/* 言語 — 複数選択可能なプルダウン（DB は text[] で保存） */}
       <FieldGroup>
         <FieldLabel htmlFor="language">言語</FieldLabel>
         <Controller
           control={control}
           name="language"
-          render={({ field }) => {
-            // 既存データの互換: 「、」「・」「,」のいずれでも分割してロード
-            const arrayValue = field.value
-              ? field.value
-                  .split(/[、・,]/)
-                  .map((s) => s.trim())
-                  .filter(Boolean)
-              : [];
-            return (
-              <MultiSelect
-                id="language"
-                options={LANGUAGES}
-                value={arrayValue}
-                onChange={(next) =>
-                  field.onChange(next.length > 0 ? next.join("、") : null)
-                }
-                disabled={isPending}
-                placeholder="お選びください"
-              />
-            );
-          }}
+          render={({ field }) => (
+            <MultiSelect
+              id="language"
+              options={LANGUAGES}
+              value={field.value ?? []}
+              onChange={(next) => field.onChange(next)}
+              disabled={isPending}
+              placeholder="お選びください"
+            />
+          )}
         />
         <FieldError message={errors.language?.message} />
       </FieldGroup>

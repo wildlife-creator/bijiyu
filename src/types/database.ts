@@ -7,6 +7,31 @@ export type Json =
   | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       applications: {
@@ -174,7 +199,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_urgent_option: boolean
-          language: string | null
+          language: string[] | null
           message: string | null
           recruit_area: string[] | null
           recruit_job_types: string[] | null
@@ -196,7 +221,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_urgent_option?: boolean
-          language?: string | null
+          language?: string[] | null
           message?: string | null
           recruit_area?: string[] | null
           recruit_job_types?: string[] | null
@@ -218,7 +243,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_urgent_option?: boolean
-          language?: string | null
+          language?: string[] | null
           message?: string | null
           recruit_area?: string[] | null
           recruit_job_types?: string[] | null
@@ -465,8 +490,8 @@ export type Database = {
           id: string
           is_urgent: boolean
           items: string | null
+          language: string[] | null
           location: string | null
-          nationality_language: string | null
           organization_id: string | null
           owner_id: string
           owner_message: string | null
@@ -497,8 +522,8 @@ export type Database = {
           id?: string
           is_urgent?: boolean
           items?: string | null
+          language?: string[] | null
           location?: string | null
-          nationality_language?: string | null
           organization_id?: string | null
           owner_id: string
           owner_message?: string | null
@@ -529,8 +554,8 @@ export type Database = {
           id?: string
           is_urgent?: boolean
           items?: string | null
+          language?: string[] | null
           location?: string | null
-          nationality_language?: string | null
           organization_id?: string | null
           owner_id?: string
           owner_message?: string | null
@@ -1433,6 +1458,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       application_status: [
@@ -1455,3 +1483,4 @@ export const Constants = {
     },
   },
 } as const
+

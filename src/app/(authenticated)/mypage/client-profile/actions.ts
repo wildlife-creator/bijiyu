@@ -147,7 +147,7 @@ export async function saveClientProfileAction(
     recruit_area: data.recruitArea,
     employee_scale: data.employeeScale,
     working_way: data.workingWay,
-    language: data.language,
+    language: data.language.length > 0 ? data.language : null,
     message: data.message,
     sns_x: data.snsX,
     sns_instagram: data.snsInstagram,

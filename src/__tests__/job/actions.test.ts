@@ -53,7 +53,6 @@ function buildValidFormData(overrides: Record<string, string> = {}): FormData {
     workHours: "",
     experienceYears: "",
     requiredSkills: "",
-    nationalityLanguage: "",
     items: "",
     scheduleDetail: "",
     projectDetails: "",

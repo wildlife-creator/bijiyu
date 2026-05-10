@@ -154,7 +154,7 @@ CLI-005 や CLI-006 等で「保有スキル」として表示するのは `user
 | work_hours | text | 稼働時間 |
 | experience_years | text | 必要経験年数 |
 | required_skills | text | 必須スキル |
-| nationality_language | text | 国籍・言語 |
+| language | text[] | 言語要件（LANGUAGES 定数の配列。空配列または NULL は要件なし） |
 | items | text | 持ち物 |
 | schedule_detail | text | スケジュール詳細 |
 | project_details | text | 請負案件詳細 |
@@ -988,7 +988,7 @@ messages テーブルの RLS ポリシーでは、「自分がアクセス可能
 
 職種、エリア、スキル、資格、性別などの選択肢リストは、初期段階ではコード内の定数（TypeScript の配列/オブジェクト）として定義する。管理画面から追加・編集する必要が出てきた場合にマスタテーブルへ移行する。
 
-対象の選択肢: 職種（JobType）、エリア（都道府県）、スキル（Skill）、資格（Qualification）、性別（Gender）、経験年数（ExperienceYear）、求める働き方（WorkingWay）、国籍・言語（NationalityLanguage）、退会理由（CancelReason）、お問い合わせ項目（ContactType）、稼働状況（OperatingStatus）、各種ステータス
+対象の選択肢: 職種（JobType）、エリア（都道府県）、スキル（Skill）、資格（Qualification）、性別（Gender）、経験年数（ExperienceYear）、求める働き方（WorkingWay）、言語（Language）、退会理由（CancelReason）、お問い合わせ項目（ContactType）、稼働状況（OperatingStatus）、各種ステータス
 
 **ContactType の初期値（contacts.contact_types の選択肢）:**
 - 'サービスについて'

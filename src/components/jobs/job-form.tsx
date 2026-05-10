@@ -18,7 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { jobSchema, type JobFormValues } from "@/lib/validations/job";
-import { TRADE_TYPES, PREFECTURES } from "@/lib/constants/options";
+import { MultiSelect } from "@/components/ui/multi-select";
+import {
+  TRADE_TYPES,
+  PREFECTURES,
+  EXPERIENCE_YEARS,
+  LANGUAGES,
+} from "@/lib/constants/options";
 import { createJobAction, updateJobAction, deleteJobImageAction } from "@/app/(authenticated)/jobs/actions";
 import { JobImageUploader } from "./job-image-uploader";
 
@@ -72,7 +78,7 @@ export function JobForm({
       workHours: "",
       experienceYears: "",
       requiredSkills: "",
-      nationalityLanguage: "",
+      language: [],
       items: "",
       scheduleDetail: "",
       projectDetails: "",
@@ -105,9 +111,14 @@ export function JobForm({
     startTransition(async () => {
       const formData = new FormData();
 
-      // Add all fields
+      // Add all fields. 配列フィールドは append で複数値を送る（FormData の慣例）。
       Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (value === undefined || value === null) return;
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            formData.append(key, String(item));
+          }
+        } else {
           formData.set(key, String(value));
         }
       });
@@ -388,11 +399,11 @@ export function JobForm({
               <SelectValue placeholder="お選びください" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="不問">不問</SelectItem>
-              <SelectItem value="1年以上">1年以上</SelectItem>
-              <SelectItem value="3年以上">3年以上</SelectItem>
-              <SelectItem value="5年以上">5年以上</SelectItem>
-              <SelectItem value="10年以上">10年以上</SelectItem>
+              {EXPERIENCE_YEARS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -406,22 +417,15 @@ export function JobForm({
           />
         </div>
 
-        {/* 国籍・言語 */}
+        {/* 言語 */}
         <div className="space-y-1">
-          <Label>国籍・言語</Label>
-          <Select
-            value={watch("nationalityLanguage") || ""}
-            onValueChange={(v) => setValue("nationalityLanguage", v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="お選びください" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="不問">不問</SelectItem>
-              <SelectItem value="日本語必須">日本語必須</SelectItem>
-              <SelectItem value="日本国籍のみ">日本国籍のみ</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label>言語</Label>
+          <MultiSelect
+            options={LANGUAGES}
+            value={watch("language") ?? []}
+            onChange={(next) => setValue("language", next)}
+            placeholder="お選びください"
+          />
         </div>
 
         {/* 持ち物 */}

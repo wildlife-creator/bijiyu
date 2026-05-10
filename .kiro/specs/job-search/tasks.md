@@ -48,7 +48,7 @@
   - shadcn/ui Sheet コンポーネントで検索フィルターモーダルを実装する
   - 画面ごとに異なるフィルター項目を柔軟に構成できる設計にする（children または設定 props）
   - 「検索する」ボタンで searchParams を更新し、Sheet を閉じる
-  - CON-002: キーワード、エリア、希望日程、募集職種、経験年数、国籍・言語
+  - CON-002: キーワード、エリア、希望日程、募集職種、経験年数、言語
   - CON-005: キーワード、募集エリア、募集職種、従業員規模、求める働き方、言語
   - CLI-005: 対応職種、対応エリア、希望日程、経験年数、保有スキル、保有資格、お気に入り登録
   - _Requirements: 1, 4, 7_
@@ -89,7 +89,7 @@
 - [x] 4.1 募集案件一覧画面の実装（CON-002）
   - デザインカンプ（CON-002-design-sp.png, CON-002-design-pc.png）に準拠してレイアウトを実装する
   - Server Component で案件データを取得する。クエリに recruit_end_date フィルター（今日以降）を含める
-  - searchParams: q（キーワード）、prefecture（エリア）、tradeType（職種）、sort（newest/reward_high/reward_low）、page
+  - searchParams: q（キーワード: title / description / client_profiles.display_name の OR 検索）、prefecture（エリア）、workPeriod（希望日程プリセット）、tradeType（職種）、experienceYears（経験年数）、language（言語: text[] への && 検索）、sort（newest/reward_high/reward_low）、page
   - 上位表示ロジック: 急募案件を最上位に表示（ORDER BY is_urgent DESC, created_at DESC）。報酬順ソート選択時は上位表示ロジックを適用しない
   - ヘッダー: ロゴ + ハンバーガーメニュー、ページタイトル「募集案件一覧」、件数表示 + ソートアイコン（icon-sort.png）
   - 検索ボタン（icon-search.png）から SearchFilterSheet を開く
@@ -105,7 +105,7 @@
   - 案件画像は `<img>` タグで表示する（Supabase Storage）
   - 応募制限判定: canApplyJob ユーティリティを使用し、無料ユーザーの応募可否をフロントで判定する
   - 応募不可の場合: ボタン非活性 + 「有料プランに加入するか、プロフィールの職種・エリアを更新してください」メッセージ
-  - 情報セクション: 報酬、エリア、募集職種、募集人数、勤務地、現場工期、募集期間、稼働時間、必要経験年数、必須スキル、国籍・言語、持ち物、スケジュール詳細、請負案件詳細、発注者からのメッセージ
+  - 情報セクション: 報酬、エリア、募集職種、募集人数、勤務地、現場工期、募集期間、稼働時間、必要経験年数、必須スキル、言語、持ち物、スケジュール詳細、請負案件詳細、発注者からのメッセージ
   - お気に入りボタン、「応募する」ボタン（→ CON-004）、発注者情報リンク（→ CON-006）
   - 下部固定の「応募する」ボタン
   - _Requirements: 2_

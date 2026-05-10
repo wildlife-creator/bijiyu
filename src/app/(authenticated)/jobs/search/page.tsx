@@ -13,6 +13,38 @@ import { JobSearchFilter } from "./job-search-filter";
 
 const ITEMS_PER_PAGE = 20;
 
+function formatDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+function resolveWorkPeriodRange(
+  preset: string,
+): { gte: string; lte?: string } | null {
+  if (!preset) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = formatDate(today);
+  const addDays = (days: number) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + days);
+    return formatDate(d);
+  };
+  switch (preset) {
+    case "1週間以内":
+      return { gte: todayStr, lte: addDays(7) };
+    case "2週間以内":
+      return { gte: todayStr, lte: addDays(14) };
+    case "1ヶ月以内":
+      return { gte: todayStr, lte: addDays(30) };
+    case "2ヶ月以内":
+      return { gte: todayStr, lte: addDays(60) };
+    case "3ヶ月以上先":
+      return { gte: addDays(90) };
+    default:
+      return null;
+  }
+}
+
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
@@ -31,7 +63,41 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
   const tradeType = (sp.tradeType as string) ?? "";
+  const workPeriod = (sp.workPeriod as string) ?? "";
+  const experienceYears = (sp.experienceYears as string) ?? "";
+  const language = (sp.language as string) ?? "";
   const sort = (sp.sort as string) ?? "newest";
+
+  // 「希望日程」プリセット → work_start_date の日付レンジに変換（累積判定）
+  const workPeriodRange = resolveWorkPeriodRange(workPeriod);
+
+  // 発注者名検索の事前準備:
+  //   キーワード（q）が `client_profiles.display_name` に部分一致する
+  //   user_ids と、その user_ids が Owner となっている organization_ids を抽出。
+  //   後段の jobs クエリで OR 句に IN 条件として加え、案件タイトル/詳細だけでなく
+  //   発注者名でもヒットさせる。デザインカンプの「キーワード（タイトル・発注者名）」
+  //   ラベルが正しく機能するための実装。
+  //   - 個人発注者（organization_id IS NULL）: jobs.owner_id でマッチ
+  //   - 法人プラン（organization_id IS NOT NULL）: jobs.organization_id でマッチ
+  //     （案件作成者が Staff/Admin で owner_id が Owner と異なるケースもカバー）
+  let matchingClientUserIds: string[] = [];
+  let matchingClientOrgIds: string[] = [];
+  if (q) {
+    const { data: matchingProfiles } = await supabase
+      .from("client_profiles")
+      .select("user_id")
+      .ilike("display_name", `%${q}%`);
+    matchingClientUserIds = (matchingProfiles ?? []).map((p) => p.user_id);
+
+    if (matchingClientUserIds.length > 0) {
+      const { data: matchingOrgs } = await supabase
+        .from("organizations")
+        .select("id")
+        .in("owner_id", matchingClientUserIds)
+        .is("deleted_at", null);
+      matchingClientOrgIds = (matchingOrgs ?? []).map((o) => o.id);
+    }
+  }
 
   // Build query
   let query = supabase
@@ -60,16 +126,40 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     .is("deleted_at", null)
     .gte("recruit_end_date", new Date().toISOString().split("T")[0]);
 
-  // Apply filters（title / description のみ対象。発注者名は client_profiles.display_name
-  // 一本化に伴い、クロステーブル検索を廃止）
+  // Apply filters: title / description / 発注者名（client_profiles.display_name 経由）
+  // の3軸で OR 検索。発注者名は事前抽出した owner_id / organization_id への IN
+  // 条件として OR 句に加える。
   if (q) {
-    query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+    const orParts = [
+      `title.ilike.%${q}%`,
+      `description.ilike.%${q}%`,
+    ];
+    if (matchingClientUserIds.length > 0) {
+      orParts.push(`owner_id.in.(${matchingClientUserIds.join(",")})`);
+    }
+    if (matchingClientOrgIds.length > 0) {
+      orParts.push(`organization_id.in.(${matchingClientOrgIds.join(",")})`);
+    }
+    query = query.or(orParts.join(","));
   }
   if (prefecture) {
     query = query.eq("prefecture", prefecture);
   }
   if (tradeType) {
     query = query.eq("trade_type", tradeType);
+  }
+  if (experienceYears) {
+    query = query.eq("experience_years", experienceYears);
+  }
+  if (language) {
+    // text[] カラムへの絞り込みは && 演算子（overlaps）で行う
+    query = query.overlaps("language", [language]);
+  }
+  if (workPeriodRange) {
+    query = query.gte("work_start_date", workPeriodRange.gte);
+    if (workPeriodRange.lte) {
+      query = query.lte("work_start_date", workPeriodRange.lte);
+    }
   }
 
   // Apply sort

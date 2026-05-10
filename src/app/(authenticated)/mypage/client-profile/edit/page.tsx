@@ -89,7 +89,7 @@ export default async function ClientProfileEditPage({
     recruitArea: profile?.recruit_area ?? [],
     employeeScale: profile?.employee_scale ?? null,
     workingWay: profile?.working_way ?? null,
-    language: profile?.language ?? null,
+    language: profile?.language ?? [],
     message: profile?.message ?? null,
     snsX: profile?.sns_x ?? false,
     snsInstagram: profile?.sns_instagram ?? false,

@@ -39,7 +39,7 @@ describe("jobSchema", () => {
     workHours: "8:00〜17:00",
     experienceYears: "3年以上",
     requiredSkills: "",
-    nationalityLanguage: "",
+    language: [],
     items: "",
     scheduleDetail: "",
     projectDetails: "",
@@ -67,6 +67,7 @@ describe("jobSchema", () => {
       recruitStartDate: "2026-03-01",
       recruitEndDate: "2026-03-31",
       headcount: 1,
+      language: [],
       status: "draft" as const,
     };
     const result = jobSchema.safeParse(minimalInput);
