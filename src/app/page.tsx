@@ -5,9 +5,15 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-full flex-col">
       {/* Hero */}
-      <main className="flex flex-1 flex-col items-center justify-center px-6">
+      <main className="flex flex-1 flex-col items-center justify-center px-6 pt-16">
         <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-8 text-center">
-          <h1 className="text-heading-2xl font-bold text-secondary">ビジ友</h1>
+          <h1>
+            <img
+              src="/images/logo-mark.png"
+              alt="ビジ友"
+              className="w-48 h-auto mx-auto"
+            />
+          </h1>
           <p className="text-body-base text-foreground">
             ビジ友は建設業界の職人と発注者をつなぐマッチングサービスです
           </p>

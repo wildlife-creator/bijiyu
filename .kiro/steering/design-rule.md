@@ -262,7 +262,9 @@ lg: 1024px〜（ワイドPC、必要な場合のみ）
 
 ### ロゴ
 - 横型（ヘッダー用）: `<img src="/images/logo-horizontal.png" alt="ビジ友" className="h-[61px] w-auto" />`
-- 縦型（ランディング・認証画面用）: `<img src="/images/logo-vertical.png" alt="ビジ友" />`
+- ブランドマーク（ランディング AUTH-001 のヒーロー用）: `<img src="/images/logo-mark.png" alt="ビジ友" className="w-48 h-auto mx-auto" />`
+- 縦型プレースホルダー（ジョブサムネ等の画像なし時のフォールバック、`opacity-20` で薄く表示）: `<img src="/images/logo-vertical.png" alt="" className="w-16 h-16 opacity-20" />`
+- 認証画面（ログイン・新規登録 等）のロゴ表示方針は未確定（必要になった時点で別途決定）
 - `next/image` の `<Image>` は使わず `<img>` タグで統一する（CLAUDE.md の実装チェック項目と整合させるため）
 
 ## cc-sdd フェーズ別指示

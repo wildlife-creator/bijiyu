@@ -164,8 +164,9 @@ design-assets/
 ```
 public/
 └── images/
-    ├── logo-vertical.png    # ロゴ縦型（ランディング、認証画面）
+    ├── logo-vertical.png    # ロゴ縦型（ジョブサムネ等のプレースホルダー、薄く表示）
     ├── logo-horizontal.png  # ロゴ横型（ヘッダー）
+    ├── logo-mark.png        # フルカラーブランドマーク（ランディング AUTH-001）
     └── icons/               # Figma デザイン準拠のカスタムアイコン PNG
         ├── icon-search.png
         ├── icon-memo.png

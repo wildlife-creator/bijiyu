@@ -128,7 +128,8 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 | ファイル名 | 用途 |
 |-----------|------|
 | logo-horizontal.png | ヘッダー等の横長ロゴ |
-| logo-vertical.png | 縦長ロゴ |
+| logo-vertical.png | ジョブサムネ等のプレースホルダー用（薄く表示） |
+| logo-mark.png | ランディング（AUTH-001）等のフルカラーブランドマーク |
 
 ### 開発ツール（MCP）
 - コードベースの検索・シンボル参照・編集には Serena MCP のツールを優先的に使用すること
