@@ -7,17 +7,22 @@
 --
 -- 旧データの変換ルール:
 --   client_profiles.working_way:
---     NULL / ''       → NULL
---     "1日から可"     → ARRAY['1日から可']
---     "長期歓迎"      → ARRAY['長期歓迎']
---     その他自由文     → ARRAY[<元の値>]（手動マッピングは行わない。次回 CLI-021 編集時に正規化）
+--     NULL / ''                → NULL
+--     "1日から可"              → ARRAY['1日から可']
+--     "1日から可、長期歓迎"     → ARRAY['1日から可', '長期歓迎']
+--     "1日から可・長期歓迎"     → ARRAY['1日から可', '長期歓迎']
+--     その他自由文              → ARRAY[<元の値>]
+--
+--   区切り文字は「、」「・」「,」を許容（language migration 20260509100100 と同パターン）。
+--   分解後の値が WORKING_WAYS 定数（1日から可/短期歓迎/中期歓迎/長期歓迎/常用希望）に
+--   含まれない場合は、CLI-021 編集時に表示されないため、次回編集で正規化される。
 
 ALTER TABLE client_profiles ADD COLUMN working_way_new text[];
 
 UPDATE client_profiles
 SET working_way_new = CASE
   WHEN working_way IS NULL OR length(trim(working_way)) = 0 THEN NULL
-  ELSE ARRAY[working_way]
+  ELSE array_remove(regexp_split_to_array(working_way, '[、・,]'), '')
 END;
 
 ALTER TABLE client_profiles DROP COLUMN working_way;

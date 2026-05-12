@@ -493,20 +493,28 @@ const query = supabase
 **発注者一覧クエリ（CON-005）**:
 ```typescript
 // Supabase query — users + client_profiles の JOIN
+// 検索フィルタ（prefecture / tradeType / employeeScale / workingWay / language）が
+// 指定されている場合のみ !inner で client_profiles を持つユーザーに絞る
+const needsInnerJoin =
+  !!prefecture || !!tradeType || !!employeeScaleRange || !!workingWay || !!language;
+const profileJoin = needsInnerJoin ? 'client_profiles!inner' : 'client_profiles';
+
 const query = supabase
   .from('users')
-  .select(`
-    id, company_name, prefecture, avatar_url, deleted_at,
-    client_profiles!inner(
-      display_name, image_url, recruit_job_types,
-      recruit_area, employee_scale, working_way, message
-    )
-  `, { count: 'exact' })
+  .select(
+    `
+    id, avatar_url, last_name, first_name, deleted_at, prefecture,
+    ${profileJoin}(display_name, image_url, recruit_job_types, recruit_area, working_way, employee_scale)
+  `,
+    { count: 'exact' },
+  )
   .eq('role', 'client')
-  .eq('is_active', true)
   .is('deleted_at', null)
   .order('created_at', { ascending: false })
   .range(offset, offset + ITEMS_PER_PAGE - 1);
+
+// キーワード検索は 2 段階クエリで user_id 集合を解決してから .in('id', ids) で絞る
+// （Supabase JS の .or() は foreign relation 参照を安定して扱えないため）
 ```
 
 **職人一覧クエリ（CLI-005）**:
