@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { WORKING_WAYS, type WorkingWay } from "@/lib/constants/options";
 import type { ClientProfileFormInput } from "@/lib/validations/client-profile";
 
 import { ClientProfileEditForm } from "./client-profile-edit-form";
@@ -88,7 +89,9 @@ export default async function ClientProfileEditPage({
     recruitJobTypes: profile?.recruit_job_types ?? [],
     recruitArea: profile?.recruit_area ?? [],
     employeeScale: profile?.employee_scale ?? null,
-    workingWay: profile?.working_way ?? null,
+    workingWay: ((profile?.working_way ?? []) as string[]).filter(
+      (v): v is WorkingWay => (WORKING_WAYS as readonly string[]).includes(v),
+    ),
     language: profile?.language ?? [],
     message: profile?.message ?? null,
     snsX: profile?.sns_x ?? false,

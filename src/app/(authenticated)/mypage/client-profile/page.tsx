@@ -195,7 +195,10 @@ export default async function ClientProfilePage() {
               profile?.employee_scale ? `${profile.employee_scale}人` : null
             }
           />
-          <DetailRow label="求める働き方" value={profile?.working_way ?? null} />
+          <DetailRow
+            label="求める働き方"
+            value={(profile?.working_way ?? []).join("、") || null}
+          />
           <DetailRow
             label="言語"
             value={(profile?.language ?? []).join("、") || null}

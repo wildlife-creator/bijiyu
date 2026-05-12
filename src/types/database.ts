@@ -210,7 +210,7 @@ export type Database = {
           sns_youtube: boolean
           updated_at: string
           user_id: string
-          working_way: string | null
+          working_way: string[] | null
         }
         Insert: {
           address?: string | null
@@ -232,7 +232,7 @@ export type Database = {
           sns_youtube?: boolean
           updated_at?: string
           user_id: string
-          working_way?: string | null
+          working_way?: string[] | null
         }
         Update: {
           address?: string | null
@@ -254,7 +254,7 @@ export type Database = {
           sns_youtube?: boolean
           updated_at?: string
           user_id?: string
-          working_way?: string | null
+          working_way?: string[] | null
         }
         Relationships: [
           {

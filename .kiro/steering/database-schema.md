@@ -431,7 +431,7 @@ CLI-005 や CLI-006 等で「保有スキル」として表示するのは `user
 | recruit_job_types | text[] | 募集職種（会社として全般的に扱う職種。案件ごとの職種は `jobs.trade_type` で別管理） |
 | recruit_area | text[] | 募集エリア（複数都道府県、配列） |
 | employee_scale | integer | 従業員規模 |
-| working_way | text | 求める働き方 |
+| working_way | text[] | 求める働き方（複数選択可。UI はマルチセレクトプルダウンで `WORKING_WAYS` 定数から選ぶ。値: `1日から可` / `短期歓迎` / `中期歓迎` / `長期歓迎` / `常用希望`） |
 | language | text | 言語（複数選択可。UI はマルチセレクトプルダウンで `LANGUAGES` 定数から選ぶ。DB は「、」区切りで保存。例: `日本語` / `日本語、英語`。既存データの `日本語・英語` 等の旧セパレータは form 読み込み時に `/[、・,]/` で互換分割） |
 | message | text | 発注者メッセージ（紹介文） |
 | sns_x | boolean (DEFAULT false NOT NULL) | X（旧 Twitter）を利用しているかのチェック値。運営の集計・分析用。受注者には非公開。CLI-021 のチェックボックスで設定 |
@@ -989,6 +989,15 @@ messages テーブルの RLS ポリシーでは、「自分がアクセス可能
 職種、エリア、スキル、資格、性別などの選択肢リストは、初期段階ではコード内の定数（TypeScript の配列/オブジェクト）として定義する。管理画面から追加・編集する必要が出てきた場合にマスタテーブルへ移行する。
 
 対象の選択肢: 職種（JobType）、エリア（都道府県）、スキル（Skill）、資格（Qualification）、性別（Gender）、経験年数（ExperienceYear）、求める働き方（WorkingWay）、言語（Language）、退会理由（CancelReason）、お問い合わせ項目（ContactType）、稼働状況（OperatingStatus）、各種ステータス
+
+**WorkingWay の初期値（client_profiles.working_way の選択肢）:**
+- '1日から可'
+- '短期歓迎'
+- '中期歓迎'
+- '長期歓迎'
+- '常用希望'
+
+※ 複数選択可（text[] 型）。発注者が CLI-021 で複数登録し、CON-005 の検索では単一選択で `overlaps()` 検索する。
 
 **ContactType の初期値（contacts.contact_types の選択肢）:**
 - 'サービスについて'

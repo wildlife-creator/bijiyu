@@ -7,9 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
-import { SearchFilterSheet } from "@/components/job-search/search-filter-sheet";
+import { EMPLOYEE_SCALE_RANGES } from "@/lib/constants/options";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
+
+import { ClientSearchForm } from "./client-search-form";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -31,11 +33,50 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
   const tradeType = (sp.tradeType as string) ?? "";
+  const employeeScaleLabel = (sp.employeeScale as string) ?? "";
+  const workingWay = (sp.workingWay as string) ?? "";
+  const language = (sp.language as string) ?? "";
+
+  const employeeScaleRange = employeeScaleLabel
+    ? EMPLOYEE_SCALE_RANGES.find((r) => r.label === employeeScaleLabel) ?? null
+    : null;
+
+  // キーワード検索は users.last_name / first_name と client_profiles.display_name の
+  // OR 検索だが、Supabase JS の .or() は foreign relation の参照を安定して扱えない
+  // ため、2 段階クエリで user_id 集合を先に解決してから本クエリで .in() で絞り込む。
+  let keywordUserIds: string[] | null = null;
+  if (q) {
+    const escaped = q.replace(/[%_]/g, (m) => `\\${m}`);
+    const pattern = `%${escaped}%`;
+    const [namesRes, profilesRes] = await Promise.all([
+      supabase
+        .from("users")
+        .select("id")
+        .eq("role", "client")
+        .is("deleted_at", null)
+        .or(`last_name.ilike.${pattern},first_name.ilike.${pattern}`),
+      supabase
+        .from("client_profiles")
+        .select("user_id")
+        .ilike("display_name", pattern),
+    ]);
+    const idSet = new Set<string>();
+    (namesRes.data ?? []).forEach((r) => idSet.add(r.id));
+    (profilesRes.data ?? []).forEach((r) => {
+      if (r.user_id) idSet.add(r.user_id);
+    });
+    keywordUserIds = Array.from(idSet);
+  }
 
   // Build query - fetch users with role='client' joined with client_profiles
   // Use !inner join when filters target client_profiles columns,
   // so PostgREST filters parent rows (not just nested rows)
-  const needsInnerJoin = !!prefecture || !!tradeType;
+  const needsInnerJoin =
+    !!prefecture ||
+    !!tradeType ||
+    !!employeeScaleRange ||
+    !!workingWay ||
+    !!language;
   const profileJoin = needsInnerJoin ? "client_profiles!inner" : "client_profiles";
 
   let query = supabase
@@ -43,7 +84,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     .select(
       `
       id, avatar_url, last_name, first_name, deleted_at, prefecture,
-      ${profileJoin}(display_name, image_url, recruit_job_types, recruit_area, working_way)
+      ${profileJoin}(display_name, image_url, recruit_job_types, recruit_area, working_way, employee_scale)
     `,
       { count: "exact" },
     )
@@ -51,9 +92,13 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     .is("deleted_at", null);
 
   // Apply filters
-  if (q) {
-    query = query.or(
-      `last_name.ilike.%${q}%,first_name.ilike.%${q}%`,
+  if (keywordUserIds !== null) {
+    // 0件の場合も適切に 0 件返すよう、ダミー UUID で確実に空にする
+    query = query.in(
+      "id",
+      keywordUserIds.length > 0
+        ? keywordUserIds
+        : ["00000000-0000-0000-0000-000000000000"],
     );
   }
   if (prefecture) {
@@ -61,6 +106,18 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   }
   if (tradeType) {
     query = query.overlaps("client_profiles.recruit_job_types", [tradeType]);
+  }
+  if (employeeScaleRange) {
+    query = query.gte("client_profiles.employee_scale", employeeScaleRange.min);
+    if (employeeScaleRange.max !== null) {
+      query = query.lte("client_profiles.employee_scale", employeeScaleRange.max);
+    }
+  }
+  if (workingWay) {
+    query = query.overlaps("client_profiles.working_way", [workingWay]);
+  }
+  if (language) {
+    query = query.overlaps("client_profiles.language", [language]);
   }
 
   query = query
@@ -96,43 +153,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
             全{count ?? 0}件
           </p>
           <div className="flex items-center gap-2">
-            <SearchFilterSheet>
-              <form method="get" className="space-y-4">
-                <div>
-                  <label className="text-body-sm font-medium">キーワード</label>
-                  <input
-                    name="q"
-                    defaultValue={q}
-                    placeholder="氏名で検索"
-                    className="mt-1 w-full rounded-[8px] border border-border px-3 py-2 text-body-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-body-sm font-medium">エリア</label>
-                  <input
-                    name="prefecture"
-                    defaultValue={prefecture}
-                    placeholder="都道府県"
-                    className="mt-1 w-full rounded-[8px] border border-border px-3 py-2 text-body-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-body-sm font-medium">職種</label>
-                  <input
-                    name="tradeType"
-                    defaultValue={tradeType}
-                    placeholder="職種"
-                    className="mt-1 w-full rounded-[8px] border border-border px-3 py-2 text-body-sm"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  検索する
-                </Button>
-              </form>
-            </SearchFilterSheet>
+            <ClientSearchForm />
           </div>
         </div>
 
@@ -205,11 +226,11 @@ export default async function ClientListPage({ searchParams }: PageProps) {
                         </span>
                       </div>
                     )}
-                    {profile?.working_way && (
+                    {profile?.working_way && profile.working_way.length > 0 && (
                       <div className="flex items-center">
                         <CalendarDays className="w-4 h-4 text-primary/70 shrink-0" />
                         <span className="ml-1.5 w-[5.5rem] shrink-0 text-muted-foreground">求める働き方</span>
-                        <span>{profile.working_way}</span>
+                        <span className="line-clamp-1">{profile.working_way.join("、")}</span>
                       </div>
                     )}
                   </div>

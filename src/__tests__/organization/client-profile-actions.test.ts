@@ -88,7 +88,7 @@ const basePersonalInput = {
   recruitJobTypes: ["内装工"],
   recruitArea: ["東京都"],
   employeeScale: null,
-  workingWay: null,
+  workingWay: [],
   language: [],
   message: null,
   snsX: false,

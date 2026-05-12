@@ -125,3 +125,34 @@ export const WORK_START_PERIODS = [
   "3ヶ月以上先",
 ] as const;
 export type WorkStartPeriod = (typeof WORK_START_PERIODS)[number];
+
+// ---------------------------------------------------------------------------
+// Working ways (CLI-021 / CON-005 検索条件「求める働き方」)
+// 発注者が「うちの会社はこういう働き方を求めている」を複数選択で表明する軸。
+// 期間軸に統一して並べる（短期 → 中期 → 長期 → 常用 + 1日からも歓迎）。
+// DB: client_profiles.working_way text[]（複数選択可）
+// ---------------------------------------------------------------------------
+export const WORKING_WAYS = [
+  "1日から可",
+  "短期歓迎",
+  "中期歓迎",
+  "長期歓迎",
+  "常用希望",
+] as const;
+export type WorkingWay = (typeof WORKING_WAYS)[number];
+
+// ---------------------------------------------------------------------------
+// Employee scale ranges (CON-005 検索条件「従業員規模」)
+// DB は client_profiles.employee_scale integer の具体的人数だが、検索では
+// レンジで絞り込むため検索 UI 用にレンジ定数を別途定義する。
+// max が null の場合は「以上」（gte のみ、lte なし）として扱う。
+// ---------------------------------------------------------------------------
+export const EMPLOYEE_SCALE_RANGES = [
+  { label: "1〜9人", min: 1, max: 9 },
+  { label: "10〜49人", min: 10, max: 49 },
+  { label: "50〜99人", min: 50, max: 99 },
+  { label: "100〜299人", min: 100, max: 299 },
+  { label: "300〜999人", min: 300, max: 999 },
+  { label: "1000人以上", min: 1000, max: null },
+] as const;
+export type EmployeeScaleRangeLabel = (typeof EMPLOYEE_SCALE_RANGES)[number]["label"];

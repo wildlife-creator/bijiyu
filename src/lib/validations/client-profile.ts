@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { WORKING_WAYS } from "@/lib/constants/options";
+
 /**
  * CLI-021（発注者情報編集）のフォームバリデーション。
  *
@@ -58,7 +60,7 @@ const sharedFields = {
     .array(z.string().trim().min(1))
     .min(1, "募集エリアを選択してください"),
   employeeScale: optionalInt(EMPLOYEE_SCALE_MIN, EMPLOYEE_SCALE_MAX),
-  workingWay: optionalString(100, "求める働き方が長すぎます"),
+  workingWay: z.array(z.enum(WORKING_WAYS)),
   language: z.array(z.string().trim().min(1)),
   message: optionalString(
     MESSAGE_MAX,

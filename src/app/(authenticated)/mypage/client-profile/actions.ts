@@ -146,7 +146,7 @@ export async function saveClientProfileAction(
     recruit_job_types: data.recruitJobTypes,
     recruit_area: data.recruitArea,
     employee_scale: data.employeeScale,
-    working_way: data.workingWay,
+    working_way: data.workingWay.length > 0 ? data.workingWay : null,
     language: data.language.length > 0 ? data.language : null,
     message: data.message,
     sns_x: data.snsX,

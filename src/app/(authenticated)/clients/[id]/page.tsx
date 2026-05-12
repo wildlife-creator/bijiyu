@@ -191,7 +191,10 @@ export default async function ClientDetailPage({ params }: PageProps) {
           label="従業員規模"
           value={profile?.employee_scale ? `${profile.employee_scale}名` : null}
         />
-        <DetailRow label="稼働方法" value={profile?.working_way} />
+        <DetailRow
+          label="求める働き方"
+          value={(profile?.working_way ?? []).join("、") || null}
+        />
         <DetailRow
           label="言語"
           value={(profile?.language ?? []).join("、") || null}

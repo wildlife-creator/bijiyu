@@ -12,7 +12,12 @@ import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/shared/back-button";
-import { LANGUAGES, PREFECTURES, TRADE_TYPES } from "@/lib/constants/options";
+import {
+  LANGUAGES,
+  PREFECTURES,
+  TRADE_TYPES,
+  WORKING_WAYS,
+} from "@/lib/constants/options";
 import {
   clientProfilePersonalSchema,
   clientProfileSchema,
@@ -270,15 +275,22 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
         <FieldError message={errors.employeeScale?.message} />
       </FieldGroup>
 
-      {/* 求める働き方 */}
+      {/* 求める働き方 — 複数選択可能なプルダウン（DB は text[] で保存） */}
       <FieldGroup>
         <FieldLabel htmlFor="workingWay">求める働き方</FieldLabel>
-        <Input
-          id="workingWay"
-          placeholder="例: 1日から可、長期歓迎"
-          className="bg-background"
-          {...register("workingWay")}
-          disabled={isPending}
+        <Controller
+          control={control}
+          name="workingWay"
+          render={({ field }) => (
+            <MultiSelect
+              id="workingWay"
+              options={WORKING_WAYS}
+              value={field.value ?? []}
+              onChange={(next) => field.onChange(next)}
+              disabled={isPending}
+              placeholder="お選びください"
+            />
+          )}
         />
         <FieldError message={errors.workingWay?.message} />
       </FieldGroup>
