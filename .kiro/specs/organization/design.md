@@ -357,8 +357,8 @@ type ClientProfileInput = {
   recruitJobTypes: string[];
   recruitArea: string[];
   employeeScale: number | null;
-  workingWay: string | null;
-  language: string | null;
+  workingWay: string[];
+  language: string[];
   message: string | null;
   snsX: boolean;
   snsInstagram: boolean;
@@ -744,8 +744,8 @@ erDiagram
         text_array recruit_job_types
         text_array recruit_area
         integer employee_scale
-        text working_way
-        text language
+        text_array working_way
+        text_array language
         text message
         boolean sns_x
         boolean sns_instagram

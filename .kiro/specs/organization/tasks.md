@@ -372,7 +372,7 @@
 
 - [x] 10.2 (P) CLI-020 発注者情報詳細画面
   - `/mypage/client-profile/page.tsx`（RSC）で Owner（または Admin の場合は所属組織 Owner）の `client_profiles` を表示
-  - 表示項目: 社名・氏名（`display_name`）、住所、画像、勤務スタイル、使用言語、メッセージ、評判、採用職種・エリア、従業員規模
+  - 表示項目: 社名・氏名（`display_name`）、住所、画像、募集職種、募集エリア、従業員規模、求める働き方、言語、メッセージ、評判
   - Staff の場合は閲覧のみ、Owner/Admin の場合は「編集する」ボタンで CLI-021 へ
   - `design-assets/screens/CLI-020.png` に従ったレイアウト
   - _Requirements: 2.1_
