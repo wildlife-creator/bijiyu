@@ -49,7 +49,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
     .from("applications")
     .select(
       `id, status, created_at, applicant_id, scout_message_id,
-       jobs(id, title, owner_id, organization_id, trade_type, headcount,
+       jobs(id, title, owner_id, organization_id, trade_types, headcount,
             reward_lower, reward_upper,
             recruit_start_date, recruit_end_date, prefecture,
             owner:users!owner_id(
@@ -151,7 +151,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
             title: string;
             owner_id: string;
             organization_id: string | null;
-            trade_type: string | null;
+            trade_types: string[];
             headcount: number | null;
             reward_lower: number | null;
             reward_upper: number | null;
@@ -232,7 +232,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
 
                 {/* 4. Trade type + headcount */}
                 <p className="mt-2 text-body-sm text-foreground">
-                  {job?.trade_type ?? ""}
+                  {(job?.trade_types ?? []).join("、")}
                   {job?.headcount ? `・${job.headcount}人` : ""}
                 </p>
 

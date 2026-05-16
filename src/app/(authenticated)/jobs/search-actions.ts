@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { applicationSchema } from "@/lib/validations/application";
-import { canApplyJob } from "@/lib/utils/can-apply-job";
+import { canApplyJob } from "@/lib/matching";
 import type { ActionResult } from "@/lib/types/action-result";
 
 // ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ export async function applyJobAction(
     // 4. Job status check
     const { data: job } = await supabase
       .from("jobs")
-      .select("id, status, trade_type, prefecture")
+      .select("id, status, trade_types, prefecture")
       .eq("id", data.jobId)
       .is("deleted_at", null)
       .single();
@@ -114,7 +114,7 @@ export async function applyJobAction(
       const check = canApplyJob({
         userRole: userData.role as "contractor" | "client" | "staff",
         isPaidUser: false,
-        jobTradeType: job.trade_type ?? "",
+        jobTradeTypes: job.trade_types,
         jobPrefecture: job.prefecture ?? "",
         userSkills: (skills ?? []).map((s) => ({ tradeType: s.trade_type })),
         userAvailableAreas: (areas ?? []).map((a) => ({

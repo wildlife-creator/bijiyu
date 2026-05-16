@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAllMasterRows } from "@/lib/master/fetch";
 import { WORKING_WAYS, type WorkingWay } from "@/lib/constants/options";
 import type { ClientProfileFormInput } from "@/lib/validations/client-profile";
 
@@ -101,6 +102,14 @@ export default async function ClientProfileEditPage({
     snsFacebook: profile?.sns_facebook ?? false,
   };
 
+  const allTradeTypes = await getAllMasterRows("trade-types");
+  const activeTradeTypes = allTradeTypes
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const deprecatedTradeSet = allTradeTypes
+    .filter((r) => r.deprecated_at)
+    .map((r) => r.label);
+
   return (
     <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
@@ -111,6 +120,8 @@ export default async function ClientProfileEditPage({
           planType={planType}
           initialValues={initialValues}
           mode={isSetup ? "setup" : "edit"}
+          activeTradeTypes={activeTradeTypes}
+          deprecatedTradeSet={deprecatedTradeSet}
         />
       </div>
     </div>

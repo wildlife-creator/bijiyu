@@ -135,14 +135,14 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
       if (m.is_scout && m.job_id) {
         const { data: job } = await supabase
           .from("jobs")
-          .select("id, title, trade_type, headcount, recruit_end_date, reward_lower, reward_upper, prefecture, recruit_start_date")
+          .select("id, title, trade_types, headcount, recruit_end_date, reward_lower, reward_upper, prefecture, recruit_start_date")
           .eq("id", m.job_id)
           .single();
         if (job) {
           scoutJob = {
             id: job.id,
             title: job.title,
-            tradeType: job.trade_type,
+            tradeType: job.trade_types.join("、") || null,
             headcount: job.headcount,
             recruitEndDate: job.recruit_end_date,
             rewardLower: job.reward_lower,

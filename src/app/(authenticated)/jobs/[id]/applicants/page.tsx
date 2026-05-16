@@ -44,7 +44,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
   // Fetch job + permission check (same pattern as CLI-002 manage view)
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, title, owner_id, organization_id, trade_type, headcount, recruit_end_date")
+    .select("id, title, owner_id, organization_id, trade_types, headcount, recruit_end_date")
     .eq("id", id)
     .is("deleted_at", null)
     .single();
@@ -160,7 +160,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
         <p className="text-body-sm text-muted-foreground">対象案件</p>
         <p className="mt-1 text-body-md font-bold text-foreground">{job.title}</p>
         <div className="mt-1 text-body-xs text-muted-foreground">
-          {job.trade_type ?? ""}
+          {(job.trade_types ?? []).join("、")}
           {job.headcount ? `・${job.headcount}人` : ""}
         </div>
       </div>

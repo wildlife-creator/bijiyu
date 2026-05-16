@@ -161,7 +161,7 @@ describe("registerProfileSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects more than 3 skills", () => {
+  it("accepts more than 3 skills (件数上限なし: master-skills Phase 4.1)", () => {
     const result = registerProfileSchema.safeParse({
       ...validInput,
       skills: [
@@ -171,7 +171,7 @@ describe("registerProfileSchema", () => {
         { tradeType: "左官", experienceYears: 2 },
       ],
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("rejects empty skills array", () => {

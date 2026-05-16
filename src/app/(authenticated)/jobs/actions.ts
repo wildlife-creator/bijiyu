@@ -10,6 +10,7 @@ import {
   ALLOWED_TRANSITIONS,
 } from "@/lib/validations/job";
 import type { ActionResult } from "@/lib/types/action-result";
+import { validateLabelChanges } from "@/lib/master/validate";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -19,7 +20,7 @@ function parseFormDataToJobInput(formData: FormData) {
   return {
     title: formData.get("title") as string,
     description: formData.get("description") as string,
-    tradeType: formData.get("tradeType") as string,
+    tradeTypes: formData.getAll("tradeTypes") as string[],
     rewardLower: Number(formData.get("rewardLower")),
     rewardUpper: Number(formData.get("rewardUpper")),
     prefecture: formData.get("prefecture") as string,
@@ -154,6 +155,22 @@ export async function createJobAction(
     const numOrNull = (v: unknown) =>
       typeof v === "number" && !Number.isNaN(v) ? v : null;
 
+    // 新規作成時の trade_types delta validate (previousLabels = [])
+    const tradeValid = await validateLabelChanges(
+      data.tradeTypes ?? [],
+      [],
+      "trade-types",
+    );
+    if (!tradeValid.valid) {
+      return {
+        success: false,
+        error:
+          tradeValid.unknownLabels.length > 0
+            ? `存在しない職種が含まれています: ${tradeValid.unknownLabels.join("、")}`
+            : `廃止された職種は新規追加できません: ${tradeValid.deprecatedLabels.join("、")}`,
+      };
+    }
+
     // Insert job
     const { data: job, error: jobError } = await supabase
       .from("jobs")
@@ -162,7 +179,7 @@ export async function createJobAction(
         organization_id: orgMember?.organization_id ?? null,
         title: data.title,
         description: data.description || null,
-        trade_type: data.tradeType || null,
+        trade_types: data.tradeTypes ?? [],
         reward_lower: numOrNull(data.rewardLower),
         reward_upper: numOrNull(data.rewardUpper),
         prefecture: data.prefecture || null,
@@ -339,13 +356,35 @@ export async function updateJobAction(
     const numOrNull = (v: unknown) =>
       typeof v === "number" && !Number.isNaN(v) ? v : null;
 
+    // trade_types delta validate (added のみ active 必須、既存保有 deprecated 保持)
+    const { data: prevJob } = await supabase
+      .from("jobs")
+      .select("trade_types")
+      .eq("id", jobId)
+      .single();
+    const prevTradeTypes = (prevJob?.trade_types ?? []) as string[];
+    const tradeValid = await validateLabelChanges(
+      data.tradeTypes ?? [],
+      prevTradeTypes,
+      "trade-types",
+    );
+    if (!tradeValid.valid) {
+      return {
+        success: false,
+        error:
+          tradeValid.unknownLabels.length > 0
+            ? `存在しない職種が含まれています: ${tradeValid.unknownLabels.join("、")}`
+            : `廃止された職種は新規追加できません: ${tradeValid.deprecatedLabels.join("、")}`,
+      };
+    }
+
     // Update job
     const { error: updateError } = await supabase
       .from("jobs")
       .update({
         title: data.title,
         description: data.description || null,
-        trade_type: data.tradeType || null,
+        trade_types: data.tradeTypes ?? [],
         reward_lower: numOrNull(data.rewardLower),
         reward_upper: numOrNull(data.rewardUpper),
         prefecture: data.prefecture || null,

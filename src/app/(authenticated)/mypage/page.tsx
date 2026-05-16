@@ -190,7 +190,7 @@ export default async function MyPage() {
       jobs (
         id,
         title,
-        trade_type,
+        trade_types,
         headcount,
         recruit_end_date,
         reward_lower,
@@ -438,7 +438,7 @@ export default async function MyPage() {
             const job = app.jobs as unknown as {
               id: string;
               title: string;
-              trade_type: string | null;
+              trade_types: string[];
               headcount: number | null;
               recruit_end_date: string | null;
               reward_lower: number | null;
@@ -479,7 +479,7 @@ export default async function MyPage() {
               firstName: resolution.firstName,
               deletedAt: resolution.deletedAt,
             });
-            const tradeLabel = [job.trade_type, job.headcount ? `${job.headcount}人` : null]
+            const tradeLabel = [job.trade_types.join("、") || null, job.headcount ? `${job.headcount}人` : null]
               .filter(Boolean)
               .join("・");
             const rewardText = job.reward_lower

@@ -12,10 +12,15 @@ import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/shared/back-button";
+import { MasterCombobox } from "@/components/master/master-combobox";
+import { CategoryBulkSelector } from "@/components/master/category-bulk-selector";
+import {
+  applyDeprecatedSuffix,
+  stripDeprecatedSuffix,
+} from "@/lib/master/deprecated";
 import {
   LANGUAGES,
   PREFECTURES,
-  TRADE_TYPES,
   WORKING_WAYS,
 } from "@/lib/constants/options";
 import {
@@ -35,6 +40,8 @@ interface Props {
   planType: PlanType | null;
   initialValues: ClientProfileFormInput;
   mode: "edit" | "setup";
+  activeTradeTypes: string[];
+  deprecatedTradeSet: string[];
 }
 
 const SNS_FIELDS = [
@@ -51,7 +58,13 @@ function RequiredBadge() {
   );
 }
 
-export function ClientProfileEditForm({ planType, initialValues, mode }: Props) {
+export function ClientProfileEditForm({
+  planType,
+  initialValues,
+  mode,
+  activeTradeTypes,
+  deprecatedTradeSet,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isUploading, startUpload] = useTransition();
@@ -214,7 +227,7 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
         <FieldError message={errors.address?.message} />
       </FieldGroup>
 
-      {/* 募集職種 — 複数選択可能なプルダウン */}
+      {/* 募集職種 — MasterCombobox(multi) + カテゴリ一括選択 */}
       <FieldGroup>
         <FieldLabel htmlFor="recruitJobTypes">
           募集職種
@@ -223,16 +236,33 @@ export function ClientProfileEditForm({ planType, initialValues, mode }: Props) 
         <Controller
           control={control}
           name="recruitJobTypes"
-          render={({ field }) => (
-            <MultiSelect
-              id="recruitJobTypes"
-              options={TRADE_TYPES}
-              value={field.value ?? []}
-              onChange={field.onChange}
-              disabled={isPending}
-              placeholder="お選びください"
-            />
-          )}
+          render={({ field }) => {
+            const valueArr = (field.value as string[]) ?? [];
+            const valueWithSuffix = applyDeprecatedSuffix(
+              valueArr,
+              new Set(deprecatedTradeSet),
+            );
+            return (
+              <div className="space-y-2">
+                <MasterCombobox
+                  mode="multi"
+                  options={activeTradeTypes}
+                  value={valueWithSuffix}
+                  onChange={(next) =>
+                    field.onChange(next.map(stripDeprecatedSuffix))
+                  }
+                  placeholder="募集職種を検索"
+                  emptyLabel="候補がありません"
+                  disabled={isPending}
+                />
+                <CategoryBulkSelector
+                  options={activeTradeTypes}
+                  value={valueArr}
+                  onChange={field.onChange}
+                />
+              </div>
+            );
+          }}
         />
         <FieldError message={errors.recruitJobTypes?.message} />
       </FieldGroup>

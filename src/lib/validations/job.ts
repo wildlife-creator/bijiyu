@@ -13,7 +13,9 @@ export const jobSchema = z
       .string()
       .min(1, "案件詳細を入力してください")
       .max(5000, "案件詳細は5000文字以内で入力してください"),
-    tradeType: z.string().min(1, "職種を選択してください"),
+    tradeTypes: z
+      .array(z.string().trim().min(1))
+      .min(1, "職種を1つ以上選択してください"),
     rewardLower: z
       .number({ message: "報酬下限は数値で入力してください" })
       .int()
@@ -77,7 +79,7 @@ export const jobDraftSchema = z.object({
     .min(1, "タイトルを入力してください")
     .max(100, "タイトルは100文字以内で入力してください"),
   description: z.string().max(5000).optional().or(z.literal("")),
-  tradeType: z.string().optional().or(z.literal("")),
+  tradeTypes: z.array(z.string().trim().min(1)).default([]),
   rewardLower: z.number().int().positive().optional().or(z.nan()),
   rewardUpper: z.number().int().positive().optional().or(z.nan()),
   prefecture: z.string().optional().or(z.literal("")),

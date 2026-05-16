@@ -10,6 +10,7 @@ import {
   selectClientProfileSchema,
   type ClientProfileFormInput,
 } from "@/lib/validations/client-profile";
+import { validateLabelChanges } from "@/lib/master/validate";
 
 interface SaveOpts {
   mode: "edit" | "setup";
@@ -138,6 +139,29 @@ export async function saveClientProfileAction(
   }
 
   const data = parsed.data;
+
+  // 募集職種の delta validate (added のみ active 必須、既存保有 deprecated 保持)
+  const { data: prevProfile } = await supabase
+    .from("client_profiles")
+    .select("recruit_job_types")
+    .eq("user_id", profileUserId)
+    .maybeSingle();
+  const prevRecruitJobTypes = (prevProfile?.recruit_job_types ?? []) as string[];
+  const recruitValid = await validateLabelChanges(
+    data.recruitJobTypes,
+    prevRecruitJobTypes,
+    "trade-types",
+  );
+  if (!recruitValid.valid) {
+    return {
+      success: false,
+      error:
+        recruitValid.unknownLabels.length > 0
+          ? `存在しない職種が含まれています: ${recruitValid.unknownLabels.join("、")}`
+          : `廃止された職種は新規追加できません: ${recruitValid.deprecatedLabels.join("、")}`,
+    };
+  }
+
   const upsertPayload = {
     user_id: profileUserId,
     display_name: data.displayName ?? null,

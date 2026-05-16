@@ -6,6 +6,7 @@ import {
   validateAvatarFile,
 } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
+import { validateLabelChanges } from "@/lib/master/validate";
 
 export async function updateProfileAction(
   formData: FormData
@@ -48,6 +49,73 @@ export async function updateProfileAction(
     }
 
     const data = parsed.data;
+
+    // ──────────────────────────────────────────────────────────
+    // 3 マスタの delta validate (added のみ active 必須、既存保有 deprecated 保持)
+    // ──────────────────────────────────────────────────────────
+    const [prevSkills, prevQuals, prevUser] = await Promise.all([
+      supabase
+        .from("user_skills")
+        .select("trade_type")
+        .eq("user_id", user.id),
+      supabase
+        .from("user_qualifications")
+        .select("qualification_name")
+        .eq("user_id", user.id),
+      supabase
+        .from("users")
+        .select("skill_tags")
+        .eq("id", user.id)
+        .single(),
+    ]);
+
+    const prevTradeTypes = (prevSkills.data ?? []).map((r) => r.trade_type);
+    const prevQualifications = (prevQuals.data ?? []).map(
+      (r) => r.qualification_name,
+    );
+    const prevSkillTags = (prevUser.data?.skill_tags ?? []) as string[];
+
+    const newTradeTypes = data.skills.map((s) => s.tradeType);
+    const newQualifications = data.qualifications ?? [];
+    const newSkillTags = data.skillTags ?? [];
+
+    const [tradeValid, qualValid, tagValid] = await Promise.all([
+      validateLabelChanges(newTradeTypes, prevTradeTypes, "trade-types"),
+      validateLabelChanges(
+        newQualifications,
+        prevQualifications,
+        "qualifications",
+      ),
+      validateLabelChanges(newSkillTags, prevSkillTags, "skill-tags"),
+    ]);
+
+    if (!tradeValid.valid) {
+      return {
+        success: false,
+        error:
+          tradeValid.unknownLabels.length > 0
+            ? `存在しない職種が含まれています: ${tradeValid.unknownLabels.join("、")}`
+            : `廃止された職種は新規追加できません: ${tradeValid.deprecatedLabels.join("、")}`,
+      };
+    }
+    if (!qualValid.valid) {
+      return {
+        success: false,
+        error:
+          qualValid.unknownLabels.length > 0
+            ? `存在しない資格が含まれています: ${qualValid.unknownLabels.join("、")}`
+            : `廃止された資格は新規追加できません: ${qualValid.deprecatedLabels.join("、")}`,
+      };
+    }
+    if (!tagValid.valid) {
+      return {
+        success: false,
+        error:
+          tagValid.unknownLabels.length > 0
+            ? `存在しないスキルが含まれています: ${tagValid.unknownLabels.join("、")}`
+            : `廃止されたスキルは新規追加できません: ${tagValid.deprecatedLabels.join("、")}`,
+      };
+    }
 
     // Convert skills to JSONB format for the RPC call
     const skillsJsonb = data.skills.map((skill) => ({

@@ -19,8 +19,12 @@ import {
 } from "@/components/ui/select";
 import { jobSchema, type JobFormValues } from "@/lib/validations/job";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { MasterCombobox } from "@/components/master/master-combobox";
 import {
-  TRADE_TYPES,
+  applyDeprecatedSuffix,
+  stripDeprecatedSuffix,
+} from "@/lib/master/deprecated";
+import {
   PREFECTURES,
   EXPERIENCE_YEARS,
   LANGUAGES,
@@ -40,6 +44,8 @@ interface JobFormProps {
   defaultValues?: Partial<JobFormValues>;
   existingImages?: ExistingImage[];
   jobId?: string;
+  activeTradeTypes: string[];
+  deprecatedTradeSet: string[];
 }
 
 export function JobForm({
@@ -47,6 +53,8 @@ export function JobForm({
   defaultValues,
   existingImages: initialExistingImages = [],
   jobId,
+  activeTradeTypes,
+  deprecatedTradeSet,
 }: JobFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -65,7 +73,7 @@ export function JobForm({
     defaultValues: {
       title: "",
       description: "",
-      tradeType: "",
+      tradeTypes: [],
       rewardLower: undefined as unknown as number,
       rewardUpper: undefined as unknown as number,
       prefecture: "",
@@ -273,29 +281,30 @@ export function JobForm({
           )}
         </div>
 
-        {/* 募集職種 */}
+        {/* 募集職種 (MasterCombobox multi, 1 件以上必須 / 下書きは 0 件可) */}
         <div className="space-y-1">
           <Label>
             募集職種 <span className="text-destructive">必須</span>
           </Label>
-          <Select
-            value={watch("tradeType")}
-            onValueChange={(v) => setValue("tradeType", v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="お選びください" />
-            </SelectTrigger>
-            <SelectContent>
-              {TRADE_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.tradeType && (
+          <MasterCombobox
+            mode="multi"
+            options={activeTradeTypes}
+            value={applyDeprecatedSuffix(
+              watch("tradeTypes") ?? [],
+              new Set(deprecatedTradeSet),
+            )}
+            onChange={(next) =>
+              setValue("tradeTypes", next.map(stripDeprecatedSuffix), {
+                shouldValidate: true,
+              })
+            }
+            placeholder="募集職種を検索"
+            emptyLabel="候補がありません"
+            disabled={isPending}
+          />
+          {errors.tradeTypes && (
             <p className="text-body-sm text-destructive">
-              {errors.tradeType.message}
+              {errors.tradeTypes.message}
             </p>
           )}
         </div>

@@ -23,7 +23,29 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: <T extends (...args: unknown[]) => unknown>(fn: T): T => fn,
 }));
+
+// master/fetch.ts は本来 unstable_cache でラップされるが、テストでは
+// ラップを素通りさせる（cache key の評価をスキップ）。validateLabelChanges
+// が呼ぶ getAllMasterRows の DB アクセスは下記モックで遮断する。
+vi.mock("@/lib/master/fetch", () => {
+  const MOCK_TRADES = [
+    { label: "内装工", deprecated_at: null },
+    { label: "大工", deprecated_at: null },
+  ];
+  return {
+    getActiveTradeTypes: vi.fn().mockResolvedValue(MOCK_TRADES.map((r) => r.label)),
+    getActiveQualifications: vi.fn().mockResolvedValue([]),
+    getActiveSkillTags: vi.fn().mockResolvedValue([]),
+    getAllMasterRows: vi.fn().mockImplementation((kind: string) => {
+      if (kind === "trade-types") {
+        return Promise.resolve(MOCK_TRADES);
+      }
+      return Promise.resolve([]);
+    }),
+  };
+});
 
 import {
   saveClientProfileAction,
@@ -192,6 +214,11 @@ describe("saveClientProfileAction", () => {
         },
       }),
     );
+    // delta validate のための previousLabels SELECT (client_profiles.recruit_job_types)
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: { recruit_job_types: [] }, error: null } }),
+    );
+
     const upsertChain = createQueryMock({
       thenable: { data: null, error: null },
     });

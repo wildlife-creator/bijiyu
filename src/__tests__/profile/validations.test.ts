@@ -136,7 +136,7 @@ describe("profileEditSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects more than 3 skills", () => {
+  it("accepts more than 3 skills (件数上限なし: master-skills Phase 4.1)", () => {
     const result = profileEditSchema.safeParse({
       ...validInput,
       skills: [
@@ -146,7 +146,7 @@ describe("profileEditSchema", () => {
         { tradeType: "配管工", experienceYears: 4 },
       ],
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("rejects empty availableAreas", () => {

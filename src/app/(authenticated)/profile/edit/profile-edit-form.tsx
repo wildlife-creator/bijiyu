@@ -6,10 +6,11 @@ import {
   useRef,
   useCallback,
   useTransition,
+  useMemo,
 } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/shared/back-button";
-import { TRADE_TYPES, PREFECTURES, GENDERS } from "@/lib/constants/options";
+import { MasterCombobox } from "@/components/master/master-combobox";
+import { RelatedSuggestions } from "@/components/master/related-suggestions";
+import {
+  applyDeprecatedSuffix,
+  stripDeprecatedSuffix,
+} from "@/lib/master/deprecated";
+import { PREFECTURES, GENDERS } from "@/lib/constants/options";
 import {
   profileEditSchema,
   type ProfileEditInput,
@@ -84,7 +91,24 @@ interface SkillRow {
   experience_years: number | null;
 }
 
-export function ProfileEditForm() {
+interface ProfileEditFormProps {
+  activeTradeTypes: string[];
+  activeQualifications: string[];
+  activeSkillTags: string[];
+  /** マスタで deprecated_at IS NOT NULL の label 一覧（chip 表示時のみサフィックス付与） */
+  deprecatedTradeSet: string[];
+  deprecatedQualSet: string[];
+  deprecatedTagSet: string[];
+}
+
+export function ProfileEditForm({
+  activeTradeTypes,
+  activeQualifications,
+  activeSkillTags,
+  deprecatedTradeSet,
+  deprecatedQualSet,
+  deprecatedTagSet,
+}: ProfileEditFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,8 +116,7 @@ export function ProfileEditForm() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [currentEmail, setCurrentEmail] = useState("");
-  const [qualificationInput, setQualificationInput] = useState("");
-  const [skillTagInput, setSkillTagInput] = useState("");
+  const [lastPickedTrade, setLastPickedTrade] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -129,6 +152,7 @@ export function ProfileEditForm() {
   const watchedAreas = watch("availableAreas");
   const watchedQualifications = watch("qualifications");
   const watchedSkillTags = watch("skillTags");
+  const watchedSkills = watch("skills");
   const watchedGender = watch("gender");
   const watchedPrefecture = watch("prefecture");
 
@@ -248,45 +272,20 @@ export function ProfileEditForm() {
     });
   }
 
-  function handleAddQualification() {
-    const trimmed = qualificationInput.trim();
-    if (!trimmed) return;
-    const current = watchedQualifications ?? [];
-    if (!current.includes(trimmed)) {
-      setValue("qualifications", [...current, trimmed], {
-        shouldValidate: true,
-      });
-    }
-    setQualificationInput("");
-  }
+  // 各行で MasterCombobox を呼ぶ際、他の行で既選択の trade_type を候補から除外する
+  const selectedTradeTypes = useMemo(() => {
+    return (watchedSkills ?? [])
+      .map((s) => s?.tradeType ?? "")
+      .filter((t): t is string => t.length > 0);
+  }, [watchedSkills]);
 
-  function handleRemoveQualification(index: number) {
-    const current = watchedQualifications ?? [];
-    setValue(
-      "qualifications",
-      current.filter((_, i) => i !== index),
-      { shouldValidate: true },
-    );
-  }
-
-  function handleAddSkillTag() {
-    const trimmed = skillTagInput.trim();
-    if (!trimmed) return;
-    const current = watchedSkillTags ?? [];
-    if (!current.includes(trimmed)) {
-      setValue("skillTags", [...current, trimmed], { shouldValidate: true });
-    }
-    setSkillTagInput("");
-  }
-
-  function handleRemoveSkillTag(index: number) {
-    const current = watchedSkillTags ?? [];
-    setValue(
-      "skillTags",
-      current.filter((_, i) => i !== index),
-      { shouldValidate: true },
-    );
-  }
+  const tradeOptionsForRow = useCallback(
+    (rowValue: string) => {
+      const others = new Set(selectedTradeTypes.filter((t) => t !== rowValue));
+      return activeTradeTypes.filter((opt) => !others.has(opt));
+    },
+    [selectedTradeTypes, activeTradeTypes],
+  );
 
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string>
@@ -297,7 +296,17 @@ export function ProfileEditForm() {
     setServerError("");
     setValidationErrors({});
 
-    const data = getValues();
+    const raw = getValues();
+    // 「（廃止）」サフィックスを保存前に取り除く
+    const data: ProfileEditInput = {
+      ...raw,
+      skills: raw.skills.map((s) => ({
+        ...s,
+        tradeType: stripDeprecatedSuffix(s.tradeType),
+      })),
+      skillTags: (raw.skillTags ?? []).map(stripDeprecatedSuffix),
+      qualifications: (raw.qualifications ?? []).map(stripDeprecatedSuffix),
+    };
 
     const parsed = profileEditSchema.safeParse(data);
     if (!parsed.success) {
@@ -613,185 +622,143 @@ export function ProfileEditForm() {
                 {fields.length > 1 && <span className="w-9 shrink-0" aria-hidden />}
               </div>
               <div className="space-y-3">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="flex items-start gap-2">
-                    <div className="flex-1 space-y-1">
-                      <Select
-                        value={watch(`skills.${index}.tradeType`) ?? ""}
-                        onValueChange={(v) =>
-                          setValue(`skills.${index}.tradeType`, v, {
-                            shouldValidate: true,
-                          })
-                        }
-                      >
-                        <SelectTrigger
-                          aria-label={`職種 ${index + 1}`}
-                          className="w-full bg-background text-body-sm"
+                {fields.map((field, index) => {
+                  const rowValue = watch(`skills.${index}.tradeType`) ?? "";
+                  const valueArr = rowValue ? [rowValue] : [];
+                  const valueWithSuffix = applyDeprecatedSuffix(
+                    valueArr,
+                    new Set(deprecatedTradeSet),
+                  );
+                  return (
+                    <div key={field.id} className="flex items-start gap-2">
+                      <div className="flex-1 space-y-1">
+                        <MasterCombobox
+                          mode="single"
+                          options={tradeOptionsForRow(rowValue)}
+                          value={valueWithSuffix}
+                          onChange={(next) => {
+                            const picked = stripDeprecatedSuffix(next[0] ?? "");
+                            setValue(`skills.${index}.tradeType`, picked, {
+                              shouldValidate: true,
+                            });
+                            if (picked) {
+                              setLastPickedTrade(picked);
+                            }
+                          }}
+                          singleTriggerLabel="職種を選択"
+                          placeholder="職種を検索"
+                          emptyLabel="候補がありません"
+                          disabled={isPending}
+                        />
+                        <FieldError
+                          message={validationErrors[`skills.${index}.tradeType`]}
+                        />
+                      </div>
+                      <div className="w-28 shrink-0 space-y-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="例: 5"
+                          aria-label={`経験年数 ${index + 1}（年）`}
+                          className="bg-background"
+                          {...register(`skills.${index}.experienceYears`, {
+                            valueAsNumber: true,
+                          })}
+                        />
+                        <FieldError
+                          message={
+                            validationErrors[`skills.${index}.experienceYears`]
+                          }
+                        />
+                      </div>
+                      {fields.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(index)}
+                          aria-label="削除"
+                          className="mt-1"
                         >
-                          <SelectValue placeholder="職種を選択" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TRADE_TYPES.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FieldError
-                        message={validationErrors[`skills.${index}.tradeType`]}
-                      />
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      )}
                     </div>
-                    <div className="w-28 shrink-0 space-y-1">
-                      <Input
-                        type="number"
-                        min={0}
-                        placeholder="例: 5"
-                        aria-label={`経験年数 ${index + 1}（年）`}
-                        className="bg-background"
-                        {...register(`skills.${index}.experienceYears`, {
-                          valueAsNumber: true,
-                        })}
-                      />
-                      <FieldError
-                        message={
-                          validationErrors[`skills.${index}.experienceYears`]
-                        }
-                      />
-                    </div>
-                    {fields.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => remove(index)}
-                        aria-label="削除"
-                        className="mt-1"
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
                 <FieldError message={validationErrors["skills"]} />
-                {fields.length < 3 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="rounded-pill"
-                    onClick={() =>
-                      append({ tradeType: "", experienceYears: 0 })
-                    }
-                  >
-                    <Plus className="size-4" />
-                    職種を追加
-                  </Button>
-                )}
+                <RelatedSuggestions
+                  pickedTrade={lastPickedTrade}
+                  allActiveTradeTypes={activeTradeTypes}
+                  alreadySelected={selectedTradeTypes}
+                  onPick={(picked) => {
+                    append({ tradeType: picked, experienceYears: 0 });
+                    setLastPickedTrade(picked);
+                  }}
+                  onDismiss={() => setLastPickedTrade(null)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-pill"
+                  onClick={() =>
+                    append({ tradeType: "", experienceYears: 0 })
+                  }
+                >
+                  <Plus className="size-4" />
+                  職種を追加
+                </Button>
               </div>
             </FieldGroup>
 
             {/* 保有スキル */}
             <FieldGroup>
-              <FieldLabel htmlFor="skillTagInput">保有スキル</FieldLabel>
+              <FieldLabel>保有スキル</FieldLabel>
               <p className="text-body-xs text-muted-foreground">
                 得意とする工種・作業内容を追加できます（例: 型枠設置、電気工、送配電線工）
               </p>
-              <div className="flex gap-2">
-                <Input
-                  id="skillTagInput"
-                  placeholder="スキルを入力"
-                  className="bg-background"
-                  value={skillTagInput}
-                  onChange={(e) => setSkillTagInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddSkillTag();
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-pill"
-                  onClick={handleAddSkillTag}
-                >
-                  <Plus className="size-4" />
-                  追加
-                </Button>
-              </div>
-              {(watchedSkillTags ?? []).length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(watchedSkillTags ?? []).map((s, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-body-sm text-foreground"
-                    >
-                      {s}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSkillTag(i)}
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label={`${s}を削除`}
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+              <MasterCombobox
+                mode="multi"
+                options={activeSkillTags}
+                value={applyDeprecatedSuffix(
+                  watchedSkillTags ?? [],
+                  new Set(deprecatedTagSet),
+                )}
+                onChange={(next) =>
+                  setValue(
+                    "skillTags",
+                    next.map(stripDeprecatedSuffix),
+                    { shouldValidate: true },
+                  )
+                }
+                placeholder="スキルを検索"
+                emptyLabel="候補がありません"
+                disabled={isPending}
+              />
             </FieldGroup>
 
             {/* 保有資格 */}
             <FieldGroup>
-              <FieldLabel htmlFor="qualificationInput">保有資格</FieldLabel>
-              <div className="flex gap-2">
-                <Input
-                  id="qualificationInput"
-                  placeholder="資格名を入力"
-                  className="bg-background"
-                  value={qualificationInput}
-                  onChange={(e) => setQualificationInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddQualification();
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-pill"
-                  onClick={handleAddQualification}
-                >
-                  <Plus className="size-4" />
-                  追加
-                </Button>
-              </div>
-              {(watchedQualifications ?? []).length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(watchedQualifications ?? []).map((q, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-body-sm text-foreground"
-                    >
-                      {q}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveQualification(i)}
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label={`${q}を削除`}
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+              <FieldLabel>保有資格</FieldLabel>
+              <MasterCombobox
+                mode="multi"
+                options={activeQualifications}
+                value={applyDeprecatedSuffix(
+                  watchedQualifications ?? [],
+                  new Set(deprecatedQualSet),
+                )}
+                onChange={(next) =>
+                  setValue(
+                    "qualifications",
+                    next.map(stripDeprecatedSuffix),
+                    { shouldValidate: true },
+                  )
+                }
+                placeholder="資格名を検索"
+                emptyLabel="候補がありません"
+                disabled={isPending}
+              />
             </FieldGroup>
           </div>
         </section>

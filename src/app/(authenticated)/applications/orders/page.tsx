@@ -52,7 +52,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
          user_skills(trade_type, experience_years),
          user_available_areas(prefecture)
        ),
-       jobs!inner(id, title, owner_id, trade_type, headcount, recruit_end_date),
+       jobs!inner(id, title, owner_id, trade_types, headcount, recruit_end_date),
        user_reviews(id),
        client_reviews(id)`,
     )
@@ -154,7 +154,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
             id: string;
             title: string;
             owner_id: string;
-            trade_type: string | null;
+            trade_types: string[];
             headcount: number | null;
             recruit_end_date: string | null;
           } | null;
@@ -308,10 +308,10 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
                     {job?.title ?? "不明な案件"}
                   </p>
                   <div className="mt-1 space-y-1 text-body-sm text-muted-foreground">
-                    {job?.trade_type && (
+                    {(job?.trade_types?.length ?? 0) > 0 && (
                       <div className="flex">
                         <span className="w-16 shrink-0">募集職種</span>
-                        <span>{job.trade_type}{job.headcount ? `・${job.headcount}人` : ""}</span>
+                        <span>{job!.trade_types.join("、")}{job!.headcount ? `・${job!.headcount}人` : ""}</span>
                       </div>
                     )}
                     {job?.recruit_end_date && (

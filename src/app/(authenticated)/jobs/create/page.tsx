@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { JobForm } from "@/components/jobs/job-form";
+import { getAllMasterRows } from "@/lib/master/fetch";
 import type { JobFormValues } from "@/lib/validations/job";
 
 interface PageProps {
@@ -33,7 +34,7 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
       defaultValues = {
         title: job.title,
         description: job.description ?? "",
-        tradeType: job.trade_type ?? "",
+        tradeTypes: job.trade_types ?? [],
         rewardLower: job.reward_lower ?? undefined,
         rewardUpper: job.reward_upper ?? undefined,
         prefecture: job.prefecture ?? "",
@@ -56,6 +57,14 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
     }
   }
 
+  const allTradeTypes = await getAllMasterRows("trade-types");
+  const activeTradeTypes = allTradeTypes
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const deprecatedTradeSet = allTradeTypes
+    .filter((r) => r.deprecated_at)
+    .map((r) => r.label);
+
   return (
     <div className="min-h-dvh px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
@@ -63,7 +72,12 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
       </h1>
 
       <div className="mt-6">
-        <JobForm mode="create" defaultValues={defaultValues} />
+        <JobForm
+          mode="create"
+          defaultValues={defaultValues}
+          activeTradeTypes={activeTradeTypes}
+          deprecatedTradeSet={deprecatedTradeSet}
+        />
       </div>
     </div>
   );

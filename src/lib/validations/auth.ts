@@ -72,8 +72,7 @@ const registerProfileBaseSchema = z.object({
   companyName: z.string().optional(),
   skills: z
     .array(skillSchema)
-    .min(1, "スキルを1つ以上追加してください")
-    .max(3, "スキルは3つまで登録できます"),
+    .min(1, "スキルを1つ以上追加してください"),
   availableAreas: z
     .array(z.string().min(1, "対応エリアを選択してください"))
     .min(1, "対応エリアを1つ以上選択してください"),

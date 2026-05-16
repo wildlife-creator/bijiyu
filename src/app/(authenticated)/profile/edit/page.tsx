@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { getAllMasterRows } from "@/lib/master/fetch";
 
 import { ProfileEditForm } from "./profile-edit-form";
 
@@ -18,6 +19,31 @@ export default async function ProfileEditPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  // 3 マスタ取得 (active 候補 + 廃止判定セット)
+  const [allTradeTypes, allQualifications, allSkillTags] = await Promise.all([
+    getAllMasterRows("trade-types"),
+    getAllMasterRows("qualifications"),
+    getAllMasterRows("skill-tags"),
+  ]);
+  const activeTradeTypes = allTradeTypes
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const activeQualifications = allQualifications
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const activeSkillTags = allSkillTags
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const deprecatedTradeSet = allTradeTypes
+    .filter((r) => r.deprecated_at)
+    .map((r) => r.label);
+  const deprecatedQualSet = allQualifications
+    .filter((r) => r.deprecated_at)
+    .map((r) => r.label);
+  const deprecatedTagSet = allSkillTags
+    .filter((r) => r.deprecated_at)
+    .map((r) => r.label);
 
   // 法人プラン Owner 判定
   const [subResult, memberResult] = await Promise.all([
@@ -59,7 +85,14 @@ export default async function ProfileEditPage() {
           </div>
         </div>
       )}
-      <ProfileEditForm />
+      <ProfileEditForm
+        activeTradeTypes={activeTradeTypes}
+        activeQualifications={activeQualifications}
+        activeSkillTags={activeSkillTags}
+        deprecatedTradeSet={deprecatedTradeSet}
+        deprecatedQualSet={deprecatedQualSet}
+        deprecatedTagSet={deprecatedTagSet}
+      />
     </>
   );
 }

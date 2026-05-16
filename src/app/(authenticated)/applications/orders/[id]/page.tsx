@@ -34,7 +34,7 @@ export default async function OrderDetailPage({ params }: Props) {
          id, last_name, first_name, avatar_url, birth_date, deleted_at,
          identity_verified, ccus_verified, skill_tags
        ),
-       jobs!inner(id, title, trade_type, headcount, reward_lower, reward_upper,
+       jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper,
                   prefecture, address, work_start_date, work_end_date,
                   recruit_start_date, recruit_end_date, work_hours, owner_id),
        user_reviews(id),
@@ -51,7 +51,7 @@ export default async function OrderDetailPage({ params }: Props) {
   const job = application.jobs as {
     id: string;
     title: string;
-    trade_type: string | null;
+    trade_types: string[];
     headcount: number | null;
     reward_lower: number | null;
     reward_upper: number | null;
@@ -138,7 +138,7 @@ export default async function OrderDetailPage({ params }: Props) {
       : "未定";
 
   const tradeTypeHeadcount = [
-    job.trade_type,
+    job.trade_types.join("、") || null,
     job.headcount ? `${job.headcount}人` : null,
   ]
     .filter(Boolean)

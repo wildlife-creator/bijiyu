@@ -31,7 +31,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified, birth_date, skill_tags),
-       jobs!inner(id, title, trade_type, headcount, reward_lower, reward_upper, prefecture, address, work_start_date, work_end_date, recruit_start_date, recruit_end_date, work_hours, schedule_detail, owner_id)`,
+       jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper, prefecture, address, work_start_date, work_end_date, recruit_start_date, recruit_end_date, work_hours, schedule_detail, owner_id)`,
     )
     .eq("id", id)
     .single();
@@ -43,7 +43,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
   const job = application.jobs as {
     id: string;
     title: string;
-    trade_type: string | null;
+    trade_types: string[];
     headcount: number | null;
     reward_lower: number | null;
     reward_upper: number | null;
@@ -171,7 +171,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
         <h2 className="text-body-lg font-bold text-foreground">案件情報</h2>
         <p className="text-body-lg font-semibold text-foreground">{job.title}</p>
         <p className="text-body-sm text-foreground">
-          {job.trade_type ?? ""}
+          {job.trade_types.join("、")}
           {job.headcount ? `・${job.headcount}人` : ""}
         </p>
 

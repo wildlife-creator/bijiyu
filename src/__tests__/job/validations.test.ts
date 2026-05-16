@@ -26,7 +26,7 @@ describe("jobSchema", () => {
   const validInput = {
     title: "新築住宅の内装工事",
     description: "都内の新築住宅の内装工事を担当していただける方を募集しています。",
-    tradeType: "内装工",
+    tradeTypes: ["内装工"],
     rewardLower: 18000,
     rewardUpper: 22000,
     prefecture: "東京都",
@@ -58,7 +58,7 @@ describe("jobSchema", () => {
     const minimalInput = {
       title: "テスト案件",
       description: "テスト詳細",
-      tradeType: "大工",
+      tradeTypes: ["大工"],
       rewardLower: 15000,
       rewardUpper: 20000,
       prefecture: "大阪府",

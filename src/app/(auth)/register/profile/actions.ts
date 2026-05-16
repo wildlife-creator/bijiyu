@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 import { registerProfileSchema } from "@/lib/validations/auth";
 import type { ActionResult } from "@/lib/types/action-result";
+import { validateLabelChanges } from "@/lib/master/validate";
 
 export async function completeRegistrationAction(
   input: unknown
@@ -23,6 +24,22 @@ export async function completeRegistrationAction(
 
   if (!user) {
     return { success: false, error: "認証情報が見つかりません。再度ログインしてください。" };
+  }
+
+  // 新規登録時は previousLabels=[] で delta validate (= added 全件が active 必須)
+  const tradeValid = await validateLabelChanges(
+    data.skills.map((s) => s.tradeType),
+    [],
+    "trade-types",
+  );
+  if (!tradeValid.valid) {
+    return {
+      success: false,
+      error:
+        tradeValid.unknownLabels.length > 0
+          ? `存在しない職種が含まれています: ${tradeValid.unknownLabels.join("、")}`
+          : `廃止された職種は登録できません: ${tradeValid.deprecatedLabels.join("、")}`,
+    };
   }
 
   // Convert skills to JSONB format for the RPC call

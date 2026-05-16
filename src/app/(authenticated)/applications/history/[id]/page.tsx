@@ -32,7 +32,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
   const { data: application } = await supabase
     .from("applications")
     .select(
-      `*, jobs(id, title, owner_id, organization_id, trade_type, headcount,
+      `*, jobs(id, title, owner_id, organization_id, trade_types, headcount,
               reward_lower, reward_upper, prefecture, address,
               work_start_date, work_end_date, recruit_start_date, recruit_end_date,
               work_hours, items, required_skills, schedule_detail, etc_message,
@@ -62,7 +62,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
     title: string;
     owner_id: string;
     organization_id: string | null;
-    trade_type: string | null;
+    trade_types: string[];
     headcount: number | null;
     reward_lower: number | null;
     reward_upper: number | null;
@@ -226,7 +226,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
 
         {/* Trade type + headcount */}
         <p className="text-body-sm text-foreground">
-          {job?.trade_type ?? ""}
+          {(job?.trade_types ?? []).join("、")}
           {job?.headcount ? `・${job.headcount}人` : ""}
         </p>
 

@@ -27,7 +27,7 @@ export default async function DecisionPage({ params }: Props) {
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, message,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified),
-       jobs!inner(id, title, trade_type, recruit_end_date, owner_id, prefecture, address)`,
+       jobs!inner(id, title, trade_types, recruit_end_date, owner_id, prefecture, address)`,
     )
     .eq("id", id)
     .single();
@@ -39,7 +39,7 @@ export default async function DecisionPage({ params }: Props) {
   const job = application.jobs as {
     id: string;
     title: string;
-    trade_type: string | null;
+    trade_types: string[];
     recruit_end_date: string | null;
     owner_id: string;
     prefecture: string | null;
@@ -101,7 +101,7 @@ export default async function DecisionPage({ params }: Props) {
         <div className="mt-2 rounded-[8px] border border-border bg-white p-3">
           <p className="text-body-md font-bold text-foreground">{job.title}</p>
           <div className="mt-1 flex items-center justify-between text-body-xs text-muted-foreground">
-            <span>{job.trade_type ?? ""}</span>
+            <span>{job.trade_types.join("、")}</span>
             <span>締め切り: {formatDate(job.recruit_end_date, "未定")}</span>
           </div>
         </div>

@@ -47,7 +47,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
     .select(
       `id, status, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified),
-       jobs!inner(id, title, owner_id, trade_type, recruit_end_date, headcount)`,
+       jobs!inner(id, title, owner_id, trade_types, recruit_end_date, headcount)`,
     )
     .eq("jobs.owner_id", user.id)
     .eq("status", "applied")
@@ -138,7 +138,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
           const job = app.jobs as {
             id: string;
             title: string;
-            trade_type: string | null;
+            trade_types: string[];
             recruit_end_date: string | null;
             headcount: number | null;
           } | null;
@@ -246,7 +246,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
                     {job?.title ?? "不明"}
                   </p>
                   <div className="mt-1 flex items-center justify-between text-body-xs text-muted-foreground">
-                    <span>{job?.trade_type ?? ""}{job?.headcount ? `・${job.headcount}人` : ""}</span>
+                    <span>{(job?.trade_types ?? []).join("、")}{job?.headcount ? `・${job.headcount}人` : ""}</span>
                     <span>
                       締め切り: {formatDate(job?.recruit_end_date, "未定")}
                     </span>

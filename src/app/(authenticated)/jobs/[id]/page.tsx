@@ -7,7 +7,7 @@ import {
   resolveClientProfileForRow,
   resolveParticipantName,
 } from "@/lib/utils/display-name";
-import { canApplyJob } from "@/lib/utils/can-apply-job";
+import { canApplyJob } from "@/lib/matching";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
 import { SafeImage } from "@/components/job-search/safe-image";
@@ -252,7 +252,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             />
             <DetailRow label="エリア" value={job.prefecture} alwaysShow />
             <DetailRow label="住所" value={job.address} alwaysShow />
-            <DetailRow label="募集職種" value={job.trade_type} alwaysShow />
+            <DetailRow label="募集職種" value={job.trade_types.join("、") || null} alwaysShow />
             <DetailRow
               label="募集人数"
               value={job.headcount ? `${job.headcount}人` : null}
@@ -401,7 +401,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
     applyCheck = canApplyJob({
       userRole: (userData?.role as "contractor" | "client" | "staff") ?? "contractor",
       isPaidUser: false,
-      jobTradeType: job.trade_type ?? "",
+      jobTradeTypes: job.trade_types,
       jobPrefecture: job.prefecture ?? "",
       userSkills: (skills ?? []).map((s) => ({ tradeType: s.trade_type })),
       userAvailableAreas: (areas ?? []).map((a) => ({
@@ -505,7 +505,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             alwaysShow
           />
           <DetailRow label="エリア" value={job.prefecture} alwaysShow />
-          <DetailRow label="募集職種" value={job.trade_type} alwaysShow />
+          <DetailRow label="募集職種" value={job.trade_types.join("、") || null} alwaysShow />
           <DetailRow
             label="募集人数"
             value={job.headcount ? `${job.headcount}人` : null}

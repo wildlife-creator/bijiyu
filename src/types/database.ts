@@ -505,7 +505,7 @@ export type Database = {
           schedule_detail: string | null
           status: Database["public"]["Enums"]["job_status"]
           title: string
-          trade_type: string | null
+          trade_types: string[]
           updated_at: string
           work_end_date: string | null
           work_hours: string | null
@@ -537,7 +537,7 @@ export type Database = {
           schedule_detail?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title: string
-          trade_type?: string | null
+          trade_types?: string[]
           updated_at?: string
           work_end_date?: string | null
           work_hours?: string | null
@@ -569,7 +569,7 @@ export type Database = {
           schedule_detail?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           title?: string
-          trade_type?: string | null
+          trade_types?: string[]
           updated_at?: string
           work_end_date?: string | null
           work_hours?: string | null
@@ -591,6 +591,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      master_qualifications: {
+        Row: {
+          created_at: string
+          deprecated_at: string | null
+          id: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      master_skill_tags: {
+        Row: {
+          created_at: string
+          deprecated_at: string | null
+          id: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      master_trade_types: {
+        Row: {
+          created_at: string
+          deprecated_at: string | null
+          id: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       message_threads: {
         Row: {

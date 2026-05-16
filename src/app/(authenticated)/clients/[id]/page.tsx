@@ -78,7 +78,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
   const { data: jobs } = await supabase
     .from("jobs")
     .select(
-      `id, title, trade_type, prefecture, reward_lower, reward_upper,
+      `id, title, trade_types, prefecture, reward_lower, reward_upper,
        is_urgent, recruit_end_date,
        job_images(image_url, sort_order)`,
     )
@@ -236,7 +236,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
                   job={{
                     id: job.id,
                     title: job.title,
-                    tradeType: job.trade_type ?? "",
+                    tradeType: job.trade_types.join("、"),
                     prefecture: job.prefecture ?? "",
                     rewardLower: job.reward_lower,
                     rewardUpper: job.reward_upper,

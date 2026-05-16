@@ -27,6 +27,30 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
+// master/fetch は unstable_cache を呼ぶため Jest 環境では直接モック。
+// validateLabelChanges は added 配列のみ active 必須にする検証なので、
+// テストで使う label を active として返せば save パスを通せる。
+vi.mock("@/lib/master/fetch", () => {
+  const MOCK_TRADES = [
+    { label: "大工", deprecated_at: null },
+    { label: "内装工", deprecated_at: null },
+    { label: "塗装工", deprecated_at: null },
+  ];
+  return {
+    getActiveTradeTypes: vi
+      .fn()
+      .mockResolvedValue(MOCK_TRADES.map((r) => r.label)),
+    getActiveQualifications: vi.fn().mockResolvedValue([]),
+    getActiveSkillTags: vi.fn().mockResolvedValue([]),
+    getAllMasterRows: vi.fn().mockImplementation((kind: string) => {
+      if (kind === "trade-types") {
+        return Promise.resolve(MOCK_TRADES);
+      }
+      return Promise.resolve([]);
+    }),
+  };
+});
+
 import {
   createJobAction,
   updateJobAction,
@@ -40,7 +64,6 @@ function buildValidFormData(overrides: Record<string, string> = {}): FormData {
   const defaults: Record<string, string> = {
     title: "テスト案件",
     description: "テスト詳細説明です",
-    tradeType: "大工",
     rewardLower: "18000",
     rewardUpper: "22000",
     prefecture: "東京都",
@@ -67,6 +90,8 @@ function buildValidFormData(overrides: Record<string, string> = {}): FormData {
   for (const [key, value] of Object.entries(merged)) {
     formData.set(key, value);
   }
+  // tradeTypes は配列なので append（formData.getAll("tradeTypes") で受け取る）
+  formData.append("tradeTypes", "大工");
   return formData;
 }
 
@@ -435,6 +460,12 @@ describe("updateJobAction", () => {
           countChain.eq = vi.fn(selfFn);
           countChain.is = vi.fn().mockResolvedValue({ count: 0, error: null });
           return countChain;
+        }
+        if (jobCallCount === 3) {
+          // delta validate: previousLabels SELECT (master-skills Phase 4.3)
+          return createQueryMock({
+            single: { data: { trade_types: [] }, error: null },
+          });
         }
         // update query
         return {

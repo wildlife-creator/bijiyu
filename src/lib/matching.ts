@@ -1,20 +1,19 @@
 /**
- * Determine whether a user can apply for a given job.
+ * 応募可否マッチング判定。
  *
- * Paid users (subscriptions.status IN ('active','past_due') or staff role)
- * can always apply. Free users may only apply when the job's trade type
- * matches one of their registered skills AND the job's prefecture matches
- * one of their available areas.
+ * Paid users（subscriptions.status IN ('active','past_due') か role='client'）
+ * は無条件で `canApply: true`。
+ * 無料の受注者は、案件の `trade_types` のいずれかが自分の対応職種に含まれ、
+ * かつ案件の都道府県が自分の登録県に含まれる場合のみ応募可能（配列の OR 一致）。
  *
- * This logic mirrors the DB helper `is_paid_user()` so that both the
- * frontend (CON-003) and Server Action (applyJobAction) share the same
- * rules.
+ * 階層構造を利用したあいまいマッチング（親一致等）は行わない（厳密一致のみ）。
+ * `role='staff'` の応募ボタン非表示は UI 側で別途処理する。
  */
 
 export interface CanApplyJobParams {
   userRole: "contractor" | "client" | "staff";
-  isPaidUser: boolean; // subscriptions.status IN ('active', 'past_due')
-  jobTradeType: string;
+  isPaidUser: boolean;
+  jobTradeTypes: string[];
   jobPrefecture: string;
   userSkills: Array<{ tradeType: string }>;
   userAvailableAreas: Array<{ prefecture: string }>;
@@ -26,16 +25,13 @@ export interface CanApplyJobResult {
 }
 
 export function canApplyJob(params: CanApplyJobParams): CanApplyJobResult {
-  // Paid users and staff can always apply
   if (params.isPaidUser) {
     return { canApply: true };
   }
 
-  // Free user: check trade type match
-  const hasMatchingSkill = params.userSkills.some(
-    (s) => s.tradeType === params.jobTradeType,
+  const hasMatchingSkill = params.jobTradeTypes.some((jobTrade) =>
+    params.userSkills.some((s) => s.tradeType === jobTrade),
   );
-  // Free user: check prefecture match
   const hasMatchingArea = params.userAvailableAreas.some(
     (a) => a.prefecture === params.jobPrefecture,
   );

@@ -104,7 +104,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     .from("jobs")
     .select(
       `
-      id, title, description, trade_type, prefecture,
+      id, title, description, trade_types, prefecture,
       reward_lower, reward_upper, is_urgent,
       recruit_start_date, recruit_end_date, created_at,
       owner_id, organization_id,
@@ -146,7 +146,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     query = query.eq("prefecture", prefecture);
   }
   if (tradeType) {
-    query = query.eq("trade_type", tradeType);
+    query = query.overlaps("trade_types", [tradeType]);
   }
   if (experienceYears) {
     query = query.eq("experience_years", experienceYears);
@@ -255,7 +255,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
                 job={{
                   id: job.id,
                   title: job.title,
-                  tradeType: job.trade_type ?? "",
+                  tradeType: job.trade_types.join("、"),
                   prefecture: job.prefecture ?? "",
                   rewardLower: job.reward_lower,
                   rewardUpper: job.reward_upper,

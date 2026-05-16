@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { canApplyJob } from "@/lib/utils/can-apply-job";
+import { canApplyJob } from "@/lib/matching";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -27,7 +27,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      `id, title, trade_type, prefecture, reward_lower, reward_upper, work_hours,
+      `id, title, trade_types, prefecture, reward_lower, reward_upper, work_hours,
        owner_id, organization_id,
        owner:users!owner_id(
          last_name, first_name, deleted_at,
@@ -79,7 +79,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     const applyCheck = canApplyJob({
       userRole: (userData?.role as "contractor" | "client" | "staff") ?? "contractor",
       isPaidUser: false,
-      jobTradeType: job.trade_type ?? "",
+      jobTradeTypes: job.trade_types,
       jobPrefecture: job.prefecture ?? "",
       userSkills: (skills ?? []).map((s) => ({ tradeType: s.trade_type })),
       userAvailableAreas: (areas ?? []).map((a) => ({ prefecture: a.prefecture })),

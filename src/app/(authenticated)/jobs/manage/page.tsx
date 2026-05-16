@@ -43,7 +43,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
   let query = supabase
     .from("jobs")
     .select(
-      `id, title, trade_type, prefecture, reward_lower, reward_upper,
+      `id, title, trade_types, prefecture, reward_lower, reward_upper,
        recruit_end_date, recruit_start_date, headcount, status, is_urgent,
        created_at, owner_id, organization_id,
        owner:users!owner_id(
@@ -96,7 +96,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
     return {
       id: job.id,
       title: job.title,
-      trade_type: job.trade_type,
+      trade_type: job.trade_types.join("、") || null,
       prefecture: job.prefecture,
       reward_lower: job.reward_lower,
       reward_upper: job.reward_upper,
