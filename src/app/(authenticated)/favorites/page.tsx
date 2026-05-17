@@ -192,7 +192,7 @@ async function JobFavorites({
             job={{
               id: job.id,
               title: job.title,
-              tradeType: job.trade_types.join("、"),
+              tradeTypes: job.trade_types,
               prefecture: job.prefecture ?? "",
               rewardLower: job.reward_lower,
               rewardUpper: job.reward_upper,

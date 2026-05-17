@@ -5,7 +5,7 @@ import { ScoutInfoCard } from "./scout-info-card";
 interface ScoutJobInfo {
   id: string;
   title: string;
-  tradeType: string | null;
+  tradeTypes: string[];
   headcount: number | null;
   recruitEndDate: string | null;
   rewardLower: number | null;
@@ -126,7 +126,7 @@ export function MessageBubble({
         <ScoutInfoCard
           jobId={scoutJob.id}
           title={scoutJob.title}
-          tradeType={scoutJob.tradeType}
+          tradeTypes={scoutJob.tradeTypes}
           headcount={scoutJob.headcount}
           recruitEndDate={scoutJob.recruitEndDate}
           rewardLower={scoutJob.rewardLower}

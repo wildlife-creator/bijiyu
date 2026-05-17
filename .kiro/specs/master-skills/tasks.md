@@ -166,8 +166,8 @@
   - design-assets/screens/{募集現場新規登録.png, 募集現場編集.png} を参照
   - _Requirements: 1.8, 1.9, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 9.3_
 
-- [ ] 5. 検索系 3 画面の新マスタ参照化（TRADE_TYPES 誤用バグ修正）
-- [ ] 5.1 CLI-005 ユーザー検索ポップアップ（contractor-search-filter） (P)
+- [x] 5. 検索系 3 画面の新マスタ参照化（TRADE_TYPES 誤用バグ修正）
+- [x] 5.1 CLI-005 ユーザー検索ポップアップ（contractor-search-filter） (P)
   - 対応職種 / 保有スキル / 保有資格の 3 フィルターを MasterCombobox（multi）に置換し、それぞれ正しいマスタを参照する（**TRADE_TYPES 誤用 + ハードコード 10 値の廃止**）
   - 選択 label は URL searchParams に同名キーの繰り返しでエンコードし、Server Component では `Array.isArray(sp.x) ? sp.x : [sp.x]` パターンで復元する
   - 配列カラム（`users.skill_tags` / `user_qualifications.qualification_name`）は `.overlaps()` で OR 検索、関連は `!inner` ジョインで親行を絞り込む
@@ -177,21 +177,21 @@
   - design-assets/screens/{募集案件一覧ポップアップ-3.png, 募集案件一覧ポップアップ-4.png} を参照
   - _Requirements: 5.1, 5.2, 5.3, 5.6, 5.7, 5.8, 5.9, 5.10, 5.11, 5.12_
 
-- [ ] 5.2 CON-002 案件検索ポップアップ（job-search-filter） (P)
+- [x] 5.2 CON-002 案件検索ポップアップ（job-search-filter） (P)
   - 募集職種フィルターを MasterCombobox（multi）に置換し、`jobs.trade_types` に対して `.overlaps()` で OR 検索を行う
   - URL searchParams を Single Source of Truth とし、`router.back()` の状態不整合を発生させない
   - 全ロール・全プランで同一データ・同一 UI を維持する
   - design-assets/screens/募集案件一覧ポップアップ.png を参照
   - _Requirements: 5.5, 5.6, 5.7, 5.8, 5.9, 5.10, 5.11, 5.12, 13.4_
 
-- [ ] 5.3 CON-005 発注者検索ポップアップ（client-search-form） (P)
+- [x] 5.3 CON-005 発注者検索ポップアップ（client-search-form） (P)
   - 募集職種フィルターを MasterCombobox（multi）に置換し、`client_profiles.recruit_job_types` に対して `.overlaps()` + `!inner` ジョインで OR 検索を行う
   - `!inner` ジョインで親行（client_profiles 経由の users）絞り込みが効くことを確認する
   - design-assets/screens/募集案件一覧ポップアップ-2.png を参照
   - _Requirements: 5.4, 5.6, 5.7, 5.8, 5.9, 5.10, 5.11, 5.12, 7.4_
 
-- [ ] 6. 表示系画面への部品注入（label 保存方式により基本的に既存クエリのまま）
-- [ ] 6.1 受注者プロフィール詳細・ユーザー詳細の N 件表示 (P)
+- [x] 6. 表示系画面への部品注入（label 保存方式により基本的に既存クエリのまま）
+- [x] 6.1 受注者プロフィール詳細・ユーザー詳細の N 件表示 (P)
   - COM-001 と CLI-006 で対応職種・保有資格・保有スキルを CollapsibleList で「主要 N 件 + もっと見る」表示に置換する
   - 0 件のセクションは非表示
   - 表示画面では廃止サフィックスを付与せず、保存値をそのまま表示する
@@ -199,27 +199,27 @@
   - design-assets/screens/{ユーザープロフィール詳細.png, ユーザー詳細.png, マイページ.png} を参照
   - _Requirements: 4.1, 4.2, 4.3, 4.5, 4.6, 4.7, 8.1, 8.7, 9.9_
 
-- [ ] 6.2 リストカード系（マイリスト / 募集現場一覧）の M 件 + 他 表示 (P)
+- [x] 6.2 リストカード系（マイリスト / 募集現場一覧）の M 件 + 他 表示 (P)
   - CON-007 マイリスト（案件カード / 発注者カード）と CLI-001 募集現場一覧で `jobs.trade_types` / `client_profiles.recruit_job_types` を SummaryWithOthers で「主要 M 件 + 他」表示に置換する
   - 件数の数値表示は行わず、登録 M 件以下のときは「他」を出さない
   - design-assets/screens/{マイリスト.png, マイリスト-2.png, 募集現場一覧.png} を参照
   - _Requirements: 4.4, 4.8, 4.9, 4.10, 8.8_
 
-- [ ] 6.3 発注者の応募・発注管理系 6 画面の M 件 + 他 表示 (P)
+- [x] 6.3 発注者の応募・発注管理系 6 画面の M 件 + 他 表示 (P)
   - CLI-007 応募一覧（mypage 導線、status='applied' のみ）/ CLI-007B 案件応募者一覧（jobs/[id]/applicants、全ステータス）で応募者の `user_skills.trade_type` を SummaryWithOthers（M=2）で表示する
   - CLI-008 応募詳細 / CLI-009 発注可否 / CLI-010 発注履歴一覧 / CLI-011 発注履歴詳細で応募者の 3 マスタ項目（対応職種・保有スキル・保有資格）と案件の `jobs.trade_types` を SummaryWithOthers（M=2）で表示する
   - 完全な詳細は「ユーザー詳細」「募集案件詳細」遷移リンクで補完する
   - design-assets/screens/{応募一覧.png, 応募詳細-2.png, 発注可否.png, 発注可否-2.png, 発注可否-3.png, 発注履歴一覧.png, 発注内容詳細.png} を参照
   - _Requirements: 4.4, 4.8, 4.9, 4.10, 8.1, 8.2, 8.3_
 
-- [ ] 6.4 スカウト・メッセージ・応募履歴系 5 画面の M 件 + 他 表示 (P)
+- [x] 6.4 スカウト・メッセージ・応募履歴系 5 画面の M 件 + 他 表示 (P)
   - CLI-015 スカウト送信、CON-009 受注者側スカウト詳細 / CLI-013 発注者側メッセージ詳細（共通の `scout-info-card.tsx`）で案件の `jobs.trade_types` を SummaryWithOthers（M=2）で表示する
   - CON-011 応募履歴一覧 / CON-012 応募詳細で案件の `jobs.trade_types` を表示する（受注者側の応募管理）
   - 完全な詳細は「募集案件詳細」遷移リンク（既存の `Link href={/jobs/${jobId}}`）で補完する
   - design-assets/screens/{スカウト送信.png, スカウト詳細.png, 応募履歴.png, 応募詳細.png} を参照
   - _Requirements: 4.4, 4.8, 4.9, 4.10, 8.4, 8.5, 8.6_
 
-- [ ] 6.5 案件詳細（CON-003 / CLI-002）と応募フォーム（CON-004）の表示 + 応募可否ガード (P)
+- [x] 6.5 案件詳細（CON-003 / CLI-002）と応募フォーム（CON-004）の表示 + 応募可否ガード (P)
   - `jobs.trade_types` を全件カンマ区切り（または「主要 + 折りたたみ」）で表示する
   - CON-003 / CON-004 で 2.6 の `canApplyJob` を呼び、無料ユーザーが対象案件のいずれの trade_type にも自分の対応職種を登録していない場合は応募ボタンを非活性化し理由を明示する（自分の案件 / 同一組織 / staff の場合は別途非表示）
   - CON-004 の Server Action でもサーバ側ガードを再実行する（多層防御）
@@ -227,7 +227,7 @@
   - design-assets/screens/{募集案件詳細.png, 応募情報入力.png, 募集現場詳細.png} を参照
   - _Requirements: 8.9, 13.1, 13.3_
 
-- [ ] 6.6 発注者情報詳細（CLI-020）と発注者一覧/詳細（CON-005 / CON-006）の表示 (P)
+- [x] 6.6 発注者情報詳細（CLI-020）と発注者一覧/詳細（CON-005 / CON-006）の表示 (P)
   - CLI-020 で `client_profiles.recruit_job_types` を「主要 N 件 + もっと見る」または「全件カンマ区切り」で表示する（デザインカンプ準拠）
   - CON-006 でも `recruit_job_types` を表示する
   - design-assets/screens/{発注者情報詳細.png, 発注者一覧.png, 発注者詳細.png} を参照

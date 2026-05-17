@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ApplicationStatusBadge, getOrderDisplayCategory } from "@/components/shared/application-status-badge";
 import { BackButton } from "@/components/shared/back-button";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { calculateAge } from "@/lib/utils/calculate-age";
@@ -137,12 +138,7 @@ export default async function OrderDetailPage({ params }: Props) {
       ? `${formatDate(job.recruit_start_date)}〜${formatDate(job.recruit_end_date)}`
       : "未定";
 
-  const tradeTypeHeadcount = [
-    job.trade_types.join("、") || null,
-    job.headcount ? `${job.headcount}人` : null,
-  ]
-    .filter(Boolean)
-    .join("・");
+  const headcountText = job.headcount ? `${job.headcount}人` : null;
 
   // Max experience years across skills
   const maxExperienceYears = skills.reduce<number | null>((max, s) => {
@@ -186,8 +182,12 @@ export default async function OrderDetailPage({ params }: Props) {
       <div className="mt-4 space-y-3">
         <h2 className="text-body-lg font-bold text-foreground">案件情報</h2>
         <p className="text-body-lg font-semibold text-foreground">{job.title}</p>
-        {tradeTypeHeadcount && (
-          <p className="text-body-sm text-muted-foreground">{tradeTypeHeadcount}</p>
+        {(job.trade_types.length > 0 || headcountText) && (
+          <p className="text-body-sm text-muted-foreground">
+            <SummaryWithOthers items={job.trade_types} maxVisible={2} />
+            {job.trade_types.length > 0 && headcountText ? "・" : ""}
+            {headcountText}
+          </p>
         )}
 
         <div className="space-y-2 text-body-sm text-foreground">
@@ -246,7 +246,10 @@ export default async function OrderDetailPage({ params }: Props) {
             </p>
             {skills.length > 0 && (
               <p className="text-body-xs text-muted-foreground">
-                {skills.map((s) => s.trade_type).join("、")}
+                <SummaryWithOthers
+                  items={skills.map((s) => s.trade_type)}
+                  maxVisible={2}
+                />
               </p>
             )}
           </div>
@@ -293,7 +296,9 @@ export default async function OrderDetailPage({ params }: Props) {
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary/70" />
                 <span className="font-semibold">保有スキル</span>
               </div>
-              <p className="pl-6 text-body-sm">{skillTagList.join("、")}</p>
+              <p className="pl-6 text-body-sm">
+                <SummaryWithOthers items={skillTagList} maxVisible={2} />
+              </p>
             </>
           )}
 
@@ -304,7 +309,10 @@ export default async function OrderDetailPage({ params }: Props) {
                 <span className="font-semibold">保有資格</span>
               </div>
               <p className="pl-6 text-body-sm">
-                {qualifications.map((q) => q.qualification_name).join("、")}
+                <SummaryWithOthers
+                  items={qualifications.map((q) => q.qualification_name)}
+                  maxVisible={2}
+                />
               </p>
             </>
           )}

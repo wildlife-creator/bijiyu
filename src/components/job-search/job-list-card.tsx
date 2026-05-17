@@ -4,12 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { JobThumbnail } from "@/components/job-search/job-thumbnail";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 
 interface JobListCardProps {
   job: {
     id: string;
     title: string;
-    tradeType: string;
+    tradeTypes: string[];
     prefecture: string;
     rewardLower: number | null;
     rewardUpper: number | null;
@@ -67,7 +68,7 @@ export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobL
               className="w-4 h-4 shrink-0"
             />
             <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集職種</span>
-            <span>{job.tradeType}</span>
+            <SummaryWithOthers items={job.tradeTypes} maxVisible={2} />
           </div>
           <div className="flex items-center">
             <img

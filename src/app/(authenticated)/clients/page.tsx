@@ -9,6 +9,7 @@ import { PaginationControls } from "@/components/job-search/pagination-controls"
 import { BackButton } from "@/components/job-search/back-button";
 import { EMPLOYEE_SCALE_RANGES } from "@/lib/constants/options";
 import { createClient } from "@/lib/supabase/server";
+import { getAllMasterRows } from "@/lib/master/fetch";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 
 import { ClientSearchForm } from "./client-search-form";
@@ -32,7 +33,17 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
-  const tradeType = (sp.tradeType as string) ?? "";
+  const tradeTypes = !sp.tradeType
+    ? []
+    : Array.isArray(sp.tradeType)
+      ? sp.tradeType
+      : [sp.tradeType];
+
+  // 検索ポップアップに渡す active 募集職種マスタ
+  const allTradeTypes = await getAllMasterRows("trade-types");
+  const activeTradeTypes = allTradeTypes
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
   const employeeScaleLabel = (sp.employeeScale as string) ?? "";
   const workingWay = (sp.workingWay as string) ?? "";
   const language = (sp.language as string) ?? "";
@@ -73,7 +84,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   // so PostgREST filters parent rows (not just nested rows)
   const needsInnerJoin =
     !!prefecture ||
-    !!tradeType ||
+    tradeTypes.length > 0 ||
     !!employeeScaleRange ||
     !!workingWay ||
     !!language;
@@ -104,8 +115,8 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   if (prefecture) {
     query = query.overlaps("client_profiles.recruit_area", [prefecture]);
   }
-  if (tradeType) {
-    query = query.overlaps("client_profiles.recruit_job_types", [tradeType]);
+  if (tradeTypes.length > 0) {
+    query = query.overlaps("client_profiles.recruit_job_types", tradeTypes);
   }
   if (employeeScaleRange) {
     query = query.gte("client_profiles.employee_scale", employeeScaleRange.min);
@@ -153,7 +164,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
             全{count ?? 0}件
           </p>
           <div className="flex items-center gap-2">
-            <ClientSearchForm />
+            <ClientSearchForm activeTradeTypes={activeTradeTypes} />
           </div>
         </div>
 

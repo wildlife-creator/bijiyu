@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ApplicationStatusBadge } from "@/components/shared/application-status-badge";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 
@@ -152,7 +153,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
             : "不明";
 
           const skills = applicant ? skillsByUser.get(applicant.id) : undefined;
-          const skillNames = skills?.map((s) => s.trade_type).join("、") ?? "";
+          const skillLabels = skills?.map((s) => s.trade_type) ?? [];
           const maxExp = skills?.reduce(
             (max, s) => (s.experience_years && s.experience_years > max ? s.experience_years : max),
             0,
@@ -189,17 +190,10 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-body-lg font-bold text-foreground">{name}</p>
-                    {skills && skills.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {skills.map((s) => (
-                          <span
-                            key={s.trade_type}
-                            className="rounded-[33px] bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-body-xs text-primary"
-                          >
-                            {s.trade_type}
-                          </span>
-                        ))}
-                      </div>
+                    {skillLabels.length > 0 && (
+                      <p className="mt-1 text-body-xs text-primary">
+                        <SummaryWithOthers items={skillLabels} maxVisible={2} />
+                      </p>
                     )}
                     <div className="mt-0.5 flex flex-wrap gap-2">
                       {applicant?.identity_verified && (
@@ -246,7 +240,13 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
                     {job?.title ?? "不明"}
                   </p>
                   <div className="mt-1 flex items-center justify-between text-body-xs text-muted-foreground">
-                    <span>{(job?.trade_types ?? []).join("、")}{job?.headcount ? `・${job.headcount}人` : ""}</span>
+                    <span>
+                      <SummaryWithOthers
+                        items={job?.trade_types ?? []}
+                        maxVisible={2}
+                      />
+                      {job?.headcount ? `・${job.headcount}人` : ""}
+                    </span>
                     <span>
                       締め切り: {formatDate(job?.recruit_end_date, "未定")}
                     </span>

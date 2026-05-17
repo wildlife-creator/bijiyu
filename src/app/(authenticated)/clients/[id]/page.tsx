@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
+import { CollapsibleList } from "@/components/master/collapsible-list";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 
@@ -17,15 +19,20 @@ function DetailRow({
   value,
 }: {
   label: string;
-  value: string | null | undefined;
+  value: ReactNode | string | null | undefined;
 }) {
-  if (!value) return null;
+  const isString = typeof value === "string";
+  if (value == null || (isString && !value)) return null;
   return (
     <div className="flex border-b border-border py-3">
       <span className="w-28 shrink-0 text-body-md font-medium text-secondary">
         {label}
       </span>
-      <span className="flex-1 text-body-md text-foreground">{value}</span>
+      {isString ? (
+        <span className="flex-1 text-body-md text-foreground">{value}</span>
+      ) : (
+        <div className="flex-1 text-body-md text-foreground">{value}</div>
+      )}
     </div>
   );
 }
@@ -174,9 +181,12 @@ export default async function ClientDetailPage({ params }: PageProps) {
         <DetailRow
           label="募集職種"
           value={
-            profile?.recruit_job_types && profile.recruit_job_types.length > 0
-              ? profile.recruit_job_types.join(", ")
-              : null
+            profile?.recruit_job_types && profile.recruit_job_types.length > 0 ? (
+              <CollapsibleList
+                items={profile.recruit_job_types}
+                initialLimit={5}
+              />
+            ) : null
           }
         />
         <DetailRow
@@ -236,7 +246,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
                   job={{
                     id: job.id,
                     title: job.title,
-                    tradeType: job.trade_types.join("、"),
+                    tradeTypes: job.trade_types,
                     prefecture: job.prefecture ?? "",
                     rewardLower: job.reward_lower,
                     rewardUpper: job.reward_upper,

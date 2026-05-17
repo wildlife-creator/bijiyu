@@ -8,7 +8,7 @@ import { markAsReadAction } from "@/app/(authenticated)/messages/[threadId]/acti
 export interface ScoutJobInfo {
   id: string;
   title: string;
-  tradeType: string | null;
+  tradeTypes: string[];
   headcount: number | null;
   recruitEndDate: string | null;
   rewardLower: number | null;

@@ -96,7 +96,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
     return {
       id: job.id,
       title: job.title,
-      trade_type: job.trade_types.join("、") || null,
+      trade_types: job.trade_types ?? [],
       prefecture: job.prefecture,
       reward_lower: job.reward_lower,
       reward_upper: job.reward_upper,

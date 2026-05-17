@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { formatDate } from "@/lib/utils/format-date";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { ScoutActionButtons } from "./scout-action-buttons";
 
 interface ScoutInfoCardProps {
   jobId: string;
   title: string;
-  tradeType: string | null;
+  tradeTypes: string[];
   headcount: number | null;
   recruitEndDate: string | null;
   rewardLower: number | null;
@@ -22,7 +23,7 @@ interface ScoutInfoCardProps {
 export function ScoutInfoCard({
   jobId,
   title,
-  tradeType,
+  tradeTypes,
   headcount,
   recruitEndDate,
   rewardLower,
@@ -54,7 +55,11 @@ export function ScoutInfoCard({
       {/* Trade type + deadline */}
       <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          {tradeType || "—"}
+          {tradeTypes.length > 0 ? (
+            <SummaryWithOthers items={tradeTypes} maxVisible={2} />
+          ) : (
+            "—"
+          )}
           {headcount ? `・${headcount}名` : ""}
         </span>
         <span>締め切り：{formatDate(recruitEndDate)}</span>

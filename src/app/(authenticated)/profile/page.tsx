@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/shared/back-button";
+import { CollapsibleList } from "@/components/master/collapsible-list";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 
@@ -23,17 +25,23 @@ function DetailRow({
   value,
 }: {
   label: string;
-  value: string | null | undefined;
+  value: ReactNode | string | null | undefined;
 }) {
+  const isString = typeof value === "string";
+  const isEmpty = value == null || (isString && !value.trim());
   return (
     <>
       <div className="flex min-h-[40px] items-center bg-primary/[0.08] px-4 py-2">
         <span className="text-body-sm font-medium">{label}</span>
       </div>
       <div className="flex min-h-[40px] items-center px-4 py-2">
-        <span className="whitespace-pre-wrap text-body-sm">
-          {value && value.trim() ? value : "—"}
-        </span>
+        {isEmpty ? (
+          <span className="text-body-sm">—</span>
+        ) : isString ? (
+          <span className="whitespace-pre-wrap text-body-sm">{value}</span>
+        ) : (
+          value
+        )}
       </div>
     </>
   );
@@ -255,10 +263,37 @@ export default async function ProfilePage() {
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">能力</h2>
         <div className="mt-2 overflow-hidden rounded-[8px] border border-border/10 bg-background">
-          <DetailRow label="対応できる職種" value={tradeTypeText} />
+          <DetailRow
+            label="対応できる職種"
+            value={
+              skills.length > 0 ? (
+                <CollapsibleList
+                  items={skills.map((s) => s.trade_type)}
+                  initialLimit={5}
+                />
+              ) : null
+            }
+          />
           <DetailRow label="経験年数" value={experienceYearsText} />
-          <DetailRow label="保有スキル" value={skillTagsText} />
-          <DetailRow label="保有資格" value={qualificationsText} />
+          <DetailRow
+            label="保有スキル"
+            value={
+              skillTags.length > 0 ? (
+                <CollapsibleList items={skillTags} initialLimit={8} />
+              ) : null
+            }
+          />
+          <DetailRow
+            label="保有資格"
+            value={
+              qualifications.length > 0 ? (
+                <CollapsibleList
+                  items={qualifications.map((q) => q.qualification_name)}
+                  initialLimit={5}
+                />
+              ) : null
+            }
+          />
         </div>
       </section>
 

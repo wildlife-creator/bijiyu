@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
+import { CollapsibleList } from "@/components/master/collapsible-list";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
@@ -21,15 +23,22 @@ function SectionHeader({ label }: { label: string }) {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode | string | null | undefined;
+}) {
+  const isString = typeof value === "string";
+  if (value == null || (isString && !value)) return null;
   return (
     <>
       <div className="bg-primary/[0.08] px-4 py-2">
         <span className="text-body-sm font-medium">{label}</span>
       </div>
       <div className="px-4 py-2">
-        <span className="text-body-sm">{value}</span>
+        {isString ? <span className="text-body-sm">{value}</span> : value}
       </div>
     </>
   );
@@ -247,7 +256,12 @@ export default async function ContractorDetailPage({ params }: PageProps) {
                 <>
                   <InfoRow
                     label="対応できる職種"
-                    value={skills!.map((s) => s.trade_type).join("、")}
+                    value={
+                      <CollapsibleList
+                        items={skills!.map((s) => s.trade_type)}
+                        initialLimit={5}
+                      />
+                    }
                   />
                   <InfoRow
                     label="経験年数"
@@ -259,14 +273,20 @@ export default async function ContractorDetailPage({ params }: PageProps) {
                 </>
               )}
               {hasSkillTags && (
-                <InfoRow label="保有スキル" value={skillTagList.join("、")} />
+                <InfoRow
+                  label="保有スキル"
+                  value={<CollapsibleList items={skillTagList} initialLimit={8} />}
+                />
               )}
               {hasQualifications && (
                 <InfoRow
                   label="保有資格"
-                  value={qualifications!
-                    .map((q) => q.qualification_name)
-                    .join("、")}
+                  value={
+                    <CollapsibleList
+                      items={qualifications!.map((q) => q.qualification_name)}
+                      initialLimit={5}
+                    />
+                  }
                 />
               )}
             </div>

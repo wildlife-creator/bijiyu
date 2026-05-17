@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
+import { CollapsibleList } from "@/components/master/collapsible-list";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 
@@ -56,17 +58,23 @@ function DetailRow({
   value,
 }: {
   label: string;
-  value: string | null | undefined;
+  value: ReactNode | string | null | undefined;
 }) {
+  const isString = typeof value === "string";
+  const isEmpty = value == null || (isString && !value.trim());
   return (
     <>
       <div className="flex min-h-[40px] items-center bg-primary/[0.08] px-4 py-2">
         <span className="text-body-sm font-medium">{label}</span>
       </div>
       <div className="flex min-h-[40px] items-center px-4 py-2">
-        <span className="whitespace-pre-wrap text-body-sm">
-          {value && value.trim() ? value : "—"}
-        </span>
+        {isEmpty ? (
+          <span className="text-body-sm">—</span>
+        ) : isString ? (
+          <span className="whitespace-pre-wrap text-body-sm">{value}</span>
+        ) : (
+          value
+        )}
       </div>
     </>
   );
@@ -176,9 +184,12 @@ export default async function ClientProfilePage() {
           <DetailRow
             label="募集職種"
             value={
-              profile?.recruit_job_types && profile.recruit_job_types.length > 0
-                ? profile.recruit_job_types.join("、")
-                : null
+              profile?.recruit_job_types && profile.recruit_job_types.length > 0 ? (
+                <CollapsibleList
+                  items={profile.recruit_job_types}
+                  initialLimit={5}
+                />
+              ) : null
             }
           />
           <DetailRow

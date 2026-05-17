@@ -13,6 +13,7 @@ import {
   ApplicationStatusBadge,
 } from "@/components/shared/application-status-badge";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { BackButton } from "./back-button";
 import { StatusFilter } from "./status-filter";
 import { SortButton } from "./sort-button";
@@ -232,7 +233,10 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
 
                 {/* 4. Trade type + headcount */}
                 <p className="mt-2 text-body-sm text-foreground">
-                  {(job?.trade_types ?? []).join("、")}
+                  <SummaryWithOthers
+                    items={job?.trade_types ?? []}
+                    maxVisible={2}
+                  />
                   {job?.headcount ? `・${job.headcount}人` : ""}
                 </p>
 

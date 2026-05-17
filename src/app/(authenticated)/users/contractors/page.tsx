@@ -10,6 +10,7 @@ import { PaginationControls } from "@/components/job-search/pagination-controls"
 import { BackButton } from "@/components/job-search/back-button";
 import { ContractorSearchFilter } from "./contractor-search-filter";
 import { createClient } from "@/lib/supabase/server";
+import { getAllMasterRows } from "@/lib/master/fetch";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 
@@ -17,6 +18,11 @@ const ITEMS_PER_PAGE = 20;
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function getArrayParam(value: string | string[] | undefined): string[] {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
 export default async function ContractorListPage({ searchParams }: PageProps) {
@@ -32,7 +38,26 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
-  const tradeType = (sp.tradeType as string) ?? "";
+  // 配列: 同名キー繰り返しで encode された値を getAll 相当で復元
+  const tradeTypes = getArrayParam(sp.tradeType);
+  const skillTagFilters = getArrayParam(sp.skillTag);
+  const qualificationFilters = getArrayParam(sp.qualification);
+
+  // 3 マスタ取得 (検索ポップアップへ active label を渡す)
+  const [allTrade, allTags, allQuals] = await Promise.all([
+    getAllMasterRows("trade-types"),
+    getAllMasterRows("skill-tags"),
+    getAllMasterRows("qualifications"),
+  ]);
+  const activeTradeTypes = allTrade
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const activeSkillTags = allTags
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const activeQualifications = allQuals
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
 
   // Build query — 受注者として活動しうるユーザー（role IN ('contractor','client')）を対象とする。
   // staff（法人 admin/staff）は受注者アクション不可なので除外。自分自身も除外。
@@ -43,9 +68,10 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
     .select(
       `
       id, avatar_url, last_name, first_name, birth_date, deleted_at,
-      identity_verified, ccus_verified,
+      identity_verified, ccus_verified, skill_tags,
       user_skills(trade_type, experience_years),
-      user_available_areas(prefecture)
+      user_available_areas(prefecture),
+      user_qualifications(qualification_name)
     `,
       { count: "exact" },
     )
@@ -66,18 +92,35 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
 
   const { data: contractors, count } = await query;
 
-  // Post-filter by prefecture and tradeType (joined table filters)
+  // Post-filter by prefecture / tradeTypes / skillTags / qualifications (joined table filters)
+  // 配列は OR 一致 (1 つでも含めばヒット)
   let filteredContractors = contractors ?? [];
   if (prefecture) {
     filteredContractors = filteredContractors.filter((c) => {
-      const areas = (c.user_available_areas as Array<{ prefecture: string }>) ?? [];
+      const areas =
+        (c.user_available_areas as Array<{ prefecture: string }>) ?? [];
       return areas.some((a) => a.prefecture === prefecture);
     });
   }
-  if (tradeType) {
+  if (tradeTypes.length > 0) {
     filteredContractors = filteredContractors.filter((c) => {
       const skills = (c.user_skills as Array<{ trade_type: string }>) ?? [];
-      return skills.some((s) => s.trade_type === tradeType);
+      return skills.some((s) => tradeTypes.includes(s.trade_type));
+    });
+  }
+  if (skillTagFilters.length > 0) {
+    filteredContractors = filteredContractors.filter((c) => {
+      const tags = (c.skill_tags ?? []) as string[];
+      return tags.some((t) => skillTagFilters.includes(t));
+    });
+  }
+  if (qualificationFilters.length > 0) {
+    filteredContractors = filteredContractors.filter((c) => {
+      const quals =
+        (c.user_qualifications as Array<{ qualification_name: string }>) ?? [];
+      return quals.some((q) =>
+        qualificationFilters.includes(q.qualification_name),
+      );
     });
   }
 
@@ -106,7 +149,11 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
             全{count ?? 0}件
           </p>
           <div className="flex items-center gap-2">
-            <ContractorSearchFilter />
+            <ContractorSearchFilter
+              activeTradeTypes={activeTradeTypes}
+              activeSkillTags={activeSkillTags}
+              activeQualifications={activeQualifications}
+            />
           </div>
         </div>
 

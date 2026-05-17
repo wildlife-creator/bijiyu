@@ -7,6 +7,7 @@ import {
   resolveParticipantName,
 } from "@/lib/utils/display-name";
 import { ApplicationStatusBadge } from "@/components/shared/application-status-badge";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { CancelButton } from "./cancel-button";
 import { BackButton } from "../back-button";
 import Link from "next/link";
@@ -226,7 +227,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
 
         {/* Trade type + headcount */}
         <p className="text-body-sm text-foreground">
-          {(job?.trade_types ?? []).join("、")}
+          <SummaryWithOthers items={job?.trade_types ?? []} maxVisible={2} />
           {job?.headcount ? `・${job.headcount}人` : ""}
         </p>
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobThumbnail } from "@/components/job-search/job-thumbnail";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { formatDate } from "@/lib/utils/format-date";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,7 @@ import {
 interface Job {
   id: string;
   title: string;
-  trade_type: string | null;
+  trade_types: string[];
   prefecture: string | null;
   reward_lower: number | null;
   reward_upper: number | null;
@@ -177,11 +178,11 @@ export function JobListClient({
                   )}
                 </div>
                 <div className="space-y-1.5 text-body-sm">
-                  {job.trade_type && (
+                  {job.trade_types.length > 0 && (
                     <div className="flex items-center">
                       <img src="/images/icons/icon-briefcase.png" alt="" className="w-4 h-4 shrink-0" />
                       <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集職種</span>
-                      <span>{job.trade_type}</span>
+                      <SummaryWithOthers items={job.trade_types} maxVisible={2} />
                     </div>
                   )}
                   <div className="flex items-center">

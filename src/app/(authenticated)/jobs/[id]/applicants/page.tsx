@@ -11,6 +11,7 @@ import {
 } from "@/components/shared/application-status-badge";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { StatusFilter } from "@/app/(authenticated)/applications/orders/status-filter";
@@ -160,7 +161,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
         <p className="text-body-sm text-muted-foreground">対象案件</p>
         <p className="mt-1 text-body-md font-bold text-foreground">{job.title}</p>
         <div className="mt-1 text-body-xs text-muted-foreground">
-          {(job.trade_types ?? []).join("、")}
+          <SummaryWithOthers items={job.trade_types ?? []} maxVisible={2} />
           {job.headcount ? `・${job.headcount}人` : ""}
         </div>
       </div>
@@ -284,16 +285,9 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
                     </p>
 
                     {skills.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {skills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="rounded-[33px] bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-body-xs text-primary"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
+                      <p className="mt-1 text-body-xs text-primary">
+                        <SummaryWithOthers items={skills} maxVisible={2} />
+                      </p>
                     )}
 
                     <div className="mt-1 flex flex-wrap gap-2">

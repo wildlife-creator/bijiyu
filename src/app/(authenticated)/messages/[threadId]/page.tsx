@@ -142,7 +142,7 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
           scoutJob = {
             id: job.id,
             title: job.title,
-            tradeType: job.trade_types.join("、") || null,
+            tradeTypes: job.trade_types ?? [],
             headcount: job.headcount,
             recruitEndDate: job.recruit_end_date,
             rewardLower: job.reward_lower,

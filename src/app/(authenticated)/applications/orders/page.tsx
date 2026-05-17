@@ -11,6 +11,7 @@ import {
 } from "@/components/shared/application-status-badge";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatDate } from "@/lib/utils/format-date";
@@ -231,18 +232,11 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
                       )}
                     </p>
 
-                    {/* Trade type tags */}
+                    {/* 対応職種 */}
                     {skills.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {skills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="rounded-[33px] bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-body-xs text-primary"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
+                      <p className="mt-1 text-body-xs text-primary">
+                        <SummaryWithOthers items={skills} maxVisible={2} />
+                      </p>
                     )}
 
                     {/* Verification badges */}
@@ -311,7 +305,10 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
                     {(job?.trade_types?.length ?? 0) > 0 && (
                       <div className="flex">
                         <span className="w-16 shrink-0">募集職種</span>
-                        <span>{job!.trade_types.join("、")}{job!.headcount ? `・${job!.headcount}人` : ""}</span>
+                        <span>
+                          <SummaryWithOthers items={job!.trade_types} maxVisible={2} />
+                          {job!.headcount ? `・${job!.headcount}人` : ""}
+                        </span>
                       </div>
                     )}
                     {job?.recruit_end_date && (

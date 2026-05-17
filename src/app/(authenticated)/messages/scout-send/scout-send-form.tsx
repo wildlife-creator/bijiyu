@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import {
   Select,
   SelectContent,
@@ -139,16 +140,9 @@ export function ScoutSendForm({
               {userProfile.age !== null && `（${userProfile.age}歳）`}
             </p>
             {userProfile.skills.length > 0 && (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {userProfile.skills.map((skill) => (
-                  <span
-                    key={skill}
-                    className="rounded-[33px] bg-[rgba(146,7,131,0.08)] px-2 py-0.5 text-body-xs text-primary"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
+              <p className="mt-1 text-body-xs text-primary">
+                <SummaryWithOthers items={userProfile.skills} maxVisible={2} />
+              </p>
             )}
             {userProfile.experienceYears !== null && (
               <p className="mt-1 text-body-xs text-muted-foreground">

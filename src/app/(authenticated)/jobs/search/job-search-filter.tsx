@@ -13,23 +13,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SearchFilterSheet, useSheetClose } from "@/components/job-search/search-filter-sheet";
+import { MasterCombobox } from "@/components/master/master-combobox";
 import {
-  TRADE_TYPES,
   PREFECTURES,
   EXPERIENCE_YEARS,
   LANGUAGES,
   WORK_START_PERIODS,
 } from "@/lib/constants/options";
 
-export function JobSearchFilter() {
+interface JobSearchFilterProps {
+  activeTradeTypes: string[];
+}
+
+export function JobSearchFilter(props: JobSearchFilterProps) {
   return (
     <SearchFilterSheet>
-      <JobSearchFilterContent />
+      <JobSearchFilterContent {...props} />
     </SearchFilterSheet>
   );
 }
 
-function JobSearchFilterContent() {
+function JobSearchFilterContent({ activeTradeTypes }: JobSearchFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const closeSheet = useSheetClose();
@@ -41,8 +45,8 @@ function JobSearchFilterContent() {
   const [workPeriod, setWorkPeriod] = useState(
     searchParams.get("workPeriod") ?? "",
   );
-  const [tradeType, setTradeType] = useState(
-    searchParams.get("tradeType") ?? "",
+  const [tradeTypes, setTradeTypes] = useState<string[]>(
+    searchParams.getAll("tradeType"),
   );
   const [experienceYears, setExperienceYears] = useState(
     searchParams.get("experienceYears") ?? "",
@@ -56,7 +60,7 @@ function JobSearchFilterContent() {
     if (keyword) params.set("q", keyword);
     if (prefecture && prefecture !== "all") params.set("prefecture", prefecture);
     if (workPeriod && workPeriod !== "all") params.set("workPeriod", workPeriod);
-    if (tradeType && tradeType !== "all") params.set("tradeType", tradeType);
+    for (const v of tradeTypes) params.append("tradeType", v);
     if (experienceYears && experienceYears !== "all")
       params.set("experienceYears", experienceYears);
     if (language && language !== "all") params.set("language", language);
@@ -112,19 +116,14 @@ function JobSearchFilterContent() {
 
       <div className="space-y-1">
         <Label>募集職種</Label>
-        <Select value={tradeType} onValueChange={setTradeType}>
-          <SelectTrigger>
-            <SelectValue placeholder="お選びください" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            {TRADE_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MasterCombobox
+          mode="multi"
+          options={activeTradeTypes}
+          value={tradeTypes}
+          onChange={setTradeTypes}
+          placeholder="募集職種を検索"
+          emptyLabel="候補がありません"
+        />
       </div>
 
       <div className="space-y-1">

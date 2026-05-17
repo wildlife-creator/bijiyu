@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
+import { getAllMasterRows } from "@/lib/master/fetch";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -62,7 +63,18 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
-  const tradeType = (sp.tradeType as string) ?? "";
+  const tradeTypes = !sp.tradeType
+    ? []
+    : Array.isArray(sp.tradeType)
+      ? sp.tradeType
+      : [sp.tradeType];
+
+  // 検索ポップアップに渡す active 募集職種マスタ
+  const allTradeTypes = await getAllMasterRows("trade-types");
+  const activeTradeTypes = allTradeTypes
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+
   const workPeriod = (sp.workPeriod as string) ?? "";
   const experienceYears = (sp.experienceYears as string) ?? "";
   const language = (sp.language as string) ?? "";
@@ -145,8 +157,8 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
   if (prefecture) {
     query = query.eq("prefecture", prefecture);
   }
-  if (tradeType) {
-    query = query.overlaps("trade_types", [tradeType]);
+  if (tradeTypes.length > 0) {
+    query = query.overlaps("trade_types", tradeTypes);
   }
   if (experienceYears) {
     query = query.eq("experience_years", experienceYears);
@@ -227,7 +239,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
                     : "新着順"}
               </span>
             </Link>
-            <JobSearchFilter />
+            <JobSearchFilter activeTradeTypes={activeTradeTypes} />
           </div>
         </div>
 
@@ -255,7 +267,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
                 job={{
                   id: job.id,
                   title: job.title,
-                  tradeType: job.trade_types.join("、"),
+                  tradeTypes: job.trade_types,
                   prefecture: job.prefecture ?? "",
                   rewardLower: job.reward_lower,
                   rewardUpper: job.reward_upper,

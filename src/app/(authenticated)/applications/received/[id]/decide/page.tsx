@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { CircleCheck } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { DecisionForm } from "./decision-form";
@@ -77,7 +78,7 @@ export default async function DecisionPage({ params }: Props) {
         .eq("user_id", applicant.id)
     : { data: [] };
 
-  const skillNames = skills?.map((s) => s.trade_type).join("、") ?? "";
+  const skillLabels = skills?.map((s) => s.trade_type) ?? [];
 
   // Fetch existing job documents
   const { data: jobDocuments } = await supabase
@@ -101,7 +102,9 @@ export default async function DecisionPage({ params }: Props) {
         <div className="mt-2 rounded-[8px] border border-border bg-white p-3">
           <p className="text-body-md font-bold text-foreground">{job.title}</p>
           <div className="mt-1 flex items-center justify-between text-body-xs text-muted-foreground">
-            <span>{job.trade_types.join("、")}</span>
+            <span>
+              <SummaryWithOthers items={job.trade_types} maxVisible={2} />
+            </span>
             <span>締め切り: {formatDate(job.recruit_end_date, "未定")}</span>
           </div>
         </div>
@@ -119,8 +122,10 @@ export default async function DecisionPage({ params }: Props) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-body-lg font-bold text-foreground">{applicantName}</p>
-            {skillNames && (
-              <p className="text-body-xs text-muted-foreground">{skillNames}</p>
+            {skillLabels.length > 0 && (
+              <p className="text-body-xs text-muted-foreground">
+                <SummaryWithOthers items={skillLabels} maxVisible={2} />
+              </p>
             )}
             <div className="mt-0.5 flex flex-wrap gap-2">
               {applicant?.identity_verified && (

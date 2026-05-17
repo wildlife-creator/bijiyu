@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ApplicationStatusBadge } from "@/components/shared/application-status-badge";
 import { BackButton } from "@/components/shared/back-button";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 
@@ -134,15 +135,16 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     : [{ data: [] }, { data: [] }, { data: [] }];
 
   // 対応できる職種（user_skills.trade_type）。applicant ヘッダー下の職種プレビュー用
-  const tradeTypeNames = skills?.map((s) => s.trade_type).join("、") ?? "";
-  // 保有スキル（users.skill_tags）。「保有スキル」ラベルで表示するのはこちら
-  const skillTagNames = (applicant?.skill_tags ?? []).join("、");
+  const tradeTypeLabels = skills?.map((s) => s.trade_type) ?? [];
+  // 保有スキル（users.skill_tags）
+  const skillTagLabels = (applicant?.skill_tags ?? []) as string[];
   const maxExp = skills?.reduce(
     (max, s) => (s.experience_years && s.experience_years > max ? s.experience_years : max),
     0,
   ) ?? 0;
   const areaNames = areas?.map((a) => a.prefecture).join("、") ?? "";
-  const qualificationNames = qualifications?.map((q) => q.qualification_name).join("、") ?? "";
+  const qualificationLabels =
+    qualifications?.map((q) => q.qualification_name) ?? [];
 
   const rewardText =
     job.reward_lower
@@ -171,7 +173,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
         <h2 className="text-body-lg font-bold text-foreground">案件情報</h2>
         <p className="text-body-lg font-semibold text-foreground">{job.title}</p>
         <p className="text-body-sm text-foreground">
-          {job.trade_types.join("、")}
+          <SummaryWithOthers items={job.trade_types} maxVisible={2} />
           {job.headcount ? `・${job.headcount}人` : ""}
         </p>
 
@@ -232,8 +234,10 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
             <p className="text-body-lg font-bold text-foreground">
               {applicantName}{age !== null ? `（${age}歳）` : ""}
             </p>
-            {tradeTypeNames && (
-              <p className="text-body-xs text-muted-foreground">{tradeTypeNames}</p>
+            {tradeTypeLabels.length > 0 && (
+              <p className="text-body-xs text-muted-foreground">
+                <SummaryWithOthers items={tradeTypeLabels} maxVisible={2} />
+              </p>
             )}
             <div className="mt-0.5 flex flex-wrap gap-2">
               {applicant?.identity_verified && (
@@ -267,18 +271,22 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
               <span>{maxExp}年</span>
             </div>
           )}
-          {skillTagNames && (
+          {skillTagLabels.length > 0 && (
             <div className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary/70" />
               <span className="min-w-[8rem] shrink-0">保有スキル</span>
-              <span>{skillTagNames}</span>
+              <span>
+                <SummaryWithOthers items={skillTagLabels} maxVisible={2} />
+              </span>
             </div>
           )}
-          {qualificationNames && (
+          {qualificationLabels.length > 0 && (
             <div className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary/70" />
               <span className="min-w-[8rem] shrink-0">保有資格</span>
-              <span>{qualificationNames}</span>
+              <span>
+                <SummaryWithOthers items={qualificationLabels} maxVisible={2} />
+              </span>
             </div>
           )}
         </div>
