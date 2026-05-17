@@ -56,6 +56,9 @@ import {
   updateJobAction,
   deleteJobImageAction,
 } from "@/app/(authenticated)/jobs/actions";
+import { getAllMasterRows } from "@/lib/master/fetch";
+
+const mockedGetAllMasterRows = vi.mocked(getAllMasterRows);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -313,6 +316,86 @@ describe("createJobAction", () => {
     }
   });
 
+  // --- delta validate (master-skills R3 AC-13 / R9 AC-3) ---
+
+  it("rejects unknown trade_type label (not in master_trade_types)", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+    });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "users") {
+        return createQueryMock({
+          single: { data: { role: "client" }, error: null },
+        });
+      }
+      if (table === "organization_members") {
+        return createQueryMock({
+          maybeSingle: { data: null, error: null },
+        });
+      }
+      if (table === "subscriptions") {
+        return createQueryMock({
+          maybeSingle: {
+            data: { status: "active", plan_type: "individual" },
+            error: null,
+          },
+        });
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    const formData = buildValidFormData();
+    formData.delete("tradeTypes");
+    formData.append("tradeTypes", "存在しない職種");
+
+    const result = await createJobAction(formData);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("存在しない職種");
+    }
+  });
+
+  it("rejects newly added deprecated trade_type label", async () => {
+    mockedGetAllMasterRows.mockResolvedValueOnce([
+      { label: "大工", deprecated_at: null },
+      { label: "旧職種", deprecated_at: "2026-04-01T00:00:00.000Z" },
+    ]);
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+    });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "users") {
+        return createQueryMock({
+          single: { data: { role: "client" }, error: null },
+        });
+      }
+      if (table === "organization_members") {
+        return createQueryMock({
+          maybeSingle: { data: null, error: null },
+        });
+      }
+      if (table === "subscriptions") {
+        return createQueryMock({
+          maybeSingle: {
+            data: { status: "active", plan_type: "individual" },
+            error: null,
+          },
+        });
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    const formData = buildValidFormData();
+    formData.delete("tradeTypes");
+    formData.append("tradeTypes", "旧職種");
+
+    const result = await createJobAction(formData);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("廃止された職種");
+    }
+  });
+
   it("allows corporate plan to create open jobs without limit", async () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: "user-1" } },
@@ -489,6 +572,61 @@ describe("updateJobAction", () => {
     formData.set("jobId", "job-1");
     const result = await updateJobAction(formData);
     expect(result.success).toBe(true);
+  });
+
+  // --- delta validate: 既存保有 deprecated は保持を許可 (R3 AC-13 / R9 AC-3) ---
+
+  it("allows keeping an existing deprecated trade_type when previousLabels contains it", async () => {
+    // この case では tradeTypes (newLabels) と previousLabels の両方に
+    // 廃止済みの "旧職種" が含まれる → added は空 → validateLabelChanges は
+    // master ルックアップを行わず valid: true を返す。save が通ること。
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+    });
+
+    let jobCallCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "jobs") {
+        jobCallCount++;
+        if (jobCallCount === 1) {
+          // existing job fetch
+          return createQueryMock({
+            single: {
+              data: {
+                id: "job-1",
+                owner_id: "user-1",
+                organization_id: null,
+                status: "open",
+              },
+              error: null,
+            },
+          });
+        }
+        if (jobCallCount === 2) {
+          // delta validate: previousLabels SELECT — returns the deprecated label
+          return createQueryMock({
+            single: { data: { trade_types: ["旧職種"] }, error: null },
+          });
+        }
+        // update query
+        return {
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          }),
+        };
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    const formData = buildValidFormData({ status: "open" });
+    formData.set("jobId", "job-1");
+    formData.delete("tradeTypes");
+    formData.append("tradeTypes", "旧職種");
+
+    const result = await updateJobAction(formData);
+    expect(result.success).toBe(true);
+    // getAllMasterRows must NOT be called because added is empty (optimization)
+    expect(mockedGetAllMasterRows).not.toHaveBeenCalled();
   });
 });
 

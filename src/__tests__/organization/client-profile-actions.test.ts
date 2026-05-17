@@ -51,6 +51,9 @@ import {
   saveClientProfileAction,
   uploadClientProfileImageAction,
 } from "@/app/(authenticated)/mypage/client-profile/actions";
+import { getAllMasterRows } from "@/lib/master/fetch";
+
+const mockedGetAllMasterRows = vi.mocked(getAllMasterRows);
 
 const OWNER_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -236,6 +239,90 @@ describe("saveClientProfileAction", () => {
       }),
       expect.objectContaining({ onConflict: "user_id" }),
     );
+  });
+
+  // --- delta validate (master-skills R3 AC-13 / R9 AC-3) ---
+
+  it("未知の recruit_job_types ラベルは reject される", async () => {
+    mockAuth(OWNER_ID);
+    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { plan_type: "individual", status: "active" },
+          error: null,
+        },
+      }),
+    );
+    // previousLabels SELECT: 空（新規登録扱い）
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: { recruit_job_types: [] }, error: null } }),
+    );
+
+    const r = await saveClientProfileAction(
+      { ...basePersonalInput, recruitJobTypes: ["存在しない職種"] },
+      { mode: "edit" },
+    );
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/存在しない職種|職種/);
+  });
+
+  it("新規追加の deprecated ラベルは reject される", async () => {
+    mockedGetAllMasterRows.mockResolvedValueOnce([
+      { label: "内装工", deprecated_at: null },
+      { label: "旧職種", deprecated_at: "2026-04-01T00:00:00.000Z" },
+    ]);
+    mockAuth(OWNER_ID);
+    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { plan_type: "individual", status: "active" },
+          error: null,
+        },
+      }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: { recruit_job_types: [] }, error: null } }),
+    );
+
+    const r = await saveClientProfileAction(
+      { ...basePersonalInput, recruitJobTypes: ["旧職種"] },
+      { mode: "edit" },
+    );
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/廃止|deprecated|職種/);
+  });
+
+  it("既存保有の deprecated ラベルは保持を許可（previousLabels に含まれる）", async () => {
+    // 直前のテストで蓄積した呼び出し履歴をクリアして、本テスト内の呼び出しのみ計測する
+    mockedGetAllMasterRows.mockClear();
+    mockAuth(OWNER_ID);
+    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { plan_type: "individual", status: "active" },
+          error: null,
+        },
+      }),
+    );
+    // previousLabels SELECT に廃止 "旧職種" が含まれる
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { recruit_job_types: ["旧職種"] }, error: null },
+      }),
+    );
+    const upsertChain = createQueryMock({ thenable: { data: null, error: null } });
+    mockFrom.mockReturnValueOnce(upsertChain);
+
+    const r = await saveClientProfileAction(
+      { ...basePersonalInput, recruitJobTypes: ["旧職種"] },
+      { mode: "edit" },
+    );
+    expect(r.success).toBe(true);
+    // added が空のため getAllMasterRows は呼ばれない（最適化）
+    expect(mockedGetAllMasterRows).not.toHaveBeenCalled();
   });
 });
 
