@@ -167,8 +167,6 @@ export default async function ProfilePage() {
   const qualifications = (profile.user_qualifications ?? []) as Qualification[];
   const areas = (profile.user_available_areas ?? []) as Area[];
 
-  const tradeTypeText =
-    skills.length > 0 ? skills.map((s) => s.trade_type).join("、") : null;
   const experienceYearsText =
     skills.length > 0
       ? skills
@@ -177,11 +175,6 @@ export default async function ProfilePage() {
           .join("、") || null
       : null;
   const skillTags = (profile.skill_tags ?? []) as string[];
-  const skillTagsText = skillTags.length > 0 ? skillTags.join("、") : null;
-  const qualificationsText =
-    qualifications.length > 0
-      ? qualifications.map((q) => q.qualification_name).join("、")
-      : null;
   const areasText =
     areas.length > 0 ? areas.map((a) => a.prefecture).join("、") : null;
 

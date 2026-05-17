@@ -7,6 +7,7 @@ import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { createClient } from "@/lib/supabase/server";
 import {
   getUserDisplayName,
@@ -289,7 +290,10 @@ async function ClientFavorites({
                       className="w-4 h-4"
                     />
                     <span className="line-clamp-1">
-                      {profile.recruit_job_types.join(", ")}
+                      <SummaryWithOthers
+                        items={profile.recruit_job_types}
+                        maxVisible={2}
+                      />
                     </span>
                   </div>
                 )}
@@ -397,7 +401,10 @@ async function UserFavorites({
                       className="w-4 h-4"
                     />
                     <span className="line-clamp-1">
-                      {skills.map((s) => s.trade_type).join(", ")}
+                      <SummaryWithOthers
+                        items={skills.map((s) => s.trade_type)}
+                        maxVisible={2}
+                      />
                     </span>
                   </div>
                 )}

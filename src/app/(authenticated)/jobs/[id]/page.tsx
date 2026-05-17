@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CollapsibleList } from "@/components/master/collapsible-list";
 import { createClient } from "@/lib/supabase/server";
 import {
   resolveClientProfileForRow,
@@ -54,16 +56,24 @@ function DetailRow({
   alwaysShow = false,
 }: {
   label: string;
-  value: string | null | undefined;
+  value: ReactNode | string | null | undefined;
   alwaysShow?: boolean;
 }) {
-  if (!value && !alwaysShow) return null;
+  const isString = typeof value === "string";
+  const isEmpty = value == null || (isString && !value);
+  if (isEmpty && !alwaysShow) return null;
   return (
     <div className="flex border-b border-border py-3">
       <span className="w-28 shrink-0 text-body-md font-medium text-secondary">
         {label}
       </span>
-      <span className="flex-1 text-body-md text-foreground">{value || "—"}</span>
+      {isEmpty ? (
+        <span className="flex-1 text-body-md text-foreground">—</span>
+      ) : isString ? (
+        <span className="flex-1 text-body-md text-foreground">{value}</span>
+      ) : (
+        <div className="flex-1 text-body-md text-foreground">{value}</div>
+      )}
     </div>
   );
 }
@@ -252,7 +262,15 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             />
             <DetailRow label="エリア" value={job.prefecture} alwaysShow />
             <DetailRow label="住所" value={job.address} alwaysShow />
-            <DetailRow label="募集職種" value={job.trade_types.join("、") || null} alwaysShow />
+            <DetailRow
+              label="募集職種"
+              value={
+                job.trade_types.length > 0 ? (
+                  <CollapsibleList items={job.trade_types} initialLimit={5} />
+                ) : null
+              }
+              alwaysShow
+            />
             <DetailRow
               label="募集人数"
               value={job.headcount ? `${job.headcount}人` : null}
@@ -505,7 +523,15 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             alwaysShow
           />
           <DetailRow label="エリア" value={job.prefecture} alwaysShow />
-          <DetailRow label="募集職種" value={job.trade_types.join("、") || null} alwaysShow />
+          <DetailRow
+            label="募集職種"
+            value={
+              job.trade_types.length > 0 ? (
+                <CollapsibleList items={job.trade_types} initialLimit={5} />
+              ) : null
+            }
+            alwaysShow
+          />
           <DetailRow
             label="募集人数"
             value={job.headcount ? `${job.headcount}人` : null}

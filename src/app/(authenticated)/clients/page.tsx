@@ -10,6 +10,7 @@ import { BackButton } from "@/components/job-search/back-button";
 import { EMPLOYEE_SCALE_RANGES } from "@/lib/constants/options";
 import { createClient } from "@/lib/supabase/server";
 import { getAllMasterRows } from "@/lib/master/fetch";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 
 import { ClientSearchForm } from "./client-search-form";
@@ -224,7 +225,10 @@ export default async function ClientListPage({ searchParams }: PageProps) {
                         <img src="/images/icons/icon-briefcase.png" alt="" className="w-4 h-4 shrink-0" />
                         <span className="ml-1.5 w-[5.5rem] shrink-0 text-muted-foreground">募集職種</span>
                         <span className="line-clamp-1">
-                          {profile.recruit_job_types.join("、")}
+                          <SummaryWithOthers
+                            items={profile.recruit_job_types}
+                            maxVisible={2}
+                          />
                         </span>
                       </div>
                     )}

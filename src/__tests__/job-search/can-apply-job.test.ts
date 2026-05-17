@@ -105,4 +105,33 @@ describe("canApplyJob", () => {
     });
     expect(result.canApply).toBe(false);
   });
+
+  // --- master-skills 移行後の検証 ---
+
+  it("無料ユーザー: 新マスタ値（フルパスラベル）で OR 一致が成立する", () => {
+    const result = canApplyJob({
+      ...baseParams,
+      jobTradeTypes: ["建築/仕上げ｜塗装工", "建築/躯体｜大工"],
+      userSkills: [{ tradeType: "建築/躯体｜大工" }],
+    });
+    expect(result.canApply).toBe(true);
+  });
+
+  it("無料ユーザー: 同一中カテゴリ内の別末端は不一致（厳密一致のみ、階層あいまい無し）", () => {
+    const result = canApplyJob({
+      ...baseParams,
+      jobTradeTypes: ["建築/躯体｜大工"],
+      userSkills: [{ tradeType: "建築/躯体｜宮大工" }],
+    });
+    expect(result.canApply).toBe(false);
+  });
+
+  it("無料ユーザー: 案件 trade_types と userSkills が両方空なら応募不可", () => {
+    const result = canApplyJob({
+      ...baseParams,
+      jobTradeTypes: [],
+      userSkills: [],
+    });
+    expect(result.canApply).toBe(false);
+  });
 });

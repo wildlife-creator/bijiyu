@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import {
   resolveClientProfileForRow,
@@ -479,9 +480,7 @@ export default async function MyPage() {
               firstName: resolution.firstName,
               deletedAt: resolution.deletedAt,
             });
-            const tradeLabel = [job.trade_types.join("、") || null, job.headcount ? `${job.headcount}人` : null]
-              .filter(Boolean)
-              .join("・");
+            const headcountText = job.headcount ? `${job.headcount}人` : null;
             const rewardText = job.reward_lower
               ? `${job.reward_lower.toLocaleString()}円（人工）`
               : "要相談";
@@ -517,7 +516,11 @@ export default async function MyPage() {
 
                 {/* Trade type & deadline */}
                 <div className="mt-1 flex items-center justify-between text-body-xs text-muted-foreground">
-                  <span>{tradeLabel}</span>
+                  <span>
+                    <SummaryWithOthers items={job.trade_types} maxVisible={2} />
+                    {job.trade_types.length > 0 && headcountText ? "・" : ""}
+                    {headcountText}
+                  </span>
                   {job.recruit_end_date && (
                     <span>
                       締め切り：{job.recruit_end_date.replace(/-/g, "/")}

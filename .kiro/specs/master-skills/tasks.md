@@ -233,15 +233,15 @@
   - design-assets/screens/{発注者情報詳細.png, 発注者一覧.png, 発注者詳細.png} を参照
   - _Requirements: 7.3, 7.5_
 
-- [ ] 7. バリデーション・型・Server Action の整合更新
-- [ ] 7.1 Zod スキーマと旧 TRADE_TYPES の全廃
+- [x] 7. バリデーション・型・Server Action の整合更新
+- [x] 7.1 Zod スキーマと旧 TRADE_TYPES の全廃
   - `src/lib/validations/profile.ts` / `client-profile.ts` から `.enum(TRADE_TYPES)` と `.max(3)` 等の上限制約を撤廃する
   - 「対応職種 1 件以上」の下限のみ維持する（trade-types のみ必須）
   - `src/lib/constants/options.ts` の `TRADE_TYPES` 定数を削除する
   - 案件 Zod は `tradeType: string` → `tradeTypes: string[]` に変更し、公開時 `min(1)` / 下書き時 0 件可
   - _Requirements: 11.1, 11.2, 11.3_
 
-- [ ] 7.2 保存系 Server Action の delta validate 統合
+- [x] 7.2 保存系 Server Action の delta validate 統合
   - `profile/edit/actions.ts` / `(auth)/register/profile/actions.ts` / `mypage/client-profile/actions.ts` / `jobs/actions.ts` を「保存直前に previousLabels を SELECT → 2.4 `validateLabelChanges` → 既存 RPC または UPSERT」のシーケンスに統一する
   - 新規登録ルート（previousLabels=[]）でも動作することを担保する
   - 既存 RPC（`update_profile` の `p_skill_tags` / `p_qualifications`）は引数互換のためそのまま流用する
@@ -249,8 +249,8 @@
   - 7.1 の Zod 変更と整合させる
   - _Requirements: 1.8, 1.9, 3.13, 9.3, 11.1_
 
-- [ ] 8. seed.sql の刷新と整合性の確保
-- [ ] 8.1 4 ロール（contractor / client / staff / admin）の seed 値を新マスタに整合
+- [x] 8. seed.sql の刷新と整合性の確保
+- [x] 8.1 4 ロール（contractor / client / staff / admin）の seed 値を新マスタに整合
   - `supabase/seed.sql` のテストユーザーの `user_skills.trade_type` / `users.skill_tags` / `user_qualifications.qualification_name` を新マスタの label に書き換える
   - 受注者（無料）は「登録職種 × 登録県」が合致する案件 / 合致しない案件の双方を持つように構成する（応募制限の動作確認用）
   - 発注者（課金済み）は受注者機能・発注者機能の双方をテスト可能にする
@@ -258,7 +258,7 @@
   - 招待フロー seed の `email_confirmed_at` ルール（招待中は NULL、登録済みは `password_set_at = now()`）を踏襲する
   - _Requirements: 11.8, 12.1, 12.4_
 
-- [ ] 8.2 jobs.trade_types 配列形と client_profiles.recruit_job_types の seed 整合
+- [x] 8.2 jobs.trade_types 配列形と client_profiles.recruit_job_types の seed 整合
   - 既存案件の seed を `trade_types text[]` に書き直し、各案件 1〜複数の label を持たせる
   - 発注者の `recruit_job_types` を新マスタの label 配列で再投入する
   - 旧 `TRADE_TYPES` 13 値の参照を全廃する
