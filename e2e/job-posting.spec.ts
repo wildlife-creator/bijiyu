@@ -21,7 +21,7 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
       page.getByRole("heading", { name: "募集現場新規登録" })
     ).toBeVisible();
     await expect(page.getByText("タイトル 必須")).toBeVisible();
-    await expect(page.getByText("職種 必須")).toBeVisible();
+    await expect(page.getByText("募集職種 必須")).toBeVisible();
   });
 
   test("案件を下書き保存できる", async ({ page }) => {
@@ -39,9 +39,11 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     await page.locator('[data-slot="select-trigger"]').first().click();
     await page.getByRole("option", { name: "東京都" }).click();
 
-    // Select trade type (募集職種)
-    await page.locator('[data-slot="select-trigger"]').nth(1).click();
-    await page.getByRole("option", { name: "大工", exact: true }).click();
+    // Select trade types (募集職種) — master-skills 移行後は MasterCombobox (multi)
+    await page.locator('[data-slot="master-combobox-trigger"]').first().click();
+    await page.getByRole("combobox").last().fill("大工");
+    await page.getByRole("option", { name: "建築/躯体｜大工" }).first().click();
+    await page.keyboard.press("Escape");
 
     // Headcount
     await page.getByPlaceholder("人数").fill("2");

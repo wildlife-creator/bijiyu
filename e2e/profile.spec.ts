@@ -78,32 +78,40 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
   });
 
   test("COM-001 に「保有スキル」行が表示される", async ({ page }) => {
-    // seed.sql: contractor (田中一郎) は skill_tags = ARRAY['木造住宅建築', ...] を持つ
+    // seed.sql: contractor (田中一郎) は skill_tags に master_skill_tags 由来の
+    // 「木造軸組構法」「造作大工」「内装仕上工」を持つ (master-skills 移行後)
     await page.goto("/profile");
     await expect(
       page.getByText("保有スキル", { exact: true }),
     ).toBeVisible();
     // 保有スキルの値として seed で投入したタグのいずれかが表示されることを確認
-    await expect(page.getByText("木造住宅建築")).toBeVisible();
+    await expect(page.getByText("木造軸組構法").first()).toBeVisible();
   });
 
   test("COM-002 で保有スキルを追加・削除できる", async ({ page }) => {
     await page.goto("/profile/edit");
 
-    // 保有スキル欄に入力して Enter キーで chip として登録（Enter でも追加できるよう実装済み）
-    // ※「追加」という表記のボタンは職種・保有スキル・保有資格で3つあるため、
-    //   ここではセレクタ曖昧性を避けるため Enter key を使う
-    const skillInput = page.locator("#skillTagInput");
-    await skillInput.fill("E2Eテストスキル");
-    await skillInput.press("Enter");
-
-    // chip が表示される
-    await expect(page.getByText("E2Eテストスキル")).toBeVisible();
+    // master-skills 移行後は MasterCombobox (cmdk) で保有スキルを選択する。
+    // 保有スキルの trigger は trades 2 (contractor1 既存) の次 = index 2
+    // 他テストとの state 衝突を避けるため、master-skills.spec.ts の 9.3b が
+    // 使う SKILL_TAGS_PLUS_7 に含まれない「BIMモデリング（Revit等）」を使用する
+    await page.locator('[data-slot="master-combobox-trigger"]').nth(2).click();
+    await page.getByRole("combobox").last().fill("BIM");
+    await page
+      .getByRole("option", { name: "BIMモデリング（Revit等）", exact: true })
+      .first()
+      .click();
+    await page.keyboard.press("Escape");
 
     // 保存して COM-001 に遷移 → 追加したスキルが表示される
     await page.getByRole("button", { name: "確認する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 10000 });
-    await expect(page.getByText("E2Eテストスキル")).toBeVisible();
+    // contractor1 は既に多くの skill_tags を持つので「もっと見る」展開が必要
+    const showMore = page.getByRole("button", { name: "もっと見る" });
+    if ((await showMore.count()) > 0) {
+      await showMore.first().click();
+    }
+    await expect(page.getByText("BIMモデリング（Revit等）").first()).toBeVisible();
   });
 
   test("COM-002 の職種/経験年数列に見出しが表示される", async ({ page }) => {
