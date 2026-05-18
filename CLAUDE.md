@@ -236,11 +236,31 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 対策: フィルターの状態は URL の searchParams を Single Source of Truth とし、`useState` ではなく `useSearchParams()` から直接値を取得すること
 - プルダウン選択で即時フィルタリングする場合は `onValueChange` 内で `router.push()` して URL を更新する
 
+### 一覧画面の検索フィルタはサーバー側で適用すること（必ず守ること）
+- JS 側で fetch 後に絞り込む post-filter は `count`・ページネーション・無限スクロールが**すべて pre-filter のまま**になり破綻する
+- 例: `.range(offset, offset+19).select({ count: "exact" })` で 20 件 fetch → JS で 3 件に絞っても、count は元の 100 件で表示され、page 2 以降にマッチユーザーが取りこぼされる
+- 配列 (`text[]`) カラムのフィルタは `.overlaps()` を main query で直接適用すること
+- joined テーブル（`user_skills` / `user_qualifications` / `user_available_areas` 等）が絡む場合の対策パターン: **ID 集合の積で AND**
+  1. join 先テーブルを事前 query して該当 user_id 集合を取る（カテゴリごとに 1 query）
+  2. 複数カテゴリの結果を Set の intersection で AND 絞り込み
+  3. メイン query に `.in("id", candidateIds)` で渡す（nested data は完全に返る）
+- `!inner` join + `.in("nested.col", ...)` パターンは nested data が絞られた結果しか返らず、カード表示で「保有スキルの一部しか出ない」バグを生むため**使わない**
+- 実装基準: `src/app/(authenticated)/users/contractors/page.tsx`（CLI-005）。2026-05-18 に post-filter 起因の件数バグから書き換え
+
 ### 段階的フォーム表示（条件レンダリング）
 - プルダウンや選択肢に応じてフォームの表示内容が変わる場合は、別ページ遷移ではなく `useState` による同一ページ内の条件レンダリングで実装すること（例: CLI-009 の「発注を依頼する」/「お断りする」選択）
 - プルダウンの `onValueChange` では state 更新のみ行い、Server Action の呼び出しは行わない。送信はフォームの「送信する」ボタン押下時に行う
 - `decision` が未選択（`null`）の場合は送信ボタンを `disabled` にする
 - このパターンは「選択 → 追加入力 → 確認 → 送信」のステップを1ページ内で完結させる場合の標準パターンとする
+
+### フォーム内の `<button>` には必ず `type` を明示する（必ず守ること）
+- `<form>` 内の `<button>` は HTML 仕様で**デフォルト `type="submit"`** になる
+- `onClick` でナビゲーション・キャンセル・モーダル閉じる等を行うボタンを `type` 無指定で置くと、暗黙的にフォーム送信が発火し**ユーザーが意図せず Server Action を呼んでデータを保存／削除してしまう**
+- 対策:
+  - 送信用は `type="submit"` を明示
+  - それ以外（ナビゲーション・キャンセル・モーダル開閉・チップ削除等）はすべて `type="button"` を明示
+- 共通コンポーネント（BackButton 等）の中の `<Button>` でも漏らさないこと。コンポーネント内側で明示していないと、使用箇所のフォーム内で同じ罠が発生する
+- 2026-05-18 に `src/components/shared/back-button.tsx` / `src/components/job-search/back-button.tsx` の両方で実例発生（COM-002 で × → もどる の操作だけで `updateProfileAction` が発火し、特級ボイラー技士 chip が削除された）
 
 ### CTA ボタン（`variant="default"`）の文字色
 - `bg-primary` ボタンの文字色が白（`text-primary-foreground`）になっていることを必ず確認すること

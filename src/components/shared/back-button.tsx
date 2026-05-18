@@ -42,6 +42,7 @@ export function BackButton({ className, href, size }: BackButtonProps) {
 
   return (
     <Button
+      type="button"
       variant="outline"
       size={size}
       className={cn("w-full rounded-pill text-body-md", className)}

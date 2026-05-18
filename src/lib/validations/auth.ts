@@ -72,10 +72,19 @@ const registerProfileBaseSchema = z.object({
   companyName: z.string().optional(),
   skills: z
     .array(skillSchema)
-    .min(1, "スキルを1つ以上追加してください"),
+    .min(1, "スキルを1つ以上追加してください")
+    .transform((arr) => {
+      const seen = new Set<string>();
+      return arr.filter((s) => {
+        if (seen.has(s.tradeType)) return false;
+        seen.add(s.tradeType);
+        return true;
+      });
+    }),
   availableAreas: z
     .array(z.string().min(1, "対応エリアを選択してください"))
-    .min(1, "対応エリアを1つ以上選択してください"),
+    .min(1, "対応エリアを1つ以上選択してください")
+    .transform((arr) => Array.from(new Set(arr))),
   password: z
     .string()
     .min(8, "パスワードは8文字以上で入力してください")

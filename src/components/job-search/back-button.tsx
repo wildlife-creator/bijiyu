@@ -9,6 +9,7 @@ export function BackButton() {
   return (
     <div className="mt-4 flex justify-center">
       <Button
+        type="button"
         variant="outline"
         size="lg"
         className="w-full rounded-[47px] border-foreground text-foreground"

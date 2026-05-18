@@ -15,7 +15,8 @@ export const jobSchema = z
       .max(5000, "案件詳細は5000文字以内で入力してください"),
     tradeTypes: z
       .array(z.string().trim().min(1))
-      .min(1, "職種を1つ以上選択してください"),
+      .min(1, "職種を1つ以上選択してください")
+      .transform((arr) => Array.from(new Set(arr))),
     rewardLower: z
       .number({ message: "報酬下限は数値で入力してください" })
       .int()
@@ -41,7 +42,9 @@ export const jobSchema = z
     workHours: z.string().max(200).optional().or(z.literal("")),
     experienceYears: z.string().max(100).optional().or(z.literal("")),
     requiredSkills: z.string().max(500).optional().or(z.literal("")),
-    language: z.array(z.string().trim().min(1)),
+    language: z
+      .array(z.string().trim().min(1))
+      .transform((arr) => Array.from(new Set(arr))),
     items: z.string().max(500).optional().or(z.literal("")),
     scheduleDetail: z.string().max(2000).optional().or(z.literal("")),
     projectDetails: z.string().max(2000).optional().or(z.literal("")),
@@ -79,7 +82,10 @@ export const jobDraftSchema = z.object({
     .min(1, "タイトルを入力してください")
     .max(100, "タイトルは100文字以内で入力してください"),
   description: z.string().max(5000).optional().or(z.literal("")),
-  tradeTypes: z.array(z.string().trim().min(1)).default([]),
+  tradeTypes: z
+    .array(z.string().trim().min(1))
+    .transform((arr) => Array.from(new Set(arr)))
+    .default([]),
   rewardLower: z.number().int().positive().optional().or(z.nan()),
   rewardUpper: z.number().int().positive().optional().or(z.nan()),
   prefecture: z.string().optional().or(z.literal("")),
@@ -92,7 +98,9 @@ export const jobDraftSchema = z.object({
   workHours: z.string().max(200).optional().or(z.literal("")),
   experienceYears: z.string().max(100).optional().or(z.literal("")),
   requiredSkills: z.string().max(500).optional().or(z.literal("")),
-  language: z.array(z.string().trim().min(1)),
+  language: z
+    .array(z.string().trim().min(1))
+    .transform((arr) => Array.from(new Set(arr))),
   items: z.string().max(500).optional().or(z.literal("")),
   scheduleDetail: z.string().max(2000).optional().or(z.literal("")),
   projectDetails: z.string().max(2000).optional().or(z.literal("")),

@@ -43,12 +43,29 @@ export const profileEditSchema = z.object({
   bio: z.string().optional(),
   skills: z
     .array(skillSchema)
-    .min(1, "職種を1つ以上追加してください"),
-  skillTags: z.array(z.string().min(1)).optional().default([]),
-  qualifications: z.array(z.string()).optional().default([]),
+    .min(1, "職種を1つ以上追加してください")
+    .transform((arr) => {
+      const seen = new Set<string>();
+      return arr.filter((s) => {
+        if (seen.has(s.tradeType)) return false;
+        seen.add(s.tradeType);
+        return true;
+      });
+    }),
+  skillTags: z
+    .array(z.string().min(1))
+    .transform((arr) => Array.from(new Set(arr)))
+    .optional()
+    .default([]),
+  qualifications: z
+    .array(z.string())
+    .transform((arr) => Array.from(new Set(arr)))
+    .optional()
+    .default([]),
   availableAreas: z
     .array(z.string().min(1))
-    .min(1, "対応エリアを1つ以上選択してください"),
+    .min(1, "対応エリアを1つ以上選択してください")
+    .transform((arr) => Array.from(new Set(arr))),
 });
 export type ProfileEditInput = z.infer<typeof profileEditSchema>;
 

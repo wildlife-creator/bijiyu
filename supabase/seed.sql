@@ -262,7 +262,7 @@ UPDATE public.users SET
   bio = '大工歴10年。木造住宅を得意としています。',
   identity_verified = true,
   ccus_verified = true,
-  skill_tags = ARRAY['木造軸組構法', '造作大工', '内装仕上工', '内装仕上工']
+  skill_tags = ARRAY['木造軸組構法', '造作大工', '内装仕上工']
 WHERE id = '11111111-1111-1111-1111-111111111111';
 
 -- 発注者
@@ -339,7 +339,7 @@ UPDATE public.users SET
   bio = '塗装工歴8年。外壁・内壁の塗装を専門にしています。左官工事も対応可能です。',
   identity_verified = true,
   ccus_verified = true,
-  skill_tags = ARRAY['吹付塗装工', '壁装（クロス）工', '吹付塗装工', '造作大工']
+  skill_tags = ARRAY['吹付塗装工', '壁装（クロス）工', '造作大工']
 WHERE id = 'cc111111-1111-1111-1111-111111111111';
 
 -- 受注者3（電気工事士・配管工）

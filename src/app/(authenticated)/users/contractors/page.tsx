@@ -59,10 +59,62 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
     .filter((r) => !r.deprecated_at)
     .map((r) => r.label);
 
-  // Build query — 受注者として活動しうるユーザー（role IN ('contractor','client')）を対象とする。
+  // ──────────────────────────────────────────────────────────────────────
+  // 受注者として活動しうるユーザー（role IN ('contractor','client')）を対象とする。
   // staff（法人 admin/staff）は受注者アクション不可なので除外。自分自身も除外。
   // 設計理由: ビジ友は「1 アカウントで受注・発注両方 OK」設計。client は元 contractor または個人発注者・小規模・法人 Owner で、
   // 正規ルート（/register/profile）を経た全ユーザーは user_skills/available_areas を必ず持つ（registerProfileSchema が min(1) で必須化）。
+  //
+  // フィルタ戦略: join 先テーブルの絞り込みは ID リスト方式で事前抽出してから .in("id", ...) する。
+  // PostgREST の !inner join だと nested data（カード表示用の全 skills/areas/quals）が削られるため。
+  // これにより count と range（ページネーション）がフィルタ適用後の正確な値になる。
+  // ──────────────────────────────────────────────────────────────────────
+
+  async function fetchMatchingUserIds(
+    table: "user_skills" | "user_qualifications" | "user_available_areas",
+    column: "trade_type" | "qualification_name" | "prefecture",
+    values: string[],
+  ): Promise<Set<string>> {
+    const { data } = await supabase
+      .from(table)
+      .select("user_id")
+      .in(column, values);
+    return new Set((data ?? []).map((r) => r.user_id));
+  }
+
+  const idSets: Array<Set<string>> = [];
+  if (tradeTypes.length > 0) {
+    idSets.push(
+      await fetchMatchingUserIds("user_skills", "trade_type", tradeTypes),
+    );
+  }
+  if (qualificationFilters.length > 0) {
+    idSets.push(
+      await fetchMatchingUserIds(
+        "user_qualifications",
+        "qualification_name",
+        qualificationFilters,
+      ),
+    );
+  }
+  if (prefecture) {
+    idSets.push(
+      await fetchMatchingUserIds("user_available_areas", "prefecture", [
+        prefecture,
+      ]),
+    );
+  }
+
+  // 異なるカテゴリは AND → 全 ID 集合の積を取る
+  const candidateIds: string[] | null =
+    idSets.length === 0
+      ? null
+      : Array.from(
+          idSets.reduce((acc, s) =>
+            new Set(Array.from(acc).filter((id) => s.has(id))),
+          ),
+        );
+
   let query = supabase
     .from("users")
     .select(
@@ -79,11 +131,16 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
     .neq("id", user.id)
     .is("deleted_at", null);
 
-  // Apply keyword filter
+  if (candidateIds !== null) {
+    // 0 件確定の場合も .in([]) は危ういのでダミーで空結果を強制
+    query = query.in("id", candidateIds.length > 0 ? candidateIds : ["__none__"]);
+  }
+  if (skillTagFilters.length > 0) {
+    // text[] カラムは OR 一致を overlaps (&&) で
+    query = query.overlaps("skill_tags", skillTagFilters);
+  }
   if (q) {
-    query = query.or(
-      `last_name.ilike.%${q}%,first_name.ilike.%${q}%`,
-    );
+    query = query.or(`last_name.ilike.%${q}%,first_name.ilike.%${q}%`);
   }
 
   query = query
@@ -91,38 +148,7 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
     .range(offset, offset + ITEMS_PER_PAGE - 1);
 
   const { data: contractors, count } = await query;
-
-  // Post-filter by prefecture / tradeTypes / skillTags / qualifications (joined table filters)
-  // 配列は OR 一致 (1 つでも含めばヒット)
-  let filteredContractors = contractors ?? [];
-  if (prefecture) {
-    filteredContractors = filteredContractors.filter((c) => {
-      const areas =
-        (c.user_available_areas as Array<{ prefecture: string }>) ?? [];
-      return areas.some((a) => a.prefecture === prefecture);
-    });
-  }
-  if (tradeTypes.length > 0) {
-    filteredContractors = filteredContractors.filter((c) => {
-      const skills = (c.user_skills as Array<{ trade_type: string }>) ?? [];
-      return skills.some((s) => tradeTypes.includes(s.trade_type));
-    });
-  }
-  if (skillTagFilters.length > 0) {
-    filteredContractors = filteredContractors.filter((c) => {
-      const tags = (c.skill_tags ?? []) as string[];
-      return tags.some((t) => skillTagFilters.includes(t));
-    });
-  }
-  if (qualificationFilters.length > 0) {
-    filteredContractors = filteredContractors.filter((c) => {
-      const quals =
-        (c.user_qualifications as Array<{ qualification_name: string }>) ?? [];
-      return quals.some((q) =>
-        qualificationFilters.includes(q.qualification_name),
-      );
-    });
-  }
+  const filteredContractors = contractors ?? [];
 
   // Get user's favorites
   const contractorIds = filteredContractors.map((c) => c.id);

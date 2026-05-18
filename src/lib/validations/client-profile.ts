@@ -55,13 +55,19 @@ const sharedFields = {
   ),
   recruitJobTypes: z
     .array(z.string().trim().min(1))
-    .min(1, "募集職種を選択してください"),
+    .min(1, "募集職種を選択してください")
+    .transform((arr) => Array.from(new Set(arr))),
   recruitArea: z
     .array(z.string().trim().min(1))
-    .min(1, "募集エリアを選択してください"),
+    .min(1, "募集エリアを選択してください")
+    .transform((arr) => Array.from(new Set(arr))),
   employeeScale: optionalInt(EMPLOYEE_SCALE_MIN, EMPLOYEE_SCALE_MAX),
-  workingWay: z.array(z.enum(WORKING_WAYS)),
-  language: z.array(z.string().trim().min(1)),
+  workingWay: z
+    .array(z.enum(WORKING_WAYS))
+    .transform((arr) => Array.from(new Set(arr))),
+  language: z
+    .array(z.string().trim().min(1))
+    .transform((arr) => Array.from(new Set(arr))),
   message: optionalString(
     MESSAGE_MAX,
     `メッセージは${MESSAGE_MAX}文字以内で入力してください`,
