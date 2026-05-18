@@ -80,7 +80,7 @@ test.describe("CLI-021 発注者情報編集（編集モード）", () => {
     const original = "鈴木工務店株式会社"; // seed の値
     const newName = `E2E_更新_${Date.now()}`;
     await page.getByLabel("会社名・氏名").fill(newName);
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
 
     // ハードナビゲーション（window.location.href）後に CLI-020 に到達
     await expect(
@@ -94,7 +94,7 @@ test.describe("CLI-021 発注者情報編集（編集モード）", () => {
       page.getByRole("heading", { name: "発注者情報編集" }),
     ).toBeVisible();
     await page.getByLabel("会社名・氏名").fill(original);
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
     await expect(
       page.getByRole("heading", { name: "発注者情報詳細" }),
     ).toBeVisible({ timeout: 15000 });

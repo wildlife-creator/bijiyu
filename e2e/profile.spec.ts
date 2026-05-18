@@ -27,7 +27,7 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     await firstNameInput.clear();
     await firstNameInput.fill("テスト名");
 
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 10000 });
     await expect(page.getByText("テスト姓 テスト名")).toBeVisible();
   });
@@ -40,7 +40,7 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     await page.getByLabel("お住まい（都道府県）").click();
     await page.getByRole("option", { name: "大阪府" }).click();
 
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 10000 });
     await expect(page.getByText("大阪府")).toBeVisible();
   });
@@ -52,7 +52,7 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     await bioTextarea.clear();
     await bioTextarea.fill("E2Eテスト用の自己紹介文です。");
 
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 10000 });
     await expect(page.getByText("E2Eテスト用の自己紹介文です。")).toBeVisible();
   });
@@ -63,7 +63,7 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     const lastNameInput = page.locator("#lastName");
     await lastNameInput.clear();
 
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
 
     await expect(page.getByText("姓を入力してください")).toBeVisible();
   });
@@ -104,7 +104,7 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     await page.keyboard.press("Escape");
 
     // 保存して COM-001 に遷移 → 追加したスキルが表示される
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 10000 });
     // contractor1 は既に多くの skill_tags を持つので「もっと見る」展開が必要
     const showMore = page.getByRole("button", { name: "もっと見る" });

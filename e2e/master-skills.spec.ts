@@ -140,7 +140,7 @@ test.describe("9.3a COM-002 編集経路 (master-skills)", () => {
     await page.keyboard.press("Escape");
 
     // ─── 保存 ─────────────────────────────────────────────────────────────
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 15000 });
 
     // ─── COM-001 表示確認 ────────────────────────────────────────────────
@@ -205,7 +205,7 @@ test.describe("9.3b 上限なし大量登録 (master-skills)", () => {
     await page.keyboard.press("Escape");
 
     // ─── 保存 ──────────────────────────────────────────────────────────────
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 15000 });
 
     // ─── COM-001 で「もっと見る」が表示される ───────────────────────────
@@ -286,7 +286,7 @@ test.describe("9.3d 関連候補 (RelatedSuggestions)", () => {
     await page.getByLabel("経験年数 4（年）").fill("2");
 
     // 保存 → COM-001 で 大工 + 宮大工 + 既存 trades が表示される
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 15000 });
 
     await expect(page.getByText("建築/躯体｜大工").first()).toBeVisible();
@@ -336,7 +336,7 @@ test.describe("9.3c CLI-021 経路 (master-skills)", () => {
     await expect(page.getByRole("dialog")).not.toBeVisible();
 
     // ─── 保存 ──────────────────────────────────────────────────────────
-    await page.getByRole("button", { name: "確認する" }).click();
+    await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/mypage\/client-profile$/, { timeout: 15000 });
 
     // ─── CLI-020 表示確認 ────────────────────────────────────────────

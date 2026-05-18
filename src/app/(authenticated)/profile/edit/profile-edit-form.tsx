@@ -771,7 +771,7 @@ export function ProfileEditForm({
             disabled={isSubmitting || isPending}
             className="w-full max-w-xs rounded-pill bg-primary text-white hover:bg-primary/90"
           >
-            {isSubmitting || isPending ? "送信中..." : "確認する"}
+            {isSubmitting || isPending ? "送信中..." : "保存する"}
           </Button>
           <BackButton className="w-full max-w-xs" />
         </div>

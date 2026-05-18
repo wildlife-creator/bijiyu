@@ -408,7 +408,7 @@ export function ClientProfileEditForm({
           className="w-full max-w-xs rounded-pill bg-primary text-white hover:bg-primary/90"
           disabled={isPending}
         >
-          {isSetup ? "保存する" : "確認する"}
+          保存する
         </Button>
         {isSetup && !isCorporate && (
           <Button
