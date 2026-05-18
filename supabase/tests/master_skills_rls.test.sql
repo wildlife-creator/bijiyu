@@ -73,10 +73,11 @@ SELECT is(
   'anon can SELECT all active master_trade_types'
 );
 
+-- seed.sql で 1 件（'特級ボイラー技士'）を deprecated に倒しているため active は 598
 SELECT is(
   (SELECT count(*)::int FROM master_qualifications WHERE deprecated_at IS NULL),
-  599,
-  'anon can SELECT all active master_qualifications'
+  598,
+  'anon can SELECT all active master_qualifications (599 inserted - 1 deprecated in seed)'
 );
 
 SELECT is(
@@ -142,10 +143,11 @@ SELECT is(
   'authenticated can SELECT active master_trade_types'
 );
 
+-- seed.sql の deprecated（'特級ボイラー技士'）を除いた active 件数
 SELECT is(
   (SELECT count(*)::int FROM master_qualifications WHERE deprecated_at IS NULL),
-  599,
-  'authenticated can SELECT active master_qualifications'
+  598,
+  'authenticated can SELECT active master_qualifications (599 - 1 deprecated)'
 );
 
 SELECT is(
