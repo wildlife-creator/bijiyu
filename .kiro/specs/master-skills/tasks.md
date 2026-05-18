@@ -265,7 +265,7 @@
   - `supabase db reset` で全環境を再構築可能にする
   - _Requirements: 11.8, 12.1, 12.2, 12.3, 12.4, 12.5_
 
-- [ ] 9. テストの更新と新規追加
+- [x] 9. テストの更新と新規追加
 - [x] 9.1 Vitest ユニット / 統合テスト (P)
   - `parseTradeTypeCategory` の 113 件全件パース、`siblingsInSameMidCategory` の自身除外と deprecated 除外
   - `validateLabelChanges` の delta 検証（added のみ active 必須、既存保有 deprecated 保持、空 previousLabels の新規登録、unknown 検出）
@@ -294,7 +294,7 @@
   - 起動前提: `supabase start` + `supabase db reset` + `npm run dev`
   - _Requirements: 3.5, 3.7, 3.8, 3.9, 3.10, 3.14, 3.15, 4.1, 4.3, 6.1, 6.2, 6.8, 7.1, 7.8, 7.9, 11.5, 11.7_
 
-- [ ] 9.4 Playwright E2E — 検索・閲覧・制限系 4 シナリオ (P)
+- [x] 9.4 Playwright E2E — 検索・閲覧・制限系 4 シナリオ (P)
   - **CON-002 案件検索**: 募集職種 2 件選択 → URL searchParams 反映 → `jobs.trade_types` への `.overlaps()` で OR 一致確認
   - **CLI-005 ユーザー検索**: 対応職種 + 保有スキル + 保有資格を複数選択 → URL searchParams 反映 → 3 マスタへの OR 一致確認（TRADE_TYPES 誤用バグの非再発確認）
   - **CON-005 発注者検索**: 募集職種 2 件選択 → `client_profiles.recruit_job_types` への `.overlaps()` + `!inner` で OR 一致確認
@@ -305,29 +305,29 @@
   - 起動前提: `supabase start` + `supabase db reset` + `npm run dev`
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.8, 5.9, 5.11, 9.2, 9.3, 11.5, 11.7, 13.1, 13.3_
 
-- [ ] 10. ステアリング・CLAUDE.md・周辺 spec の波及更新
-- [ ] 10.1 `.kiro/steering/database-schema.md` の更新 (P)
+- [x] 10. ステアリング・CLAUDE.md・周辺 spec の波及更新
+- [x] 10.1 `.kiro/steering/database-schema.md` の更新 (P)
   - `user_skills` / `users.skill_tags` / `user_qualifications` / `client_profiles.recruit_job_types` 関連記述を新マスタ前提に書き換える
   - 「選択肢データ（OptionSets）の方針」セクションで `user_skills.trade_type` / `user_qualifications.qualification_name` を「マスタテーブル参照（label 保存方式）」に移動する
   - `jobs.trade_types text[]` のスキーマ変更とインデックス改修（GIN）を反映する
   - 廃止項目の運用ルール（マスタ廃止は `UPDATE deprecated_at` で行い `DELETE` しない、label 書き換え時の denormalization 整合維持の `UPDATE`、事前移行運用、動的検索候補復活なし）を追記する
   - _Requirements: 9.1, 9.4, 9.5, 9.6, 9.7, 9.8, 15.1, 15.2_
 
-- [ ] 10.2 CLAUDE.md と他 spec の旧記述の全廃 (P)
+- [x] 10.2 CLAUDE.md と他 spec の旧記述の全廃 (P)
   - CLAUDE.md 内の「最大 3 件」「`TRADE_TYPES` から選択」関連記述を新マスタ前提の運用ルールに置き換える
   - `.kiro/specs/{matching,profile,job-posting,job-search}/requirements.md` 等の関連記述を更新する
   - `grep "TRADE_TYPES" .kiro/ src/` で本仕様外の参照が残らないことを確認できる状態にする
   - `git grep "jobs.trade_type\b"` で旧カラム名の参照が残らないことも確認する
   - _Requirements: 15.3, 15.4, 15.5_
 
-- [ ] 10.3 スコープ外記述の明示と運用方針記載 (P)
+- [x] 10.3 スコープ外記述の明示と運用方針記載 (P)
   - ユーザー側「マスタ追加リクエスト」UI を一切置かないことを spec ドキュメントで明示する
   - マスタ管理画面（ADM 系）が本仕様の範囲外であることを明示し、Supabase ダッシュボードでの直接操作で運用することを記載する
   - 「マスタに該当項目がないユーザーの希望」は `contacts` テーブルで受け付ける運用方針を明記する
   - ピン留め・人気度ベースの並び替えは MVP 範囲外で、運用 3〜6 ヶ月後にマスタ採用頻度集計を取って再評価することを記載する
   - _Requirements: 10.1, 10.2, 10.3, 14.1, 14.2, 14.3, 14.4, 13.5_
 
-- [ ] 11. 最終統合確認とリグレッション
+- [x] 11. 最終統合確認とリグレッション
   - `npm run test` / `supabase test db` / `npm run test:e2e` を順に再実行し、全 pass を確認する
   - `git grep "TRADE_TYPES"` / `git grep "jobs.trade_type\b"` で旧記述の残存ゼロを確認する
   - 27 改修画面のチェックリストを目視確認し、デザインカンプ（`design-assets/screens/`）との整合を最終チェックする

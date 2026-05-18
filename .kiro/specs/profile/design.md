@@ -311,7 +311,7 @@ function updateProfileAction(input: ProfileEditInput): Promise<ActionResult>;
 
 保有スキルは `users.skill_tags text[] NOT NULL DEFAULT '{}'` に保存する。過去は MVP スコープ簡素化のため `user_qualifications` に相乗りさせる方針だったが、以下の理由で専用カラムを新設した:
 
-1. 「対応できる職種」（`user_skills.trade_type`、TRADE_TYPES 固定リスト）と「保有スキル」（自由入力タグ）は意味論的に別物。COM-001 の画面カンプも別行として配置している
+1. 「対応できる職種」（`user_skills.trade_type`、`master_trade_types` マスタ参照）と「保有スキル」（`users.skill_tags`、`master_skill_tags` マスタ参照）は意味論的に別物。COM-001 の画面カンプも別行として配置している
 2. 資格（`user_qualifications.qualification_name`）と同居させると、CLI-005 の検索フィルターや CLI-006 の表示で「資格なのかスキルなのか」の区別がつかなくなる
 3. タグ以上の属性（ID・作成日時）が不要なので、別テーブルではなく `text[]` カラムで十分
 4. 既存データには `DEFAULT '{}'` で空配列が入るため、後方互換性の破壊なし（マイグレーション: `20260422100000_add_skill_tags_to_users.sql`）

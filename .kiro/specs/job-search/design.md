@@ -630,7 +630,7 @@ const applicationSchema = z.object({
 **searchParams**:
 - `q`: キーワード（`users.last_name` / `users.first_name` / `client_profiles.display_name` の3軸 OR 検索）。Supabase JS の `.or()` は foreign relation 参照を安定して扱えないため、2 段階クエリ（user 名検索 + プロフィール名検索）で `user_id` 集合を解決し、本クエリで `.in('id', ids)` 絞り込み
 - `prefecture`: 募集エリア（`PREFECTURES` 定数の値1つ）→ `client_profiles.recruit_area text[]` への overlaps 検索
-- `tradeType`: 募集職種（`TRADE_TYPES` 定数の値1つ）→ `client_profiles.recruit_job_types text[]` への overlaps 検索
+- `tradeType`: 募集職種（`master_trade_types.label`、複数選択可で `searchParams.getAll('tradeType')` で配列復元）→ `client_profiles.recruit_job_types text[]` への `.overlaps()` + `!inner` ジョインで OR 一致検索（master-skills 仕様）
 - `employeeScale`: 従業員規模レンジ（`EMPLOYEE_SCALE_RANGES` の `label` 1つ、例 `10〜49人`）→ `client_profiles.employee_scale integer` に `gte(min)` + `lte(max)` の BETWEEN クエリ。最上位レンジ（`1000人以上`）は `max = null` なので `gte` のみ
 - `workingWay`: 求める働き方（`WORKING_WAYS` 定数の値1つ）→ `client_profiles.working_way text[]` への overlaps 検索（複数登録された発注者は OR でヒット）
 - `language`: 言語（`LANGUAGES` 定数の値1つ）→ `client_profiles.language text[]` への overlaps 検索

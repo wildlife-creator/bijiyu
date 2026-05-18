@@ -16,7 +16,7 @@
 - **Findings**:
   - Server Action は `ActionResult<T>` 型で統一（`src/lib/types/action-result.ts`）
   - Zod バリデーションは `src/lib/validations/` に集約
-  - 定数（TRADE_TYPES, PREFECTURES）は `src/lib/constants/options.ts` に定義済み
+  - 定数（PREFECTURES, LANGUAGES, WORKING_WAYS 等）は `src/lib/constants/options.ts` に定義済み。職種・資格・スキルは master-skills 仕様で `master_trade_types` / `master_qualifications` / `master_skill_tags` に移行済み（`getActiveTradeTypes()` 等で取得）
   - 一覧ページは Server Component で searchParams を受け取り、Client Component でフィルター操作を行うパターン
   - Supabase クエリは `.select()` でリレーションを JOIN し、`.range()` でページネーション
 - **Implications**: 新規ライブラリ不要。既存パターンの踏襲で一貫性を維持できる

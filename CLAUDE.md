@@ -403,11 +403,15 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - `users.role = 'staff'` は `org_role` の値（admin / staff）に関係なく同じ制限が適用される。org_role による違いは CLI 系画面内の操作権限（担当者管理等）のみ
 
 ### 「対応できる職種」と「保有スキル」の使い分け（必ず守ること）
-- **対応できる職種**（`user_skills.trade_type`）= `TRADE_TYPES` 固定リストからの選択値（大工・塗装・電気 等）。1ユーザー最大3件
-- **保有スキル**（`users.skill_tags text[]`）= 自由入力タグ（型枠設置・外壁塗装・送配電線工 等）。件数制限なし
-- この2つは意味論が異なる。受注者詳細（CLI-006）や応募詳細（applications/received・orders）で **`trade_type` を「保有スキル」ラベルで表示してはならない**。`users.skill_tags` を参照すること
+- **対応できる職種**（`user_skills.trade_type`）= `master_trade_types.label` を denormalize で保存（例: `建築/躯体｜大工`）。階層は label の prefix だけで表現。件数制限なし（旧仕様の「最大3件」は master-skills 仕様で撤廃）
+- **保有スキル**（`users.skill_tags text[]`）= `master_skill_tags.label` を denormalize で保存（例: 型枠設置工・外壁塗装工・送配電線工）。件数制限なし
+- **保有資格**（`user_qualifications.qualification_name`）= `master_qualifications.label` を denormalize で保存。件数制限なし
+- 旧 `TRADE_TYPES` 13 値の固定リストは master-skills 仕様で廃止済み。`src/lib/constants/options.ts` から `TRADE_TYPES` 定数は削除済み。新規追加は必ず active なマスタ label（`deprecated_at IS NULL`）のみ。Server Action 側で `validateLabelChanges` を呼び delta validate する
+- 既存保有の deprecated label は保持を許可する。編集画面のみ chip に「（廃止）」サフィックスを `applyDeprecatedSuffix` で付与し、保存前に `stripDeprecatedSuffix` で素の label に戻して `validateLabelChanges` に渡す。表示専用画面ではサフィックスを付けない
+- この3項目は意味論が異なる。受注者詳細（CLI-006）や応募詳細（applications/received・orders）で **`trade_type` を「保有スキル」ラベルで表示してはならない**。`users.skill_tags` を参照すること
 - 2026-04-22 実例: COM-001/002 で保有スキル欄が欠落していた。それに合わせて CLI-006 / applications 詳細画面でも `skills.map((s) => s.trade_type).join("、")` を「保有スキル」として表示する hack が入っていたため、`users.skill_tags` に一本化
 - 新しく「保有スキル」を表示する画面を作る際は必ず `users.skill_tags` を SELECT すること。user_skills から引かないこと
+- マスタ候補の取得は `getActiveTradeTypes()` / `getActiveQualifications()` / `getActiveSkillTags()`（`src/lib/master/fetch.ts`）を使い、検索ポップアップ・編集フォーム共に MasterCombobox に渡す。`unstable_cache` で 1 時間キャッシュ + tag `'master-skills'` で一括無効化可能
 
 ### 名前表示・姓名結合のルール
 - 日本語の姓名結合は**スペースなし**で行うこと（`${lastName}${firstName}`）。`${lastName} ${firstName}` のようにスペースを入れると、既存の表示パターンと不一致になりテストが失敗する
