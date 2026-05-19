@@ -123,7 +123,7 @@
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 8.9_
 
 - [ ] 3. UI 共通部品 4 種実装（AreaPicker / AreaListEditor / AreaList / AreaSummary）
-- [ ] 3.1 AreaPicker（都道府県 + 市区町村の 2 段プルダウン、単一行）
+- [x] 3.1 AreaPicker（都道府県 + 市区町村の 2 段プルダウン、単一行）
   - 都道府県は 47 件固定の shadcn `<Select>`（cmdk 不要）、市区町村は選択都道府県でフィルタした候補を `MasterCombobox`（master-skills 既存）に渡す
   - 都道府県未選択時は市区町村側を `disabled` にする（Req 2.4 / 6.4）
   - 市区町村は任意（未選択 = `null` = 「県全域」のセマンティクス、Req 2.5 / 3.4 / 4.7）
