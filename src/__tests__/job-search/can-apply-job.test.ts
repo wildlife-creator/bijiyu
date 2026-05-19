@@ -6,7 +6,7 @@ describe("canApplyJob", () => {
     userRole: "contractor" as const,
     isPaidUser: false,
     jobTradeTypes: ["大工"],
-    jobPrefecture: "東京都",
+    jobPrefectures: ["東京都"],
     userSkills: [{ tradeType: "大工" }, { tradeType: "内装工" }],
     userAvailableAreas: [{ prefecture: "東京都" }, { prefecture: "神奈川県" }],
   };
@@ -24,7 +24,7 @@ describe("canApplyJob", () => {
       ...baseParams,
       isPaidUser: true,
       jobTradeTypes: ["電気工事士"],
-      jobPrefecture: "北海道",
+      jobPrefectures: ["北海道"],
     });
     expect(result.canApply).toBe(true);
   });
@@ -75,7 +75,7 @@ describe("canApplyJob", () => {
   it("無料ユーザー: エリアが不一致なら応募不可", () => {
     const result = canApplyJob({
       ...baseParams,
-      jobPrefecture: "北海道",
+      jobPrefectures: ["北海道"],
     });
     expect(result.canApply).toBe(false);
     expect(result.reason).toBeDefined();
@@ -85,7 +85,7 @@ describe("canApplyJob", () => {
     const result = canApplyJob({
       ...baseParams,
       jobTradeTypes: ["電気工事士"],
-      jobPrefecture: "北海道",
+      jobPrefectures: ["北海道"],
     });
     expect(result.canApply).toBe(false);
   });

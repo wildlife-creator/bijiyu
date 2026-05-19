@@ -71,7 +71,7 @@
   - この時点ではアプリコードはまだ旧スキーマを参照しているため、`jobs.prefecture` / `client_profiles.recruit_area` の型は残っており TS エラーは発生しない（Phase 4 の書き換え時に gen types を再実行）
   - _Requirements: 8.1_
 
-- [ ] 2. Lib 層実装（マスタ取得・検証・表示・検索・マッチング拡張）
+- [x] 2. Lib 層実装（マスタ取得・検証・表示・検索・マッチング拡張）
 - [x] 2.1 マスタ取得 API 拡張 + `master-area` キャッシュタグ
   - `src/lib/master/fetch.ts` に `getActiveMunicipalities()`（全件 active のみ）、`getActiveMunicipalitiesByPrefecture(prefecture)`（in-memory フィルタの薄ラッパー）、`getAllMunicipalityRows()`（deprecated 含む全件、廃止判定用）の 3 関数を追加する
   - すべて `unstable_cache` で TTL 3600s、tag `'master-area'` でキャッシュする（master-skills の `'master-skills'` タグとは独立）
@@ -113,7 +113,7 @@
   - 2.3 / 2.5 とは別ファイルで独立しているため並列実行可能
   - _Requirements: 6.1, 6.2, 6.5, 6.6_
 
-- [ ] 2.5 `matching.ts` 拡張 + 既存テスト並行更新
+- [x] 2.5 `matching.ts` 拡張 + 既存テスト並行更新
   - `src/lib/matching.ts` の `canApplyJob` の入力シグネチャを `jobPrefecture: string` から `jobPrefectures: string[]` に拡張し、配列 OR 一致で判定する（`jobPrefectures.some(p => userAvailableAreas.some(a => a.prefecture === p))`）
   - **判定ロジックは都道府県マッチのまま据え置き**（Req 7）、`municipality` フィールドは入力に含めず、`userAvailableAreas` でも `municipality` カラムが追加されても prefecture のみ参照する
   - `isPaidUser === true` は無条件 canApply（既存挙動維持）、staff ロールの拒否も維持する

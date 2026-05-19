@@ -115,7 +115,8 @@ export async function applyJobAction(
         userRole: userData.role as "contractor" | "client" | "staff",
         isPaidUser: false,
         jobTradeTypes: job.trade_types,
-        jobPrefecture: job.prefecture ?? "",
+        // Phase 2 暫定パッチ (Phase 4 で job_areas.prefecture 配列 SELECT に置換)
+        jobPrefectures: job.prefecture ? [job.prefecture] : [],
         userSkills: (skills ?? []).map((s) => ({ tradeType: s.trade_type })),
         userAvailableAreas: (areas ?? []).map((a) => ({
           prefecture: a.prefecture,
