@@ -161,7 +161,7 @@
   - 3.3 とは別コンポーネントで独立しているため並列実行可能
   - _Requirements: 5.3, 5.5_
 
-- [ ] 4. 入力 7 画面・Server Actions 5 個・表示 12+ 箇所の一斉書き換え
+- [x] 4. 入力 7 画面・Server Actions 5 個・表示 12+ 箇所の一斉書き換え
   - **dev 環境での動作確認の前提（必ず守ること）**: dev 環境では `supabase db reset` 時に Migration 3（DML 移行）が空の jobs / client_profiles に対して実行されるため 0 件移行となる。さらに Phase 5（seed.sql 新スキーマ対応）完了まで seed は旧スキーマのまま `jobs.prefecture` に値を入れ続けるため、Phase 4 完了時点では `job_areas` / `client_recruit_areas` / `user_available_areas.municipality` がすべて空。**Phase 4 単独では「検索 0 件 / 応募ボタン disabled / エリア表示空」が正常な中間状態**であり、コード不具合と誤診断しないこと。E2E / 手動動作確認は Phase 5 完了後に行う。本フェーズは Vitest 単体 + 型チェック（`npm run test` / `npm run build`）の通過を完了基準とする
 - [ ] 4.1 受注者プロフィール入力（AUTH-006 / COM-002）
   - AUTH-006（新規会員登録情報入力）の現状 Checkbox 47 件グリッド UI を `AreaListEditor` Popup 形式に統一して COM-002 と同形式に揃える（Req 2.8）
@@ -192,7 +192,7 @@
   - 4.1 / 4.2 / 4.4 とは異なる入力フォームのため並列実行可能
   - _Requirements: 4.1, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 10.5_
 
-- [ ] 4.4 (P) 検索 popup 3 画面（CON-002 / CON-005 / CLI-005）
+- [x] 4.4 (P) 検索 popup 3 画面（CON-002 / CON-005 / CLI-005）
   - CON-002（案件検索 popup）/ CON-005（発注者検索 popup）/ CLI-005（職人検索 popup）の検索条件に都道府県プルダウン + 市区町村プルダウン（任意）の階層フィルタを `AreaPicker` で提供する
   - 検索状態は URL `searchParams` の Single Source of Truth とする（例: `?prefecture=東京都&municipality=港区`）。`useState` は使わない（ブラウザ戻る・共有・ブックマーク対応、Req 6.7）
   - Server Component で `buildAreaFilterIds` を呼び parent_id 候補集合を取得し、メインクエリに `.in('id', candidateIds)` で渡す（CLI-005 の ID-intersection パターン準拠）
@@ -215,7 +215,7 @@
   - **トランザクション境界の注意**: profile / client-profile / jobs の「direct upsert + replace_*_areas RPC の 2 段」は 1 トランザクションではない（Supabase JS の制約）。最悪ケースでは「ユーザー基本情報は保存されたがエリアは未保存」状態になる可能性があるが、master-area の area 編集系では area 単独再保存で回復可能なため許容する
   - _Requirements: 2.1, 2.10, 3.1, 3.2, 3.7, 4.1, 4.2, 4.4, 4.9, 7.1, 8.1, 8.5_
 
-- [ ] 4.6 表示 12+ 箇所を AreaList / AreaSummary に置換
+- [x] 4.6 表示 12+ 箇所を AreaList / AreaSummary に置換
   - 詳細画面（CON-003 案件詳細 / CLI-002 案件管理 / CLI-006 ユーザー詳細 / COM-001 プロフィール詳細 / CON-006 発注者詳細 / CLI-020 発注者ホーム）の `job.prefecture` / `client_profiles.recruit_area` / `user_available_areas` 表示を `<AreaList />` に置換する
   - カード（CON-002 ジョブカード `components/job-search/job-list-card.tsx`、職人カード、発注者カード、マイリスト CON-007、スカウト情報カード `components/messaging/scout-info-card.tsx`、メッセージスレッド `applications/orders/[id]/page.tsx`）を `<AreaSummary />` に置換する
   - **対象ファイル数の実測（着手時に再 grep で再確認）**: `grep -rln "job\.prefecture\b" src/` 約 17 ファイル + `grep -rln "recruit_area" src/` 約 8 ファイル + `user_available_areas` 経由のファイル群を一括で書き換える（手書きで `slice(0, 3).join('、')` を残さない）
@@ -224,7 +224,7 @@
   - 該当画面ごとに Server Component で `job_areas` / `client_recruit_areas` / `user_available_areas` を SELECT し、配列を `<AreaList />` / `<AreaSummary />` に渡す
   - _Requirements: 1.8, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-- [ ] 4.7 Vitest 既存テスト期待値更新
+- [x] 4.7 Vitest 既存テスト期待値更新
   - 4.1〜4.6 の書き換えに伴い影響を受ける既存 Vitest テストの期待値を `AreaTuple[]` 形式 / `<AreaList />` / `<AreaSummary />` ベースに更新する
   - 既存テストファイルを `npm run test` で全件実行し、緑になるまで修正する
   - **モックの注意**: Server Action 自体を `vi.mock` で差し替えてはならない。Supabase クライアントをモックし、`{ data, error }` の戻り値形状を正確に再現する。`vi.clearAllMocks()` 後の `mockReturnValueOnce` 漏れに注意（CLAUDE.md 既存ルール）
