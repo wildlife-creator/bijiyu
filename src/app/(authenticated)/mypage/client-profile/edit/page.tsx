@@ -2,7 +2,10 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAllMasterRows } from "@/lib/master/fetch";
+import {
+  getAllMasterRows,
+  getMunicipalitiesByPrefecture,
+} from "@/lib/master/fetch";
 import { WORKING_WAYS, type WorkingWay } from "@/lib/constants/options";
 import type { ClientProfileFormInput } from "@/lib/validations/client-profile";
 
@@ -62,15 +65,21 @@ export default async function ClientProfileEditPage({
     (subscription?.plan_type as PlanType | undefined) ?? null;
 
   // setup モードでプランが未確定の場合も画面表示は許可（要件書 L207）
-  const { data: profile } = await supabase
-    .from("client_profiles")
-    .select(
-      `display_name, address, image_url, recruit_job_types, recruit_area,
-       employee_scale, working_way, language, message,
-       sns_x, sns_instagram, sns_tiktok, sns_youtube, sns_facebook`,
-    )
-    .eq("user_id", profileUserId)
-    .maybeSingle();
+  const [{ data: profile }, { data: recruitAreaRows }] = await Promise.all([
+    supabase
+      .from("client_profiles")
+      .select(
+        `display_name, address, image_url, recruit_job_types,
+         employee_scale, working_way, language, message,
+         sns_x, sns_instagram, sns_tiktok, sns_youtube, sns_facebook`,
+      )
+      .eq("user_id", profileUserId)
+      .maybeSingle(),
+    supabase
+      .from("client_recruit_areas")
+      .select("prefecture, municipality")
+      .eq("client_id", profileUserId),
+  ]);
 
   // Webhook によるデフォルト値（姓名）のフォールバック
   const { data: ownerUser } = await supabase
@@ -88,7 +97,10 @@ export default async function ClientProfileEditPage({
     address: profile?.address ?? null,
     imageUrl: profile?.image_url ?? null,
     recruitJobTypes: profile?.recruit_job_types ?? [],
-    recruitArea: profile?.recruit_area ?? [],
+    recruitArea: (recruitAreaRows ?? []).map((r) => ({
+      prefecture: r.prefecture,
+      municipality: r.municipality,
+    })),
     employeeScale: profile?.employee_scale ?? null,
     workingWay: ((profile?.working_way ?? []) as string[]).filter(
       (v): v is WorkingWay => (WORKING_WAYS as readonly string[]).includes(v),
@@ -102,7 +114,10 @@ export default async function ClientProfileEditPage({
     snsFacebook: profile?.sns_facebook ?? false,
   };
 
-  const allTradeTypes = await getAllMasterRows("trade-types");
+  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
+    getAllMasterRows("trade-types"),
+    getMunicipalitiesByPrefecture(),
+  ]);
   const activeTradeTypes = allTradeTypes
     .filter((r) => !r.deprecated_at)
     .map((r) => r.label);
@@ -122,6 +137,7 @@ export default async function ClientProfileEditPage({
           mode={isSetup ? "setup" : "edit"}
           activeTradeTypes={activeTradeTypes}
           deprecatedTradeSet={deprecatedTradeSet}
+          municipalitiesByPrefecture={municipalitiesByPrefecture}
         />
       </div>
     </div>

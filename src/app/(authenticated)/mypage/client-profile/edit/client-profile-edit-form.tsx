@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/shared/back-button";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { CategoryBulkSelector } from "@/components/master/category-bulk-selector";
+import { AreaListEditor } from "@/components/area/area-list-editor";
+import type { AreaDraft } from "@/components/area/area-picker";
 import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
@@ -42,6 +44,7 @@ interface Props {
   mode: "edit" | "setup";
   activeTradeTypes: string[];
   deprecatedTradeSet: string[];
+  municipalitiesByPrefecture: Record<string, string[]>;
 }
 
 const SNS_FIELDS = [
@@ -64,6 +67,7 @@ export function ClientProfileEditForm({
   mode,
   activeTradeTypes,
   deprecatedTradeSet,
+  municipalitiesByPrefecture,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -277,13 +281,23 @@ export function ClientProfileEditForm({
           control={control}
           name="recruitArea"
           render={({ field }) => (
-            <MultiSelect
-              id="recruitArea"
-              options={PREFECTURES}
-              value={field.value ?? []}
-              onChange={field.onChange}
+            <AreaListEditor
+              value={(field.value ?? []).map((a) => ({
+                prefecture: a.prefecture || null,
+                municipality: a.municipality ?? null,
+              }))}
+              onChange={(next: AreaDraft[]) =>
+                field.onChange(
+                  next.map((a) => ({
+                    prefecture: a.prefecture ?? "",
+                    municipality: a.municipality,
+                  })),
+                )
+              }
+              municipalitiesByPrefecture={municipalitiesByPrefecture}
+              minItems={1}
+              softCapWarning={30}
               disabled={isPending}
-              placeholder="お選びください"
             />
           )}
         />

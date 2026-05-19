@@ -11,6 +11,7 @@ import {
   type ClientProfileFormInput,
 } from "@/lib/validations/client-profile";
 import { validateLabelChanges } from "@/lib/master/validate";
+import { validateAreaChanges } from "@/lib/master/validate-area";
 
 interface SaveOpts {
   mode: "edit" | "setup";
@@ -140,18 +141,32 @@ export async function saveClientProfileAction(
 
   const data = parsed.data;
 
-  // 募集職種の delta validate (added のみ active 必須、既存保有 deprecated 保持)
-  const { data: prevProfile } = await supabase
-    .from("client_profiles")
-    .select("recruit_job_types")
-    .eq("user_id", profileUserId)
-    .maybeSingle();
+  // 募集職種 + 募集エリアの delta validate (added のみ active 必須、既存保有 deprecated 保持)
+  const [{ data: prevProfile }, { data: prevAreas }] = await Promise.all([
+    supabase
+      .from("client_profiles")
+      .select("recruit_job_types")
+      .eq("user_id", profileUserId)
+      .maybeSingle(),
+    supabase
+      .from("client_recruit_areas")
+      .select("prefecture, municipality")
+      .eq("client_id", profileUserId),
+  ]);
   const prevRecruitJobTypes = (prevProfile?.recruit_job_types ?? []) as string[];
-  const recruitValid = await validateLabelChanges(
-    data.recruitJobTypes,
-    prevRecruitJobTypes,
-    "trade-types",
-  );
+  const previousAreas = (prevAreas ?? []).map((r) => ({
+    prefecture: r.prefecture,
+    municipality: r.municipality,
+  }));
+
+  const [recruitValid, areaValid] = await Promise.all([
+    validateLabelChanges(
+      data.recruitJobTypes,
+      prevRecruitJobTypes,
+      "trade-types",
+    ),
+    validateAreaChanges(data.recruitArea, previousAreas),
+  ]);
   if (!recruitValid.valid) {
     return {
       success: false,
@@ -161,14 +176,27 @@ export async function saveClientProfileAction(
           : `廃止された職種は新規追加できません: ${recruitValid.deprecatedLabels.join("、")}`,
     };
   }
+  if (!areaValid.valid) {
+    const fmt = (a: { prefecture: string; municipality: string | null }) =>
+      a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
+    return {
+      success: false,
+      error:
+        areaValid.unknownPairs.length > 0
+          ? `存在しないエリアが含まれています: ${areaValid.unknownPairs.map(fmt).join("、")}`
+          : `廃止されたエリアは新規追加できません: ${areaValid.deprecatedPairs.map(fmt).join("、")}`,
+    };
+  }
 
+  // client_profiles は recruit_area カラムなしで upsert (Phase 6 で DROP 予定だが
+  // 本 Phase 4 では writeを止めるだけにとどめる)。エリアは client_recruit_areas
+  // 別テーブルへ replace_client_recruit_areas RPC で全置換
   const upsertPayload = {
     user_id: profileUserId,
     display_name: data.displayName ?? null,
     address: data.address,
     image_url: data.imageUrl,
     recruit_job_types: data.recruitJobTypes,
-    recruit_area: data.recruitArea,
     employee_scale: data.employeeScale,
     working_way: data.workingWay.length > 0 ? data.workingWay : null,
     language: data.language.length > 0 ? data.language : null,
@@ -186,6 +214,17 @@ export async function saveClientProfileAction(
 
   if (error) {
     return { success: false, error: "発注者情報の保存に失敗しました" };
+  }
+
+  const { error: areasError } = await supabase.rpc(
+    "replace_client_recruit_areas",
+    {
+      p_client_id: profileUserId,
+      p_areas: data.recruitArea,
+    },
+  );
+  if (areasError) {
+    return { success: false, error: "募集エリアの保存に失敗しました" };
   }
 
   revalidatePath("/mypage/client-profile");

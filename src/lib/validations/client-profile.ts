@@ -58,9 +58,22 @@ const sharedFields = {
     .min(1, "募集職種を選択してください")
     .transform((arr) => Array.from(new Set(arr))),
   recruitArea: z
-    .array(z.string().trim().min(1))
+    .array(
+      z.object({
+        prefecture: z.string().min(1, "都道府県を選択してください"),
+        municipality: z.string().nullable(),
+      }),
+    )
     .min(1, "募集エリアを選択してください")
-    .transform((arr) => Array.from(new Set(arr))),
+    .transform((arr) => {
+      const seen = new Set<string>();
+      return arr.filter((a) => {
+        const k = `${a.prefecture}|${a.municipality ?? ""}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }),
   employeeScale: optionalInt(EMPLOYEE_SCALE_MIN, EMPLOYEE_SCALE_MAX),
   workingWay: z
     .array(z.enum(WORKING_WAYS))

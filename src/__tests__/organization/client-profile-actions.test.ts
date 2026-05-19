@@ -5,12 +5,14 @@ const mockFrom = vi.fn();
 const mockAdminFrom = vi.fn();
 const mockStorageFrom = vi.fn();
 const mockAdminStorageFrom = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
     auth: { getUser: (...args: unknown[]) => mockGetUser(...args) },
     from: (...args: unknown[]) => mockFrom(...args),
     storage: { from: (...args: unknown[]) => mockStorageFrom(...args) },
+    rpc: (...args: unknown[]) => mockRpc(...args),
   }),
 }));
 
@@ -98,6 +100,9 @@ beforeEach(() => {
   mockAdminFrom.mockReset();
   mockStorageFrom.mockReset();
   mockAdminStorageFrom.mockReset();
+  mockRpc.mockReset();
+  // replace_client_recruit_areas RPC のデフォルト成功
+  mockRpc.mockResolvedValue({ data: null, error: null });
   // saveClientProfileAction / uploadClientProfileImageAction の冒頭で走る Staff ガード
   // （organization_members.org_role === 'staff' か確認する SELECT）は
   // 各テストで共通に通過させる: data=null を返して非 staff 扱い。
@@ -111,7 +116,7 @@ const basePersonalInput = {
   address: null,
   imageUrl: null,
   recruitJobTypes: ["内装工"],
-  recruitArea: ["東京都"],
+  recruitArea: [{ prefecture: "東京都", municipality: null }],
   employeeScale: null,
   workingWay: [],
   language: [],
@@ -218,8 +223,12 @@ describe("saveClientProfileAction", () => {
       }),
     );
     // delta validate のための previousLabels SELECT (client_profiles.recruit_job_types)
+    // + previousAreas SELECT (client_recruit_areas) を Promise.all で並列実行
     mockFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: { recruit_job_types: [] }, error: null } }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
     );
 
     const upsertChain = createQueryMock({
@@ -230,15 +239,20 @@ describe("saveClientProfileAction", () => {
     const r = await saveClientProfileAction(basePersonalInput, { mode: "edit" });
     expect(r.success).toBe(true);
     if (r.success) expect(r.data?.redirectTo).toBe("/mypage/client-profile");
+    // recruit_area カラムは Phase 4 で upsertPayload から削除済み
+    // (master-area: client_recruit_areas 別テーブルへ replace_client_recruit_areas RPC で全置換)
     expect(upsertChain.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         user_id: OWNER_ID,
         display_name: "田中太郎",
         recruit_job_types: ["内装工"],
-        recruit_area: ["東京都"],
       }),
       expect.objectContaining({ onConflict: "user_id" }),
     );
+    expect(mockRpc).toHaveBeenCalledWith("replace_client_recruit_areas", {
+      p_client_id: OWNER_ID,
+      p_areas: [{ prefecture: "東京都", municipality: null }],
+    });
   });
 
   // --- delta validate (master-skills R3 AC-13 / R9 AC-3) ---
@@ -254,9 +268,12 @@ describe("saveClientProfileAction", () => {
         },
       }),
     );
-    // previousLabels SELECT: 空（新規登録扱い）
+    // previousLabels SELECT: 空（新規登録扱い）+ previousAreas SELECT
     mockFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: { recruit_job_types: [] }, error: null } }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
     );
 
     const r = await saveClientProfileAction(
@@ -285,6 +302,9 @@ describe("saveClientProfileAction", () => {
     mockFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: { recruit_job_types: [] }, error: null } }),
     );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
 
     const r = await saveClientProfileAction(
       { ...basePersonalInput, recruitJobTypes: ["旧職種"] },
@@ -307,11 +327,14 @@ describe("saveClientProfileAction", () => {
         },
       }),
     );
-    // previousLabels SELECT に廃止 "旧職種" が含まれる
+    // previousLabels SELECT に廃止 "旧職種" が含まれる + previousAreas SELECT
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: { data: { recruit_job_types: ["旧職種"] }, error: null },
       }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
     );
     const upsertChain = createQueryMock({ thenable: { data: null, error: null } });
     mockFrom.mockReturnValueOnce(upsertChain);
