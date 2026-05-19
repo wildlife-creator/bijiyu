@@ -16,7 +16,7 @@
   - E2E 起動前提: `supabase start` + `supabase db reset` + `npm run dev`
   - _Requirements: 12.5_
 
-- [ ] 1. DB スキーマ整備 + マスタ投入 + 既存データ DML 移行（Migrations 1〜3）
+- [x] 1. DB スキーマ整備 + マスタ投入 + 既存データ DML 移行（Migrations 1〜3）
   - 本仕様では **マスタ管理専用の admin UI は作成しない**（Req 1.6）。マスタの追加・廃止は SQL マイグレーションで手動管理する。総務省データの定期自動同期も提供しない（Req 1.9、必要時に手動マイグレーション）
 - [x] 1.1 マスタ素材から SQL INSERT 文を生成するスクリプト
   - `scripts/build-master-municipalities-inserts.ts` を新規実装し、`tmp/master-area-research/municipalities.xlsx` または `municipalities.csv` を読み込み `INSERT INTO master_municipalities (prefecture, municipality, sort_order) VALUES ...` を生成する
@@ -65,7 +65,7 @@
   - 移行後の既存案件・ユーザー（市区町村未指定状態）は Phase 2 の `buildAreaFilterIds` 上位包含ルールで取りこぼしなく検索ヒットする前提
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.6_
 
-- [ ] 1.5 Database 型再生成と型エラーの解消
+- [x] 1.5 Database 型再生成と型エラーの解消
   - `supabase gen types typescript --local > src/types/database.ts` を実行し、`master_municipalities` / `job_areas` / `client_recruit_areas` の新テーブルと `user_available_areas.municipality` を反映する
   - Task 1.2 / 1.3 / 1.4 の完了後に実施する
   - この時点ではアプリコードはまだ旧スキーマを参照しているため、`jobs.prefecture` / `client_profiles.recruit_area` の型は残っており TS エラーは発生しない（Phase 4 の書き換え時に gen types を再実行）

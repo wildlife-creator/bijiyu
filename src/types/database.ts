@@ -266,6 +266,38 @@ export type Database = {
           },
         ]
       }
+      client_recruit_areas: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          municipality: string | null
+          prefecture: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          municipality?: string | null
+          prefecture: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          municipality?: string | null
+          prefecture?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_recruit_areas_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       client_reviews: {
         Row: {
           application_id: string
@@ -443,6 +475,38 @@ export type Database = {
           },
         ]
       }
+      job_areas: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          municipality: string | null
+          prefecture: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          municipality?: string | null
+          prefecture: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          municipality?: string | null
+          prefecture?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_areas_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_images: {
         Row: {
           created_at: string
@@ -591,6 +655,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      master_municipalities: {
+        Row: {
+          created_at: string
+          deprecated_at: string | null
+          id: string
+          municipality: string
+          prefecture: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          municipality: string
+          prefecture: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deprecated_at?: string | null
+          id?: string
+          municipality?: string
+          prefecture?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       master_qualifications: {
         Row: {
@@ -1071,18 +1165,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          municipality: string | null
           prefecture: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          municipality?: string | null
           prefecture: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          municipality?: string | null
           prefecture?: string
           user_id?: string
         }
@@ -1367,6 +1464,18 @@ export type Database = {
       }
       is_paid_user: { Args: { uid: string }; Returns: boolean }
       is_same_org: { Args: { org_id: string; uid: string }; Returns: boolean }
+      replace_client_recruit_areas: {
+        Args: { p_areas: Json; p_client_id: string }
+        Returns: undefined
+      }
+      replace_job_areas: {
+        Args: { p_areas: Json; p_job_id: string }
+        Returns: undefined
+      }
+      replace_user_areas: {
+        Args: { p_areas: Json; p_user_id: string }
+        Returns: undefined
+      }
       set_stripe_customer_id: {
         Args: { customer_id: string; uid: string }
         Returns: Json
