@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { formatBubbleTime } from "@/lib/utils/format-message-time";
 import { ScoutInfoCard } from "./scout-info-card";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 
 interface ScoutJobInfo {
   id: string;
@@ -10,7 +11,8 @@ interface ScoutJobInfo {
   recruitEndDate: string | null;
   rewardLower: number | null;
   rewardUpper: number | null;
-  prefecture: string | null;
+  /** master-area: scout 対象案件のエリア配列 */
+  areas: AreaForDisplay[];
   recruitStartDate: string | null;
 }
 
@@ -131,7 +133,7 @@ export function MessageBubble({
           recruitEndDate={scoutJob.recruitEndDate}
           rewardLower={scoutJob.rewardLower}
           rewardUpper={scoutJob.rewardUpper}
-          prefecture={scoutJob.prefecture}
+          areas={scoutJob.areas}
           recruitStartDate={scoutJob.recruitStartDate}
           showScoutActions={showScoutActions}
           scoutStatus={scoutStatus ?? null}

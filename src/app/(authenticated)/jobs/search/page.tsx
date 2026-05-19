@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
-import { getAllMasterRows } from "@/lib/master/fetch";
+import {
+  getAllMasterRows,
+  getMunicipalitiesByPrefecture,
+} from "@/lib/master/fetch";
+import { buildAreaFilterIds } from "@/lib/utils/area-search-clauses";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -11,6 +15,7 @@ import { JobListCard } from "@/components/job-search/job-list-card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
 import { JobSearchFilter } from "./job-search-filter";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -63,14 +68,18 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
+  const municipality = (sp.municipality as string) ?? "";
   const tradeTypes = !sp.tradeType
     ? []
     : Array.isArray(sp.tradeType)
       ? sp.tradeType
       : [sp.tradeType];
 
-  // 検索ポップアップに渡す active 募集職種マスタ
-  const allTradeTypes = await getAllMasterRows("trade-types");
+  // 検索ポップアップに渡す active 募集職種マスタ + 市区町村マスタ
+  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
+    getAllMasterRows("trade-types"),
+    getMunicipalitiesByPrefecture(),
+  ]);
   const activeTradeTypes = allTradeTypes
     .filter((r) => !r.deprecated_at)
     .map((r) => r.label);
@@ -111,12 +120,22 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     }
   }
 
+  // master-area: prefecture/municipality 階層フィルタ。
+  // buildAreaFilterIds は上位包含ルール（県のみ指定なら同県全域 + 市区町村指定済みすべて、
+  // 県+市指定なら該当市区町村レコード + 同県全域指定レコード）で job_id 集合を返す。
+  const areaIds = await buildAreaFilterIds({
+    entity: "job",
+    prefecture: prefecture || null,
+    municipality: municipality || null,
+    supabase,
+  });
+
   // Build query
   let query = supabase
     .from("jobs")
     .select(
       `
-      id, title, description, trade_types, prefecture,
+      id, title, description, trade_types,
       reward_lower, reward_upper, is_urgent,
       recruit_start_date, recruit_end_date, created_at,
       owner_id, organization_id,
@@ -154,8 +173,12 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     }
     query = query.or(orParts.join(","));
   }
-  if (prefecture) {
-    query = query.eq("prefecture", prefecture);
+  if (areaIds !== null) {
+    // 0 件確定の場合はダミー UUID で空結果を強制（buildAreaFilterIds が空配列を返した場合）
+    query = query.in(
+      "id",
+      areaIds.length > 0 ? areaIds : ["00000000-0000-0000-0000-000000000000"],
+    );
   }
   if (tradeTypes.length > 0) {
     query = query.overlaps("trade_types", tradeTypes);
@@ -190,8 +213,23 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
 
   const { data: jobs, count } = await query;
 
-  // Get user's favorites for these jobs
   const jobIds = (jobs ?? []).map((j) => j.id);
+
+  // Bulk fetch job_areas for cards
+  const jobAreasMap = new Map<string, AreaForDisplay[]>();
+  if (jobIds.length > 0) {
+    const { data: areaRows } = await supabase
+      .from("job_areas")
+      .select("job_id, prefecture, municipality")
+      .in("job_id", jobIds);
+    for (const row of areaRows ?? []) {
+      const list = jobAreasMap.get(row.job_id) ?? [];
+      list.push({ prefecture: row.prefecture, municipality: row.municipality });
+      jobAreasMap.set(row.job_id, list);
+    }
+  }
+
+  // Get user's favorites for these jobs
   const { data: favorites } = await supabase
     .from("favorites")
     .select("target_id")
@@ -239,7 +277,10 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
                     : "新着順"}
               </span>
             </Link>
-            <JobSearchFilter activeTradeTypes={activeTradeTypes} />
+            <JobSearchFilter
+              activeTradeTypes={activeTradeTypes}
+              municipalitiesByPrefecture={municipalitiesByPrefecture}
+            />
           </div>
         </div>
 
@@ -268,7 +309,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
                   id: job.id,
                   title: job.title,
                   tradeTypes: job.trade_types,
-                  prefecture: job.prefecture ?? "",
+                  areas: jobAreasMap.get(job.id) ?? [],
                   rewardLower: job.reward_lower,
                   rewardUpper: job.reward_upper,
                   isUrgent: job.is_urgent ?? false,

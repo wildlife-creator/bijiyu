@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
+import { AreaList } from "@/components/area/area-list";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
@@ -101,7 +103,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       .eq("user_id", id),
     supabase
       .from("user_available_areas")
-      .select("prefecture")
+      .select("prefecture, municipality")
       .eq("user_id", id),
     supabase
       .from("user_qualifications")
@@ -226,7 +228,16 @@ export default async function ContractorDetailPage({ params }: PageProps) {
           <InfoRow label="性別" value={contractor.gender} />
           <InfoRow
             label="対応可能エリア"
-            value={areas && areas.length > 0 ? areas.map((a) => a.prefecture).join("、") : null}
+            value={
+              areas && areas.length > 0 ? (
+                <AreaList
+                  areas={areas.map((a) => ({
+                    prefecture: a.prefecture,
+                    municipality: a.municipality,
+                  })) as AreaForDisplay[]}
+                />
+              ) : null
+            }
           />
         </div>
       </section>

@@ -14,6 +14,8 @@ import {
 } from "@/components/shared/application-status-badge";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { BackButton } from "./back-button";
 import { StatusFilter } from "./status-filter";
 import { SortButton } from "./sort-button";
@@ -52,7 +54,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
       `id, status, created_at, applicant_id, scout_message_id,
        jobs(id, title, owner_id, organization_id, trade_types, headcount,
             reward_lower, reward_upper,
-            recruit_start_date, recruit_end_date, prefecture,
+            recruit_start_date, recruit_end_date,
             owner:users!owner_id(
               last_name, first_name, deleted_at,
               client_profiles(display_name, image_url)
@@ -115,6 +117,23 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
   // Manual pagination
   const paginatedApplications = filteredApplications.slice(from, to + 1);
 
+  // master-area: bulk fetch job_areas for displayed cards
+  const visibleJobIds = paginatedApplications
+    .map((app) => (app.jobs as { id?: string } | null)?.id)
+    .filter((v): v is string => typeof v === "string");
+  const jobAreasMap = new Map<string, AreaForDisplay[]>();
+  if (visibleJobIds.length > 0) {
+    const { data: areaRows } = await supabase
+      .from("job_areas")
+      .select("job_id, prefecture, municipality")
+      .in("job_id", visibleJobIds);
+    for (const row of areaRows ?? []) {
+      const list = jobAreasMap.get(row.job_id) ?? [];
+      list.push({ prefecture: row.prefecture, municipality: row.municipality });
+      jobAreasMap.set(row.job_id, list);
+    }
+  }
+
   return (
     <div className="min-h-dvh bg-muted px-6 py-6 md:px-12 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">応募履歴</h1>
@@ -158,7 +177,6 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
             reward_upper: number | null;
             recruit_start_date: string | null;
             recruit_end_date: string | null;
-            prefecture: string | null;
             owner: {
               last_name: string | null;
               first_name: string | null;
@@ -247,11 +265,14 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
                     <span className="ml-2 w-16 shrink-0 font-semibold">報酬</span>
                     <span>{rewardText}</span>
                   </div>
-                  {job?.prefecture && (
+                  {job?.id && (jobAreasMap.get(job.id)?.length ?? 0) > 0 && (
                     <div className="flex items-center">
                       <img src="/images/icons/icon-pin.png" alt="" className="size-4" />
                       <span className="ml-2 w-16 shrink-0 font-semibold">エリア</span>
-                      <span>{job.prefecture}</span>
+                      <AreaSummary
+                        areas={jobAreasMap.get(job.id) ?? []}
+                        className="line-clamp-1"
+                      />
                     </div>
                   )}
                   {recruitPeriod && (

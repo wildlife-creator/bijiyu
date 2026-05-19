@@ -10,9 +10,15 @@ import { PaginationControls } from "@/components/job-search/pagination-controls"
 import { BackButton } from "@/components/job-search/back-button";
 import { ContractorSearchFilter } from "./contractor-search-filter";
 import { createClient } from "@/lib/supabase/server";
-import { getAllMasterRows } from "@/lib/master/fetch";
+import {
+  getAllMasterRows,
+  getMunicipalitiesByPrefecture,
+} from "@/lib/master/fetch";
+import { buildAreaFilterIds } from "@/lib/utils/area-search-clauses";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -38,17 +44,20 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
+  const municipality = (sp.municipality as string) ?? "";
   // 配列: 同名キー繰り返しで encode された値を getAll 相当で復元
   const tradeTypes = getArrayParam(sp.tradeType);
   const skillTagFilters = getArrayParam(sp.skillTag);
   const qualificationFilters = getArrayParam(sp.qualification);
 
-  // 3 マスタ取得 (検索ポップアップへ active label を渡す)
-  const [allTrade, allTags, allQuals] = await Promise.all([
-    getAllMasterRows("trade-types"),
-    getAllMasterRows("skill-tags"),
-    getAllMasterRows("qualifications"),
-  ]);
+  // 3 マスタ + 市区町村マスタ取得 (検索ポップアップへ active label を渡す)
+  const [allTrade, allTags, allQuals, municipalitiesByPrefecture] =
+    await Promise.all([
+      getAllMasterRows("trade-types"),
+      getAllMasterRows("skill-tags"),
+      getAllMasterRows("qualifications"),
+      getMunicipalitiesByPrefecture(),
+    ]);
   const activeTradeTypes = allTrade
     .filter((r) => !r.deprecated_at)
     .map((r) => r.label);
@@ -68,11 +77,14 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
   // フィルタ戦略: join 先テーブルの絞り込みは ID リスト方式で事前抽出してから .in("id", ...) する。
   // PostgREST の !inner join だと nested data（カード表示用の全 skills/areas/quals）が削られるため。
   // これにより count と range（ページネーション）がフィルタ適用後の正確な値になる。
+  //
+  // master-area: prefecture/municipality は buildAreaFilterIds で上位包含ルール適用後の
+  // user_id 集合を取得し、ID 集合の積に統合する。
   // ──────────────────────────────────────────────────────────────────────
 
   async function fetchMatchingUserIds(
-    table: "user_skills" | "user_qualifications" | "user_available_areas",
-    column: "trade_type" | "qualification_name" | "prefecture",
+    table: "user_skills" | "user_qualifications",
+    column: "trade_type" | "qualification_name",
     values: string[],
   ): Promise<Set<string>> {
     const { data } = await supabase
@@ -97,12 +109,14 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
       ),
     );
   }
-  if (prefecture) {
-    idSets.push(
-      await fetchMatchingUserIds("user_available_areas", "prefecture", [
-        prefecture,
-      ]),
-    );
+  const areaUserIds = await buildAreaFilterIds({
+    entity: "user",
+    prefecture: prefecture || null,
+    municipality: municipality || null,
+    supabase,
+  });
+  if (areaUserIds !== null) {
+    idSets.push(new Set(areaUserIds));
   }
 
   // 異なるカテゴリは AND → 全 ID 集合の積を取る
@@ -121,9 +135,7 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
       `
       id, avatar_url, last_name, first_name, birth_date, deleted_at,
       identity_verified, ccus_verified, skill_tags,
-      user_skills(trade_type, experience_years),
-      user_available_areas(prefecture),
-      user_qualifications(qualification_name)
+      user_skills(trade_type, experience_years)
     `,
       { count: "exact" },
     )
@@ -150,8 +162,22 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
   const { data: contractors, count } = await query;
   const filteredContractors = contractors ?? [];
 
-  // Get user's favorites
+  // master-area: bulk fetch user_available_areas for card display
   const contractorIds = filteredContractors.map((c) => c.id);
+  const userAreasMap = new Map<string, AreaForDisplay[]>();
+  if (contractorIds.length > 0) {
+    const { data: areaRows } = await supabase
+      .from("user_available_areas")
+      .select("user_id, prefecture, municipality")
+      .in("user_id", contractorIds);
+    for (const row of areaRows ?? []) {
+      const list = userAreasMap.get(row.user_id) ?? [];
+      list.push({ prefecture: row.prefecture, municipality: row.municipality });
+      userAreasMap.set(row.user_id, list);
+    }
+  }
+
+  // Get user's favorites
   const { data: favorites } = await supabase
     .from("favorites")
     .select("target_id")
@@ -179,6 +205,7 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
               activeTradeTypes={activeTradeTypes}
               activeSkillTags={activeSkillTags}
               activeQualifications={activeQualifications}
+              municipalitiesByPrefecture={municipalitiesByPrefecture}
             />
           </div>
         </div>
@@ -195,9 +222,7 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
               trade_type: string;
               experience_years: number | null;
             }>) ?? [];
-            const areas = (contractor.user_available_areas as Array<{
-              prefecture: string;
-            }>) ?? [];
+            const areas = userAreasMap.get(contractor.id) ?? [];
             const age = contractor.birth_date
               ? calculateAge(contractor.birth_date)
               : null;
@@ -284,15 +309,11 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
 
                   {/* Info rows */}
                   <div className="space-y-1.5 text-body-sm">
-                    {areas.length > 0 && (
-                      <div className="flex items-center">
-                        <img src="/images/icons/icon-pin.png" alt="" className="w-4 h-4 shrink-0" />
-                        <span className="ml-1.5 w-[5rem] shrink-0 text-muted-foreground">対応エリア</span>
-                        <span className="line-clamp-1">
-                          {areas.map((a) => a.prefecture).join("、")}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center">
+                      <img src="/images/icons/icon-pin.png" alt="" className="w-4 h-4 shrink-0" />
+                      <span className="ml-1.5 w-[5rem] shrink-0 text-muted-foreground">対応エリア</span>
+                      <AreaSummary areas={areas} className="line-clamp-1" />
+                    </div>
                     {skills.length > 0 && (
                       <div className="flex items-center">
                         <Clock className="w-4 h-4 text-primary/70 shrink-0" />

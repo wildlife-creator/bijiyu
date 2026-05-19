@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/shared/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
+import { AreaList } from "@/components/area/area-list";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 
@@ -161,11 +163,19 @@ export default async function ProfilePage() {
     experience_years: number | null;
   };
   type Qualification = { id: string; qualification_name: string };
-  type Area = { id: string; prefecture: string };
+  type Area = {
+    id: string;
+    prefecture: string;
+    municipality: string | null;
+  };
 
   const skills = (profile.user_skills ?? []) as Skill[];
   const qualifications = (profile.user_qualifications ?? []) as Qualification[];
-  const areas = (profile.user_available_areas ?? []) as Area[];
+  const areaRows = (profile.user_available_areas ?? []) as Area[];
+  const areas: AreaForDisplay[] = areaRows.map((a) => ({
+    prefecture: a.prefecture,
+    municipality: a.municipality,
+  }));
 
   const experienceYearsText =
     skills.length > 0
@@ -175,8 +185,6 @@ export default async function ProfilePage() {
           .join("、") || null
       : null;
   const skillTags = (profile.skill_tags ?? []) as string[];
-  const areasText =
-    areas.length > 0 ? areas.map((a) => a.prefecture).join("、") : null;
 
   return (
     <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
@@ -235,7 +243,10 @@ export default async function ProfilePage() {
           <DetailRow label="メールアドレス" value={profile.email} />
           <DetailRow label="会社名/屋号" value={profile.company_name} />
           <DetailRow label="お住まい" value={profile.prefecture} />
-          <DetailRow label="対応可能エリア" value={areasText} />
+          <DetailRow
+            label="対応可能エリア"
+            value={areas.length > 0 ? <AreaList areas={areas} /> : null}
+          />
           <DetailRow label="性別" value={genderLabel(profile.gender)} />
         </div>
       </section>

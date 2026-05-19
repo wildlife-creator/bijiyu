@@ -3,6 +3,7 @@ import { CircleCheck } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { formatAreasLong } from "@/lib/utils/format-areas";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { DecisionForm } from "./decision-form";
@@ -28,7 +29,7 @@ export default async function DecisionPage({ params }: Props) {
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, message,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified),
-       jobs!inner(id, title, trade_types, recruit_end_date, owner_id, prefecture, address)`,
+       jobs!inner(id, title, trade_types, recruit_end_date, owner_id, address)`,
     )
     .eq("id", id)
     .single();
@@ -43,7 +44,6 @@ export default async function DecisionPage({ params }: Props) {
     trade_types: string[];
     recruit_end_date: string | null;
     owner_id: string;
-    prefecture: string | null;
     address: string | null;
   };
 
@@ -88,8 +88,22 @@ export default async function DecisionPage({ params }: Props) {
     .eq("image_type", "document")
     .order("sort_order", { ascending: true });
 
+  // master-area: fetch job_areas for default work location
+  const { data: jobAreaRows } = await supabase
+    .from("job_areas")
+    .select("prefecture, municipality")
+    .eq("job_id", job.id);
+  const jobAreasText = formatAreasLong(
+    (jobAreaRows ?? []).map((a) => ({
+      prefecture: a.prefecture,
+      municipality: a.municipality,
+    })),
+  );
+
   // Default work location from job
-  const defaultWorkLocation = [job.prefecture, job.address].filter(Boolean).join(" ");
+  const defaultWorkLocation = [jobAreasText, job.address]
+    .filter((s): s is string => Boolean(s && s.trim()))
+    .join(" ");
 
   return (
     <div className="mx-auto min-h-dvh max-w-2xl bg-muted px-4 py-6 md:px-8 md:py-8">

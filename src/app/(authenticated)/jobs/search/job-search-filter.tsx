@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/select";
 import { SearchFilterSheet, useSheetClose } from "@/components/job-search/search-filter-sheet";
 import { MasterCombobox } from "@/components/master/master-combobox";
+import { AreaPicker } from "@/components/area/area-picker";
 import {
-  PREFECTURES,
   EXPERIENCE_YEARS,
   LANGUAGES,
   WORK_START_PERIODS,
@@ -23,6 +23,8 @@ import {
 
 interface JobSearchFilterProps {
   activeTradeTypes: string[];
+  /** master-area: 都道府県 → 市区町村[] のマップ (Server Component で取得して注入) */
+  municipalitiesByPrefecture: Record<string, string[]>;
 }
 
 export function JobSearchFilter(props: JobSearchFilterProps) {
@@ -33,15 +35,24 @@ export function JobSearchFilter(props: JobSearchFilterProps) {
   );
 }
 
-function JobSearchFilterContent({ activeTradeTypes }: JobSearchFilterProps) {
+function JobSearchFilterContent({
+  activeTradeTypes,
+  municipalitiesByPrefecture,
+}: JobSearchFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const closeSheet = useSheetClose();
 
+  // master-area: URL searchParams を Single Source of Truth とし、popup 開閉時に
+  // 直近の URL 状態から初期化する。AreaPicker は drift 防止のため local state で持つ。
   const [keyword, setKeyword] = useState(searchParams.get("q") ?? "");
-  const [prefecture, setPrefecture] = useState(
-    searchParams.get("prefecture") ?? "",
-  );
+  const [areaValue, setAreaValue] = useState<{
+    prefecture: string | null;
+    municipality: string | null;
+  }>({
+    prefecture: searchParams.get("prefecture") || null,
+    municipality: searchParams.get("municipality") || null,
+  });
   const [workPeriod, setWorkPeriod] = useState(
     searchParams.get("workPeriod") ?? "",
   );
@@ -58,7 +69,9 @@ function JobSearchFilterContent({ activeTradeTypes }: JobSearchFilterProps) {
   function handleSearch() {
     const params = new URLSearchParams();
     if (keyword) params.set("q", keyword);
-    if (prefecture && prefecture !== "all") params.set("prefecture", prefecture);
+    if (areaValue.prefecture) params.set("prefecture", areaValue.prefecture);
+    if (areaValue.prefecture && areaValue.municipality)
+      params.set("municipality", areaValue.municipality);
     if (workPeriod && workPeriod !== "all") params.set("workPeriod", workPeriod);
     for (const v of tradeTypes) params.append("tradeType", v);
     if (experienceYears && experienceYears !== "all")
@@ -82,19 +95,11 @@ function JobSearchFilterContent({ activeTradeTypes }: JobSearchFilterProps) {
 
       <div className="space-y-1">
         <Label>エリア</Label>
-        <Select value={prefecture} onValueChange={setPrefecture}>
-          <SelectTrigger>
-            <SelectValue placeholder="お選びください" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            {PREFECTURES.map((p) => (
-              <SelectItem key={p} value={p}>
-                {p}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AreaPicker
+          value={areaValue}
+          onChange={setAreaValue}
+          municipalitiesByPrefecture={municipalitiesByPrefecture}
+        />
       </div>
 
       <div className="space-y-1">

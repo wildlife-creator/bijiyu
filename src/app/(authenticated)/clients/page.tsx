@@ -9,8 +9,14 @@ import { PaginationControls } from "@/components/job-search/pagination-controls"
 import { BackButton } from "@/components/job-search/back-button";
 import { EMPLOYEE_SCALE_RANGES } from "@/lib/constants/options";
 import { createClient } from "@/lib/supabase/server";
-import { getAllMasterRows } from "@/lib/master/fetch";
+import {
+  getAllMasterRows,
+  getMunicipalitiesByPrefecture,
+} from "@/lib/master/fetch";
+import { buildAreaFilterIds } from "@/lib/utils/area-search-clauses";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 
 import { ClientSearchForm } from "./client-search-form";
@@ -34,14 +40,18 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
+  const municipality = (sp.municipality as string) ?? "";
   const tradeTypes = !sp.tradeType
     ? []
     : Array.isArray(sp.tradeType)
       ? sp.tradeType
       : [sp.tradeType];
 
-  // 検索ポップアップに渡す active 募集職種マスタ
-  const allTradeTypes = await getAllMasterRows("trade-types");
+  // 検索ポップアップに渡す active 募集職種マスタ + 市区町村マスタ
+  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
+    getAllMasterRows("trade-types"),
+    getMunicipalitiesByPrefecture(),
+  ]);
   const activeTradeTypes = allTradeTypes
     .filter((r) => !r.deprecated_at)
     .map((r) => r.label);
@@ -80,11 +90,18 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     keywordUserIds = Array.from(idSet);
   }
 
+  // master-area: prefecture/municipality 階層フィルタで client_id 集合を取得（上位包含ルール）
+  const areaClientIds = await buildAreaFilterIds({
+    entity: "client",
+    prefecture: prefecture || null,
+    municipality: municipality || null,
+    supabase,
+  });
+
   // Build query - fetch users with role='client' joined with client_profiles
   // Use !inner join when filters target client_profiles columns,
   // so PostgREST filters parent rows (not just nested rows)
   const needsInnerJoin =
-    !!prefecture ||
     tradeTypes.length > 0 ||
     !!employeeScaleRange ||
     !!workingWay ||
@@ -96,7 +113,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     .select(
       `
       id, avatar_url, last_name, first_name, deleted_at, prefecture,
-      ${profileJoin}(display_name, image_url, recruit_job_types, recruit_area, working_way, employee_scale)
+      ${profileJoin}(display_name, image_url, recruit_job_types, working_way, employee_scale)
     `,
       { count: "exact" },
     )
@@ -113,8 +130,13 @@ export default async function ClientListPage({ searchParams }: PageProps) {
         : ["00000000-0000-0000-0000-000000000000"],
     );
   }
-  if (prefecture) {
-    query = query.overlaps("client_profiles.recruit_area", [prefecture]);
+  if (areaClientIds !== null) {
+    query = query.in(
+      "id",
+      areaClientIds.length > 0
+        ? areaClientIds
+        : ["00000000-0000-0000-0000-000000000000"],
+    );
   }
   if (tradeTypes.length > 0) {
     query = query.overlaps("client_profiles.recruit_job_types", tradeTypes);
@@ -140,6 +162,21 @@ export default async function ClientListPage({ searchParams }: PageProps) {
 
   // Get user's favorites for these clients
   const clientIds = (clients ?? []).map((c) => c.id);
+
+  // Bulk fetch client_recruit_areas for cards
+  const clientAreasMap = new Map<string, AreaForDisplay[]>();
+  if (clientIds.length > 0) {
+    const { data: areaRows } = await supabase
+      .from("client_recruit_areas")
+      .select("client_id, prefecture, municipality")
+      .in("client_id", clientIds);
+    for (const row of areaRows ?? []) {
+      const list = clientAreasMap.get(row.client_id) ?? [];
+      list.push({ prefecture: row.prefecture, municipality: row.municipality });
+      clientAreasMap.set(row.client_id, list);
+    }
+  }
+
   const { data: favorites } = await supabase
     .from("favorites")
     .select("target_id")
@@ -165,7 +202,10 @@ export default async function ClientListPage({ searchParams }: PageProps) {
             全{count ?? 0}件
           </p>
           <div className="flex items-center gap-2">
-            <ClientSearchForm activeTradeTypes={activeTradeTypes} />
+            <ClientSearchForm
+              activeTradeTypes={activeTradeTypes}
+              municipalitiesByPrefecture={municipalitiesByPrefecture}
+            />
           </div>
         </div>
 
@@ -183,6 +223,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
             });
             // 発注者アバターは client_profiles.image_url を優先し、未設定なら users.avatar_url
             const avatarUrl = profile?.image_url ?? client.avatar_url;
+            const clientAreas = clientAreasMap.get(client.id) ?? [];
 
             return (
               <Card key={client.id} className="overflow-hidden rounded-[8px]">
@@ -232,15 +273,11 @@ export default async function ClientListPage({ searchParams }: PageProps) {
                         </span>
                       </div>
                     )}
-                    {profile?.recruit_area && profile.recruit_area.length > 0 && (
-                      <div className="flex items-center">
-                        <img src="/images/icons/icon-pin.png" alt="" className="w-4 h-4 shrink-0" />
-                        <span className="ml-1.5 w-[5.5rem] shrink-0 text-muted-foreground">募集エリア</span>
-                        <span className="line-clamp-1">
-                          {profile.recruit_area.join("、")}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center">
+                      <img src="/images/icons/icon-pin.png" alt="" className="w-4 h-4 shrink-0" />
+                      <span className="ml-1.5 w-[5.5rem] shrink-0 text-muted-foreground">募集エリア</span>
+                      <AreaSummary areas={clientAreas} className="line-clamp-1" />
+                    </div>
                     {profile?.working_way && profile.working_way.length > 0 && (
                       <div className="flex items-center">
                         <CalendarDays className="w-4 h-4 text-primary/70 shrink-0" />

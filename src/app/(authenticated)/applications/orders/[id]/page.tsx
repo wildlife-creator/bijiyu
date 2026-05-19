@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { ApplicationStatusBadge, getOrderDisplayCategory } from "@/components/shared/application-status-badge";
 import { BackButton } from "@/components/shared/back-button";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaList } from "@/components/area/area-list";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { calculateAge } from "@/lib/utils/calculate-age";
@@ -36,7 +39,7 @@ export default async function OrderDetailPage({ params }: Props) {
          identity_verified, ccus_verified, skill_tags
        ),
        jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper,
-                  prefecture, address, work_start_date, work_end_date,
+                  address, work_start_date, work_end_date,
                   recruit_start_date, recruit_end_date, work_hours, owner_id),
        user_reviews(id),
        client_reviews(id)`,
@@ -56,7 +59,6 @@ export default async function OrderDetailPage({ params }: Props) {
     headcount: number | null;
     reward_lower: number | null;
     reward_upper: number | null;
-    prefecture: string | null;
     address: string | null;
     work_start_date: string | null;
     work_end_date: string | null;
@@ -97,30 +99,42 @@ export default async function OrderDetailPage({ params }: Props) {
   // Fetch applicant's skills, areas, qualifications
   const applicantId = applicant?.id;
 
-  const [skillsResult, areasResult, qualificationsResult] = await Promise.all([
-    applicantId
-      ? supabase
-          .from("user_skills")
-          .select("trade_type, experience_years")
-          .eq("user_id", applicantId)
-      : Promise.resolve({ data: [] }),
-    applicantId
-      ? supabase
-          .from("user_available_areas")
-          .select("prefecture")
-          .eq("user_id", applicantId)
-      : Promise.resolve({ data: [] }),
-    applicantId
-      ? supabase
-          .from("user_qualifications")
-          .select("qualification_name")
-          .eq("user_id", applicantId)
-      : Promise.resolve({ data: [] }),
-  ]);
+  const [skillsResult, areasResult, qualificationsResult, jobAreasResult] =
+    await Promise.all([
+      applicantId
+        ? supabase
+            .from("user_skills")
+            .select("trade_type, experience_years")
+            .eq("user_id", applicantId)
+        : Promise.resolve({ data: [] }),
+      applicantId
+        ? supabase
+            .from("user_available_areas")
+            .select("prefecture, municipality")
+            .eq("user_id", applicantId)
+        : Promise.resolve({ data: [] }),
+      applicantId
+        ? supabase
+            .from("user_qualifications")
+            .select("qualification_name")
+            .eq("user_id", applicantId)
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from("job_areas")
+        .select("prefecture, municipality")
+        .eq("job_id", job.id),
+    ]);
 
   const skills = skillsResult.data ?? [];
-  const areas = areasResult.data ?? [];
+  const areas: AreaForDisplay[] = (areasResult.data ?? []).map((a) => ({
+    prefecture: a.prefecture,
+    municipality: a.municipality,
+  }));
   const qualifications = qualificationsResult.data ?? [];
+  const jobAreas: AreaForDisplay[] = (jobAreasResult.data ?? []).map((a) => ({
+    prefecture: a.prefecture,
+    municipality: a.municipality,
+  }));
   // 保有スキル（users.skill_tags）。「対応できる職種」（skills）とは別物
   const skillTagList = (applicant?.skill_tags ?? []) as string[];
 
@@ -199,7 +213,10 @@ export default async function OrderDetailPage({ params }: Props) {
           <div className="flex items-center gap-2">
             <img src="/images/icons/icon-pin.png" alt="" className="size-4 shrink-0" />
             <span className="min-w-[6rem] shrink-0 font-semibold">エリア</span>
-            <span>{job.prefecture ?? "未定"}{job.address ? ` ${job.address}` : ""}</span>
+            <span>
+              <AreaSummary areas={jobAreas} className="inline" />
+              {job.address ? ` ${job.address}` : ""}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
@@ -279,7 +296,7 @@ export default async function OrderDetailPage({ params }: Props) {
             </div>
           )}
           {areas.length > 0 && (
-            <p className="pl-6 text-body-sm">{areas.map((a) => a.prefecture).join("、")}</p>
+            <AreaList areas={areas} className="pl-6 text-body-sm" />
           )}
 
           {maxExperienceYears != null && (

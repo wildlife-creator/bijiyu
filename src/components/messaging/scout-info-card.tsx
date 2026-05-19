@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { formatDate } from "@/lib/utils/format-date";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { ScoutActionButtons } from "./scout-action-buttons";
 
 interface ScoutInfoCardProps {
@@ -12,7 +14,8 @@ interface ScoutInfoCardProps {
   recruitEndDate: string | null;
   rewardLower: number | null;
   rewardUpper: number | null;
-  prefecture: string | null;
+  /** master-area: スカウト対象案件のエリア配列 */
+  areas: AreaForDisplay[];
   recruitStartDate: string | null;
   // Scout action props
   showScoutActions: boolean;
@@ -28,7 +31,7 @@ export function ScoutInfoCard({
   recruitEndDate,
   rewardLower,
   rewardUpper,
-  prefecture,
+  areas,
   recruitStartDate,
   showScoutActions,
   scoutStatus,
@@ -87,7 +90,7 @@ export function ScoutInfoCard({
               className="h-4 w-4"
             />
             <span className="w-14 text-xs text-primary/70">エリア</span>
-            <span className="text-sm">{prefecture || "—"}</span>
+            <AreaSummary areas={areas} className="text-sm" />
           </div>
           <div className="flex items-center gap-2">
             <img

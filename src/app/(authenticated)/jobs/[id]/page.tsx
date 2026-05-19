@@ -13,6 +13,8 @@ import { canApplyJob } from "@/lib/matching";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
 import { SafeImage } from "@/components/job-search/safe-image";
+import { AreaList } from "@/components/area/area-list";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatDate } from "@/lib/utils/format-date";
 import { CloseJobButton } from "./close-job-button";
 
@@ -130,6 +132,16 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
     .select("*")
     .eq("job_id", id)
     .order("sort_order", { ascending: true });
+
+  // master-area: fetch job_areas for display
+  const { data: jobAreaRowsForDisplay } = await supabase
+    .from("job_areas")
+    .select("prefecture, municipality")
+    .eq("job_id", id);
+  const jobAreas: AreaForDisplay[] = (jobAreaRowsForDisplay ?? []).map((a) => ({
+    prefecture: a.prefecture,
+    municipality: a.municipality,
+  }));
 
   const isOwner = job.owner_id === user.id;
 
@@ -260,7 +272,11 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
               }
               alwaysShow
             />
-            <DetailRow label="エリア" value={job.prefecture} alwaysShow />
+            <DetailRow
+              label="エリア"
+              value={<AreaList areas={jobAreas} />}
+              alwaysShow
+            />
             <DetailRow label="住所" value={job.address} alwaysShow />
             <DetailRow
               label="募集職種"
@@ -411,18 +427,12 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
       .select("trade_type")
       .eq("user_id", user.id);
 
-    const [{ data: areas }, { data: jobAreaRows }] = await Promise.all([
-      supabase
-        .from("user_available_areas")
-        .select("prefecture")
-        .eq("user_id", user.id),
-      supabase
-        .from("job_areas")
-        .select("prefecture")
-        .eq("job_id", job.id),
-    ]);
+    const { data: areas } = await supabase
+      .from("user_available_areas")
+      .select("prefecture")
+      .eq("user_id", user.id);
     const jobPrefectures = Array.from(
-      new Set((jobAreaRows ?? []).map((a) => a.prefecture)),
+      new Set(jobAreas.map((a) => a.prefecture)),
     );
 
     applyCheck = canApplyJob({
@@ -531,7 +541,11 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             }
             alwaysShow
           />
-          <DetailRow label="エリア" value={job.prefecture} alwaysShow />
+          <DetailRow
+            label="エリア"
+            value={<AreaList areas={jobAreas} />}
+            alwaysShow
+          />
           <DetailRow
             label="募集職種"
             value={

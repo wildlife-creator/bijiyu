@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobThumbnail } from "@/components/job-search/job-thumbnail";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatDate } from "@/lib/utils/format-date";
 
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +23,8 @@ interface Job {
   id: string;
   title: string;
   trade_types: string[];
-  prefecture: string | null;
+  /** master-area: 案件のエリア配列 */
+  areas: AreaForDisplay[];
   reward_lower: number | null;
   reward_upper: number | null;
   recruit_end_date: string | null;
@@ -190,11 +193,11 @@ export function JobListClient({
                     <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">報酬</span>
                     <span>{formatReward(job.reward_lower, job.reward_upper)}（人工）</span>
                   </div>
-                  {job.prefecture && (
+                  {job.areas.length > 0 && (
                     <div className="flex items-center">
                       <img src="/images/icons/icon-pin.png" alt="" className="w-4 h-4 shrink-0" />
                       <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">エリア</span>
-                      <span>{job.prefecture}</span>
+                      <AreaSummary areas={job.areas} className="line-clamp-1" />
                     </div>
                   )}
                   {job.recruit_start_date && job.recruit_end_date && (

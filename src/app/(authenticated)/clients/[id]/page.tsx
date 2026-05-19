@@ -7,6 +7,8 @@ import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { CollapsibleList } from "@/components/master/collapsible-list";
+import { AreaList } from "@/components/area/area-list";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 
@@ -56,7 +58,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
       deleted_at, role, prefecture,
       client_profiles(
         display_name, image_url, address,
-        recruit_job_types, recruit_area, working_way,
+        recruit_job_types, working_way,
         employee_scale, message, language
       )
     `,
@@ -66,6 +68,16 @@ export default async function ClientDetailPage({ params }: PageProps) {
     .single();
 
   if (!client) notFound();
+
+  // master-area: fetch client_recruit_areas for display
+  const { data: clientAreaRows } = await supabase
+    .from("client_recruit_areas")
+    .select("prefecture, municipality")
+    .eq("client_id", id);
+  const clientAreas: AreaForDisplay[] = (clientAreaRows ?? []).map((a) => ({
+    prefecture: a.prefecture,
+    municipality: a.municipality,
+  }));
 
   const isDeleted = !!client.deleted_at;
   const profile = Array.isArray(client.client_profiles)
@@ -85,7 +97,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
   const { data: jobs } = await supabase
     .from("jobs")
     .select(
-      `id, title, trade_types, prefecture, reward_lower, reward_upper,
+      `id, title, trade_types, reward_lower, reward_upper,
        is_urgent, recruit_end_date,
        job_images(image_url, sort_order)`,
     )
@@ -97,6 +109,20 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
   // Get job favorites for these jobs
   const jobIds = (jobs ?? []).map((j) => j.id);
+
+  // master-area: bulk fetch job_areas for cards
+  const jobAreasMap = new Map<string, AreaForDisplay[]>();
+  if (jobIds.length > 0) {
+    const { data: areaRows } = await supabase
+      .from("job_areas")
+      .select("job_id, prefecture, municipality")
+      .in("job_id", jobIds);
+    for (const row of areaRows ?? []) {
+      const list = jobAreasMap.get(row.job_id) ?? [];
+      list.push({ prefecture: row.prefecture, municipality: row.municipality });
+      jobAreasMap.set(row.job_id, list);
+    }
+  }
   const { data: jobFavorites } = await supabase
     .from("favorites")
     .select("target_id")
@@ -192,9 +218,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
         <DetailRow
           label="募集エリア"
           value={
-            profile?.recruit_area && profile.recruit_area.length > 0
-              ? profile.recruit_area.join("、")
-              : null
+            clientAreas.length > 0 ? <AreaList areas={clientAreas} /> : null
           }
         />
         <DetailRow
@@ -247,7 +271,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
                     id: job.id,
                     title: job.title,
                     tradeTypes: job.trade_types,
-                    prefecture: job.prefecture ?? "",
+                    areas: jobAreasMap.get(job.id) ?? [],
                     rewardLower: job.reward_lower,
                     rewardUpper: job.reward_upper,
                     isUrgent: job.is_urgent ?? false,

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
+import { AreaList } from "@/components/area/area-list";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 
@@ -96,11 +98,21 @@ export default async function ClientProfilePage() {
   const { data: profile } = await supabase
     .from("client_profiles")
     .select(
-      `display_name, address, image_url, recruit_job_types, recruit_area,
+      `display_name, address, image_url, recruit_job_types,
        employee_scale, working_way, language, message`,
     )
     .eq("user_id", profileUserId)
     .maybeSingle();
+
+  // master-area: fetch client_recruit_areas for display
+  const { data: recruitAreaRows } = await supabase
+    .from("client_recruit_areas")
+    .select("prefecture, municipality")
+    .eq("client_id", profileUserId);
+  const recruitAreas: AreaForDisplay[] = (recruitAreaRows ?? []).map((a) => ({
+    prefecture: a.prefecture,
+    municipality: a.municipality,
+  }));
 
   const { data: ownerUser } = await supabase
     .from("users")
@@ -195,9 +207,7 @@ export default async function ClientProfilePage() {
           <DetailRow
             label="募集エリア"
             value={
-              profile?.recruit_area && profile.recruit_area.length > 0
-                ? profile.recruit_area.join("、")
-                : null
+              recruitAreas.length > 0 ? <AreaList areas={recruitAreas} /> : null
             }
           />
           <DetailRow

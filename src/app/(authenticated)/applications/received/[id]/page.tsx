@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { ApplicationStatusBadge } from "@/components/shared/application-status-badge";
 import { BackButton } from "@/components/shared/back-button";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaList } from "@/components/area/area-list";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 
@@ -32,7 +35,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified, birth_date, skill_tags),
-       jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper, prefecture, address, work_start_date, work_end_date, recruit_start_date, recruit_end_date, work_hours, schedule_detail, owner_id)`,
+       jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper, address, work_start_date, work_end_date, recruit_start_date, recruit_end_date, work_hours, schedule_detail, owner_id)`,
     )
     .eq("id", id)
     .single();
@@ -48,7 +51,6 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     headcount: number | null;
     reward_lower: number | null;
     reward_upper: number | null;
-    prefecture: string | null;
     address: string | null;
     work_start_date: string | null;
     work_end_date: string | null;
@@ -116,8 +118,13 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     }
   }
 
-  // Fetch applicant skills, areas, qualifications in parallel
-  const [{ data: skills }, { data: areas }, { data: qualifications }] = applicant
+  // Fetch applicant skills, areas (with municipality), qualifications + job_areas in parallel
+  const [
+    { data: skills },
+    { data: areas },
+    { data: qualifications },
+    { data: jobAreaRows },
+  ] = applicant
     ? await Promise.all([
         supabase
           .from("user_skills")
@@ -125,14 +132,18 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
           .eq("user_id", applicant.id),
         supabase
           .from("user_available_areas")
-          .select("prefecture")
+          .select("prefecture, municipality")
           .eq("user_id", applicant.id),
         supabase
           .from("user_qualifications")
           .select("qualification_name")
           .eq("user_id", applicant.id),
+        supabase
+          .from("job_areas")
+          .select("prefecture, municipality")
+          .eq("job_id", job.id),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   // 対応できる職種（user_skills.trade_type）。applicant ヘッダー下の職種プレビュー用
   const tradeTypeLabels = skills?.map((s) => s.trade_type) ?? [];
@@ -142,7 +153,14 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     (max, s) => (s.experience_years && s.experience_years > max ? s.experience_years : max),
     0,
   ) ?? 0;
-  const areaNames = areas?.map((a) => a.prefecture).join("、") ?? "";
+  const userAreas: AreaForDisplay[] = (areas ?? []).map((a) => ({
+    prefecture: a.prefecture,
+    municipality: a.municipality,
+  }));
+  const jobAreas: AreaForDisplay[] = (jobAreaRows ?? []).map((a) => ({
+    prefecture: a.prefecture,
+    municipality: a.municipality,
+  }));
   const qualificationLabels =
     qualifications?.map((q) => q.qualification_name) ?? [];
 
@@ -186,7 +204,10 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
           <div className="flex items-center gap-2">
             <img src="/images/icons/icon-pin.png" alt="" className="size-4 shrink-0" />
             <span className="min-w-[6rem] shrink-0">エリア</span>
-            <span>{job.prefecture ?? "未定"}{job.address ? ` ${job.address}` : ""}</span>
+            <span>
+              <AreaSummary areas={jobAreas} className="inline" />
+              {job.address ? ` ${job.address}` : ""}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
@@ -257,11 +278,11 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
         </div>
 
         <div className="space-y-2 text-body-sm text-foreground">
-          {areaNames && (
+          {userAreas.length > 0 && (
             <div className="flex items-center gap-2">
               <CheckCircle2 className="size-4 shrink-0 text-primary/70" />
               <span className="min-w-[8rem] shrink-0">対応可能エリア</span>
-              <span>{areaNames}</span>
+              <AreaList areas={userAreas} className="text-body-sm" />
             </div>
           )}
           {maxExp > 0 && (

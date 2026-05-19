@@ -18,10 +18,10 @@ import {
   useSheetClose,
 } from "@/components/job-search/search-filter-sheet";
 import { MasterCombobox } from "@/components/master/master-combobox";
+import { AreaPicker } from "@/components/area/area-picker";
 import {
   EMPLOYEE_SCALE_RANGES,
   LANGUAGES,
-  PREFECTURES,
   WORKING_WAYS,
 } from "@/lib/constants/options";
 
@@ -29,6 +29,8 @@ const ALL = "all";
 
 interface ClientSearchFormProps {
   activeTradeTypes: string[];
+  /** master-area: 都道府県 → 市区町村[] のマップ */
+  municipalitiesByPrefecture: Record<string, string[]>;
 }
 
 export function ClientSearchForm(props: ClientSearchFormProps) {
@@ -39,15 +41,22 @@ export function ClientSearchForm(props: ClientSearchFormProps) {
   );
 }
 
-function ClientSearchFormContent({ activeTradeTypes }: ClientSearchFormProps) {
+function ClientSearchFormContent({
+  activeTradeTypes,
+  municipalitiesByPrefecture,
+}: ClientSearchFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const closeSheet = useSheetClose();
 
   const [keyword, setKeyword] = useState(searchParams.get("q") ?? "");
-  const [prefecture, setPrefecture] = useState(
-    searchParams.get("prefecture") ?? "",
-  );
+  const [areaValue, setAreaValue] = useState<{
+    prefecture: string | null;
+    municipality: string | null;
+  }>({
+    prefecture: searchParams.get("prefecture") || null,
+    municipality: searchParams.get("municipality") || null,
+  });
   const [tradeTypes, setTradeTypes] = useState<string[]>(
     searchParams.getAll("tradeType"),
   );
@@ -62,7 +71,9 @@ function ClientSearchFormContent({ activeTradeTypes }: ClientSearchFormProps) {
   function handleSearch() {
     const params = new URLSearchParams();
     if (keyword) params.set("q", keyword);
-    if (prefecture && prefecture !== ALL) params.set("prefecture", prefecture);
+    if (areaValue.prefecture) params.set("prefecture", areaValue.prefecture);
+    if (areaValue.prefecture && areaValue.municipality)
+      params.set("municipality", areaValue.municipality);
     for (const v of tradeTypes) params.append("tradeType", v);
     if (employeeScale && employeeScale !== ALL)
       params.set("employeeScale", employeeScale);
@@ -95,19 +106,11 @@ function ClientSearchFormContent({ activeTradeTypes }: ClientSearchFormProps) {
       {/* 募集エリア */}
       <div className="space-y-1">
         <Label className="font-bold">募集エリア</Label>
-        <Select value={prefecture} onValueChange={setPrefecture}>
-          <SelectTrigger className="bg-background">
-            <SelectValue placeholder="お選びください" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>すべて</SelectItem>
-            {PREFECTURES.map((p) => (
-              <SelectItem key={p} value={p}>
-                {p}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AreaPicker
+          value={areaValue}
+          onChange={setAreaValue}
+          municipalitiesByPrefecture={municipalitiesByPrefecture}
+        />
       </div>
 
       {/* 募集職種 */}

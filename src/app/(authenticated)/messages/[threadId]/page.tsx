@@ -135,10 +135,15 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
       if (m.is_scout && m.job_id) {
         const { data: job } = await supabase
           .from("jobs")
-          .select("id, title, trade_types, headcount, recruit_end_date, reward_lower, reward_upper, prefecture, recruit_start_date")
+          .select("id, title, trade_types, headcount, recruit_end_date, reward_lower, reward_upper, recruit_start_date")
           .eq("id", m.job_id)
           .single();
         if (job) {
+          // master-area: fetch job_areas for scout card display
+          const { data: jobAreaRows } = await supabase
+            .from("job_areas")
+            .select("prefecture, municipality")
+            .eq("job_id", job.id);
           scoutJob = {
             id: job.id,
             title: job.title,
@@ -147,7 +152,10 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
             recruitEndDate: job.recruit_end_date,
             rewardLower: job.reward_lower,
             rewardUpper: job.reward_upper,
-            prefecture: job.prefecture,
+            areas: (jobAreaRows ?? []).map((a) => ({
+              prefecture: a.prefecture,
+              municipality: a.municipality,
+            })),
             recruitStartDate: job.recruit_start_date,
           };
         }

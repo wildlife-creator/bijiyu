@@ -7,6 +7,7 @@ import {
   resolveClientProfileForRow,
   resolveParticipantName,
 } from "@/lib/utils/display-name";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 
 import { JobListClient } from "./job-list-client";
 
@@ -43,7 +44,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
   let query = supabase
     .from("jobs")
     .select(
-      `id, title, trade_types, prefecture, reward_lower, reward_upper,
+      `id, title, trade_types, reward_lower, reward_upper,
        recruit_end_date, recruit_start_date, headcount, status, is_urgent,
        created_at, owner_id, organization_id,
        owner:users!owner_id(
@@ -82,6 +83,21 @@ export default async function JobListPage({ searchParams }: PageProps) {
   const totalCount = count ?? 0;
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
+  // master-area: bulk fetch job_areas for cards
+  const jobIds = (jobs ?? []).map((j) => j.id);
+  const jobAreasMap = new Map<string, AreaForDisplay[]>();
+  if (jobIds.length > 0) {
+    const { data: areaRows } = await supabase
+      .from("job_areas")
+      .select("job_id, prefecture, municipality")
+      .in("job_id", jobIds);
+    for (const row of areaRows ?? []) {
+      const list = jobAreasMap.get(row.job_id) ?? [];
+      list.push({ prefecture: row.prefecture, municipality: row.municipality });
+      jobAreasMap.set(row.job_id, list);
+    }
+  }
+
   // Map jobs to include thumbnail and company name
   const jobsWithMeta = (jobs ?? []).map((job) => {
     const raw = job as Record<string, unknown>;
@@ -97,7 +113,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
       id: job.id,
       title: job.title,
       trade_types: job.trade_types ?? [],
-      prefecture: job.prefecture,
+      areas: jobAreasMap.get(job.id) ?? [],
       reward_lower: job.reward_lower,
       reward_upper: job.reward_upper,
       recruit_end_date: job.recruit_end_date,

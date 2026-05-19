@@ -8,6 +8,8 @@ import { JobListCard } from "@/components/job-search/job-list-card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
 import {
   getUserDisplayName,
@@ -148,7 +150,7 @@ async function JobFavorites({
     .from("jobs")
     .select(
       `
-      id, title, description, trade_types, prefecture,
+      id, title, description, trade_types,
       reward_lower, reward_upper, is_urgent,
       recruit_start_date, recruit_end_date, created_at,
       owner_id, organization_id,
@@ -167,6 +169,21 @@ async function JobFavorites({
     )
     .in("id", targetIds)
     .is("deleted_at", null);
+
+  // master-area: bulk fetch job_areas
+  const jobIds = (jobs ?? []).map((j) => j.id);
+  const jobAreasMap = new Map<string, AreaForDisplay[]>();
+  if (jobIds.length > 0) {
+    const { data: areaRows } = await supabase
+      .from("job_areas")
+      .select("job_id, prefecture, municipality")
+      .in("job_id", jobIds);
+    for (const row of areaRows ?? []) {
+      const list = jobAreasMap.get(row.job_id) ?? [];
+      list.push({ prefecture: row.prefecture, municipality: row.municipality });
+      jobAreasMap.set(row.job_id, list);
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">
@@ -194,7 +211,7 @@ async function JobFavorites({
               id: job.id,
               title: job.title,
               tradeTypes: job.trade_types,
-              prefecture: job.prefecture ?? "",
+              areas: jobAreasMap.get(job.id) ?? [],
               rewardLower: job.reward_lower,
               rewardUpper: job.reward_upper,
               isUrgent: job.is_urgent ?? false,
@@ -342,7 +359,7 @@ async function UserFavorites({
       id, avatar_url, last_name, first_name, deleted_at, birth_date,
       identity_verified, ccus_verified,
       user_skills(trade_type, experience_years),
-      user_available_areas(prefecture)
+      user_available_areas(prefecture, municipality)
     `,
     )
     .in("id", targetIds)
@@ -360,9 +377,14 @@ async function UserFavorites({
           trade_type: string;
           experience_years: number | null;
         }>) ?? [];
-        const areas = (u.user_available_areas as Array<{
+        const areaRows = (u.user_available_areas as Array<{
           prefecture: string;
+          municipality: string | null;
         }>) ?? [];
+        const areas: AreaForDisplay[] = areaRows.map((a) => ({
+          prefecture: a.prefecture,
+          municipality: a.municipality,
+        }));
 
         return (
           <Card key={u.id} className="overflow-hidden rounded-[8px]">
@@ -415,9 +437,7 @@ async function UserFavorites({
                       alt=""
                       className="w-4 h-4"
                     />
-                    <span className="line-clamp-1">
-                      {areas.map((a) => a.prefecture).join(", ")}
-                    </span>
+                    <AreaSummary areas={areas} className="line-clamp-1" />
                   </div>
                 )}
               </div>

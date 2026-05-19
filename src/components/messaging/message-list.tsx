@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { MessageBubble } from "./message-bubble";
 import { markAsReadAction } from "@/app/(authenticated)/messages/[threadId]/actions";
 
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
+
 export interface ScoutJobInfo {
   id: string;
   title: string;
@@ -13,7 +15,8 @@ export interface ScoutJobInfo {
   recruitEndDate: string | null;
   rewardLower: number | null;
   rewardUpper: number | null;
-  prefecture: string | null;
+  /** master-area: scout 対象案件のエリア配列 */
+  areas: AreaForDisplay[];
   recruitStartDate: string | null;
 }
 

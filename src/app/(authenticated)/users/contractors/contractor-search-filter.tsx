@@ -17,7 +17,7 @@ import {
   useSheetClose,
 } from "@/components/job-search/search-filter-sheet";
 import { MasterCombobox } from "@/components/master/master-combobox";
-import { PREFECTURES } from "@/lib/constants/options";
+import { AreaPicker } from "@/components/area/area-picker";
 
 const EXPERIENCE_YEARS_OPTIONS = [
   "1年未満",
@@ -31,6 +31,8 @@ interface ContractorSearchFilterProps {
   activeTradeTypes: string[];
   activeSkillTags: string[];
   activeQualifications: string[];
+  /** master-area: 都道府県 → 市区町村[] のマップ */
+  municipalitiesByPrefecture: Record<string, string[]>;
 }
 
 export function ContractorSearchFilter(props: ContractorSearchFilterProps) {
@@ -45,6 +47,7 @@ function ContractorSearchFilterContent({
   activeTradeTypes,
   activeSkillTags,
   activeQualifications,
+  municipalitiesByPrefecture,
 }: ContractorSearchFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,9 +58,13 @@ function ContractorSearchFilterContent({
   const [tradeTypes, setTradeTypes] = useState<string[]>(
     searchParams.getAll("tradeType"),
   );
-  const [prefecture, setPrefecture] = useState(
-    searchParams.get("prefecture") ?? "",
-  );
+  const [areaValue, setAreaValue] = useState<{
+    prefecture: string | null;
+    municipality: string | null;
+  }>({
+    prefecture: searchParams.get("prefecture") || null,
+    municipality: searchParams.get("municipality") || null,
+  });
   const [experienceYears, setExperienceYears] = useState(
     searchParams.get("experienceYears") ?? "",
   );
@@ -72,7 +79,9 @@ function ContractorSearchFilterContent({
     const params = new URLSearchParams();
     if (keyword) params.set("q", keyword);
     for (const v of tradeTypes) params.append("tradeType", v);
-    if (prefecture && prefecture !== "all") params.set("prefecture", prefecture);
+    if (areaValue.prefecture) params.set("prefecture", areaValue.prefecture);
+    if (areaValue.prefecture && areaValue.municipality)
+      params.set("municipality", areaValue.municipality);
     if (experienceYears && experienceYears !== "all")
       params.set("experienceYears", experienceYears);
     for (const v of skillTags) params.append("skillTag", v);
@@ -107,19 +116,11 @@ function ContractorSearchFilterContent({
 
       <div className="space-y-1">
         <Label className="font-bold">対応エリア</Label>
-        <Select value={prefecture} onValueChange={setPrefecture}>
-          <SelectTrigger>
-            <SelectValue placeholder="お選びください" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            {PREFECTURES.map((p) => (
-              <SelectItem key={p} value={p}>
-                {p}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AreaPicker
+          value={areaValue}
+          onChange={setAreaValue}
+          municipalitiesByPrefecture={municipalitiesByPrefecture}
+        />
       </div>
 
       <div className="space-y-1">

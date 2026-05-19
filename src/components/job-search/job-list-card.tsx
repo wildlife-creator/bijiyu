@@ -5,13 +5,16 @@ import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { JobThumbnail } from "@/components/job-search/job-thumbnail";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 
 interface JobListCardProps {
   job: {
     id: string;
     title: string;
     tradeTypes: string[];
-    prefecture: string;
+    /** master-area: 案件のエリア配列。空配列の場合は「エリア未設定」表示 */
+    areas: AreaForDisplay[];
     rewardLower: number | null;
     rewardUpper: number | null;
     isUrgent: boolean;
@@ -86,7 +89,7 @@ export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobL
               className="w-4 h-4 shrink-0"
             />
             <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">エリア</span>
-            <span>{job.prefecture}</span>
+            <AreaSummary areas={job.areas} className="line-clamp-1" />
           </div>
           <div className="flex items-center">
             <img

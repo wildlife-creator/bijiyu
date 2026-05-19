@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import {
   resolveClientProfileForRow,
@@ -196,7 +198,6 @@ export default async function MyPage() {
         recruit_end_date,
         reward_lower,
         reward_upper,
-        prefecture,
         recruit_start_date,
         recruit_end_date,
         owner_id,
@@ -216,6 +217,26 @@ export default async function MyPage() {
     .eq("applicant_id", user.id)
     .eq("status", "accepted")
     .order("updated_at", { ascending: false });
+
+  // master-area: bulk fetch job_areas for accepted-application cards
+  const acceptedJobIds = (acceptedApplications ?? [])
+    .map((app) => {
+      const job = app.jobs as { id?: string } | null;
+      return job?.id;
+    })
+    .filter((v): v is string => typeof v === "string");
+  const acceptedJobAreasMap = new Map<string, AreaForDisplay[]>();
+  if (acceptedJobIds.length > 0) {
+    const { data: areaRows } = await supabase
+      .from("job_areas")
+      .select("job_id, prefecture, municipality")
+      .in("job_id", acceptedJobIds);
+    for (const row of areaRows ?? []) {
+      const list = acceptedJobAreasMap.get(row.job_id) ?? [];
+      list.push({ prefecture: row.prefecture, municipality: row.municipality });
+      acceptedJobAreasMap.set(row.job_id, list);
+    }
+  }
 
   // Fetch subscription status for client/staff menu visibility.
   // client: own subscription. staff: the owner of their organization owns the
@@ -444,7 +465,6 @@ export default async function MyPage() {
               recruit_end_date: string | null;
               reward_lower: number | null;
               reward_upper: number | null;
-              prefecture: string | null;
               recruit_start_date: string | null;
               owner_id: string;
               organization_id: string | null;
@@ -541,7 +561,11 @@ export default async function MyPage() {
                   <div className="flex items-center">
                     <img src="/images/icons/icon-pin.png" alt="" className="size-4 shrink-0" />
                     <span className="ml-2 w-16 shrink-0 font-bold text-bijiyu-purple">エリア</span>
-                    <span className="text-foreground">{job.prefecture ?? "未設定"}</span>
+                    <AreaSummary
+                      areas={acceptedJobAreasMap.get(job.id) ?? []}
+                      emptyLabel="未設定"
+                      className="text-foreground line-clamp-1"
+                    />
                   </div>
                   <div className="flex items-center">
                     <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
