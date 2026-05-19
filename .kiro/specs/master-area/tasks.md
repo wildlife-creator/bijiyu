@@ -72,7 +72,7 @@
   - _Requirements: 8.1_
 
 - [ ] 2. Lib 層実装（マスタ取得・検証・表示・検索・マッチング拡張）
-- [ ] 2.1 マスタ取得 API 拡張 + `master-area` キャッシュタグ
+- [x] 2.1 マスタ取得 API 拡張 + `master-area` キャッシュタグ
   - `src/lib/master/fetch.ts` に `getActiveMunicipalities()`（全件 active のみ）、`getActiveMunicipalitiesByPrefecture(prefecture)`（in-memory フィルタの薄ラッパー）、`getAllMunicipalityRows()`（deprecated 含む全件、廃止判定用）の 3 関数を追加する
   - すべて `unstable_cache` で TTL 3600s、tag `'master-area'` でキャッシュする（master-skills の `'master-skills'` タグとは独立）
   - 内部は cookieless anon client（`supabase/anon.ts` の `createAnonClient`）を使用し、`createServerClient` は使わない

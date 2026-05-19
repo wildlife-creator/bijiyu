@@ -95,3 +95,89 @@ const allFetchers: Record<MasterKind, () => Promise<MasterRow[]>> = {
 export function getAllMasterRows(kind: MasterKind): Promise<MasterRow[]> {
   return allFetchers[kind]();
 }
+
+// ---------------------------------------------------------------------------
+// master-area (市区町村マスタ)
+//
+// master-skills と独立した 'master-area' キャッシュタグで管理する。
+// マスタ更新 SQL マイグレーション後はアプリ側で revalidateTag('master-area')
+// を呼び出してキャッシュ無効化する (dev 環境は `.next/dev/cache/fetch-cache`
+// 削除も必要、CLAUDE.md 既存ルール)。
+// ---------------------------------------------------------------------------
+
+export interface MunicipalityPair {
+  prefecture: string;
+  municipality: string;
+}
+
+export interface MunicipalityRow {
+  prefecture: string;
+  municipality: string;
+  deprecated_at: string | null;
+}
+
+async function fetchActiveMunicipalities(): Promise<MunicipalityPair[]> {
+  try {
+    const client = createAnonClient();
+    const { data, error } = await client
+      .from("master_municipalities")
+      .select("prefecture, municipality")
+      .is("deprecated_at", null)
+      .order("sort_order", { ascending: true });
+    if (error || !data) return [];
+    return data.map((row) => ({
+      prefecture: row.prefecture,
+      municipality: row.municipality,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchAllMunicipalityRows(): Promise<MunicipalityRow[]> {
+  try {
+    const client = createAnonClient();
+    const { data, error } = await client
+      .from("master_municipalities")
+      .select("prefecture, municipality, deprecated_at")
+      .order("sort_order", { ascending: true });
+    if (error || !data) return [];
+    return data;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * active な (prefecture, municipality) ペアを sort_order 昇順で全件返す。
+ * 戻り値は 1,897 件で 60 KB 程度 (gzip 数 KB)、1 時間キャッシュで負荷無視可能。
+ */
+export const getActiveMunicipalities = unstable_cache(
+  () => fetchActiveMunicipalities(),
+  ["master-area", "municipalities", "active"],
+  { revalidate: 3600, tags: ["master-area"] },
+);
+
+/**
+ * 都道府県別の market 市区町村リスト (in-memory フィルタの薄ラッパー)。
+ * 1 都道府県分だけ欲しい呼び出し元向け。検索 popup 等で使用。
+ * 内部は getActiveMunicipalities() のキャッシュを共有するため追加 fetch なし。
+ */
+export async function getActiveMunicipalitiesByPrefecture(
+  prefecture: string,
+): Promise<string[]> {
+  const all = await getActiveMunicipalities();
+  return all
+    .filter((row) => row.prefecture === prefecture)
+    .map((row) => row.municipality);
+}
+
+/**
+ * deprecated を含む全行 (廃止判定用)。
+ * validate-area の validateAreaChanges から使われる。
+ */
+export const getAllMunicipalityRows = unstable_cache(
+  () => fetchAllMunicipalityRows(),
+  ["master-area", "municipalities", "all"],
+  { revalidate: 3600, tags: ["master-area"] },
+);
