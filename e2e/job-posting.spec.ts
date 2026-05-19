@@ -35,12 +35,19 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     await page.getByPlaceholder("上限").fill("20000");
     await page.getByPlaceholder("下限").fill("15000");
 
-    // Select area (エリア)
+    // Select area (エリア) — Phase 4.4 以降は AreaListEditor (1 行 = 都道府県
+    // Select + 市区町村 MasterCombobox) なので select-trigger の first() が
+    // AreaPicker の 都道府県 になる。
     await page.locator('[data-slot="select-trigger"]').first().click();
     await page.getByRole("option", { name: "東京都" }).click();
 
-    // Select trade types (募集職種) — master-skills 移行後は MasterCombobox (multi)
-    await page.locator('[data-slot="master-combobox-trigger"]').first().click();
+    // Select trade types (募集職種) — MasterCombobox (multi)
+    // AreaListEditor が disabled な 市区町村 master-combobox-trigger を 1 個追加
+    // (都道府県を「東京都」に変えた後は enabled になる) するため
+    // `.first()` だと 市区町村 trigger に誤マッチする。MasterCombobox の
+    // placeholder「募集職種を検索」が trigger の accessible name になるため
+    // accessible name で一意に解決する。
+    await page.getByRole("button", { name: "募集職種を検索" }).click();
     await page.getByRole("combobox").last().fill("大工");
     await page.getByRole("option", { name: "建築/躯体｜大工" }).first().click();
     await page.keyboard.press("Escape");

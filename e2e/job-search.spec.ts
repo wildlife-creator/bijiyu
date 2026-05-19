@@ -128,23 +128,31 @@ test.describe("CON-005 エリア検索OR条件（リグレッション防止）"
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
   });
 
-  test("エリアフィルターで神奈川県を指定すると複数エリアを持つ発注者がヒットする", async ({ page }) => {
-    // ?prefecture=神奈川県 で直接アクセス（フォーム送信と同等）
+  test("エリアフィルターで神奈川県を指定すると神奈川県を含む発注者のみがヒットする", async ({ page }) => {
+    // Phase 5 で client_recruit_areas (別テーブル) に分離。seed 上 神奈川県を持つ
+    // 発注者は「補償テスト建設」(b1110000-...-005) のみ（東京都全域 + 神奈川県
+    // 横浜市港北区 の 2 件登録 = multi-area の代表例）。鈴木工務店/山田建設/
+    // 中村リフォームはいずれも神奈川県を含まないため非ヒット。
     await page.goto("/clients?prefecture=神奈川県");
 
-    // 鈴木工務店（recruit_area: ['神奈川県', '東京都']）がヒットすること
-    await expect(page.getByText("鈴木工務店")).toBeVisible({ timeout: 10000 });
+    // 補償テスト建設（client_recruit_areas: 東京都全域 + 神奈川県横浜市港北区）
+    // がヒットすること（複数エリアを持つ発注者のヒット例）
+    await expect(page.getByText("補償テスト建設")).toBeVisible({ timeout: 10000 });
 
-    // 山田建設（recruit_area: ['東京都', '埼玉県']）はヒットしないこと
+    // 鈴木工務店（東京都港区 + 大阪府大阪市北区）は神奈川県を持たないため非ヒット
+    await expect(page.getByText("鈴木工務店")).not.toBeVisible();
+    // 山田建設（東京都 + 埼玉県）も同様に非ヒット
     await expect(page.getByText("山田建設")).not.toBeVisible();
   });
 
-  test("エリアフィルターで東京都を指定すると両方の発注者がヒットする", async ({ page }) => {
+  test("エリアフィルターで東京都を指定すると東京都を含む複数の発注者がヒットする", async ({ page }) => {
     await page.goto("/clients?prefecture=東京都");
 
-    // 両方とも recruit_area に東京都を含むのでヒットする
+    // 鈴木工務店 (東京都港区) / 山田建設 (東京都) / 補償テスト建設 (東京都全域) は
+    // 全て client_recruit_areas に 東京都 を含むためヒットする
     await expect(page.getByText("鈴木工務店")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("山田建設")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("補償テスト建設")).toBeVisible({ timeout: 10000 });
   });
 });
 

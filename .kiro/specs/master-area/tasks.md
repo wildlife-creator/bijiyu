@@ -163,7 +163,7 @@
 
 - [x] 4. 入力 7 画面・Server Actions 5 個・表示 12+ 箇所の一斉書き換え
   - **dev 環境での動作確認の前提（必ず守ること）**: dev 環境では `supabase db reset` 時に Migration 3（DML 移行）が空の jobs / client_profiles に対して実行されるため 0 件移行となる。さらに Phase 5（seed.sql 新スキーマ対応）完了まで seed は旧スキーマのまま `jobs.prefecture` に値を入れ続けるため、Phase 4 完了時点では `job_areas` / `client_recruit_areas` / `user_available_areas.municipality` がすべて空。**Phase 4 単独では「検索 0 件 / 応募ボタン disabled / エリア表示空」が正常な中間状態**であり、コード不具合と誤診断しないこと。E2E / 手動動作確認は Phase 5 完了後に行う。本フェーズは Vitest 単体 + 型チェック（`npm run test` / `npm run build`）の通過を完了基準とする
-- [ ] 4.1 受注者プロフィール入力（AUTH-006 / COM-002）
+- [x] 4.1 受注者プロフィール入力（AUTH-006 / COM-002）
   - AUTH-006（新規会員登録情報入力）の現状 Checkbox 47 件グリッド UI を `AreaListEditor` Popup 形式に統一して COM-002 と同形式に揃える（Req 2.8）
   - COM-002（プロフィール編集）の対応エリア入力を `AreaListEditor` ベースに差し替える
   - `useFieldArray` で `availableAreas: AreaDraft[]` を管理し、Zod スキーマは `z.array(z.object({prefecture: z.string().min(1, "都道府県を選択してください"), municipality: z.string().nullable()})).min(1)` で空行を弾く
@@ -174,7 +174,7 @@
   - soft cap = 30 件を超えた場合の警告表示を有効化する
   - _Requirements: 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 9.1, 9.2, 9.3, 10.5_
 
-- [ ] 4.2 (P) 発注者情報編集入力（CLI-021）
+- [x] 4.2 (P) 発注者情報編集入力（CLI-021）
   - CLI-021（発注者情報編集）の募集エリア入力を `AreaListEditor` ベースに差し替える
   - フォーム state は `recruitArea: AreaDraft[]` で管理し、submit 時に Zod refine で `AreaTuple[]` に絞り込む
   - 4.1 / 4.3 / 4.4 とは異なる入力フォームのため並列実行可能（共通依存は Phase 3 の UI 部品と Phase 2 の lib のみ）
@@ -182,7 +182,7 @@
   - 都道府県プルダウンと連動した市区町村複数選択 popup を提供する
   - _Requirements: 3.3, 3.4, 3.5, 3.6, 10.5_
 
-- [ ] 4.3 (P) 案件編集・新規作成入力（CLI-003 / CLI-004）
+- [x] 4.3 (P) 案件編集・新規作成入力（CLI-003 / CLI-004）
   - CLI-003（募集現場編集）/ CLI-004（募集現場新規登録）のエリア入力を `AreaListEditor` ベースに差し替える（minItems=1 / maxItems=10）
   - 県跨ぎを許可する（Req 4.3）。1 案件で「東京都港区」+「神奈川県横浜市港北区」のような複数都道府県登録を可能にする
   - 「+ エリアを追加」ボタンは 10 件到達時 disabled + tooltip 表示（Req 4.4）
@@ -202,7 +202,7 @@
   - 4.1 / 4.2 / 4.3 とは異なるファイル群のため並列実行可能
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 10.5_
 
-- [ ] 4.5 Server Actions 5 個の書き換え（profile / register profile / client-profile / jobs / search-actions）+ 既存 RPC の signature 更新マイグレーション
+- [x] 4.5 Server Actions 5 個の書き換え（profile / register profile / client-profile / jobs / search-actions）+ 既存 RPC の signature 更新マイグレーション
   - **追加マイグレーション**: 本タスク冒頭で新規マイグレーション（例: `YYYYMMDDhhmmss_master_area_update_complete_registration_signature.sql`）を作成し、`complete_registration` RPC の `p_areas text[]` を `p_areas jsonb` に変更する。内部 `INSERT INTO user_available_areas SELECT gen_random_uuid(), p_user_id, unnest(p_areas)` を `INSERT ... SELECT gen_random_uuid(), p_user_id, (elem->>'prefecture')::text, NULLIF(elem->>'municipality', '') FROM jsonb_array_elements(p_areas) AS elem` に置き換える。`DROP FUNCTION ... text[] ...; CREATE OR REPLACE FUNCTION ... jsonb ...` の順で実行する。SECURITY DEFINER + auth.uid() チェックは維持。**この migration を本タスクと同じコミットで landing させる**ことで Phase 1〜3 中の中間状態を回避する
   - **追加マイグレーション適用後の型再生成（必ず実施）**: 上記マイグレーション landing 後に `supabase db reset` + `supabase gen types typescript --local > src/types/database.ts` を再実行する。これで `Database['public']['Functions']['complete_registration']['Args']` の `p_areas` 型が `string[]` から `Json`（jsonb）に更新され、Server Action 側で `AreaTuple[]` を `p_areas` にそのまま渡す際の TS 型チェックが通る（Supabase JS SDK が JS array → jsonb 変換を自動で行う）
   - **register profile（all-in-one RPC 経由）**: `(auth)/register/profile/actions.ts` の `completeRegistrationAction` は更新後の `complete_registration` RPC に `availableAreas: AreaTuple[]` を**そのまま JS array として** `p_areas: areaTuples` の形で渡す（Supabase JS SDK が jsonb への変換を自動で行う。既存 `p_skills: skillsJsonb` と同じパターン。`JSON.stringify` は不要）。1 トランザクション内で users + skills + qualifications + user_available_areas（新スキーマ municipality 付き）を一括更新する。新規登録ルートなので previousAreas は空配列、`validateAreaChanges` は新規追加分のみ active 必須チェック

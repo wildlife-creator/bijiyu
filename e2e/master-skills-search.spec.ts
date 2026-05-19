@@ -46,7 +46,14 @@ async function openFilterSheet(page: import("@playwright/test").Page) {
  * mode="multi" は pick 後も popover が開いたままなので、複数 pick したい場合は
  * この helper で一度だけ open し、`pickOpenedComboboxOption` を必要回数呼び出す。
  *
- * @param triggerLabel  trigger を特定するための「直前の <label>」テキスト
+ * **scope**: SearchFilterSheet の <dialog> 配下に限定する。一覧ページ本体には
+ * 案件カード等で同名テキスト（例: "募集職種"）が散在するため、scope を切らずに
+ * `following::button[@data-slot="master-combobox-trigger"][1]` を走らせると、
+ * ページ本体の text node から見て dialog 内の最初の trigger（多くの場合
+ * AreaPicker 由来の disabled な「市区町村は任意」ボタン）にもヒットして
+ * strict-mode violation を起こす (Phase 4.4 で AreaPicker 追加後に発生)。
+ *
+ * @param triggerLabel  trigger を特定するための「直前の <Label>」テキスト
  * @param inputPlaceholder  cmdk Input の placeholder（open 完了の判定に使う）
  */
 async function openLabeledCombobox(
@@ -54,7 +61,8 @@ async function openLabeledCombobox(
   triggerLabel: string,
   inputPlaceholder: string,
 ) {
-  const trigger = page
+  const dialog = page.getByRole("dialog");
+  const trigger = dialog
     .getByText(triggerLabel, { exact: true })
     .locator(
       'xpath=following::button[@data-slot="master-combobox-trigger"][1]',

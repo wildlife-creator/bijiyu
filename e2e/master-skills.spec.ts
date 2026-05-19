@@ -30,17 +30,57 @@ import {
  */
 
 /**
- * 指定の MasterCombobox trigger を開き、検索語を入力して候補をピックする。
- * trigger は data-slot で全て同じ識別子のため、index で指定する。
+ * 対応職種行（経験年数 N（年）入力を持つ行）の MasterCombobox trigger を返す。
+ *
+ * 各 row は `<div class="flex items-start gap-2">` 配下に
+ *   - 左: MasterCombobox button[@data-slot="master-combobox-trigger"]
+ *   - 右: <input aria-label="経験年数 N（年）">
+ * の順で並ぶ。experience 入力 → preceding::button 第 1 で同 row の trigger に到達。
+ */
+function triggerForTradeRow(
+  page: import("@playwright/test").Page,
+  rowNum: number,
+) {
+  return page
+    .getByLabel(`経験年数 ${rowNum}（年）`)
+    .locator(
+      'xpath=preceding::button[@data-slot="master-combobox-trigger"][1]',
+    );
+}
+
+/**
+ * セクション（保有スキル / 保有資格 等）直後の MasterCombobox trigger を返す。
+ *
+ * `<FieldLabel>${section}</FieldLabel>` の直後に MasterCombobox が 1 個ある
+ * 前提（COM-002 / CLI-021 のフォーム構造）。同名 label が画面内で複数出る場合は
+ * 呼び出し側で別 locator を使うこと。
+ */
+function triggerForSection(
+  page: import("@playwright/test").Page,
+  sectionLabel: string,
+) {
+  return page
+    .getByText(sectionLabel, { exact: true })
+    .locator(
+      'xpath=following::button[@data-slot="master-combobox-trigger"][1]',
+    );
+}
+
+/**
+ * 指定の MasterCombobox trigger（Locator）を開き、検索語を入力して候補を pick する。
+ *
+ * 2026-05-20: 旧 API は `triggerIndex: number` だったが、Phase 4.4 で AreaListEditor
+ * 追加後にフォーム内の `[data-slot="master-combobox-trigger"]` 個数が変わり index
+ * が常時ずれるため、Locator 直渡しに変更。呼び出し側は `triggerForTradeRow()` /
+ * `triggerForSection()` 等の semantic helper で trigger を組み立てる。
  */
 async function pickMasterComboboxOption(
   page: import("@playwright/test").Page,
-  triggerIndex: number,
+  trigger: import("@playwright/test").Locator,
   searchText: string,
   optionLabel: string,
 ) {
-  const triggers = page.locator('[data-slot="master-combobox-trigger"]');
-  await triggers.nth(triggerIndex).click();
+  await trigger.click();
   // cmdk Input — 「placeholder のテキストで入力欄を見つけ、検索文字を入力
   const input = page.getByRole("combobox").or(page.locator('input[role="combobox"]')).last();
   await input.fill(searchText);
@@ -98,7 +138,7 @@ test.describe("9.3a COM-002 編集経路 (master-skills)", () => {
     // 2 行目: 屋根工 を選択
     await pickMasterComboboxOption(
       page,
-      1,
+      triggerForTradeRow(page, 2),
       "屋根",
       "建築/躯体｜屋根（瓦）",
     );
@@ -109,7 +149,7 @@ test.describe("9.3a COM-002 編集経路 (master-skills)", () => {
     // 3 行目: 塗装工 を選択
     await pickMasterComboboxOption(
       page,
-      2,
+      triggerForTradeRow(page, 3),
       "塗装",
       "建築/仕上げ｜塗装工",
     );
@@ -118,11 +158,9 @@ test.describe("9.3a COM-002 編集経路 (master-skills)", () => {
       .fill("2");
 
     // ─── 保有スキルを 5 件にする (既存 3 + 追加 2) ───────────────────────
-    // 「保有スキル」セクション内の MasterCombobox は、対応職種 (3 件) の次。
-    // trigger index = 3 (0,1,2 は trades) → 「保有スキル」
     // multi モードの MasterCombobox はピック後もポップアップが開いたままなので、
     // trigger を 1 回開いたら以降は fill → option click を繰り返すだけ。
-    await page.locator('[data-slot="master-combobox-trigger"]').nth(3).click();
+    await triggerForSection(page, "保有スキル").click();
     await page.getByRole("combobox").last().fill("型枠設置");
     await page.getByRole("option", { name: "型枠設置" }).first().click();
     await page.getByRole("combobox").last().fill("型枠解体");
@@ -131,8 +169,7 @@ test.describe("9.3a COM-002 編集経路 (master-skills)", () => {
     await page.keyboard.press("Escape");
 
     // ─── 保有資格を 2 件追加 (既存 0 + 追加 2) ─────────────────────────────
-    // 「保有資格」trigger は trades 3 + 保有スキル 1 の次 = index 4
-    await page.locator('[data-slot="master-combobox-trigger"]').nth(4).click();
+    await triggerForSection(page, "保有資格").click();
     await page.getByRole("combobox").last().fill("2級建築士");
     await page.getByRole("option", { name: "2級建築士", exact: true }).first().click();
     await page.getByRole("combobox").last().fill("玉掛");
@@ -187,8 +224,7 @@ test.describe("9.3b 上限なし大量登録 (master-skills)", () => {
     ).toBeVisible();
 
     // ─── 保有スキル: +7 件 ─────────────────────────────────────────────────
-    // 保有スキル trigger は trades 2 件 + その他なし = index 2
-    await page.locator('[data-slot="master-combobox-trigger"]').nth(2).click();
+    await triggerForSection(page, "保有スキル").click();
     for (const { search, label } of SKILL_TAGS_PLUS_7) {
       await page.getByRole("combobox").last().fill(search);
       await page.getByRole("option", { name: label, exact: true }).first().click();
@@ -196,8 +232,7 @@ test.describe("9.3b 上限なし大量登録 (master-skills)", () => {
     await page.keyboard.press("Escape");
 
     // ─── 保有資格: +12 件 ─────────────────────────────────────────────────
-    // 保有資格 trigger は trades 2 + 保有スキル 1 = index 3
-    await page.locator('[data-slot="master-combobox-trigger"]').nth(3).click();
+    await triggerForSection(page, "保有資格").click();
     for (const { search, label } of QUALS_12) {
       await page.getByRole("combobox").last().fill(search);
       await page.getByRole("option", { name: label, exact: true }).first().click();
@@ -256,10 +291,10 @@ test.describe("9.3d 関連候補 (RelatedSuggestions)", () => {
     // 「職種を追加」で新規 row を作り、躯体カテゴリの職種をピックする
     await page.getByRole("button", { name: "職種を追加" }).click();
 
-    // 3 行目 (index 2) で 「建築/躯体｜大工」を選択 → 関連候補が出る
+    // 3 行目で 「建築/躯体｜大工」を選択 → 関連候補が出る
     await pickMasterComboboxOption(
       page,
-      2,
+      triggerForTradeRow(page, 3),
       "大工",
       "建築/躯体｜大工",
     );
@@ -379,16 +414,18 @@ test.describe("9.3e CLI-004 案件作成 → CON-002 検索ヒット", () => {
     await page.locator('input[name="rewardUpper"]').fill("25000");
     await page.locator('input[name="rewardLower"]').fill("18000");
 
-    // エリア (shadcn Select) — Label に htmlFor がないため、SelectTrigger を
-    // text コンテンツ「お選びください」の親要素から特定する
-    const prefectureLabel = page.getByText("エリア").first();
-    await prefectureLabel
-      .locator("xpath=following::button[@role='combobox'][1]")
-      .click();
+    // エリア (AreaListEditor 内の AreaPicker — shadcn Select の 都道府県) を選択
+    // Phase 4.4 以降、エリアは AreaListEditor (1 行 = 都道府県 Select +
+    // 市区町村 MasterCombobox) に変わったため、最初の select-trigger は都道府県。
+    await page.locator('[data-slot="select-trigger"]').first().click();
     await page.getByRole("option", { name: "東京都" }).click();
 
     // 募集職種 (MasterCombobox multi, 2 件)
-    await page.locator('[data-slot="master-combobox-trigger"]').first().click();
+    // AreaListEditor が disabled な 市区町村 master-combobox-trigger を 1 個追加するため、
+    // 「募集職種」セクションラベルが「募集職種 必須」となり exact マッチが効かない。
+    // MasterCombobox の placeholder「募集職種を検索」が trigger の accessible name に
+    // なるため、accessible name 経由で一意に解決する（value 未選択時のみ有効）。
+    await page.getByRole("button", { name: "募集職種を検索" }).click();
     await page.getByRole("combobox").last().fill("大工");
     await page.getByRole("option", { name: "建築/躯体｜大工" }).first().click();
     await page.getByRole("combobox").last().fill("塗装");

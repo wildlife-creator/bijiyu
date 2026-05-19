@@ -92,10 +92,17 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     await page.goto("/profile/edit");
 
     // master-skills 移行後は MasterCombobox (cmdk) で保有スキルを選択する。
-    // 保有スキルの trigger は trades 2 (contractor1 既存) の次 = index 2
+    // Phase 4.4 で AreaListEditor がフォーム上部に追加されたため
+    // `[data-slot="master-combobox-trigger"]` の index は流動的。
+    // 「保有スキル」セクションラベル経由で semantic に解決する。
     // 他テストとの state 衝突を避けるため、master-skills.spec.ts の 9.3b が
     // 使う SKILL_TAGS_PLUS_7 に含まれない「BIMモデリング（Revit等）」を使用する
-    await page.locator('[data-slot="master-combobox-trigger"]').nth(2).click();
+    await page
+      .getByText("保有スキル", { exact: true })
+      .locator(
+        'xpath=following::button[@data-slot="master-combobox-trigger"][1]',
+      )
+      .click();
     await page.getByRole("combobox").last().fill("BIM");
     await page
       .getByRole("option", { name: "BIMモデリング（Revit等）", exact: true })
