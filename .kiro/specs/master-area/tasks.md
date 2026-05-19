@@ -91,7 +91,7 @@
   - Server Action 4 件（COM-002 / register profile / CLI-021 / job 編集）で「保存直前 SELECT → validateAreaChanges → 結果反映」を強制する想定
   - _Requirements: 2.10, 3.7, 4.9_
 
-- [ ] 2.3 (P) エリア表示ヘルパー `format-areas.ts`
+- [x] 2.3 (P) エリア表示ヘルパー `format-areas.ts`
   - `src/lib/utils/format-areas.ts` を新規追加し、`formatAreas(areas, options)` でエリア配列を表示文字列に整形する
   - 単一エリアの表示ルール: `municipality === null` → `「{prefecture}（市区町村未指定）」`、`municipality !== null` → `「{prefecture}{municipality}」`（連結、Req 5.1）
   - 同県の県全域 + 市区町村混在（例: 「東京都」+「東京都港区」）→ `「東京都（港区ほか）」` のような混在吸収表現（Req 5.6、列挙は max 2 件まで + 「ほか」）
