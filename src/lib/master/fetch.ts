@@ -181,3 +181,20 @@ export const getAllMunicipalityRows = unstable_cache(
   ["master-area", "municipalities", "all"],
   { revalidate: 3600, tags: ["master-area"] },
 );
+
+/**
+ * 都道府県 → 市区町村[] の Map を一括で返す。
+ * AreaPicker / AreaListEditor の `municipalitiesByPrefecture` props に渡す用途。
+ * Server Component で呼び、JSON シリアライズで Client Component に注入する。
+ */
+export async function getMunicipalitiesByPrefecture(): Promise<
+  Record<string, string[]>
+> {
+  const all = await getActiveMunicipalities();
+  const result: Record<string, string[]> = {};
+  for (const row of all) {
+    if (!result[row.prefecture]) result[row.prefecture] = [];
+    result[row.prefecture].push(row.municipality);
+  }
+  return result;
+}

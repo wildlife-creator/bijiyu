@@ -2,7 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { getAllMasterRows } from "@/lib/master/fetch";
+import {
+  getAllMasterRows,
+  getMunicipalitiesByPrefecture,
+} from "@/lib/master/fetch";
 
 import { ProfileEditForm } from "./profile-edit-form";
 
@@ -21,10 +24,16 @@ export default async function ProfileEditPage() {
   if (!user) redirect("/login");
 
   // 3 マスタ取得 (active 候補 + 廃止判定セット)
-  const [allTradeTypes, allQualifications, allSkillTags] = await Promise.all([
+  const [
+    allTradeTypes,
+    allQualifications,
+    allSkillTags,
+    municipalitiesByPrefecture,
+  ] = await Promise.all([
     getAllMasterRows("trade-types"),
     getAllMasterRows("qualifications"),
     getAllMasterRows("skill-tags"),
+    getMunicipalitiesByPrefecture(),
   ]);
   const activeTradeTypes = allTradeTypes
     .filter((r) => !r.deprecated_at)
@@ -92,6 +101,7 @@ export default async function ProfileEditPage() {
         deprecatedTradeSet={deprecatedTradeSet}
         deprecatedQualSet={deprecatedQualSet}
         deprecatedTagSet={deprecatedTagSet}
+        municipalitiesByPrefecture={municipalitiesByPrefecture}
       />
     </>
   );

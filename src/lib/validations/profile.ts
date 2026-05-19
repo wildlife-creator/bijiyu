@@ -63,9 +63,22 @@ export const profileEditSchema = z.object({
     .optional()
     .default([]),
   availableAreas: z
-    .array(z.string().min(1))
+    .array(
+      z.object({
+        prefecture: z.string().min(1, "都道府県を選択してください"),
+        municipality: z.string().nullable(),
+      }),
+    )
     .min(1, "対応エリアを1つ以上選択してください")
-    .transform((arr) => Array.from(new Set(arr))),
+    .transform((arr) => {
+      const seen = new Set<string>();
+      return arr.filter((a) => {
+        const k = `${a.prefecture}|${a.municipality ?? ""}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }),
 });
 export type ProfileEditInput = z.infer<typeof profileEditSchema>;
 

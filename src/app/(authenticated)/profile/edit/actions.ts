@@ -7,6 +7,7 @@ import {
 } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
 import { validateLabelChanges } from "@/lib/master/validate";
+import { validateAreaChanges } from "@/lib/master/validate-area";
 
 export async function updateProfileAction(
   formData: FormData
@@ -53,7 +54,7 @@ export async function updateProfileAction(
     // ──────────────────────────────────────────────────────────
     // 3 マスタの delta validate (added のみ active 必須、既存保有 deprecated 保持)
     // ──────────────────────────────────────────────────────────
-    const [prevSkills, prevQuals, prevUser] = await Promise.all([
+    const [prevSkills, prevQuals, prevUser, prevAreas] = await Promise.all([
       supabase
         .from("user_skills")
         .select("trade_type")
@@ -67,6 +68,10 @@ export async function updateProfileAction(
         .select("skill_tags")
         .eq("id", user.id)
         .single(),
+      supabase
+        .from("user_available_areas")
+        .select("prefecture, municipality")
+        .eq("user_id", user.id),
     ]);
 
     const prevTradeTypes = (prevSkills.data ?? []).map((r) => r.trade_type);
@@ -74,12 +79,16 @@ export async function updateProfileAction(
       (r) => r.qualification_name,
     );
     const prevSkillTags = (prevUser.data?.skill_tags ?? []) as string[];
+    const previousAreas = (prevAreas.data ?? []).map((r) => ({
+      prefecture: r.prefecture,
+      municipality: r.municipality,
+    }));
 
     const newTradeTypes = data.skills.map((s) => s.tradeType);
     const newQualifications = data.qualifications ?? [];
     const newSkillTags = data.skillTags ?? [];
 
-    const [tradeValid, qualValid, tagValid] = await Promise.all([
+    const [tradeValid, qualValid, tagValid, areaValid] = await Promise.all([
       validateLabelChanges(newTradeTypes, prevTradeTypes, "trade-types"),
       validateLabelChanges(
         newQualifications,
@@ -87,6 +96,7 @@ export async function updateProfileAction(
         "qualifications",
       ),
       validateLabelChanges(newSkillTags, prevSkillTags, "skill-tags"),
+      validateAreaChanges(data.availableAreas, previousAreas),
     ]);
 
     if (!tradeValid.valid) {
@@ -114,6 +124,17 @@ export async function updateProfileAction(
           tagValid.unknownLabels.length > 0
             ? `存在しないスキルが含まれています: ${tagValid.unknownLabels.join("、")}`
             : `廃止されたスキルは新規追加できません: ${tagValid.deprecatedLabels.join("、")}`,
+      };
+    }
+    if (!areaValid.valid) {
+      const fmt = (a: { prefecture: string; municipality: string | null }) =>
+        a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
+      return {
+        success: false,
+        error:
+          areaValid.unknownPairs.length > 0
+            ? `存在しないエリアが含まれています: ${areaValid.unknownPairs.map(fmt).join("、")}`
+            : `廃止されたエリアは新規追加できません: ${areaValid.deprecatedPairs.map(fmt).join("、")}`,
       };
     }
 
@@ -189,26 +210,16 @@ export async function updateProfileAction(
       }
     }
 
-    // Replace available areas
-    await supabase
-      .from("user_available_areas")
-      .delete()
-      .eq("user_id", user.id);
-    if (data.availableAreas.length > 0) {
-      const { error: areasError } = await supabase
-        .from("user_available_areas")
-        .insert(
-          data.availableAreas.map((prefecture) => ({
-            user_id: user.id,
-            prefecture,
-          }))
-        );
-      if (areasError) {
-        return {
-          success: false,
-          error: "対応エリアの保存に失敗しました。もう一度お試しください。",
-        };
-      }
+    // Replace available areas via RPC (DELETE old + INSERT new in 1 トランザクション)
+    const { error: areasError } = await supabase.rpc("replace_user_areas", {
+      p_user_id: user.id,
+      p_areas: data.availableAreas,
+    });
+    if (areasError) {
+      return {
+        success: false,
+        error: "対応エリアの保存に失敗しました。もう一度お試しください。",
+      };
     }
 
     // Update email if provided and different from current

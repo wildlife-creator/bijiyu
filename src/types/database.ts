@@ -1413,7 +1413,7 @@ export type Database = {
       }
       complete_registration: {
         Args: {
-          p_areas?: string[]
+          p_areas?: Json
           p_birth_date: string
           p_company_name?: string
           p_first_name: string

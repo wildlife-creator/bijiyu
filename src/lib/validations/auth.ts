@@ -82,9 +82,23 @@ const registerProfileBaseSchema = z.object({
       });
     }),
   availableAreas: z
-    .array(z.string().min(1, "対応エリアを選択してください"))
+    .array(
+      z.object({
+        prefecture: z.string().min(1, "都道府県を選択してください"),
+        municipality: z.string().nullable(),
+      }),
+    )
     .min(1, "対応エリアを1つ以上選択してください")
-    .transform((arr) => Array.from(new Set(arr))),
+    .transform((arr) => {
+      // (prefecture, municipality) 重複を dedupe (最初の出現を保持)
+      const seen = new Set<string>();
+      return arr.filter((a) => {
+        const k = `${a.prefecture}|${a.municipality ?? ""}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }),
   password: z
     .string()
     .min(8, "パスワードは8文字以上で入力してください")

@@ -9,9 +9,10 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { RelatedSuggestions } from "@/components/master/related-suggestions";
+import { AreaListEditor } from "@/components/area/area-list-editor";
+import type { AreaDraft } from "@/components/area/area-picker";
 import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
@@ -33,11 +34,13 @@ function RequiredBadge() {
 interface RegisterProfileFormProps {
   activeTradeTypes: string[];
   deprecatedTradeSet: string[];
+  municipalitiesByPrefecture: Record<string, string[]>;
 }
 
 export function RegisterProfileForm({
   activeTradeTypes,
   deprecatedTradeSet,
+  municipalitiesByPrefecture,
 }: RegisterProfileFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState("");
@@ -91,19 +94,19 @@ export function RegisterProfileForm({
     [selectedTradeTypes, activeTradeTypes],
   );
 
-  function handleAreaToggle(prefecture: string, checked: boolean) {
-    const current = watchedAreas ?? [];
-    if (checked) {
-      setValue("availableAreas", [...current, prefecture], {
-        shouldValidate: true,
-      });
-    } else {
-      setValue(
-        "availableAreas",
-        current.filter((a) => a !== prefecture),
-        { shouldValidate: true },
-      );
-    }
+  // AreaListEditor 用: AreaDraft[] と AreaTuple[] (Zod schema 型) の往復ヘルパ
+  // 入力値 (AreaDraft[]) は prefecture=null/"" の未入力ドラフト行を持ちうるが、
+  // setValue では Zod 期待型 ({ prefecture: string; municipality: string | null }[])
+  // にキャストして渡す (Zod が submit 時に検証)
+  function handleAreaListChange(next: AreaDraft[]) {
+    setValue(
+      "availableAreas",
+      next.map((a) => ({
+        prefecture: a.prefecture ?? "",
+        municipality: a.municipality,
+      })),
+      { shouldValidate: true },
+    );
   }
 
   async function onSubmit(rawData: RegisterProfileFormInput) {
@@ -349,22 +352,16 @@ export function RegisterProfileForm({
             対応可能エリア
             <RequiredBadge />
           </Label>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {PREFECTURES.map((pref) => (
-              <label
-                key={pref}
-                className="flex items-center gap-1.5 text-body-sm"
-              >
-                <Checkbox
-                  checked={(watchedAreas ?? []).includes(pref)}
-                  onCheckedChange={(checked) =>
-                    handleAreaToggle(pref, checked === true)
-                  }
-                />
-                {pref}
-              </label>
-            ))}
-          </div>
+          <AreaListEditor
+            value={(watchedAreas ?? []).map((a) => ({
+              prefecture: a.prefecture || null,
+              municipality: a.municipality ?? null,
+            }))}
+            onChange={handleAreaListChange}
+            municipalitiesByPrefecture={municipalitiesByPrefecture}
+            minItems={1}
+            softCapWarning={30}
+          />
           {errors.availableAreas?.message && (
             <p className="text-destructive text-body-sm">
               {errors.availableAreas.message}

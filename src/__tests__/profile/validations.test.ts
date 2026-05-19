@@ -33,7 +33,7 @@ describe("profileEditSchema", () => {
     birthDate: "1990-05-15",
     prefecture: "東京都",
     skills: [{ tradeType: "大工", experienceYears: 5 }],
-    availableAreas: ["東京都"],
+    availableAreas: [{ prefecture: "東京都", municipality: null }],
   };
 
   it("accepts valid profile input", () => {

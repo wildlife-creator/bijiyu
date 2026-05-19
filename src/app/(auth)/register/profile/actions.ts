@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { registerProfileSchema } from "@/lib/validations/auth";
 import type { ActionResult } from "@/lib/types/action-result";
 import { validateLabelChanges } from "@/lib/master/validate";
+import { validateAreaChanges } from "@/lib/master/validate-area";
 
 export async function completeRegistrationAction(
   input: unknown
@@ -42,6 +43,20 @@ export async function completeRegistrationAction(
     };
   }
 
+  // 対応エリアのマスタ整合性検証 (新規登録のため previousAreas は空配列)
+  const areaValid = await validateAreaChanges(data.availableAreas, []);
+  if (!areaValid.valid) {
+    const fmt = (a: { prefecture: string; municipality: string | null }) =>
+      a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
+    return {
+      success: false,
+      error:
+        areaValid.unknownPairs.length > 0
+          ? `存在しないエリアが含まれています: ${areaValid.unknownPairs.map(fmt).join("、")}`
+          : `廃止されたエリアは登録できません: ${areaValid.deprecatedPairs.map(fmt).join("、")}`,
+    };
+  }
+
   // Convert skills to JSONB format for the RPC call
   const skillsJsonb = data.skills.map((skill) => ({
     trade_type: skill.tradeType,
@@ -49,6 +64,7 @@ export async function completeRegistrationAction(
   }));
 
   // Call the complete_registration RPC function
+  // p_areas は jsonb (AreaTuple[] を JS array としてそのまま渡せば SDK が jsonb 変換)
   const { error: rpcError } = await supabase.rpc("complete_registration", {
     p_user_id: user.id,
     p_last_name: data.lastName,

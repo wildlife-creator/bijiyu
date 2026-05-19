@@ -140,7 +140,7 @@ describe("registerProfileSchema", () => {
     prefecture: "東京都",
     companyName: "テスト建設",
     skills: [{ tradeType: "大工", experienceYears: 5 }],
-    availableAreas: ["東京都"],
+    availableAreas: [{ prefecture: "東京都", municipality: null }],
     password: "password123",
   };
 
@@ -212,11 +212,30 @@ describe("registerProfileSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("accepts multiple available areas", () => {
+  it("accepts multiple available areas (混合: 県のみ + 市区町村あり)", () => {
     const result = registerProfileSchema.safeParse({
       ...validInput,
-      availableAreas: ["東京都", "神奈川県", "千葉県"],
+      availableAreas: [
+        { prefecture: "東京都", municipality: null },
+        { prefecture: "東京都", municipality: "港区" },
+        { prefecture: "神奈川県", municipality: null },
+      ],
     });
     expect(result.success).toBe(true);
+  });
+
+  it("dedupes (prefecture, municipality) pairs", () => {
+    const result = registerProfileSchema.safeParse({
+      ...validInput,
+      availableAreas: [
+        { prefecture: "東京都", municipality: "港区" },
+        { prefecture: "東京都", municipality: "港区" },
+        { prefecture: "東京都", municipality: null },
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.availableAreas).toHaveLength(2);
+    }
   });
 });

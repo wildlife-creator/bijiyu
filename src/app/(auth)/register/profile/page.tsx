@@ -1,9 +1,13 @@
-import { getAllMasterRows } from "@/lib/master/fetch";
+import {
+  getAllMasterRows,
+  getMunicipalitiesByPrefecture,
+} from "@/lib/master/fetch";
 import { RegisterProfileForm } from "./register-profile-form";
 
 export default async function RegisterProfilePage() {
-  const [allTradeTypes] = await Promise.all([
+  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
     getAllMasterRows("trade-types"),
+    getMunicipalitiesByPrefecture(),
   ]);
   const activeTradeTypes = allTradeTypes
     .filter((r) => !r.deprecated_at)
@@ -16,6 +20,7 @@ export default async function RegisterProfilePage() {
     <RegisterProfileForm
       activeTradeTypes={activeTradeTypes}
       deprecatedTradeSet={deprecatedTradeSet}
+      municipalitiesByPrefecture={municipalitiesByPrefecture}
     />
   );
 }

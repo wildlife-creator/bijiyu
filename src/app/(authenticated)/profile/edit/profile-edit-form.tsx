@@ -14,7 +14,6 @@ import { Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MultiSelect } from "@/components/ui/multi-select";
 import {
   Select,
   SelectContent,
@@ -26,6 +25,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/shared/back-button";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { RelatedSuggestions } from "@/components/master/related-suggestions";
+import { AreaListEditor } from "@/components/area/area-list-editor";
+import type { AreaDraft } from "@/components/area/area-picker";
 import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
@@ -99,6 +100,7 @@ interface ProfileEditFormProps {
   deprecatedTradeSet: string[];
   deprecatedQualSet: string[];
   deprecatedTagSet: string[];
+  municipalitiesByPrefecture: Record<string, string[]>;
 }
 
 export function ProfileEditForm({
@@ -108,6 +110,7 @@ export function ProfileEditForm({
   deprecatedTradeSet,
   deprecatedQualSet,
   deprecatedTagSet,
+  municipalitiesByPrefecture,
 }: ProfileEditFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState("");
@@ -157,8 +160,15 @@ export function ProfileEditForm({
   const watchedPrefecture = watch("prefecture");
 
   const handleAreaChange = useCallback(
-    (next: string[]) => {
-      setValue("availableAreas", next, { shouldValidate: true });
+    (next: AreaDraft[]) => {
+      setValue(
+        "availableAreas",
+        next.map((a) => ({
+          prefecture: a.prefecture ?? "",
+          municipality: a.municipality,
+        })),
+        { shouldValidate: true },
+      );
     },
     [setValue],
   );
@@ -193,7 +203,7 @@ export function ProfileEditForm({
 
       const { data: userAreas } = await supabase
         .from("user_available_areas")
-        .select("prefecture")
+        .select("prefecture, municipality")
         .eq("user_id", user.id);
 
       const { data: userQualifications } = await supabase
@@ -213,7 +223,10 @@ export function ProfileEditForm({
             : [{ tradeType: "", experienceYears: 0 }];
 
         const areas = userAreas
-          ? userAreas.map((a: { prefecture: string }) => a.prefecture)
+          ? userAreas.map((a: { prefecture: string; municipality: string | null }) => ({
+              prefecture: a.prefecture,
+              municipality: a.municipality,
+            }))
           : [];
 
         const qualifications = userQualifications
@@ -569,18 +582,21 @@ export function ProfileEditForm({
               <FieldError message={validationErrors["prefecture"]} />
             </FieldGroup>
 
-            {/* 対応可能エリア — 複数選択可能なプルダウン */}
+            {/* 対応可能エリア — 都道府県 + 市区町村の階層プルダウン */}
             <FieldGroup>
-              <FieldLabel htmlFor="availableAreas">
+              <FieldLabel>
                 対応可能エリア
                 <RequiredBadge />
               </FieldLabel>
-              <MultiSelect
-                id="availableAreas"
-                options={PREFECTURES}
-                value={watchedAreas ?? []}
+              <AreaListEditor
+                value={(watchedAreas ?? []).map((a) => ({
+                  prefecture: a.prefecture || null,
+                  municipality: a.municipality ?? null,
+                }))}
                 onChange={handleAreaChange}
-                placeholder="お選びください"
+                municipalitiesByPrefecture={municipalitiesByPrefecture}
+                minItems={1}
+                softCapWarning={30}
                 disabled={isPending}
               />
               <FieldError message={validationErrors["availableAreas"]} />
