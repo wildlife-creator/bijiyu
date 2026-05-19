@@ -134,7 +134,7 @@
   - placeholder に「市区町村は任意（県全域でも検索可）」と明示する
   - _Requirements: 2.3, 2.4, 3.3, 6.3, 6.4, 10.4_
 
-- [ ] 3.2 AreaListEditor（`useFieldArray` ベースの動的エリア行管理）
+- [x] 3.2 AreaListEditor（`useFieldArray` ベースの動的エリア行管理）
   - 行ごとに `AreaPicker` を表示、右上「×」で行削除、最下部に「+ エリアを追加」ボタンを配置する
   - props で `minItems` / `maxItems` / `softCapWarning` を受け取り、削除ボタンは `minItems` 件数到達時 disabled、追加ボタンは `maxItems` 到達時 disabled + tooltip「最大 N 件まで」とする
   - **`<form>` 内に配置されるため、削除ボタン・追加ボタンは必ず `type="button"` を明示する**（CLAUDE.md「フォーム内の `<button>` には必ず `type` を明示する」既存ルール準拠。type 無指定だと暗黙的に submit となり、意図せずフォーム送信が発火する）
