@@ -69,7 +69,8 @@ function buildValidFormData(overrides: Record<string, string> = {}): FormData {
     description: "テスト詳細説明です",
     rewardLower: "18000",
     rewardUpper: "22000",
-    prefecture: "東京都",
+    // areas は AreaTuple[] を JSON シリアライズ (Server Action 側で JSON.parse)
+    areas: JSON.stringify([{ prefecture: "東京都", municipality: null }]),
     address: "",
     workStartDate: "2026-04-01",
     workEndDate: "2026-06-30",
@@ -133,6 +134,8 @@ function createQueryMock(terminator: {
 describe("createJobAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // replace_job_areas / replace_user_areas 等の RPC はデフォルト成功
+    mockRpc.mockResolvedValue({ data: null, error: null });
   });
 
   it("returns error when user is not authenticated", async () => {
@@ -443,6 +446,8 @@ describe("createJobAction", () => {
 describe("updateJobAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // replace_job_areas / replace_user_areas 等の RPC はデフォルト成功
+    mockRpc.mockResolvedValue({ data: null, error: null });
   });
 
   it("returns error when jobId is missing", async () => {
@@ -636,6 +641,8 @@ describe("updateJobAction", () => {
 describe("deleteJobImageAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // replace_job_areas / replace_user_areas 等の RPC はデフォルト成功
+    mockRpc.mockResolvedValue({ data: null, error: null });
   });
 
   it("returns error when user is not authenticated", async () => {

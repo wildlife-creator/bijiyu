@@ -11,6 +11,7 @@ import {
 } from "@/lib/validations/job";
 import type { ActionResult } from "@/lib/types/action-result";
 import { validateLabelChanges } from "@/lib/master/validate";
+import { validateAreaChanges } from "@/lib/master/validate-area";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -23,7 +24,10 @@ function parseFormDataToJobInput(formData: FormData) {
     tradeTypes: formData.getAll("tradeTypes") as string[],
     rewardLower: Number(formData.get("rewardLower")),
     rewardUpper: Number(formData.get("rewardUpper")),
-    prefecture: formData.get("prefecture") as string,
+    areas: JSON.parse((formData.get("areas") as string) ?? "[]") as Array<{
+      prefecture: string;
+      municipality: string | null;
+    }>,
     address: (formData.get("address") as string) ?? "",
     workStartDate: formData.get("workStartDate") as string,
     workEndDate: formData.get("workEndDate") as string,
@@ -155,7 +159,7 @@ export async function createJobAction(
     const numOrNull = (v: unknown) =>
       typeof v === "number" && !Number.isNaN(v) ? v : null;
 
-    // 新規作成時の trade_types delta validate (previousLabels = [])
+    // 新規作成時の trade_types + areas delta validate (previousLabels = [])
     const tradeValid = await validateLabelChanges(
       data.tradeTypes ?? [],
       [],
@@ -170,6 +174,21 @@ export async function createJobAction(
             : `廃止された職種は新規追加できません: ${tradeValid.deprecatedLabels.join("、")}`,
       };
     }
+    // areas は公開時 (jobSchema) のみ min(1) 必須。下書き (jobDraftSchema) では空配列許可
+    if (data.areas && data.areas.length > 0) {
+      const areaValid = await validateAreaChanges(data.areas, []);
+      if (!areaValid.valid) {
+        const fmt = (a: { prefecture: string; municipality: string | null }) =>
+          a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
+        return {
+          success: false,
+          error:
+            areaValid.unknownPairs.length > 0
+              ? `存在しないエリアが含まれています: ${areaValid.unknownPairs.map(fmt).join("、")}`
+              : `廃止されたエリアは新規追加できません: ${areaValid.deprecatedPairs.map(fmt).join("、")}`,
+        };
+      }
+    }
 
     // Insert job
     const { data: job, error: jobError } = await supabase
@@ -182,7 +201,6 @@ export async function createJobAction(
         trade_types: data.tradeTypes ?? [],
         reward_lower: numOrNull(data.rewardLower),
         reward_upper: numOrNull(data.rewardUpper),
-        prefecture: data.prefecture || null,
         address: data.address || null,
         work_start_date: data.workStartDate || null,
         work_end_date: data.workEndDate || null,
@@ -207,6 +225,21 @@ export async function createJobAction(
         success: false,
         error: "案件の保存に失敗しました。時間をおいて再度お試しください",
       };
+    }
+
+    // Replace job_areas via RPC (DELETE old + INSERT new)
+    // enforce_job_areas_max トリガーで 10 件超は RAISE EXCEPTION
+    if (data.areas && data.areas.length > 0) {
+      const { error: areasError } = await supabase.rpc("replace_job_areas", {
+        p_job_id: job.id,
+        p_areas: data.areas,
+      });
+      if (areasError) {
+        const msg = areasError.message?.includes("exceeds 10")
+          ? "案件のエリアは最大10件までです"
+          : "エリアの保存に失敗しました。時間をおいて再度お試しください";
+        return { success: false, error: msg };
+      }
     }
 
     // Upload images
@@ -356,13 +389,20 @@ export async function updateJobAction(
     const numOrNull = (v: unknown) =>
       typeof v === "number" && !Number.isNaN(v) ? v : null;
 
-    // trade_types delta validate (added のみ active 必須、既存保有 deprecated 保持)
-    const { data: prevJob } = await supabase
-      .from("jobs")
-      .select("trade_types")
-      .eq("id", jobId)
-      .single();
+    // trade_types + areas delta validate (added のみ active 必須、既存保有 deprecated 保持)
+    const [{ data: prevJob }, { data: prevAreaRows }] = await Promise.all([
+      supabase.from("jobs").select("trade_types").eq("id", jobId).single(),
+      supabase
+        .from("job_areas")
+        .select("prefecture, municipality")
+        .eq("job_id", jobId),
+    ]);
     const prevTradeTypes = (prevJob?.trade_types ?? []) as string[];
+    const previousAreas = (prevAreaRows ?? []).map((r) => ({
+      prefecture: r.prefecture,
+      municipality: r.municipality,
+    }));
+
     const tradeValid = await validateLabelChanges(
       data.tradeTypes ?? [],
       prevTradeTypes,
@@ -377,6 +417,20 @@ export async function updateJobAction(
             : `廃止された職種は新規追加できません: ${tradeValid.deprecatedLabels.join("、")}`,
       };
     }
+    if (data.areas && data.areas.length > 0) {
+      const areaValid = await validateAreaChanges(data.areas, previousAreas);
+      if (!areaValid.valid) {
+        const fmt = (a: { prefecture: string; municipality: string | null }) =>
+          a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
+        return {
+          success: false,
+          error:
+            areaValid.unknownPairs.length > 0
+              ? `存在しないエリアが含まれています: ${areaValid.unknownPairs.map(fmt).join("、")}`
+              : `廃止されたエリアは新規追加できません: ${areaValid.deprecatedPairs.map(fmt).join("、")}`,
+        };
+      }
+    }
 
     // Update job
     const { error: updateError } = await supabase
@@ -387,7 +441,6 @@ export async function updateJobAction(
         trade_types: data.tradeTypes ?? [],
         reward_lower: numOrNull(data.rewardLower),
         reward_upper: numOrNull(data.rewardUpper),
-        prefecture: data.prefecture || null,
         address: data.address || null,
         work_start_date: data.workStartDate || null,
         work_end_date: data.workEndDate || null,
@@ -411,6 +464,20 @@ export async function updateJobAction(
         success: false,
         error: "案件の保存に失敗しました。時間をおいて再度お試しください",
       };
+    }
+
+    // Replace job_areas via RPC (DELETE old + INSERT new)
+    if (data.areas !== undefined) {
+      const { error: areasError } = await supabase.rpc("replace_job_areas", {
+        p_job_id: jobId,
+        p_areas: data.areas,
+      });
+      if (areasError) {
+        const msg = areasError.message?.includes("exceeds 10")
+          ? "案件のエリアは最大10件までです"
+          : "エリアの保存に失敗しました。時間をおいて再度お試しください";
+        return { success: false, error: msg };
+      }
     }
 
     // Upload new images

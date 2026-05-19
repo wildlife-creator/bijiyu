@@ -2,7 +2,10 @@ import { redirect, notFound } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { JobForm } from "@/components/jobs/job-form";
-import { getAllMasterRows } from "@/lib/master/fetch";
+import {
+  getAllMasterRows,
+  getMunicipalitiesByPrefecture,
+} from "@/lib/master/fetch";
 import type { JobFormValues } from "@/lib/validations/job";
 
 interface PageProps {
@@ -32,12 +35,18 @@ export default async function JobEditPage({ params }: PageProps) {
     notFound();
   }
 
-  // Fetch existing images
-  const { data: images } = await supabase
-    .from("job_images")
-    .select("id, image_url, image_type, sort_order")
-    .eq("job_id", id)
-    .order("sort_order", { ascending: true });
+  // Fetch existing images + job_areas in parallel
+  const [{ data: images }, { data: jobAreas }] = await Promise.all([
+    supabase
+      .from("job_images")
+      .select("id, image_url, image_type, sort_order")
+      .eq("job_id", id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("job_areas")
+      .select("prefecture, municipality")
+      .eq("job_id", id),
+  ]);
 
   // Map to form default values
   const defaultValues: Partial<JobFormValues> = {
@@ -46,7 +55,10 @@ export default async function JobEditPage({ params }: PageProps) {
     tradeTypes: job.trade_types ?? [],
     rewardLower: job.reward_lower ?? undefined,
     rewardUpper: job.reward_upper ?? undefined,
-    prefecture: job.prefecture ?? "",
+    areas: (jobAreas ?? []).map((a) => ({
+      prefecture: a.prefecture,
+      municipality: a.municipality,
+    })),
     address: job.address ?? "",
     workStartDate: job.work_start_date ?? "",
     workEndDate: job.work_end_date ?? "",
@@ -71,7 +83,10 @@ export default async function JobEditPage({ params }: PageProps) {
     sortOrder: img.sort_order,
   }));
 
-  const allTradeTypes = await getAllMasterRows("trade-types");
+  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
+    getAllMasterRows("trade-types"),
+    getMunicipalitiesByPrefecture(),
+  ]);
   const activeTradeTypes = allTradeTypes
     .filter((r) => !r.deprecated_at)
     .map((r) => r.label);
@@ -93,6 +108,7 @@ export default async function JobEditPage({ params }: PageProps) {
           jobId={id}
           activeTradeTypes={activeTradeTypes}
           deprecatedTradeSet={deprecatedTradeSet}
+          municipalitiesByPrefecture={municipalitiesByPrefecture}
         />
       </div>
     </div>

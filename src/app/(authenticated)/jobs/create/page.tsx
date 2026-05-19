@@ -2,7 +2,10 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { JobForm } from "@/components/jobs/job-form";
-import { getAllMasterRows } from "@/lib/master/fetch";
+import {
+  getAllMasterRows,
+  getMunicipalitiesByPrefecture,
+} from "@/lib/master/fetch";
 import type { JobFormValues } from "@/lib/validations/job";
 
 interface PageProps {
@@ -31,13 +34,22 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
       .single();
 
     if (job) {
+      // copyFrom 時のエリアは元案件の job_areas を取得して複写
+      const { data: copyAreas } = await supabase
+        .from("job_areas")
+        .select("prefecture, municipality")
+        .eq("job_id", copyFrom);
+
       defaultValues = {
         title: job.title,
         description: job.description ?? "",
         tradeTypes: job.trade_types ?? [],
         rewardLower: job.reward_lower ?? undefined,
         rewardUpper: job.reward_upper ?? undefined,
-        prefecture: job.prefecture ?? "",
+        areas: (copyAreas ?? []).map((a) => ({
+          prefecture: a.prefecture,
+          municipality: a.municipality,
+        })),
         address: job.address ?? "",
         workStartDate: "",
         workEndDate: "",
@@ -57,7 +69,10 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
     }
   }
 
-  const allTradeTypes = await getAllMasterRows("trade-types");
+  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
+    getAllMasterRows("trade-types"),
+    getMunicipalitiesByPrefecture(),
+  ]);
   const activeTradeTypes = allTradeTypes
     .filter((r) => !r.deprecated_at)
     .map((r) => r.label);
@@ -77,6 +92,7 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
           defaultValues={defaultValues}
           activeTradeTypes={activeTradeTypes}
           deprecatedTradeSet={deprecatedTradeSet}
+          municipalitiesByPrefecture={municipalitiesByPrefecture}
         />
       </div>
     </div>

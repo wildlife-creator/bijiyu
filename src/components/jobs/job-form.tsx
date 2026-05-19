@@ -20,12 +20,13 @@ import {
 import { jobSchema, type JobFormValues } from "@/lib/validations/job";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { MasterCombobox } from "@/components/master/master-combobox";
+import { AreaListEditor } from "@/components/area/area-list-editor";
+import type { AreaDraft } from "@/components/area/area-picker";
 import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
 } from "@/lib/master/deprecated";
 import {
-  PREFECTURES,
   EXPERIENCE_YEARS,
   LANGUAGES,
 } from "@/lib/constants/options";
@@ -46,6 +47,7 @@ interface JobFormProps {
   jobId?: string;
   activeTradeTypes: string[];
   deprecatedTradeSet: string[];
+  municipalitiesByPrefecture: Record<string, string[]>;
 }
 
 export function JobForm({
@@ -55,6 +57,7 @@ export function JobForm({
   jobId,
   activeTradeTypes,
   deprecatedTradeSet,
+  municipalitiesByPrefecture,
 }: JobFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -76,7 +79,7 @@ export function JobForm({
       tradeTypes: [],
       rewardLower: undefined as unknown as number,
       rewardUpper: undefined as unknown as number,
-      prefecture: "",
+      areas: [],
       address: "",
       workStartDate: "",
       workEndDate: "",
@@ -119,8 +122,13 @@ export function JobForm({
     startTransition(async () => {
       const formData = new FormData();
 
-      // Add all fields. 配列フィールドは append で複数値を送る（FormData の慣例）。
-      Object.entries(data).forEach(([key, value]) => {
+      // areas は AreaTuple[] のため JSON.stringify でシリアライズ
+      // (Server Action 側で JSON.parse で復元)
+      const { areas: areasData, ...restData } = data;
+      formData.set("areas", JSON.stringify(areasData ?? []));
+
+      // 残りのフィールド: 配列は append、それ以外は set
+      Object.entries(restData).forEach(([key, value]) => {
         if (value === undefined || value === null) return;
         if (Array.isArray(value)) {
           for (const item of value) {
@@ -159,7 +167,7 @@ export function JobForm({
 
   function handleSaveAsDraft() {
     // Skip client-side validation for draft save
-    const values = watch();
+    const values = watch() as JobFormValues;
     values.status = "draft";
     onSubmit(values);
   }
@@ -168,8 +176,8 @@ export function JobForm({
     // Trigger full validation via handleSubmit, then submit with status = open
     handleSubmit(
       (data) => {
-        data.status = "open";
-        onSubmit(data);
+        (data as JobFormValues).status = "open";
+        onSubmit(data as JobFormValues);
       },
       (fieldErrors) => {
         const errorFields = Object.entries(fieldErrors)
@@ -254,29 +262,34 @@ export function JobForm({
           )}
         </div>
 
-        {/* エリア */}
+        {/* エリア (1案件最大 10 件、県跨ぎ可、市区町村未指定 = 全域/現場未定 可) */}
         <div className="space-y-1">
           <Label>
             エリア <span className="text-destructive">必須</span>
           </Label>
-          <Select
-            value={watch("prefecture")}
-            onValueChange={(v) => setValue("prefecture", v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="お選びください" />
-            </SelectTrigger>
-            <SelectContent>
-              {PREFECTURES.map((pref) => (
-                <SelectItem key={pref} value={pref}>
-                  {pref}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.prefecture && (
+          <AreaListEditor
+            value={(watch("areas") ?? []).map((a) => ({
+              prefecture: a.prefecture || null,
+              municipality: a.municipality ?? null,
+            }))}
+            onChange={(next: AreaDraft[]) =>
+              setValue(
+                "areas",
+                next.map((a) => ({
+                  prefecture: a.prefecture ?? "",
+                  municipality: a.municipality,
+                })),
+                { shouldValidate: true },
+              )
+            }
+            municipalitiesByPrefecture={municipalitiesByPrefecture}
+            minItems={1}
+            maxItems={10}
+            maxReachedTooltip="案件のエリアは最大10件までです"
+          />
+          {errors.areas && (
             <p className="text-body-sm text-destructive">
-              {errors.prefecture.message}
+              {errors.areas.message ?? "エリアの入力に不備があります"}
             </p>
           )}
         </div>

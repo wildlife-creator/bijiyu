@@ -25,7 +25,24 @@ export const jobSchema = z
       .number({ message: "報酬上限は数値で入力してください" })
       .int()
       .positive("報酬上限は正の数で入力してください"),
-    prefecture: z.string().min(1, "都道府県を選択してください"),
+    areas: z
+      .array(
+        z.object({
+          prefecture: z.string().min(1, "都道府県を選択してください"),
+          municipality: z.string().nullable(),
+        }),
+      )
+      .min(1, "エリアを1つ以上選択してください")
+      .max(10, "エリアは最大10件までです")
+      .transform((arr) => {
+        const seen = new Set<string>();
+        return arr.filter((a) => {
+          const k = `${a.prefecture}|${a.municipality ?? ""}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+      }),
     address: z
       .string()
       .max(200, "詳細住所は200文字以内で入力してください")
@@ -88,7 +105,24 @@ export const jobDraftSchema = z.object({
     .default([]),
   rewardLower: z.number().int().positive().optional().or(z.nan()),
   rewardUpper: z.number().int().positive().optional().or(z.nan()),
-  prefecture: z.string().optional().or(z.literal("")),
+  areas: z
+    .array(
+      z.object({
+        prefecture: z.string().min(1),
+        municipality: z.string().nullable(),
+      }),
+    )
+    .max(10, "エリアは最大10件までです")
+    .default([])
+    .transform((arr) => {
+      const seen = new Set<string>();
+      return arr.filter((a) => {
+        const k = `${a.prefecture}|${a.municipality ?? ""}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }),
   address: z.string().max(200).optional().or(z.literal("")),
   workStartDate: z.string().optional().or(z.literal("")),
   workEndDate: z.string().optional().or(z.literal("")),
