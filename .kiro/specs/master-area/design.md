@@ -1063,7 +1063,7 @@ CREATE INDEX idx_jobs_search ON jobs (status);
 
 | テスト | 期待 |
 |--------|------|
-| anon が `SELECT master_municipalities` 可能 | 1,898 行返る |
+| anon が `SELECT master_municipalities` 可能 | 1,897 行返る (research.md §5.1 dedupe 後) |
 | authenticated が `INSERT master_municipalities` 拒否 | RLS で reject（throws_ok ではなく実データ不変を `is()` で検証、CLAUDE.md ルール） |
 | owner 自身が `INSERT job_areas` 成功 | 行が追加される |
 | 他人が `INSERT job_areas` 拒否 | RLS でサイレントブロック、件数不変 |
@@ -1095,7 +1095,7 @@ CREATE INDEX idx_jobs_search ON jobs (status);
 
 | 検証 | 方法 |
 |------|------|
-| Migration 1 投入後の件数 | `SELECT count(*)` で 1,898 を確認 |
+| Migration 1 投入後の件数 | `SELECT count(*)` で 1,897 を確認 (research.md §5.1 dedupe 後) |
 | Migration 3 後の `job_areas` / `client_recruit_areas` 件数 | seed 案件・発注者の旧カラム件数と一致 |
 | Migration 4 後の旧カラム不在 | `\d jobs` / `\d client_profiles` で `prefecture` / `recruit_area` が存在しないこと |
 | `idx_jobs_search` 再構築 | `\di idx_jobs_search` で `(status)` のみ |
@@ -1122,7 +1122,7 @@ graph LR
 ### Phase 1 — DB スキーマ整備 + DML 移行（Migration 1 + 2 + 3 を一括）
 
 `supabase db reset` で Migration 1〜3 を順に流す（dev では自然挙動）。完了状態:
-- `master_municipalities` 1,898 件投入済み
+- `master_municipalities` 1,897 件投入済み (research.md §5.1 dedupe 後)
 - `job_areas` / `client_recruit_areas` テーブル作成 + RLS + index + `enforce_job_areas_max` トリガー + `replace_*_areas` RPC 3 本配備
 - `user_available_areas.municipality` カラム追加（既存重複行の事前 dedupe を経て UNIQUE NULLS NOT DISTINCT 制約）
 - 既存 `jobs.prefecture` / `client_profiles.recruit_area` の値が `job_areas` / `client_recruit_areas` に移行済み（`municipality = NULL` の県全域行として）

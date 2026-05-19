@@ -137,6 +137,16 @@
 
 master-skills の経験を踏襲できるため、難易度は中程度で進められる見込み。
 
+### 5.1 マスタ件数の補足 (Phase 1.1 着手後に発見)
+
+CSV (`tmp/master-area-research/municipalities.csv`) は **1,898 行**だが、`(prefecture, municipality)` で UNIQUE すると **1,897 ペア** になる。差分の 1 ペアは `(北海道, 泊村)`:
+- 団体コード 014036 = 古宇郡泊村 (実効的に日本管理下)
+- 団体コード 016969 = 国後郡泊村 (北方領土・実効的に未着工)
+
+xlsx 原本では「郡」列で区別されているが CSV 化時に落としたため衝突。`master_municipalities` の schema (`prefecture, municipality`) には「郡」カラムが無いため、scripts/build-master-municipalities-inserts.ts の dedupe で最初の出現 (古宇郡側) のみ保持する。北方領土は本サービス (建設業マッチング) の対象外のため実害なし。
+
+以降「1,898 件」と書かれた箇所は CSV 行数 (input サイズ) を指し、「1,897 件」と書かれた箇所は DB 投入後の unique 件数を指す。
+
 ---
 
 ## 6. Design Phase Decisions（spec-design 2026-05-19 確定）

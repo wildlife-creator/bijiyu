@@ -13,10 +13,15 @@
  * - sort_order の算出 (tasks.md 1.1「方式 B」):
  *   PREFECTURES 定数 (総務省コード順) の index で主ソート、
  *   市区町村は ja-JP localeCompare で副ソート (xlsx の団体コード順は再現できないが、UI 表示上の許容範囲)
+ * - (prefecture, municipality) ペアの重複は最初の出現のみ保持 (dedupe)。
+ *   研究時の CSV (1,898 行) には 1 ペアだけ重複 ('北海道', '泊村') があり、これは
+ *   xlsx 原本で団体コード 014036 (古宇郡泊村) と 016969 (北方領土・国後郡泊村) の
+ *   2 行が CSV 化時に「郡」情報を落として衝突したもの。`master_municipalities` の
+ *   UNIQUE (prefecture, municipality) 制約と整合させるため script 側で dedupe する
  * - 末尾に ON CONFLICT (prefecture, municipality) DO NOTHING を付与し再投入時の衝突を無視する
- * - 入力データに対するアサーション:
- *   - 全 1,898 行 (research.md R 既知値)
- *   - 都道府県別件数: 北海道 194 / 富山県 15 / 東京都 62
+ * - 入力データに対するアサーション (dedupe 後):
+ *   - 1,897 行 (CSV 1,898 行 - 重複 1 ペア)
+ *   - 都道府県別件数: 北海道 193 / 富山県 15 / 東京都 62
  *   - 政令指定都市本体 20 件 (横浜市・大阪市…) が含まれないこと (行政区 171 件のみ)
  *   - 東京都の島嶼/山間部の村 8 村が含まれること (青ヶ島村・小笠原村・利島村等)
  */
@@ -141,7 +146,28 @@ function parseCsv(filePath: string): Row[] {
     });
 }
 
-const rows = parseCsv(path.join(ROOT, CSV_PATH));
+const rawRows = parseCsv(path.join(ROOT, CSV_PATH));
+
+// Dedupe (prefecture, municipality) pairs — keep first occurrence in CSV order
+const seenPairs = new Set<string>();
+const duplicatePairs: Row[] = [];
+const rows: Row[] = [];
+for (const r of rawRows) {
+  const key = `${r.prefecture}|${r.municipality}`;
+  if (seenPairs.has(key)) {
+    duplicatePairs.push(r);
+    continue;
+  }
+  seenPairs.add(key);
+  rows.push(r);
+}
+if (duplicatePairs.length > 0) {
+  process.stderr.write(
+    `[dedupe] removed ${duplicatePairs.length} duplicate pair(s): ${duplicatePairs
+      .map((r) => `${r.prefecture}${r.municipality}`)
+      .join(", ")}\n`,
+  );
+}
 
 // Sort: PREFECTURES index primary, municipality ja-JP localeCompare secondary
 rows.sort((a, b) => {
@@ -157,11 +183,11 @@ rows.sort((a, b) => {
   return a.municipality.localeCompare(b.municipality, "ja-JP");
 });
 
-// Assertions
+// Assertions (post-dedupe)
 
 const total = rows.length;
-if (total !== 1898) {
-  throw new Error(`Expected 1,898 rows, got ${total}`);
+if (total !== 1897) {
+  throw new Error(`Expected 1,897 rows (post-dedupe), got ${total}`);
 }
 
 const countByPref = (pref: string) =>
@@ -170,8 +196,8 @@ const countByPref = (pref: string) =>
 const hokkaidoCount = countByPref("北海道");
 const toyamaCount = countByPref("富山県");
 const tokyoCount = countByPref("東京都");
-if (hokkaidoCount !== 194) {
-  throw new Error(`北海道 expected 194, got ${hokkaidoCount}`);
+if (hokkaidoCount !== 193) {
+  throw new Error(`北海道 expected 193 (post-dedupe), got ${hokkaidoCount}`);
 }
 if (toyamaCount !== 15) {
   throw new Error(`富山県 expected 15, got ${toyamaCount}`);

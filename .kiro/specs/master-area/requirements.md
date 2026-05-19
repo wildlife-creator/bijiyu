@@ -31,7 +31,7 @@
 #### Acceptance Criteria
 
 1. The master-area system shall `master_municipalities (prefecture, municipality, deprecated_at)` の 2 + 1 カラム構成で市区町村マスタを管理する
-2. The master-area system shall 総務省「市町村コード・特別区コード」(令和6年1月1日版) 由来の 1,898 件を初期データとして投入する(政令指定都市本体 20 件は除外、行政区 171 件のみ含める)
+2. The master-area system shall 総務省「市町村コード・特別区コード」(令和6年1月1日版) 由来の 1,897 件を初期データとして投入する(政令指定都市本体 20 件は除外、行政区 171 件のみ含める。CSV は 1,898 行だが `(北海道, 泊村)` の重複 1 ペアを dedupe して 1,897。詳細は research.md §5.1)
 3. The master-area system shall 政令指定都市の行政区を「札幌市中央区」「横浜市港北区」のような単一ラベルの結合表記で保持する
 4. The master-area system shall 東京都の島嶼部の村(青ヶ島村・小笠原村・利島村等 8 村)を含める
 5. The master-area system shall マスタの並び順を総務省「全国地方公共団体コード」順(団体コード昇順)で保持する。政令市本体の直後に区が連続して並ぶ自然順序となる

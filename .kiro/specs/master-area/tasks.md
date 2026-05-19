@@ -30,13 +30,13 @@
   - 素材ファイル自体はリポジトリに保全し、生成 SQL は migration ファイルに直接埋め込む（DB 自己完結性）
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.9_
 
-- [ ] 1.2 master_municipalities テーブル作成 + RLS + 1,898 件投入（Migration 1）
+- [x] 1.2 master_municipalities テーブル作成 + RLS + 1,897 件投入（Migration 1）
   - 最小スキーマ `(id uuid PK, prefecture text NOT NULL, municipality text NOT NULL, sort_order integer NOT NULL, deprecated_at timestamptz NULL, created_at, updated_at, UNIQUE(prefecture, municipality))` で作成する
   - `(sort_order)` 単独 B-tree、`(prefecture, municipality) WHERE deprecated_at IS NULL` の部分 B-tree インデックスを張る
   - 既存 `update_updated_at()` トリガーを付与する
   - RLS を有効化し「anon + authenticated は SELECT 全開、INSERT/UPDATE/DELETE はマイグレーション（service_role）のみ」のポリシーを設定する
-  - 1.1 の生成 SQL を埋め込み 1,898 行を `deprecated_at = NULL` で投入する
-  - 末尾に `RAISE NOTICE` で件数を出力し、1,898 を確認可能にする
+  - 1.1 の生成 SQL を埋め込み **1,897 行** を `deprecated_at = NULL` で投入する（CSV 1,898 行から `(北海道, 泊村)` 重複 1 ペア除外、詳細は research.md §5.1）
+  - 末尾に `RAISE NOTICE` で件数を出力し、1,897 を確認可能にする
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 11.1_
 
 - [ ] 1.3 (P) job_areas / client_recruit_areas 作成 + user_available_areas 拡張 + RPC + トリガー + RLS（Migration 2）
@@ -258,7 +258,7 @@
 
 - [ ] 7. テスト網羅（Migration 検証 + pgTAP RLS + Vitest 単体・統合 + Playwright E2E）
 - [ ] 7.0 Migration 検証クエリ
-  - `SELECT count(*) FROM master_municipalities` が 1,898 を返すこと（Migration 1 投入確認）
+  - `SELECT count(*) FROM master_municipalities` が 1,897 を返すこと（Migration 1 投入確認、research.md §5.1 参照）
   - `SELECT count(*) FROM master_municipalities WHERE municipality IN ('横浜市','大阪市','名古屋市','札幌市','京都市','神戸市','福岡市','北九州市','広島市','仙台市','千葉市','さいたま市','静岡市','浜松市','新潟市','岡山市','熊本市','相模原市','堺市','川崎市')` が 0 を返すこと（政令指定都市本体 20 件不在の確認、Req 1.2）
   - Migration 3 後の `job_areas` / `client_recruit_areas` 件数が seed 案件・発注者の旧カラム件数と一致すること（DML 移行の対称性確認、Req 8.2 / 8.3）
   - Migration 4 後に `\d jobs` / `\d client_profiles` で `prefecture` / `recruit_area` カラムが存在しないこと
