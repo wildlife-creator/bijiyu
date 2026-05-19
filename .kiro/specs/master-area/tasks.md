@@ -82,7 +82,7 @@
   - 並び順は `sort_order` 昇順（総務省団体コード順、Req 1.5）を保証する
   - _Requirements: 1.5, 10.1, 10.2, 10.3_
 
-- [ ] 2.2 マスタ整合性検証ユーティリティ `validate-area.ts`
+- [x] 2.2 マスタ整合性検証ユーティリティ `validate-area.ts`
   - `src/lib/master/validate-area.ts` を新規追加し、`(prefecture, municipality)` のタプルで delta 検証する `validateAreaChanges(newAreas, previousAreas)` を実装する
   - `municipality === null` は「県全域」として常に valid（マスタ照合不要、prefecture が 47 都道府県のいずれかであることだけ別途 `isKnownPrefecture()` で軽量チェック）
   - `added = newAreas - previousAreas` の差分のみを active 必須でチェックし、`previousAreas` に含まれていた deprecated は保持を許可する（master-skills の `validateLabelChanges` と同セマンティクス）
