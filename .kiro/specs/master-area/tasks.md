@@ -39,7 +39,7 @@
   - 末尾に `RAISE NOTICE` で件数を出力し、1,897 を確認可能にする
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 11.1_
 
-- [ ] 1.3 (P) job_areas / client_recruit_areas 作成 + user_available_areas 拡張 + RPC + トリガー + RLS（Migration 2）
+- [x] 1.3 (P) job_areas / client_recruit_areas 作成 + user_available_areas 拡張 + RPC + トリガー + RLS（Migration 2）
   - `job_areas (id, job_id FK → jobs ON DELETE CASCADE, prefecture NOT NULL, municipality NULL, created_at)` を作成する
   - `client_recruit_areas (id, client_id FK → client_profiles(user_id) ON DELETE CASCADE, prefecture NOT NULL, municipality NULL, created_at)` を作成する
   - `user_available_areas` の既存重複行（`(user_id, prefecture)` 重複）を最古行（最小 id）のみ残して dedupe してから `municipality text NULL` カラムを追加し、`UNIQUE NULLS NOT DISTINCT (user_id, prefecture, municipality)` 制約を付ける
