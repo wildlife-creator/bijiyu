@@ -106,17 +106,25 @@ export async function applyJobAction(
         .select("trade_type")
         .eq("user_id", user.id);
 
-      const { data: areas } = await supabase
-        .from("user_available_areas")
-        .select("prefecture")
-        .eq("user_id", user.id);
+      const [{ data: areas }, { data: jobAreaRows }] = await Promise.all([
+        supabase
+          .from("user_available_areas")
+          .select("prefecture")
+          .eq("user_id", user.id),
+        supabase
+          .from("job_areas")
+          .select("prefecture")
+          .eq("job_id", job.id),
+      ]);
+      const jobPrefectures = Array.from(
+        new Set((jobAreaRows ?? []).map((a) => a.prefecture)),
+      );
 
       const check = canApplyJob({
         userRole: userData.role as "contractor" | "client" | "staff",
         isPaidUser: false,
         jobTradeTypes: job.trade_types,
-        // Phase 2 暫定パッチ (Phase 4 で job_areas.prefecture 配列 SELECT に置換)
-        jobPrefectures: job.prefecture ? [job.prefecture] : [],
+        jobPrefectures,
         userSkills: (skills ?? []).map((s) => ({ tradeType: s.trade_type })),
         userAvailableAreas: (areas ?? []).map((a) => ({
           prefecture: a.prefecture,
