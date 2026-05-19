@@ -231,7 +231,7 @@
   - Phase 7 の新規テストはこのタスクの対象外（Phase 7 で追加）
   - _Requirements: 12.2, 12.3_
 
-- [ ] 5. seed.sql 全面更新（新スキーマ対応）
+- [x] 5. seed.sql 全面更新（新スキーマ対応）
   - **書き換え対象を限定する**: 旧 `jobs.prefecture` / `client_profiles.recruit_area` / `user_available_areas` 周辺のみを変更する。`identity_verified` / `ccus_verified` / `email_confirmed_at` / `password_set_at` / 既存テストユーザーの招待状態（CLAUDE.md「招待フロー seed の `email_confirmed_at` は NULL を正とする」ルール）等の他フラグは温存し、関連 E2E をデグレさせない
   - 旧 `INSERT INTO jobs (..., prefecture, ...)` を `INSERT INTO jobs (...)` + `INSERT INTO job_areas (...)` のペアに書き換える
   - 旧 `INSERT INTO client_profiles (..., recruit_area, ...)` を `INSERT INTO client_profiles (...)` + `INSERT INTO client_recruit_areas (...)` に書き換える
