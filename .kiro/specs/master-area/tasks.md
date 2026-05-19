@@ -52,7 +52,7 @@
   - 1.2 とは別テーブル変更のため並列実行可能（依存関係は Migration 1 完了のみ）
   - _Requirements: 2.1, 2.2, 3.2, 4.2, 4.4, 4.5, 8.1, 8.8, 8.9, 11.2, 11.3, 11.4_
 
-- [ ] 1.4 既存データの DML 移行（Migration 3）
+- [x] 1.4 既存データの DML 移行（Migration 3）
   - **移行前の prefecture 表記揺れ検出**: Migration 3 の冒頭で `DO $$` ブロックで以下を実行し、規定外の prefecture 値があれば `RAISE NOTICE` で警告する（CLAUDE.md メモリ「マスタ移行時は DB 全件 NOT IN クエリで検証」既存ルール）:
     - `SELECT DISTINCT prefecture FROM jobs WHERE prefecture IS NOT NULL AND prefecture NOT IN ('北海道','青森県',...,'沖縄県')` で typo 検出
     - 同様に `client_profiles.recruit_area`（unnest して各要素）と `user_available_areas.prefecture` でも検証
