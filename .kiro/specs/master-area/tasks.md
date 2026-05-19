@@ -122,7 +122,7 @@
   - **アプリ層の呼び出し元 3 ファイル**（`src/app/(authenticated)/jobs/search-actions.ts:118` / `src/app/(authenticated)/jobs/[id]/page.tsx:423` / `src/app/(authenticated)/jobs/[id]/apply/page.tsx:83`、実測値。`grep -rn "jobPrefecture\s*:" src/` で再確認）は Phase 4 で本格書き換え（`job_areas.prefecture` 配列 SELECT に置換）するため、Phase 2 では `[job.prefecture]` で配列化する暫定パッチを当てて型エラーを回避する
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 8.9_
 
-- [ ] 3. UI 共通部品 4 種実装（AreaPicker / AreaListEditor / AreaList / AreaSummary）
+- [x] 3. UI 共通部品 4 種実装（AreaPicker / AreaListEditor / AreaList / AreaSummary）
 - [x] 3.1 AreaPicker（都道府県 + 市区町村の 2 段プルダウン、単一行）
   - 都道府県は 47 件固定の shadcn `<Select>`（cmdk 不要）、市区町村は選択都道府県でフィルタした候補を `MasterCombobox`（master-skills 既存）に渡す
   - 都道府県未選択時は市区町村側を `disabled` にする（Req 2.4 / 6.4）
@@ -147,14 +147,14 @@
   - 検索画面では使わない（検索は単発 AreaPicker のみ）
   - _Requirements: 1.8, 2.7, 3.6, 4.4, 4.5, 4.6, 10.5_
 
-- [ ] 3.3 (P) AreaList（詳細画面の全件展開表示）
+- [x] 3.3 (P) AreaList（詳細画面の全件展開表示）
   - `AreaList` を新規実装し、`AreaForDisplay[]` を `formatAreasLong(areas)` で `<p>` に表示する
   - 0 件で `emptyLabel`（default `「エリア未設定」`）を表示する
   - 詳細画面 6 種（CON-003 / CLI-002 / CLI-006 / COM-001 / CON-006 / CLI-020）+ メッセージスレッド等で使用する想定
   - 3.4 とは別コンポーネントで独立しているため並列実行可能（共通依存は Phase 2 の `format-areas.ts` のみ）
   - _Requirements: 5.4_
 
-- [ ] 3.4 (P) AreaSummary（カード共通の「主要 3 件 + 他 N エリア」省略表示）
+- [x] 3.4 (P) AreaSummary（カード共通の「主要 3 件 + 他 N エリア」省略表示）
   - `AreaSummary` を新規実装し、`AreaForDisplay[]` を `formatAreasShort(areas)` で `<span>` に表示する
   - default `maxVisible = 3`、4 件以上で末尾「他 N エリア」省略表記、0 件で `emptyLabel` を表示する
   - 案件カード（CON-002 等）、職人カード、発注者カード、マイリスト、スカウト情報カード等で使用する想定
