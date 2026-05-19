@@ -102,7 +102,7 @@
   - 2.4 / 2.5 とは別ファイルで独立しているため並列実行可能
   - _Requirements: 5.1, 5.2, 5.3, 5.5, 5.6_
 
-- [ ] 2.4 (P) 検索クエリビルダー `area-search-clauses.ts`
+- [x] 2.4 (P) 検索クエリビルダー `area-search-clauses.ts`
   - `src/lib/utils/area-search-clauses.ts` を新規追加し、`buildAreaFilterIds({ entity, prefecture, municipality, supabase })` で上位包含ルール適用済みの parent_id 集合を返す
   - `entity` は `"job" | "client" | "user"` のいずれかで、それぞれ `job_areas` / `client_recruit_areas` / `user_available_areas` を対象とする
   - 「prefecture のみ指定（municipality = null）」は同県内の全レコードを返す（市区町村未指定・指定済みすべて、Req 6.1）
