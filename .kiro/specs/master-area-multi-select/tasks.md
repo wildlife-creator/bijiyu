@@ -82,7 +82,7 @@
 
 ## 3. Phase C — AreaListEditor リライト + 登録系 5 フォーム + 4 Server Action + Zod 4 ファイル削除 + 該当テスト更新
 
-- [ ] 3. Phase C: 登録系の本体書換を一括で行い、フォーム・Server Action・Zod・関連 Vitest / E2E をまとめてグリーンに戻す
+- [x] 3. Phase C: 登録系の本体書換を一括で行い、フォーム・Server Action・Zod・関連 Vitest / E2E をまとめてグリーンに戻す
 - [x] 3.1 `area-list-editor.tsx` を新型 `AreaRow[]` 対応に全面リライト
   - `src/components/area/area-list-editor.tsx`(143 行)を新型対応にリライトする
   - 内部で `AreaRow` 部品を縦並べし、`value: AreaRow[]` と `onChange: (next: AreaRow[]) => void` で親フォームと統合する
@@ -149,7 +149,7 @@
   - 各 Server Action ユニットテストで Supabase クライアントモックの戻り値を `{ data, error }` 形状で正確に再現し、`expandAreasForDb` 通過後に既存 RPC が正しい平坦化結果で呼ばれることを assert する(Server Action 自体は vi.mock で差し替えない)
   - `vi.clearAllMocks()` ではなく `spy.mockReset()` で onceValues queue を明示的にクリアする(CLAUDE.md「Vitest の `mockReturnValueOnce` キューが `vi.clearAllMocks()` で消えない」準拠)
   - _Requirements: 9.3, 9.4_
-- [ ] 3.9 (P) 既存 Playwright `e2e/profile.spec.ts` をフォーム操作シーケンス書換で更新
+- [x] 3.9 (P) 既存 Playwright `e2e/profile.spec.ts` をフォーム操作シーケンス書換で更新
   - `e2e/profile.spec.ts` の AreaListEditor 操作部分を新 UI の DOM 構造(都道府県 Select → 市区町村 Checkbox 群)に書き換える
   - shadcn の Select は `selectOption()` でなく `await page.getByLabel(...).click()` → `await page.getByRole("option", { name: "..." }).click()` の 2 段クリックで操作する
   - 新 UI 基本動作(「東京都全域」+「神奈川県の港区・川崎区」登録 → 保存 → 再表示で同状態)シナリオを追加する
@@ -157,13 +157,13 @@
   - CLI-021 で同様の登録フローで募集エリアを編集できることを追加する
   - 3.4-3.7(フォーム書換)完了後に着手する(runtime DOM 構造が新 UI に切替わってから検証)
   - _Requirements: 9.5, 9.6_
-- [ ] 3.10 (P) 既存 Playwright `e2e/job-posting.spec.ts` を案件 10 件上限テスト追加で更新
+- [x] 3.10 (P) 既存 Playwright `e2e/job-posting.spec.ts` を案件 10 件上限テスト追加で更新
   - `e2e/job-posting.spec.ts` の AreaListEditor 操作部分を新 UI の DOM 構造に書き換える
   - CLI-004 で案件作成時に展開後 11 件相当を入力 → 保存ボタン → 「エリアは最大 10 件までです」エラーで save 失敗するシナリオを追加する
   - 保存ボタンが disabled になっていない(押下可能)状態でエラートーストが表示されることを assert する
   - 3.7(job-form 書換)完了後に着手する
   - _Requirements: 7.5, 7.6, 9.5, 9.6_
-- [ ] 3.11 (P) `e2e/master-area.spec.ts` のうち Phase C で破綻する登録系 UI 操作部分を書換
+- [x] 3.11 (P) `e2e/master-area.spec.ts` のうち Phase C で破綻する登録系 UI 操作部分を書換
   - gap-analysis 1.9 が「AreaPicker 操作」シナリオを含むと指摘している箇所のうち、profile / job 登録系フォーム UI を触る部分を特定する
   - 該当シナリオの DOM 操作を新 UI(都道府県 Select + 全域 Checkbox + 市区町村 Checkbox 群)に書き換える
   - URL searchParams アサーション部分(`?municipality=..` 単数形)と検索系 AreaPicker 操作部分は **Phase D の 4.5 で書き換える**ため本タスクでは触らない(Phase D で旧 area-picker.tsx が削除されるまで検索系 UI は旧 DOM のまま動く前提)

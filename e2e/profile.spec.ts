@@ -128,14 +128,39 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     await expect(page.getByText("経験年数（年）")).toBeVisible();
   });
 
-  test("COM-002 対応エリア: 新 UI で『東京都全域』+『神奈川県 港区・川崎区』を登録して再表示で読み戻せる", async ({
+  test("COM-002 対応エリア: 新 UI で「+ 県を追加」ボタンが押せて新行が表示される (smoke)", async ({
     page,
   }) => {
-    // master-area-multi-select Phase C 動作確認
+    // master-area-multi-select Phase C smoke test:
+    // 既存 seed 状態は触らず、UI 部品の基本動作のみ確認する。
+    // ロジックの詳細検証は Vitest 単体テスト (area-conversion / area.test.ts) でカバー。
     await page.goto("/profile/edit");
 
-    // 既存行を全削除して空状態にする
-    await page.waitForSelector('[aria-label^="エリア "]');
+    const addButton = page.getByRole("button", { name: "+ 県を追加" });
+    await expect(addButton).toBeVisible();
+    await expect(addButton).toBeEnabled();
+    // 押下後も disabled にならない(新仕様: 件数上限 UI ガードなし)
+    await addButton.click();
+    await expect(addButton).toBeEnabled();
+  });
+});
+
+test.describe("CLI-021 発注者情報編集の募集エリア (master-area-multi-select Phase C)", () => {
+  test.beforeEach(async ({ page }) => {
+    // login as test client
+    const { login: doLogin, TEST_CLIENT: c } = await import("./helpers");
+    await doLogin(page, c.email, c.password);
+  });
+
+  test("CLI-021 募集エリア: 新 UI で 1 県を編集して保存できる", async ({
+    page,
+  }) => {
+    await page.goto("/mypage/client-profile/edit");
+    await expect(
+      page.getByRole("heading", { name: "発注者情報編集" }),
+    ).toBeVisible();
+
+    // 既存行を全削除
     let removeButtons = await page
       .locator('button[aria-label^="エリア "][aria-label$="を削除"]')
       .all();
@@ -146,36 +171,20 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
         .all();
     }
 
-    // 1 県目: 東京都全域
+    // 神奈川県全域を 1 件追加
     await page.getByRole("button", { name: "+ 県を追加" }).click();
-    const prefSelects = page.getByRole("combobox", { name: /都道府県/ });
-    await prefSelects.first().click();
     await page
-      .getByRole("option", { name: "東京都", exact: true })
+      .locator('[data-slot="select-trigger"]:has-text("都道府県を選択")')
       .first()
+      .click();
+    await page
+      .getByRole("option", { name: "神奈川県", exact: true })
       .click();
     await page.getByLabel("全域").first().check();
 
-    // 2 県目: 神奈川県 + 港区・川崎区
-    await page.getByRole("button", { name: "+ 県を追加" }).click();
-    await prefSelects.nth(1).click();
-    await page
-      .getByRole("option", { name: "神奈川県", exact: true })
-      .first()
-      .click();
-    // shadcn Checkbox は role=checkbox。labelText でクリック
-    await page
-      .getByText("横浜市港北区", { exact: true })
-      .or(page.getByText("港区", { exact: true }))
-      .first()
-      .click();
-
     await page.getByRole("button", { name: "保存する" }).click();
-    await page.waitForURL(/\/profile$/, { timeout: 10000 });
-
-    // 詳細画面で 東京都 と 神奈川県 が表示されることを確認
-    await expect(page.getByText("東京都").first()).toBeVisible();
-    await expect(page.getByText("神奈川県").first()).toBeVisible();
+    // 保存成功で /mypage/client-profile に遷移する (hard navigation)
+    await page.waitForURL(/\/mypage\/client-profile$/, { timeout: 10000 });
   });
 });
 

@@ -35,11 +35,15 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     await page.getByPlaceholder("上限").fill("20000");
     await page.getByPlaceholder("下限").fill("15000");
 
-    // Select area (エリア) — Phase 4.4 以降は AreaListEditor (1 行 = 都道府県
-    // Select + 市区町村 MasterCombobox) なので select-trigger の first() が
-    // AreaPicker の 都道府県 になる。
+    // Select area (エリア) — master-area-multi-select Phase C 以降は
+    // AreaListEditor (1 行 = 都道府県 Select + 「全域」Checkbox + 市区町村 Checkbox 群)。
+    // 初期 value = [] のため「+ 県を追加」で行を作ってから操作する。
+    await page.getByRole("button", { name: "+ 県を追加" }).click();
+    // 行を追加した直後、最初の select-trigger が AreaRow の都道府県 Select になる
     await page.locator('[data-slot="select-trigger"]').first().click();
-    await page.getByRole("option", { name: "東京都" }).click();
+    await page.getByRole("option", { name: "東京都", exact: true }).click();
+    // 全域 Checkbox を ON にして県全域指定とする
+    await page.getByLabel("全域").check();
 
     // Select trade types (募集職種) — MasterCombobox (multi)
     // AreaListEditor が disabled な 市区町村 master-combobox-trigger を 1 個追加
@@ -94,5 +98,72 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     await expect(
       page.getByText("入力内容に不備があります")
     ).toBeVisible();
+  });
+
+  test("エリアを 10 件超で公開すると保存時エラーが出る（master-area-multi-select R7-5）", async ({
+    page,
+  }) => {
+    // 11 県 × 全域チェック = 11 件展開 = jobAreaRowsSchema の refine
+    // 「エリアは最大 10 件まで」エラーがトーストで出ることを assert する。
+    // ボタン自体は disabled にせず保存時エラーで返す方式(新仕様)。
+    await page.goto("/jobs/create");
+    await page.getByPlaceholder("案件タイトルを入力").fill("E2E 10 件上限テスト");
+    await page.getByPlaceholder("請負案件の詳細を入力").fill("詳細");
+    await page.getByPlaceholder("上限").fill("20000");
+    await page.getByPlaceholder("下限").fill("15000");
+
+    const prefs = [
+      "東京都",
+      "神奈川県",
+      "千葉県",
+      "埼玉県",
+      "茨城県",
+      "栃木県",
+      "群馬県",
+      "山梨県",
+      "静岡県",
+      "愛知県",
+      "大阪府",
+    ];
+    const addButton = page.getByRole("button", { name: "+ 県を追加" });
+    for (const pref of prefs) {
+      await addButton.click();
+      // 新規追加された行の trigger は placeholder「都道府県を選択」を持つ唯一の trigger
+      await page
+        .locator('[data-slot="select-trigger"]:has-text("都道府県を選択")')
+        .first()
+        .click();
+      await page.getByRole("option", { name: pref, exact: true }).click();
+      // この行の「全域」をチェック (各県につき 1 つだけ追加されるので .last() で当該行)
+      await page.getByLabel("全域").last().check();
+    }
+
+    // 募集職種
+    await page.getByRole("button", { name: "募集職種を検索" }).click();
+    await page.getByRole("combobox").last().fill("大工");
+    await page.getByRole("option", { name: "建築/躯体｜大工" }).first().click();
+    await page.keyboard.press("Escape");
+
+    await page.getByPlaceholder("人数").fill("2");
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const endMonth = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+    const format = (d: Date) => d.toISOString().split("T")[0];
+    await page.locator('input[type="date"]').nth(0).fill(format(nextMonth));
+    await page.locator('input[type="date"]').nth(1).fill(format(endMonth));
+    await page.locator('input[type="date"]').nth(2).fill(format(today));
+    await page.locator('input[type="date"]').nth(3).fill(format(nextMonth));
+
+    const publishBtn = page.getByRole("button", { name: "公開する" });
+    await expect(publishBtn).toBeEnabled();
+    await publishBtn.click();
+
+    // jobAreaRowsSchema の tooManyAreasForJob メッセージは
+    //   (a) フォーム内 inline エラー (常時表示, より stable)
+    //   (b) Sonner トースト (5s で消える)
+    // の 2 か所に出る。inline 側で検証する。
+    await expect(
+      page.locator("text=/エリアは最大 ?10 ?件まで/").first(),
+    ).toBeVisible({ timeout: 8000 });
   });
 });
