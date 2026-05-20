@@ -21,35 +21,35 @@
 
 ## 1. Phase A — 共通型 + 純粋変換関数 + Zod 共通スキーマ + 単体テスト
 
-- [ ] 1. Phase A: 純粋関数層とスキーマ層を整備し Vitest で単体検証を完了させる
-- [ ] 1.1 共通型 `AreaRow` を新規ファイルに定義
+- [x] 1. Phase A: 純粋関数層とスキーマ層を整備し Vitest で単体検証を完了させる
+- [x] 1.1 共通型 `AreaRow` を新規ファイルに定義
   - `src/components/area/types.ts` を新規作成し、UI 層の `AreaRow` 型(`prefecture: string` / `whole: boolean` / `municipalities: string[]`)を手書きで定義する
   - DB 層既存型 `AreaTuple`(`{ prefecture, municipality: string | null }`)の使い分け方針(UI 層 = 複数形 `municipalities`、DB 層 = 単数形 `municipality`)を型定義のすぐ近くに JSDoc コメントで明示する
   - `z.infer<typeof areaRowSchema>` で導出する案を採らず手書きで分離する理由(編集途中 `prefecture === ""` を許す必要)を JSDoc に残す
   - すべての他レイヤー(AreaPicker / AreaListEditor / SearchAreaPicker / Zod スキーマ / area-conversion)が import する単一エクスポート源を確立する
   - _Requirements: 1.1, 1.2_
-- [ ] 1.2 純粋関数 `expandAreasForDb` / `collapseAreasFromDb` を新規ファイルに実装
+- [x] 1.2 純粋関数 `expandAreasForDb` / `collapseAreasFromDb` を新規ファイルに実装
   - `src/lib/master/area-conversion.ts` を新規作成し、`expandAreasForDb(rows: AreaRow[]): AreaTuple[]` を純粋関数として実装する
   - `whole === true` 行は `[(prefecture, null)]`、`municipalities` 配列は同一県の複数 muni 行に展開、空行(`whole=false && municipalities=[]`)は出力に含めない仕様を満たす
   - `collapseAreasFromDb(pairs, sortOrderMap)` を実装し、同一県内 NULL 混在は「県全域優先で具体 muni を捨てる」正規化を行う
   - 戻り値の AreaRow 配列を `PREFECTURES` 定数順で安定ソートし、内部の `municipalities` は呼び出し側が渡す `sortOrderMap[prefecture][muni]` で sort_order 昇順に整列する
   - I/O・副作用なしの純粋関数として実装し、外部依存は `PREFECTURES` 定数と入力引数のみに限定する
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 12.3_
-- [ ] 1.3 共通 Zod スキーマと エラーメッセージ定数を新規ファイルに実装
+- [x] 1.3 共通 Zod スキーマと エラーメッセージ定数を新規ファイルに実装
   - `src/lib/validations/area.ts` を新規作成し、`areaRowSchema` / `areaRowsSchema` / `jobAreaRowsSchema` / `searchAreaRowSchema` / `areaErrorMessages` を export する
   - `areaRowsSchema.superRefine` で「排他違反(whole=true && muni>0)」「未完成行(whole=false && muni=0)」「同県重複」の 3 種を一括検証する
   - `jobAreaRowsSchema` は `areaRowsSchema` に `.refine((rows) => expandAreasForDb(rows).length <= 10)` を加え、案件 10 件上限を強制する(`expandAreasForDb` を Task 1.2 から import するため **1.2 完了後**に着手する逐次依存あり)
   - `searchAreaRowSchema` は単一 `AreaRow` を直接 parse する派生スキーマで、`whole === false` を強制する(検索系では「全域」概念を muni 0 個 = 県のみ指定で代替するため)
   - エラーメッセージ(`exclusiveViolation` / `incompleteRow` / `duplicatePrefecture` / `tooManyAreasForJob`)を `areaErrorMessages` 定数として 1 か所に集約し、Zod のメッセージはすべてこの定数経由で参照する
   - _Requirements: 2.7, 2.8, 3.3, 3.5, 6.1, 6.2, 6.4, 6.5, 6.6, 8.3_
-- [ ] 1.4 (P) `expandAreasForDb` / `collapseAreasFromDb` の Vitest 単体テストを新規追加
+- [x] 1.4 (P) `expandAreasForDb` / `collapseAreasFromDb` の Vitest 単体テストを新規追加
   - `src/__tests__/master/area-conversion.test.ts` を新規作成する
   - `expandAreasForDb`: 県全域単独 / muni 複数 / 複数県混在 / 空行混入 / 同県重複 input(後者は throw せず展開はするが、Zod 側で弾く想定)の 5+ ケースを assert する
   - `collapseAreasFromDb`: NULL+具体混在の県全域優先正規化 / 通常集約 / 単一行 / sort_order 昇順 / 空入力 / sortOrderMap に存在しない muni のフォールバック挙動の 5+ ケースを assert する
   - 往復冪等性 `expand → collapse → expand` を Property-based 風に 3+ ケースで検証する(混在 input を除く)
   - 純粋関数のため Supabase / fetch / Date 等のモック不要
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.8, 9.1_
-- [ ] 1.5 (P) `areaRowsSchema` / `jobAreaRowsSchema` / `searchAreaRowSchema` の Vitest 単体テストを新規追加
+- [x] 1.5 (P) `areaRowsSchema` / `jobAreaRowsSchema` / `searchAreaRowSchema` の Vitest 単体テストを新規追加
   - `src/__tests__/validations/area.test.ts` を新規作成する
   - `areaRowsSchema`: 正常系 / 排他違反 / 同県重複 / 未完成行 のそれぞれをエラーメッセージ込みで assert する
   - `jobAreaRowsSchema`: 展開後 9 件・10 件・11 件の境界値を assert(11 件で `tooManyAreasForJob` メッセージ)
