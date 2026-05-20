@@ -3,7 +3,7 @@
  *
  * 表示ルール (Req 5.1 / 5.2 / 5.3 / 5.5 / 5.6):
  *   - 単一エリア:
- *     - municipality === null → 「{prefecture}（市区町村未指定）」
+ *     - municipality === null → 「{prefecture}」（県名のみ、県全域の意）
  *     - municipality !== null → 「{prefecture}{municipality}」 (連結)
  *   - 同一県の県全域 + 市区町村混在 → 「{prefecture}（{m1}・{m2}ほか）」
  *     (列挙は最大 2 件 + 「ほか」)
@@ -13,6 +13,9 @@
  *
  * UI 側で 12+ 箇所の表示を共通化する。`AreaList` (詳細画面、全件展開) と
  * `AreaSummary` (カード、maxVisible=3) で formatAreas を呼ぶ。
+ *
+ * Phase 9 シナリオ C で「（市区町村未指定）」が視覚ノイズになるとの指摘を受け、
+ * 県全域は県名のみで表示するように変更（2026-05-20）。
  */
 
 export interface AreaForDisplay {
@@ -65,24 +68,22 @@ export function formatAreas(
     }
   }
 
-  // 3. Generate display units
-  //    - hasFullPref + 0 munis → 1 単位 「{pref}（市区町村未指定）」
+  // 3. Generate display units (Phase 9 シナリオ D で同県グループ化に変更 2026-05-20)
+  //    - hasFullPref + 0 munis → 1 単位 「{pref}」（県名のみ＝県全域）
   //    - hasFullPref + ≥1 munis → 1 単位 「{pref}（{m1}(・{m2})?ほか）」
-  //    - !hasFullPref + 1 muni → 1 単位 「{pref}{m1}」
-  //    - !hasFullPref + ≥2 munis → 単位ごとに分離 「{pref}{m1}」、「{pref}{m2}」…
+  //    - !hasFullPref + ≥1 munis → 1 単位 「{pref}（{m1}、{m2}、...）」
+  //      （同県内の市区町村は常に括弧でグループ化。視覚的に「同じ県の中の地域」と分かる）
   const units: string[] = [];
   for (const pref of order) {
     const g = groups.get(pref);
     if (!g) continue;
     if (g.hasFullPref && g.municipalities.length === 0) {
-      units.push(`${pref}（市区町村未指定）`);
+      units.push(pref);
     } else if (g.hasFullPref) {
       const head = g.municipalities.slice(0, 2).join("・");
       units.push(`${pref}（${head}ほか）`);
     } else {
-      for (const m of g.municipalities) {
-        units.push(`${pref}${m}`);
-      }
+      units.push(`${pref}（${g.municipalities.join("、")}）`);
     }
   }
 

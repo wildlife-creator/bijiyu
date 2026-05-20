@@ -169,6 +169,16 @@ export function ProfileEditForm({
         })),
         { shouldValidate: true },
       );
+      // 一度保存ボタンを押してエラーが出た後、ユーザーがエリアを修正したら
+      // すぐにエラー表示を消す。これがないと「直したのにメッセージが残り続ける」
+      // 体験になり、再度保存を押すまで消えない（次回 submit 時の setValidationErrors({})
+      // で消える）。2026-05-20 Phase 9 シナリオ B で実際に踏んだので修正。
+      setValidationErrors((prev) => {
+        if (!prev["availableAreas"]) return prev;
+        const updated = { ...prev };
+        delete updated["availableAreas"];
+        return updated;
+      });
     },
     [setValue],
   );

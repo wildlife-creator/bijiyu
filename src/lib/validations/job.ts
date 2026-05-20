@@ -28,12 +28,21 @@ export const jobSchema = z
     areas: z
       .array(
         z.object({
-          prefecture: z.string().min(1, "都道府県を選択してください"),
+          // prefecture は「緩く」受けるが、array-level の refine で空行を検出して
+          // ブロックする。
+          prefecture: z.string(),
           municipality: z.string().nullable(),
         }),
       )
-      .min(1, "エリアを1つ以上選択してください")
-      .max(10, "エリアは最大10件までです")
+      .refine((arr) => arr.every((a) => a.prefecture.trim() !== ""), {
+        message: "都道府県が選択されていない行があります。行を削除するか都道府県を選択してください",
+      })
+      .refine((arr) => arr.length >= 1, {
+        message: "エリアを1つ以上選択してください",
+      })
+      .refine((arr) => arr.length <= 10, {
+        message: "エリアは最大10件までです",
+      })
       .transform((arr) => {
         const seen = new Set<string>();
         return arr.filter((a) => {
@@ -108,12 +117,15 @@ export const jobDraftSchema = z.object({
   areas: z
     .array(
       z.object({
-        prefecture: z.string().min(1),
+        prefecture: z.string(),
         municipality: z.string().nullable(),
       }),
     )
-    .max(10, "エリアは最大10件までです")
     .default([])
+    .transform((arr) => arr.filter((a) => a.prefecture.trim() !== ""))
+    .refine((arr) => arr.length <= 10, {
+      message: "エリアは最大10件までです",
+    })
     .transform((arr) => {
       const seen = new Set<string>();
       return arr.filter((a) => {

@@ -203,7 +203,9 @@ export default async function ClientDetailPage({ params }: PageProps) {
       {/* Detail rows */}
       <div className="mt-6">
         <DetailRow label="住所" value={profile?.address ?? null} />
-        <DetailRow label="エリア" value={client.prefecture} />
+        {/* 「エリア」(users.prefecture = owner 個人居住県) は業務プロフィールに不要かつ
+            プライバシー観点でも他人に開示しない方が良いため非表示。
+            2026-05-20 Phase 9 シナリオ C で混乱の元と判明したため削除。 */}
         <DetailRow
           label="募集職種"
           value={

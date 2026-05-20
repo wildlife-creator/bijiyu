@@ -65,11 +65,19 @@ export const profileEditSchema = z.object({
   availableAreas: z
     .array(
       z.object({
-        prefecture: z.string().min(1, "都道府県を選択してください"),
+        // prefecture は「緩く」受けるが、array-level の refine で空行を検出して
+        // ブロックする。これで「都道府県未選択の行が含まれる」エラーが
+        // フォームの FieldError で表示可能なパス（availableAreas）になる。
+        prefecture: z.string(),
         municipality: z.string().nullable(),
       }),
     )
-    .min(1, "対応エリアを1つ以上選択してください")
+    .refine((arr) => arr.every((a) => a.prefecture.trim() !== ""), {
+      message: "都道府県が選択されていない行があります。行を削除するか都道府県を選択してください",
+    })
+    .refine((arr) => arr.length >= 1, {
+      message: "対応エリアを1つ以上選択してください",
+    })
     .transform((arr) => {
       const seen = new Set<string>();
       return arr.filter((a) => {

@@ -20,16 +20,16 @@ describe("formatAreas", () => {
   });
 
   describe("単一エリア (1 件)", () => {
-    it("県のみ (municipality = null) は「{県}（市区町村未指定）」", () => {
+    it("県のみ (municipality = null) は県名のみ表示", () => {
       expect(
         formatAreas([{ prefecture: "東京都", municipality: null }]),
-      ).toBe("東京都（市区町村未指定）");
+      ).toBe("東京都");
     });
 
-    it("県+市は連結「{県}{市}」", () => {
+    it("県+市は「{県}（{市}）」のグループ表示", () => {
       expect(
         formatAreas([{ prefecture: "東京都", municipality: "港区" }]),
-      ).toBe("東京都港区");
+      ).toBe("東京都（港区）");
     });
   });
 
@@ -44,19 +44,19 @@ describe("formatAreas", () => {
       expect(out).toBe("東京都（港区・新宿区ほか）");
     });
 
-    it("県全域のみ 1 件 → 「{県}（市区町村未指定）」", () => {
+    it("県全域のみ 1 件 → 県名のみ表示", () => {
       expect(
         formatAreas([{ prefecture: "神奈川県", municipality: null }]),
-      ).toBe("神奈川県（市区町村未指定）");
+      ).toBe("神奈川県");
     });
 
-    it("市区町村のみ 2 件 (同一県) → それぞれ独立した単位", () => {
+    it("市区町村のみ 2 件 (同一県) → 「{県}（{m1}、{m2}）」のグループ表示", () => {
       expect(
         formatAreas([
           { prefecture: "東京都", municipality: "港区" },
           { prefecture: "東京都", municipality: "新宿区" },
         ]),
-      ).toBe("東京都港区、東京都新宿区");
+      ).toBe("東京都（港区、新宿区）");
     });
   });
 
@@ -67,7 +67,7 @@ describe("formatAreas", () => {
         { prefecture: "神奈川県", municipality: null },
         { prefecture: "大阪府", municipality: "大阪市北区" },
       ]);
-      expect(out).toBe("東京都港区、神奈川県（市区町村未指定）、大阪府大阪市北区");
+      expect(out).toBe("東京都（港区）、神奈川県、大阪府（大阪市北区）");
     });
   });
 
@@ -80,23 +80,22 @@ describe("formatAreas", () => {
         ],
         { maxVisible: 3 },
       );
-      expect(out).toBe("東京都港区、東京都新宿区");
+      // 同県の市区町村は 1 単位にグループ化される
+      expect(out).toBe("東京都（港区、新宿区）");
     });
 
     it("単位数 > maxVisible で末尾「他Nエリア」", () => {
       const out = formatAreas(
         [
           { prefecture: "東京都", municipality: "港区" },
-          { prefecture: "東京都", municipality: "新宿区" },
           { prefecture: "神奈川県", municipality: null },
           { prefecture: "千葉県", municipality: null },
           { prefecture: "埼玉県", municipality: null },
+          { prefecture: "茨城県", municipality: null },
         ],
         { maxVisible: 3 },
       );
-      expect(out).toBe(
-        "東京都港区、東京都新宿区、神奈川県（市区町村未指定） 他2エリア",
-      );
+      expect(out).toBe("東京都（港区）、神奈川県、千葉県 他2エリア");
     });
 
     it("formatAreasShort は default maxVisible=3", () => {
@@ -117,7 +116,7 @@ describe("formatAreas", () => {
         { prefecture: "東京都", municipality: "港区" },
         { prefecture: "東京都", municipality: "新宿区" },
       ]);
-      expect(out).toBe("東京都港区、東京都新宿区");
+      expect(out).toBe("東京都（港区、新宿区）");
     });
 
     it("(県, null) も他の (県, 市) と区別され dedupe される", () => {
@@ -125,7 +124,7 @@ describe("formatAreas", () => {
         { prefecture: "東京都", municipality: null },
         { prefecture: "東京都", municipality: null },
       ]);
-      expect(out).toBe("東京都（市区町村未指定）");
+      expect(out).toBe("東京都");
     });
   });
 
@@ -137,9 +136,7 @@ describe("formatAreas", () => {
         { prefecture: "東京都", municipality: "渋谷区" },
         { prefecture: "神奈川県", municipality: null },
       ]);
-      expect(out).toBe(
-        "東京都港区、東京都新宿区、東京都渋谷区、神奈川県（市区町村未指定）",
-      );
+      expect(out).toBe("東京都（港区、新宿区、渋谷区）、神奈川県");
     });
   });
 });

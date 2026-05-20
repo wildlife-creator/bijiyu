@@ -132,8 +132,8 @@ test.describe("master-area: 受注者プロフィール表示 (詳細画面)", (
     page,
   }) => {
     // contractor2 seed: 東京都(県全域) + 東京都港区 + 東京都新宿区 + 神奈川県(県全域)
-    // → formatAreas は「東京都（港区・新宿区ほか）、神奈川県（市区町村未指定）」を出す
-    //   (同県の県全域 + 市区町村混在ルール)
+    // → formatAreas は「東京都（港区・新宿区ほか）、神奈川県」を出す
+    //   (同県の県全域 + 市区町村混在ルール / 県全域は県名のみ表示)
     await login(page, TEST_CONTRACTOR2.email);
     await page.goto("/profile");
 
