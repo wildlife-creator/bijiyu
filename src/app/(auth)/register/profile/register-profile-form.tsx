@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { RelatedSuggestions } from "@/components/master/related-suggestions";
 import { AreaListEditor } from "@/components/area/area-list-editor";
-import type { AreaDraft } from "@/components/area/area-picker";
+import type { AreaRow } from "@/components/area/types";
 import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
@@ -34,13 +34,13 @@ function RequiredBadge() {
 interface RegisterProfileFormProps {
   activeTradeTypes: string[];
   deprecatedTradeSet: string[];
-  municipalitiesByPrefecture: Record<string, string[]>;
+  candidateMunicipalitiesByPrefecture: Record<string, string[]>;
 }
 
 export function RegisterProfileForm({
   activeTradeTypes,
   deprecatedTradeSet,
-  municipalitiesByPrefecture,
+  candidateMunicipalitiesByPrefecture,
 }: RegisterProfileFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState("");
@@ -94,19 +94,8 @@ export function RegisterProfileForm({
     [selectedTradeTypes, activeTradeTypes],
   );
 
-  // AreaListEditor 用: AreaDraft[] と AreaTuple[] (Zod schema 型) の往復ヘルパ
-  // 入力値 (AreaDraft[]) は prefecture=null/"" の未入力ドラフト行を持ちうるが、
-  // setValue では Zod 期待型 ({ prefecture: string; municipality: string | null }[])
-  // にキャストして渡す (Zod が submit 時に検証)
-  function handleAreaListChange(next: AreaDraft[]) {
-    setValue(
-      "availableAreas",
-      next.map((a) => ({
-        prefecture: a.prefecture ?? "",
-        municipality: a.municipality,
-      })),
-      { shouldValidate: true },
-    );
+  function handleAreaListChange(next: AreaRow[]) {
+    setValue("availableAreas", next, { shouldValidate: true });
   }
 
   async function onSubmit(rawData: RegisterProfileFormInput) {
@@ -353,14 +342,11 @@ export function RegisterProfileForm({
             <RequiredBadge />
           </Label>
           <AreaListEditor
-            value={(watchedAreas ?? []).map((a) => ({
-              prefecture: a.prefecture || null,
-              municipality: a.municipality ?? null,
-            }))}
+            value={watchedAreas ?? []}
             onChange={handleAreaListChange}
-            municipalitiesByPrefecture={municipalitiesByPrefecture}
-            minItems={1}
-            softCapWarning={30}
+            candidateMunicipalitiesByPrefecture={
+              candidateMunicipalitiesByPrefecture
+            }
           />
           {errors.availableAreas?.message && (
             <p className="text-destructive text-body-sm">

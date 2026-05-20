@@ -12,6 +12,7 @@ import {
 } from "@/lib/validations/client-profile";
 import { validateLabelChanges } from "@/lib/master/validate";
 import { validateAreaChanges } from "@/lib/master/validate-area";
+import { expandAreasForDb } from "@/lib/master/area-conversion";
 
 interface SaveOpts {
   mode: "edit" | "setup";
@@ -159,13 +160,16 @@ export async function saveClientProfileAction(
     municipality: r.municipality,
   }));
 
+  // UI 層の AreaRow[] を DB 層の AreaTuple[] に平坦化
+  const flatRecruitAreas = expandAreasForDb(data.recruitArea);
+
   const [recruitValid, areaValid] = await Promise.all([
     validateLabelChanges(
       data.recruitJobTypes,
       prevRecruitJobTypes,
       "trade-types",
     ),
-    validateAreaChanges(data.recruitArea, previousAreas),
+    validateAreaChanges(flatRecruitAreas, previousAreas),
   ]);
   if (!recruitValid.valid) {
     return {
@@ -219,7 +223,7 @@ export async function saveClientProfileAction(
     "replace_client_recruit_areas",
     {
       p_client_id: profileUserId,
-      p_areas: data.recruitArea,
+      p_areas: flatRecruitAreas,
     },
   );
   if (areasError) {

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
+  getMunicipalitySortOrderMap,
 } from "@/lib/master/fetch";
 
 import { ProfileEditForm } from "./profile-edit-form";
@@ -28,12 +29,14 @@ export default async function ProfileEditPage() {
     allTradeTypes,
     allQualifications,
     allSkillTags,
-    municipalitiesByPrefecture,
+    candidateMunicipalitiesByPrefecture,
+    municipalitySortOrderMap,
   ] = await Promise.all([
     getAllMasterRows("trade-types"),
     getAllMasterRows("qualifications"),
     getAllMasterRows("skill-tags"),
     getMunicipalitiesByPrefecture(),
+    getMunicipalitySortOrderMap(),
   ]);
   const activeTradeTypes = allTradeTypes
     .filter((r) => !r.deprecated_at)
@@ -101,7 +104,10 @@ export default async function ProfileEditPage() {
         deprecatedTradeSet={deprecatedTradeSet}
         deprecatedQualSet={deprecatedQualSet}
         deprecatedTagSet={deprecatedTagSet}
-        municipalitiesByPrefecture={municipalitiesByPrefecture}
+        candidateMunicipalitiesByPrefecture={
+          candidateMunicipalitiesByPrefecture
+        }
+        municipalitySortOrderMap={municipalitySortOrderMap}
       />
     </>
   );

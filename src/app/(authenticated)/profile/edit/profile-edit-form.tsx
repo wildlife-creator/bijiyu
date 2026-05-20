@@ -26,7 +26,8 @@ import { BackButton } from "@/components/shared/back-button";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { RelatedSuggestions } from "@/components/master/related-suggestions";
 import { AreaListEditor } from "@/components/area/area-list-editor";
-import type { AreaDraft } from "@/components/area/area-picker";
+import type { AreaRow } from "@/components/area/types";
+import { collapseAreasFromDb } from "@/lib/master/area-conversion";
 import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
@@ -100,7 +101,8 @@ interface ProfileEditFormProps {
   deprecatedTradeSet: string[];
   deprecatedQualSet: string[];
   deprecatedTagSet: string[];
-  municipalitiesByPrefecture: Record<string, string[]>;
+  candidateMunicipalitiesByPrefecture: Record<string, string[]>;
+  municipalitySortOrderMap: Record<string, Record<string, number>>;
 }
 
 export function ProfileEditForm({
@@ -110,7 +112,8 @@ export function ProfileEditForm({
   deprecatedTradeSet,
   deprecatedQualSet,
   deprecatedTagSet,
-  municipalitiesByPrefecture,
+  candidateMunicipalitiesByPrefecture,
+  municipalitySortOrderMap,
 }: ProfileEditFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState("");
@@ -160,19 +163,10 @@ export function ProfileEditForm({
   const watchedPrefecture = watch("prefecture");
 
   const handleAreaChange = useCallback(
-    (next: AreaDraft[]) => {
-      setValue(
-        "availableAreas",
-        next.map((a) => ({
-          prefecture: a.prefecture ?? "",
-          municipality: a.municipality,
-        })),
-        { shouldValidate: true },
-      );
+    (next: AreaRow[]) => {
+      setValue("availableAreas", next, { shouldValidate: true });
       // 一度保存ボタンを押してエラーが出た後、ユーザーがエリアを修正したら
-      // すぐにエラー表示を消す。これがないと「直したのにメッセージが残り続ける」
-      // 体験になり、再度保存を押すまで消えない（次回 submit 時の setValidationErrors({})
-      // で消える）。2026-05-20 Phase 9 シナリオ B で実際に踏んだので修正。
+      // すぐにエラー表示を消す。
       setValidationErrors((prev) => {
         if (!prev["availableAreas"]) return prev;
         const updated = { ...prev };
@@ -232,12 +226,13 @@ export function ProfileEditForm({
               }))
             : [{ tradeType: "", experienceYears: 0 }];
 
-        const areas = userAreas
+        const areaPairs = userAreas
           ? userAreas.map((a: { prefecture: string; municipality: string | null }) => ({
               prefecture: a.prefecture,
               municipality: a.municipality,
             }))
           : [];
+        const areas = collapseAreasFromDb(areaPairs, municipalitySortOrderMap);
 
         const qualifications = userQualifications
           ? userQualifications.map(
@@ -265,6 +260,9 @@ export function ProfileEditForm({
     }
 
     fetchProfile();
+    // municipalitySortOrderMap は Server Component から注入される stable prop。
+    // mount 時に 1 度だけ読込めば十分なので deps から除外する。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, reset]);
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -599,14 +597,11 @@ export function ProfileEditForm({
                 <RequiredBadge />
               </FieldLabel>
               <AreaListEditor
-                value={(watchedAreas ?? []).map((a) => ({
-                  prefecture: a.prefecture || null,
-                  municipality: a.municipality ?? null,
-                }))}
+                value={watchedAreas ?? []}
                 onChange={handleAreaChange}
-                municipalitiesByPrefecture={municipalitiesByPrefecture}
-                minItems={1}
-                softCapWarning={30}
+                candidateMunicipalitiesByPrefecture={
+                  candidateMunicipalitiesByPrefecture
+                }
                 disabled={isPending}
               />
               <FieldError message={validationErrors["availableAreas"]} />

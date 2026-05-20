@@ -7,6 +7,7 @@ import { registerProfileSchema } from "@/lib/validations/auth";
 import type { ActionResult } from "@/lib/types/action-result";
 import { validateLabelChanges } from "@/lib/master/validate";
 import { validateAreaChanges } from "@/lib/master/validate-area";
+import { expandAreasForDb } from "@/lib/master/area-conversion";
 
 export async function completeRegistrationAction(
   input: unknown
@@ -43,8 +44,11 @@ export async function completeRegistrationAction(
     };
   }
 
+  // UI 層の AreaRow[] を DB 層の AreaTuple[] に平坦化
+  const flatAreas = expandAreasForDb(data.availableAreas);
+
   // 対応エリアのマスタ整合性検証 (新規登録のため previousAreas は空配列)
-  const areaValid = await validateAreaChanges(data.availableAreas, []);
+  const areaValid = await validateAreaChanges(flatAreas, []);
   if (!areaValid.valid) {
     const fmt = (a: { prefecture: string; municipality: string | null }) =>
       a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
@@ -74,7 +78,7 @@ export async function completeRegistrationAction(
     p_prefecture: data.prefecture,
     p_company_name: data.companyName ?? undefined,
     p_skills: skillsJsonb,
-    p_areas: data.availableAreas,
+    p_areas: flatAreas,
   });
 
   if (rpcError) {

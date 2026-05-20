@@ -140,7 +140,9 @@ describe("registerProfileSchema", () => {
     prefecture: "東京都",
     companyName: "テスト建設",
     skills: [{ tradeType: "大工", experienceYears: 5 }],
-    availableAreas: [{ prefecture: "東京都", municipality: null }],
+    availableAreas: [
+      { prefecture: "東京都", whole: true, municipalities: [] },
+    ],
     password: "password123",
   };
 
@@ -212,30 +214,55 @@ describe("registerProfileSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("accepts multiple available areas (混合: 県のみ + 市区町村あり)", () => {
+  it("accepts multiple available areas (県全域 + 市区町村あり 別県)", () => {
     const result = registerProfileSchema.safeParse({
       ...validInput,
       availableAreas: [
-        { prefecture: "東京都", municipality: null },
-        { prefecture: "東京都", municipality: "港区" },
-        { prefecture: "神奈川県", municipality: null },
+        { prefecture: "東京都", whole: true, municipalities: [] },
+        {
+          prefecture: "神奈川県",
+          whole: false,
+          municipalities: ["横浜市港北区", "川崎市川崎区"],
+        },
       ],
     });
     expect(result.success).toBe(true);
   });
 
-  it("dedupes (prefecture, municipality) pairs", () => {
+  it("rejects same prefecture appearing in multiple rows", () => {
     const result = registerProfileSchema.safeParse({
       ...validInput,
       availableAreas: [
-        { prefecture: "東京都", municipality: "港区" },
-        { prefecture: "東京都", municipality: "港区" },
-        { prefecture: "東京都", municipality: null },
+        { prefecture: "東京都", whole: true, municipalities: [] },
+        { prefecture: "東京都", whole: false, municipalities: ["港区"] },
       ],
     });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.availableAreas).toHaveLength(2);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const dup = result.error.issues.find((i) =>
+        i.message.includes("同じ都道府県"),
+      );
+      expect(dup).toBeDefined();
     }
+  });
+
+  it("rejects row with both whole=true and municipalities>0 (排他違反)", () => {
+    const result = registerProfileSchema.safeParse({
+      ...validInput,
+      availableAreas: [
+        { prefecture: "東京都", whole: true, municipalities: ["港区"] },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects incomplete row (whole=false && municipalities=[])", () => {
+    const result = registerProfileSchema.safeParse({
+      ...validInput,
+      availableAreas: [
+        { prefecture: "東京都", whole: false, municipalities: [] },
+      ],
+    });
+    expect(result.success).toBe(false);
   });
 });

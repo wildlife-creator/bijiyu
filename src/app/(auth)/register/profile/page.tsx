@@ -20,7 +20,7 @@ export default async function RegisterProfilePage() {
     <RegisterProfileForm
       activeTradeTypes={activeTradeTypes}
       deprecatedTradeSet={deprecatedTradeSet}
-      municipalitiesByPrefecture={municipalitiesByPrefecture}
+      candidateMunicipalitiesByPrefecture={municipalitiesByPrefecture}
     />
   );
 }

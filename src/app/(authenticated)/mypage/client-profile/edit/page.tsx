@@ -5,7 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
+  getMunicipalitySortOrderMap,
 } from "@/lib/master/fetch";
+import { collapseAreasFromDb } from "@/lib/master/area-conversion";
 import { WORKING_WAYS, type WorkingWay } from "@/lib/constants/options";
 import type { ClientProfileFormInput } from "@/lib/validations/client-profile";
 
@@ -65,7 +67,13 @@ export default async function ClientProfileEditPage({
     (subscription?.plan_type as PlanType | undefined) ?? null;
 
   // setup モードでプランが未確定の場合も画面表示は許可（要件書 L207）
-  const [{ data: profile }, { data: recruitAreaRows }] = await Promise.all([
+  const [
+    { data: profile },
+    { data: recruitAreaRows },
+    allTradeTypes,
+    candidateMunicipalitiesByPrefecture,
+    municipalitySortOrderMap,
+  ] = await Promise.all([
     supabase
       .from("client_profiles")
       .select(
@@ -79,7 +87,16 @@ export default async function ClientProfileEditPage({
       .from("client_recruit_areas")
       .select("prefecture, municipality")
       .eq("client_id", profileUserId),
+    getAllMasterRows("trade-types"),
+    getMunicipalitiesByPrefecture(),
+    getMunicipalitySortOrderMap(),
   ]);
+  const activeTradeTypes = allTradeTypes
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const deprecatedTradeSet = allTradeTypes
+    .filter((r) => r.deprecated_at)
+    .map((r) => r.label);
 
   // Webhook によるデフォルト値（姓名）のフォールバック
   const { data: ownerUser } = await supabase
@@ -97,10 +114,13 @@ export default async function ClientProfileEditPage({
     address: profile?.address ?? null,
     imageUrl: profile?.image_url ?? null,
     recruitJobTypes: profile?.recruit_job_types ?? [],
-    recruitArea: (recruitAreaRows ?? []).map((r) => ({
-      prefecture: r.prefecture,
-      municipality: r.municipality,
-    })),
+    recruitArea: collapseAreasFromDb(
+      (recruitAreaRows ?? []).map((r) => ({
+        prefecture: r.prefecture,
+        municipality: r.municipality,
+      })),
+      municipalitySortOrderMap,
+    ),
     employeeScale: profile?.employee_scale ?? null,
     workingWay: ((profile?.working_way ?? []) as string[]).filter(
       (v): v is WorkingWay => (WORKING_WAYS as readonly string[]).includes(v),
@@ -114,17 +134,6 @@ export default async function ClientProfileEditPage({
     snsFacebook: profile?.sns_facebook ?? false,
   };
 
-  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
-    getAllMasterRows("trade-types"),
-    getMunicipalitiesByPrefecture(),
-  ]);
-  const activeTradeTypes = allTradeTypes
-    .filter((r) => !r.deprecated_at)
-    .map((r) => r.label);
-  const deprecatedTradeSet = allTradeTypes
-    .filter((r) => r.deprecated_at)
-    .map((r) => r.label);
-
   return (
     <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
@@ -137,7 +146,9 @@ export default async function ClientProfileEditPage({
           mode={isSetup ? "setup" : "edit"}
           activeTradeTypes={activeTradeTypes}
           deprecatedTradeSet={deprecatedTradeSet}
-          municipalitiesByPrefecture={municipalitiesByPrefecture}
+          candidateMunicipalitiesByPrefecture={
+            candidateMunicipalitiesByPrefecture
+          }
         />
       </div>
     </div>

@@ -5,7 +5,9 @@ import { JobForm } from "@/components/jobs/job-form";
 import {
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
+  getMunicipalitySortOrderMap,
 } from "@/lib/master/fetch";
+import { collapseAreasFromDb } from "@/lib/master/area-conversion";
 import type { JobFormValues } from "@/lib/validations/job";
 
 interface PageProps {
@@ -35,8 +37,14 @@ export default async function JobEditPage({ params }: PageProps) {
     notFound();
   }
 
-  // Fetch existing images + job_areas in parallel
-  const [{ data: images }, { data: jobAreas }] = await Promise.all([
+  // Fetch existing images + job_areas + masters in parallel
+  const [
+    { data: images },
+    { data: jobAreas },
+    allTradeTypes,
+    candidateMunicipalitiesByPrefecture,
+    municipalitySortOrderMap,
+  ] = await Promise.all([
     supabase
       .from("job_images")
       .select("id, image_url, image_type, sort_order")
@@ -46,7 +54,16 @@ export default async function JobEditPage({ params }: PageProps) {
       .from("job_areas")
       .select("prefecture, municipality")
       .eq("job_id", id),
+    getAllMasterRows("trade-types"),
+    getMunicipalitiesByPrefecture(),
+    getMunicipalitySortOrderMap(),
   ]);
+  const activeTradeTypes = allTradeTypes
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const deprecatedTradeSet = allTradeTypes
+    .filter((r) => r.deprecated_at)
+    .map((r) => r.label);
 
   // Map to form default values
   const defaultValues: Partial<JobFormValues> = {
@@ -55,10 +72,13 @@ export default async function JobEditPage({ params }: PageProps) {
     tradeTypes: job.trade_types ?? [],
     rewardLower: job.reward_lower ?? undefined,
     rewardUpper: job.reward_upper ?? undefined,
-    areas: (jobAreas ?? []).map((a) => ({
-      prefecture: a.prefecture,
-      municipality: a.municipality,
-    })),
+    areas: collapseAreasFromDb(
+      (jobAreas ?? []).map((a) => ({
+        prefecture: a.prefecture,
+        municipality: a.municipality,
+      })),
+      municipalitySortOrderMap,
+    ),
     address: job.address ?? "",
     workStartDate: job.work_start_date ?? "",
     workEndDate: job.work_end_date ?? "",
@@ -83,17 +103,6 @@ export default async function JobEditPage({ params }: PageProps) {
     sortOrder: img.sort_order,
   }));
 
-  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
-    getAllMasterRows("trade-types"),
-    getMunicipalitiesByPrefecture(),
-  ]);
-  const activeTradeTypes = allTradeTypes
-    .filter((r) => !r.deprecated_at)
-    .map((r) => r.label);
-  const deprecatedTradeSet = allTradeTypes
-    .filter((r) => r.deprecated_at)
-    .map((r) => r.label);
-
   return (
     <div className="min-h-dvh px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
@@ -108,7 +117,9 @@ export default async function JobEditPage({ params }: PageProps) {
           jobId={id}
           activeTradeTypes={activeTradeTypes}
           deprecatedTradeSet={deprecatedTradeSet}
-          municipalitiesByPrefecture={municipalitiesByPrefecture}
+          candidateMunicipalitiesByPrefecture={
+            candidateMunicipalitiesByPrefecture
+          }
         />
       </div>
     </div>

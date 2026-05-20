@@ -83,7 +83,7 @@
 ## 3. Phase C — AreaListEditor リライト + 登録系 5 フォーム + 4 Server Action + Zod 4 ファイル削除 + 該当テスト更新
 
 - [ ] 3. Phase C: 登録系の本体書換を一括で行い、フォーム・Server Action・Zod・関連 Vitest / E2E をまとめてグリーンに戻す
-- [ ] 3.1 `area-list-editor.tsx` を新型 `AreaRow[]` 対応に全面リライト
+- [x] 3.1 `area-list-editor.tsx` を新型 `AreaRow[]` 対応に全面リライト
   - `src/components/area/area-list-editor.tsx`(143 行)を新型対応にリライトする
   - 内部で `AreaRow` 部品を縦並べし、`value: AreaRow[]` と `onChange: (next: AreaRow[]) => void` で親フォームと統合する
   - 「県を追加」ボタンで `{ prefecture: "", whole: false, municipalities: [] }` を末尾追加し、ゴミ箱ボタンで該当行を即時削除する(確認ダイアログなし)
@@ -92,7 +92,7 @@
   - 件数カウンター・上限警告・soft cap 警告 UI は **一切表示しない**(旧 `softCapWarning` props は削除)
   - 追加・削除・編集すべてのボタンに `type="button"` を明示する
   - _Requirements: 1.1, 1.2, 1.8, 1.9, 1.10, 1.11, 3.1, 3.2, 7.3, 7.4_
-- [ ] 3.2 既存 4 Zod スキーマファイルから area 部分を削除し共通 schema を import に置き換え
+- [x] 3.2 既存 4 Zod スキーマファイルから area 部分を削除し共通 schema を import に置き換え
   - `src/lib/validations/auth.ts`(L84-109 の `registerProfileSchema.availableAreas`)を `areaRowsSchema` を import して差し替える
   - `src/lib/validations/profile.ts`(L65-89 の `profileEditSchema.availableAreas`)を同様に差し替える
   - `src/lib/validations/client-profile.ts`(L60-83 の `clientProfileSchema.recruitArea`)を同様に差し替える
@@ -100,7 +100,7 @@
   - 旧 `transform(dedupe)` ロジック(同一 (prefecture, muni) ペア重複除去)を削除する(新仕様では同県重複は **エラー**として扱う)
   - 4 ファイルそれぞれで area 関連の旧ローカル定義をすべて削除し、`src/lib/validations/area.ts` の単一定義に集約されていることを grep で確認する
   - _Requirements: 6.3, 6.7_
-- [ ] 3.3 4 Server Action のエリア処理を新スキーマ + 平坦化に書き換え
+- [x] 3.3 4 Server Action のエリア処理を新スキーマ + 平坦化に書き換え
   - `src/app/(auth)/register/profile/actions.ts` を新スキーマ前提に書き換え、Zod 通過後に `expandAreasForDb(parsed.data.availableAreas)` を挟んで既存 `validateAreaChanges` と `replace_user_areas` RPC に渡す
   - `src/app/(authenticated)/profile/edit/actions.ts` を同様に書き換える
   - `src/app/(authenticated)/mypage/client-profile/edit/actions.ts` を書き換え、`recruitArea` を `expandAreasForDb` 経由で `replace_client_recruit_areas` RPC に渡す
@@ -110,7 +110,7 @@
   - `validateAreaChanges(newAreas, previousAreas)` の呼び出し位置を、平坦化後の `AreaTuple[]` に対して行うよう調整する
   - 4 Server Action すべてで `ActionResult { success, error?, data? }` 形式を維持し、`success: false` 時に日本語エラーメッセージを返却する
   - _Requirements: 4.6, 4.7, 4.8, 6.3, 10.1_
-- [ ] 3.4 (P) AUTH-006(`register-profile-form.tsx`)を新 UI に統合
+- [x] 3.4 (P) AUTH-006(`register-profile-form.tsx`)を新 UI に統合
   - `src/app/(auth)/register/profile/register-profile-form.tsx` の `useFieldArray("availableAreas")` 型を新 `AreaRow[]` 対応に置換する
   - Server Component(`page.tsx`)で `getActiveMunicipalities()` + `getAllMunicipalityRows()` を fetch し、`candidateMunicipalitiesByPrefecture`(prefecture → muni 配列)と `sortOrderMap`(prefecture → muni → sort_order)を構築する
   - DB から既存エリア読込結果を `collapseAreasFromDb(pairs, sortOrderMap)` 経由した `AreaRow[]` を defaultValues に渡す経路を組む(sortOrderMap を渡し忘れると muni 順が辞書順になり master_municipalities の sort_order と乖離する)
@@ -119,20 +119,20 @@
   - 保存時に `availableAreas` フィールドを `JSON.stringify(AreaRow[])` で FormData に詰めて Server Action に送る
   - 件数カウンター・上限警告は表示しない
   - _Requirements: 5.7, 7.1, 7.2, 7.3, 7.4_
-- [ ] 3.5 (P) COM-002(`profile-edit-form.tsx`)を新 UI に統合
+- [x] 3.5 (P) COM-002(`profile-edit-form.tsx`)を新 UI に統合
   - `src/app/(authenticated)/profile/edit/profile-edit-form.tsx`(L146 / L155 / L165 / L368-369 周辺)を新 `AreaRow[]` 対応に書き換える
   - Server Component で `getActiveMunicipalities()` + `getAllMunicipalityRows()` を fetch し、`candidateMunicipalitiesByPrefecture` と `sortOrderMap` を構築して `AreaListEditor` / `collapseAreasFromDb` に渡す
   - DB から既存エリア読込結果を `collapseAreasFromDb(pairs, sortOrderMap)` 経由した `AreaRow[]` を defaultValues に注入する
   - 保存時 `JSON.stringify(parsed.data.availableAreas)` を FormData に詰める経路を維持する
   - 件数カウンター・上限警告は表示しない
   - _Requirements: 5.7, 7.1, 7.2, 7.3, 7.4_
-- [ ] 3.6 (P) CLI-021(`client-profile-edit-form.tsx`)を新 UI に統合
+- [x] 3.6 (P) CLI-021(`client-profile-edit-form.tsx`)を新 UI に統合
   - `src/app/(authenticated)/mypage/client-profile/edit/client-profile-edit-form.tsx`(L284 周辺の `<Controller name="recruitArea" />`)を新 `AreaRow[]` 対応に置換する
   - Server Component で `candidateMunicipalitiesByPrefecture` + `sortOrderMap` を構築し、`collapseAreasFromDb(pairs, sortOrderMap)` 経由した defaultValues を注入する
   - 既存の `<Controller>` パターンを維持しつつ、`render` 内で `AreaListEditor` を新型 `AreaRow[]` で組み込む
   - 件数カウンター・上限警告は表示しない
   - _Requirements: 5.7, 7.1, 7.2, 7.3, 7.4_
-- [ ] 3.7 (P) CLI-003 / CLI-004(`job-form.tsx`)を新 UI に統合し 10 件上限を保存時エラーで実現
+- [x] 3.7 (P) CLI-003 / CLI-004(`job-form.tsx`)を新 UI に統合し 10 件上限を保存時エラーで実現
   - `src/components/jobs/job-form.tsx` の `areas` 統合部分を新 `AreaRow[]` 対応に書き換える(CLI-003 新規作成と CLI-004 編集の両画面で同じコンポーネントを使う)
   - 親 page(CLI-003 / CLI-004 双方の Server Component)で `candidateMunicipalitiesByPrefecture` + `sortOrderMap` を構築して props で渡す
   - 編集時は `collapseAreasFromDb(pairs, sortOrderMap)` 経由した defaultValues を注入し、新規作成時は空配列 `[]` を渡す
@@ -140,7 +140,7 @@
   - 10 件超で保存ボタンを disabled に **しない**(押した瞬間にエラーフィードバックする方式)
   - 常時カウンター UI も上限事前警告も **表示しない**
   - _Requirements: 5.7, 7.1, 7.2, 7.3, 7.5, 7.6_
-- [ ] 3.8 (P) 既存 Vitest 4+ ファイルの mock データを新 `AreaRow[]` 形式に書き換え
+- [x] 3.8 (P) 既存 Vitest 4+ ファイルの mock データを新 `AreaRow[]` 形式に書き換え
   - `src/__tests__/master/validate-area.test.ts` を新形式(平坦化後の `AreaTuple[]` に対する `validateAreaChanges` 呼び出し)に書き換える
   - `src/__tests__/auth/validations.test.ts`(L140-238 の 11+ ケース)を新 `AreaRow[]` 形式に書き換える
   - `src/__tests__/profile/validations.test.ts`(L34-175)を同様に書き換える

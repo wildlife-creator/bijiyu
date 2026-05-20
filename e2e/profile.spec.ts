@@ -127,6 +127,56 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     await page.goto("/profile/edit");
     await expect(page.getByText("経験年数（年）")).toBeVisible();
   });
+
+  test("COM-002 対応エリア: 新 UI で『東京都全域』+『神奈川県 港区・川崎区』を登録して再表示で読み戻せる", async ({
+    page,
+  }) => {
+    // master-area-multi-select Phase C 動作確認
+    await page.goto("/profile/edit");
+
+    // 既存行を全削除して空状態にする
+    await page.waitForSelector('[aria-label^="エリア "]');
+    let removeButtons = await page
+      .locator('button[aria-label^="エリア "][aria-label$="を削除"]')
+      .all();
+    while (removeButtons.length > 0) {
+      await removeButtons[0].click();
+      removeButtons = await page
+        .locator('button[aria-label^="エリア "][aria-label$="を削除"]')
+        .all();
+    }
+
+    // 1 県目: 東京都全域
+    await page.getByRole("button", { name: "+ 県を追加" }).click();
+    const prefSelects = page.getByRole("combobox", { name: /都道府県/ });
+    await prefSelects.first().click();
+    await page
+      .getByRole("option", { name: "東京都", exact: true })
+      .first()
+      .click();
+    await page.getByLabel("全域").first().check();
+
+    // 2 県目: 神奈川県 + 港区・川崎区
+    await page.getByRole("button", { name: "+ 県を追加" }).click();
+    await prefSelects.nth(1).click();
+    await page
+      .getByRole("option", { name: "神奈川県", exact: true })
+      .first()
+      .click();
+    // shadcn Checkbox は role=checkbox。labelText でクリック
+    await page
+      .getByText("横浜市港北区", { exact: true })
+      .or(page.getByText("港区", { exact: true }))
+      .first()
+      .click();
+
+    await page.getByRole("button", { name: "保存する" }).click();
+    await page.waitForURL(/\/profile$/, { timeout: 10000 });
+
+    // 詳細画面で 東京都 と 神奈川県 が表示されることを確認
+    await expect(page.getByText("東京都").first()).toBeVisible();
+    await expect(page.getByText("神奈川県").first()).toBeVisible();
+  });
 });
 
 test.describe("本人確認書類（COM-003〜004）", () => {

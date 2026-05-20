@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { WORKING_WAYS } from "@/lib/constants/options";
+import { areaRowsSchema } from "@/lib/validations/area";
 
 /**
  * CLI-021（発注者情報編集）のフォームバリデーション。
@@ -57,30 +58,9 @@ const sharedFields = {
     .array(z.string().trim().min(1))
     .min(1, "募集職種を選択してください")
     .transform((arr) => Array.from(new Set(arr))),
-  recruitArea: z
-    .array(
-      z.object({
-        // prefecture は「緩く」受けるが、array-level の refine で空行を検出して
-        // ブロックする。
-        prefecture: z.string(),
-        municipality: z.string().nullable(),
-      }),
-    )
-    .refine((arr) => arr.every((a) => a.prefecture.trim() !== ""), {
-      message: "都道府県が選択されていない行があります。行を削除するか都道府県を選択してください",
-    })
-    .refine((arr) => arr.length >= 1, {
-      message: "募集エリアを選択してください",
-    })
-    .transform((arr) => {
-      const seen = new Set<string>();
-      return arr.filter((a) => {
-        const k = `${a.prefecture}|${a.municipality ?? ""}`;
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      });
-    }),
+  recruitArea: areaRowsSchema.refine((arr) => arr.length >= 1, {
+    message: "募集エリアを選択してください",
+  }),
   employeeScale: optionalInt(EMPLOYEE_SCALE_MIN, EMPLOYEE_SCALE_MAX),
   workingWay: z
     .array(z.enum(WORKING_WAYS))

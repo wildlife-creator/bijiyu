@@ -21,7 +21,7 @@ import { jobSchema, type JobFormValues } from "@/lib/validations/job";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { AreaListEditor } from "@/components/area/area-list-editor";
-import type { AreaDraft } from "@/components/area/area-picker";
+import type { AreaRow } from "@/components/area/types";
 import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
@@ -47,7 +47,7 @@ interface JobFormProps {
   jobId?: string;
   activeTradeTypes: string[];
   deprecatedTradeSet: string[];
-  municipalitiesByPrefecture: Record<string, string[]>;
+  candidateMunicipalitiesByPrefecture: Record<string, string[]>;
 }
 
 export function JobForm({
@@ -57,7 +57,7 @@ export function JobForm({
   jobId,
   activeTradeTypes,
   deprecatedTradeSet,
-  municipalitiesByPrefecture,
+  candidateMunicipalitiesByPrefecture,
 }: JobFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -268,24 +268,13 @@ export function JobForm({
             エリア <span className="text-destructive">必須</span>
           </Label>
           <AreaListEditor
-            value={(watch("areas") ?? []).map((a) => ({
-              prefecture: a.prefecture || null,
-              municipality: a.municipality ?? null,
-            }))}
-            onChange={(next: AreaDraft[]) =>
-              setValue(
-                "areas",
-                next.map((a) => ({
-                  prefecture: a.prefecture ?? "",
-                  municipality: a.municipality,
-                })),
-                { shouldValidate: true },
-              )
+            value={(watch("areas") as AreaRow[] | undefined) ?? []}
+            onChange={(next) =>
+              setValue("areas", next, { shouldValidate: true })
             }
-            municipalitiesByPrefecture={municipalitiesByPrefecture}
-            minItems={1}
-            maxItems={10}
-            maxReachedTooltip="案件のエリアは最大10件までです"
+            candidateMunicipalitiesByPrefecture={
+              candidateMunicipalitiesByPrefecture
+            }
           />
           {errors.areas && (
             <p className="text-body-sm text-destructive">

@@ -12,6 +12,7 @@ import {
 import type { ActionResult } from "@/lib/types/action-result";
 import { validateLabelChanges } from "@/lib/master/validate";
 import { validateAreaChanges } from "@/lib/master/validate-area";
+import { expandAreasForDb } from "@/lib/master/area-conversion";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,7 +27,8 @@ function parseFormDataToJobInput(formData: FormData) {
     rewardUpper: Number(formData.get("rewardUpper")),
     areas: JSON.parse((formData.get("areas") as string) ?? "[]") as Array<{
       prefecture: string;
-      municipality: string | null;
+      whole: boolean;
+      municipalities: string[];
     }>,
     address: (formData.get("address") as string) ?? "",
     workStartDate: formData.get("workStartDate") as string,
@@ -174,9 +176,12 @@ export async function createJobAction(
             : `廃止された職種は新規追加できません: ${tradeValid.deprecatedLabels.join("、")}`,
       };
     }
+    // UI 層の AreaRow[] を DB 層の AreaTuple[] に平坦化
+    const flatAreas = data.areas ? expandAreasForDb(data.areas) : [];
+
     // areas は公開時 (jobSchema) のみ min(1) 必須。下書き (jobDraftSchema) では空配列許可
-    if (data.areas && data.areas.length > 0) {
-      const areaValid = await validateAreaChanges(data.areas, []);
+    if (flatAreas.length > 0) {
+      const areaValid = await validateAreaChanges(flatAreas, []);
       if (!areaValid.valid) {
         const fmt = (a: { prefecture: string; municipality: string | null }) =>
           a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
@@ -229,10 +234,10 @@ export async function createJobAction(
 
     // Replace job_areas via RPC (DELETE old + INSERT new)
     // enforce_job_areas_max トリガーで 10 件超は RAISE EXCEPTION
-    if (data.areas && data.areas.length > 0) {
+    if (flatAreas.length > 0) {
       const { error: areasError } = await supabase.rpc("replace_job_areas", {
         p_job_id: job.id,
-        p_areas: data.areas,
+        p_areas: flatAreas,
       });
       if (areasError) {
         const msg = areasError.message?.includes("exceeds 10")
@@ -417,8 +422,11 @@ export async function updateJobAction(
             : `廃止された職種は新規追加できません: ${tradeValid.deprecatedLabels.join("、")}`,
       };
     }
-    if (data.areas && data.areas.length > 0) {
-      const areaValid = await validateAreaChanges(data.areas, previousAreas);
+    // UI 層の AreaRow[] を DB 層の AreaTuple[] に平坦化
+    const flatAreas = data.areas ? expandAreasForDb(data.areas) : [];
+
+    if (flatAreas.length > 0) {
+      const areaValid = await validateAreaChanges(flatAreas, previousAreas);
       if (!areaValid.valid) {
         const fmt = (a: { prefecture: string; municipality: string | null }) =>
           a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
@@ -470,7 +478,7 @@ export async function updateJobAction(
     if (data.areas !== undefined) {
       const { error: areasError } = await supabase.rpc("replace_job_areas", {
         p_job_id: jobId,
-        p_areas: data.areas,
+        p_areas: flatAreas,
       });
       if (areasError) {
         const msg = areasError.message?.includes("exceeds 10")

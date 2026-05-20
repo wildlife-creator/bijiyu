@@ -69,8 +69,10 @@ function buildValidFormData(overrides: Record<string, string> = {}): FormData {
     description: "テスト詳細説明です",
     rewardLower: "18000",
     rewardUpper: "22000",
-    // areas は AreaTuple[] を JSON シリアライズ (Server Action 側で JSON.parse)
-    areas: JSON.stringify([{ prefecture: "東京都", municipality: null }]),
+    // areas は AreaRow[] を JSON シリアライズ (Server Action 側で JSON.parse)
+    areas: JSON.stringify([
+      { prefecture: "東京都", whole: true, municipalities: [] },
+    ]),
     address: "",
     workStartDate: "2026-04-01",
     workEndDate: "2026-06-30",

@@ -5,7 +5,9 @@ import { JobForm } from "@/components/jobs/job-form";
 import {
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
+  getMunicipalitySortOrderMap,
 } from "@/lib/master/fetch";
+import { collapseAreasFromDb } from "@/lib/master/area-conversion";
 import type { JobFormValues } from "@/lib/validations/job";
 
 interface PageProps {
@@ -22,6 +24,22 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
   if (!user) {
     redirect("/login");
   }
+
+  const [
+    allTradeTypes,
+    candidateMunicipalitiesByPrefecture,
+    municipalitySortOrderMap,
+  ] = await Promise.all([
+    getAllMasterRows("trade-types"),
+    getMunicipalitiesByPrefecture(),
+    getMunicipalitySortOrderMap(),
+  ]);
+  const activeTradeTypes = allTradeTypes
+    .filter((r) => !r.deprecated_at)
+    .map((r) => r.label);
+  const deprecatedTradeSet = allTradeTypes
+    .filter((r) => r.deprecated_at)
+    .map((r) => r.label);
 
   let defaultValues: Partial<JobFormValues> | undefined;
 
@@ -46,10 +64,13 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
         tradeTypes: job.trade_types ?? [],
         rewardLower: job.reward_lower ?? undefined,
         rewardUpper: job.reward_upper ?? undefined,
-        areas: (copyAreas ?? []).map((a) => ({
-          prefecture: a.prefecture,
-          municipality: a.municipality,
-        })),
+        areas: collapseAreasFromDb(
+          (copyAreas ?? []).map((a) => ({
+            prefecture: a.prefecture,
+            municipality: a.municipality,
+          })),
+          municipalitySortOrderMap,
+        ),
         address: job.address ?? "",
         workStartDate: "",
         workEndDate: "",
@@ -69,17 +90,6 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
     }
   }
 
-  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
-    getAllMasterRows("trade-types"),
-    getMunicipalitiesByPrefecture(),
-  ]);
-  const activeTradeTypes = allTradeTypes
-    .filter((r) => !r.deprecated_at)
-    .map((r) => r.label);
-  const deprecatedTradeSet = allTradeTypes
-    .filter((r) => r.deprecated_at)
-    .map((r) => r.label);
-
   return (
     <div className="min-h-dvh px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
@@ -92,7 +102,9 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
           defaultValues={defaultValues}
           activeTradeTypes={activeTradeTypes}
           deprecatedTradeSet={deprecatedTradeSet}
-          municipalitiesByPrefecture={municipalitiesByPrefecture}
+          candidateMunicipalitiesByPrefecture={
+            candidateMunicipalitiesByPrefecture
+          }
         />
       </div>
     </div>

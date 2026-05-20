@@ -8,6 +8,7 @@ import {
 import type { ActionResult } from "@/lib/types/action-result";
 import { validateLabelChanges } from "@/lib/master/validate";
 import { validateAreaChanges } from "@/lib/master/validate-area";
+import { expandAreasForDb } from "@/lib/master/area-conversion";
 
 export async function updateProfileAction(
   formData: FormData
@@ -88,6 +89,9 @@ export async function updateProfileAction(
     const newQualifications = data.qualifications ?? [];
     const newSkillTags = data.skillTags ?? [];
 
+    // UI 層の AreaRow[] を DB 層の AreaTuple[] に平坦化
+    const flatAreas = expandAreasForDb(data.availableAreas);
+
     const [tradeValid, qualValid, tagValid, areaValid] = await Promise.all([
       validateLabelChanges(newTradeTypes, prevTradeTypes, "trade-types"),
       validateLabelChanges(
@@ -96,7 +100,7 @@ export async function updateProfileAction(
         "qualifications",
       ),
       validateLabelChanges(newSkillTags, prevSkillTags, "skill-tags"),
-      validateAreaChanges(data.availableAreas, previousAreas),
+      validateAreaChanges(flatAreas, previousAreas),
     ]);
 
     if (!tradeValid.valid) {
@@ -213,7 +217,7 @@ export async function updateProfileAction(
     // Replace available areas via RPC (DELETE old + INSERT new in 1 トランザクション)
     const { error: areasError } = await supabase.rpc("replace_user_areas", {
       p_user_id: user.id,
-      p_areas: data.availableAreas,
+      p_areas: flatAreas,
     });
     if (areasError) {
       return {

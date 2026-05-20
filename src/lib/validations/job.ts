@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import { expandAreasForDb } from "@/lib/master/area-conversion";
+import {
+  areaErrorMessages,
+  jobAreaRowsSchema,
+} from "@/lib/validations/area";
+
 // ---------------------------------------------------------------------------
 // Job form validation schema
 // ---------------------------------------------------------------------------
@@ -25,33 +31,9 @@ export const jobSchema = z
       .number({ message: "報酬上限は数値で入力してください" })
       .int()
       .positive("報酬上限は正の数で入力してください"),
-    areas: z
-      .array(
-        z.object({
-          // prefecture は「緩く」受けるが、array-level の refine で空行を検出して
-          // ブロックする。
-          prefecture: z.string(),
-          municipality: z.string().nullable(),
-        }),
-      )
-      .refine((arr) => arr.every((a) => a.prefecture.trim() !== ""), {
-        message: "都道府県が選択されていない行があります。行を削除するか都道府県を選択してください",
-      })
-      .refine((arr) => arr.length >= 1, {
-        message: "エリアを1つ以上選択してください",
-      })
-      .refine((arr) => arr.length <= 10, {
-        message: "エリアは最大10件までです",
-      })
-      .transform((arr) => {
-        const seen = new Set<string>();
-        return arr.filter((a) => {
-          const k = `${a.prefecture}|${a.municipality ?? ""}`;
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-      }),
+    areas: jobAreaRowsSchema.refine((arr) => arr.length >= 1, {
+      message: "エリアを1つ以上選択してください",
+    }),
     address: z
       .string()
       .max(200, "詳細住所は200文字以内で入力してください")
@@ -118,22 +100,15 @@ export const jobDraftSchema = z.object({
     .array(
       z.object({
         prefecture: z.string(),
-        municipality: z.string().nullable(),
+        whole: z.boolean(),
+        municipalities: z.array(z.string()),
       }),
     )
     .default([])
+    // 編集途中の空行 (prefecture 未選択) は draft 保存時に捨てる
     .transform((arr) => arr.filter((a) => a.prefecture.trim() !== ""))
-    .refine((arr) => arr.length <= 10, {
-      message: "エリアは最大10件までです",
-    })
-    .transform((arr) => {
-      const seen = new Set<string>();
-      return arr.filter((a) => {
-        const k = `${a.prefecture}|${a.municipality ?? ""}`;
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      });
+    .refine((arr) => expandAreasForDb(arr).length <= 10, {
+      message: areaErrorMessages.tooManyAreasForJob,
     }),
   address: z.string().max(200).optional().or(z.literal("")),
   workStartDate: z.string().optional().or(z.literal("")),

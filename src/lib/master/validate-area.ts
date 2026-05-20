@@ -22,10 +22,10 @@ import { getAllMunicipalityRows } from "./fetch";
 
 const PREFECTURE_SET = new Set<string>(PREFECTURES);
 
-export interface AreaTuple {
+export type AreaTuple = {
   prefecture: string;
   municipality: string | null;
-}
+};
 
 export type ValidateAreaChangesResult =
   | { valid: true }

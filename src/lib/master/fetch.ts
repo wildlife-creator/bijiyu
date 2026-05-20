@@ -184,7 +184,7 @@ export const getAllMunicipalityRows = unstable_cache(
 
 /**
  * 都道府県 → 市区町村[] の Map を一括で返す。
- * AreaPicker / AreaListEditor の `municipalitiesByPrefecture` props に渡す用途。
+ * AreaListEditor / SearchAreaPicker の `candidateMunicipalitiesByPrefecture` props に渡す用途。
  * Server Component で呼び、JSON シリアライズで Client Component に注入する。
  */
 export async function getMunicipalitiesByPrefecture(): Promise<
@@ -197,4 +197,27 @@ export async function getMunicipalitiesByPrefecture(): Promise<
     result[row.prefecture].push(row.municipality);
   }
   return result;
+}
+
+/**
+ * `collapseAreasFromDb` に渡すための sort_order マップ
+ * (prefecture → municipality → sort_order)。
+ *
+ * `getAllMunicipalityRows()` のキャッシュ済みデータから組み立てる。
+ * deprecated を含む全行を index にして、廃止 muni を持つ既存登録を
+ * 表示する際にも sort_order が当たるようにする。
+ *
+ * Server Component で呼び、Client Component に props として注入する。
+ */
+export async function getMunicipalitySortOrderMap(): Promise<
+  Record<string, Record<string, number>>
+> {
+  const rows = await getAllMunicipalityRows();
+  const map: Record<string, Record<string, number>> = {};
+  rows.forEach((row, idx) => {
+    if (!map[row.prefecture]) map[row.prefecture] = {};
+    // 全件 sort_order 昇順で fetch されているため idx を順序として採用
+    map[row.prefecture][row.municipality] = idx;
+  });
+  return map;
 }

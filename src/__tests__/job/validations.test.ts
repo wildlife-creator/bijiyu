@@ -29,7 +29,9 @@ describe("jobSchema", () => {
     tradeTypes: ["内装工"],
     rewardLower: 18000,
     rewardUpper: 22000,
-    areas: [{ prefecture: "東京都", municipality: null }],
+    areas: [
+      { prefecture: "東京都", whole: true, municipalities: [] },
+    ],
     address: "江東区豊洲1-1-1",
     workStartDate: "2026-04-01",
     workEndDate: "2026-06-30",
@@ -61,7 +63,9 @@ describe("jobSchema", () => {
       tradeTypes: ["大工"],
       rewardLower: 15000,
       rewardUpper: 20000,
-      areas: [{ prefecture: "大阪府", municipality: null }],
+      areas: [
+        { prefecture: "大阪府", whole: true, municipalities: [] },
+      ],
       workStartDate: "2026-04-01",
       workEndDate: "2026-04-30",
       recruitStartDate: "2026-03-01",
@@ -180,6 +184,48 @@ describe("jobSchema", () => {
       headcount: 2.5,
     });
     expect(result.success).toBe(false);
+  });
+
+  it("accepts exactly 10 areas (expanded)", () => {
+    // 1 県全域 + 1 県内 9 muni = 10 件展開
+    const result = jobSchema.safeParse({
+      ...validInput,
+      areas: [
+        { prefecture: "東京都", whole: true, municipalities: [] },
+        {
+          prefecture: "神奈川県",
+          whole: false,
+          municipalities: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects when areas exceed 10 (expanded)", () => {
+    // 11 件相当: 2 県内 計 11 muni
+    const result = jobSchema.safeParse({
+      ...validInput,
+      areas: [
+        {
+          prefecture: "東京都",
+          whole: false,
+          municipalities: ["港区", "渋谷区", "新宿区", "中央区", "千代田区"],
+        },
+        {
+          prefecture: "神奈川県",
+          whole: false,
+          municipalities: ["a", "b", "c", "d", "e", "f"],
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const tooMany = result.error.issues.find((i) =>
+        i.message.includes("最大 10 件"),
+      );
+      expect(tooMany).toBeDefined();
+    }
   });
 });
 

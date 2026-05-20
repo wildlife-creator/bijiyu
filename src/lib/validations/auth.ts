@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { areaRowsSchema } from "@/lib/validations/area";
+
 // ---------------------------------------------------------------------------
 // Login
 // ---------------------------------------------------------------------------
@@ -81,32 +83,9 @@ const registerProfileBaseSchema = z.object({
         return true;
       });
     }),
-  availableAreas: z
-    .array(
-      z.object({
-        // prefecture は「緩く」受けるが、array-level の refine で空行を検出して
-        // ブロックする。これで「都道府県未選択の行が含まれる」エラーが
-        // フォームの FieldError で表示可能なパス（availableAreas）になる。
-        prefecture: z.string(),
-        municipality: z.string().nullable(),
-      }),
-    )
-    .refine((arr) => arr.every((a) => a.prefecture.trim() !== ""), {
-      message: "都道府県が選択されていない行があります。行を削除するか都道府県を選択してください",
-    })
-    .refine((arr) => arr.length >= 1, {
-      message: "対応エリアを1つ以上選択してください",
-    })
-    .transform((arr) => {
-      // (prefecture, municipality) 重複を dedupe (最初の出現を保持)
-      const seen = new Set<string>();
-      return arr.filter((a) => {
-        const k = `${a.prefecture}|${a.municipality ?? ""}`;
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      });
-    }),
+  availableAreas: areaRowsSchema.refine((arr) => arr.length >= 1, {
+    message: "対応エリアを1つ以上選択してください",
+  }),
   password: z
     .string()
     .min(8, "パスワードは8文字以上で入力してください")

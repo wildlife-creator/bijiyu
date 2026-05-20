@@ -116,7 +116,7 @@ const basePersonalInput = {
   address: null,
   imageUrl: null,
   recruitJobTypes: ["内装工"],
-  recruitArea: [{ prefecture: "東京都", municipality: null }],
+  recruitArea: [{ prefecture: "東京都", whole: true, municipalities: [] }],
   employeeScale: null,
   workingWay: [],
   language: [],
