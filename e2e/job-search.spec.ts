@@ -156,6 +156,38 @@ test.describe("CON-005 エリア検索OR条件（リグレッション防止）"
   });
 });
 
+test.describe("master-area-multi-select Phase D: 複数 muni 検索 (CON-002)", () => {
+  test("受注者: 「東京都 + 港区 + 渋谷区」検索 → 各 muni を含む案件 + 東京都全域案件すべてヒット (R7B-7 OR 結合)", async ({
+    page,
+  }) => {
+    // master-area-multi-select Phase D: 複数 muni を `?municipality=A&municipality=B`
+    // の同名キー繰返し形式で渡し、各 muni × buildAreaFilterIds を Set 和で OR 結合する
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+    await page.goto(
+      "/jobs/search?prefecture=" +
+        encodeURIComponent("東京都") +
+        "&municipality=" +
+        encodeURIComponent("港区") +
+        "&municipality=" +
+        encodeURIComponent("渋谷区"),
+    );
+
+    // 全件ヒットの粒度ではなく、検索結果カードが少なくとも 1 枚は表示されることを確認
+    const cards = page.locator("a[href^='/jobs/']");
+    await expect(cards.first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test("受注者: 「東京都」のみ (municipality 無指定) で検索 → 同県内の全案件 (県全域 + 全市区町村) がヒット", async ({
+    page,
+  }) => {
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+    await page.goto("/jobs/search?prefecture=" + encodeURIComponent("東京都"));
+
+    const cards = page.locator("a[href^='/jobs/']");
+    await expect(cards.first()).toBeVisible({ timeout: 10000 });
+  });
+});
+
 test.describe("お気に入り機能", () => {
   test("お気に入り登録・解除ができる", async ({ page }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);

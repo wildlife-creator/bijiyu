@@ -68,7 +68,12 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
-  const municipality = (sp.municipality as string) ?? "";
+  // 同名キー繰返し形式 (?municipality=A&municipality=B) を配列に復元
+  const municipalities: string[] = !sp.municipality
+    ? []
+    : Array.isArray(sp.municipality)
+      ? sp.municipality
+      : [sp.municipality];
   const tradeTypes = !sp.tradeType
     ? []
     : Array.isArray(sp.tradeType)
@@ -76,7 +81,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
       : [sp.tradeType];
 
   // 検索ポップアップに渡す active 募集職種マスタ + 市区町村マスタ
-  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
+  const [allTradeTypes, candidateMunicipalitiesByPrefecture] = await Promise.all([
     getAllMasterRows("trade-types"),
     getMunicipalitiesByPrefecture(),
   ]);
@@ -120,15 +125,35 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     }
   }
 
-  // master-area: prefecture/municipality 階層フィルタ。
-  // buildAreaFilterIds は上位包含ルール（県のみ指定なら同県全域 + 市区町村指定済みすべて、
-  // 県+市指定なら該当市区町村レコード + 同県全域指定レコード）で job_id 集合を返す。
-  const areaIds = await buildAreaFilterIds({
-    entity: "job",
-    prefecture: prefecture || null,
-    municipality: municipality || null,
-    supabase,
-  });
+  // master-area-multi-select: prefecture/municipality[] 階層フィルタ。
+  // muni 配列が空 (= 県のみ指定 or 県も無指定): buildAreaFilterIds を 1 回呼ぶ。
+  // muni 配列が複数: 各 muni ごとに呼んで結果 ID 集合を Set 和で OR 結合 (上位包含ルールは buildAreaFilterIds 内で各 muni 単位で適用)。
+  const areaIds: string[] | null = await (async () => {
+    if (!prefecture) return null;
+    if (municipalities.length === 0) {
+      return buildAreaFilterIds({
+        entity: "job",
+        prefecture,
+        municipality: null,
+        supabase,
+      });
+    }
+    const perMuni = await Promise.all(
+      municipalities.map((m) =>
+        buildAreaFilterIds({
+          entity: "job",
+          prefecture,
+          municipality: m,
+          supabase,
+        }),
+      ),
+    );
+    const merged = new Set<string>();
+    for (const ids of perMuni) {
+      if (ids) for (const id of ids) merged.add(id);
+    }
+    return Array.from(merged);
+  })();
 
   // Build query
   let query = supabase
@@ -279,7 +304,9 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
             </Link>
             <JobSearchFilter
               activeTradeTypes={activeTradeTypes}
-              municipalitiesByPrefecture={municipalitiesByPrefecture}
+              candidateMunicipalitiesByPrefecture={
+                candidateMunicipalitiesByPrefecture
+              }
             />
           </div>
         </div>

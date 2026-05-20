@@ -44,14 +44,14 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
-  const municipality = (sp.municipality as string) ?? "";
   // 配列: 同名キー繰り返しで encode された値を getAll 相当で復元
+  const municipalities = getArrayParam(sp.municipality);
   const tradeTypes = getArrayParam(sp.tradeType);
   const skillTagFilters = getArrayParam(sp.skillTag);
   const qualificationFilters = getArrayParam(sp.qualification);
 
   // 3 マスタ + 市区町村マスタ取得 (検索ポップアップへ active label を渡す)
-  const [allTrade, allTags, allQuals, municipalitiesByPrefecture] =
+  const [allTrade, allTags, allQuals, candidateMunicipalitiesByPrefecture] =
     await Promise.all([
       getAllMasterRows("trade-types"),
       getAllMasterRows("skill-tags"),
@@ -109,12 +109,34 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
       ),
     );
   }
-  const areaUserIds = await buildAreaFilterIds({
-    entity: "user",
-    prefecture: prefecture || null,
-    municipality: municipality || null,
-    supabase,
-  });
+  // master-area-multi-select: muni 配列が空なら buildAreaFilterIds 1 回、
+  // 複数なら各 muni で呼び Set 和で OR 結合
+  const areaUserIds: string[] | null = await (async () => {
+    if (!prefecture) return null;
+    if (municipalities.length === 0) {
+      return buildAreaFilterIds({
+        entity: "user",
+        prefecture,
+        municipality: null,
+        supabase,
+      });
+    }
+    const perMuni = await Promise.all(
+      municipalities.map((m) =>
+        buildAreaFilterIds({
+          entity: "user",
+          prefecture,
+          municipality: m,
+          supabase,
+        }),
+      ),
+    );
+    const merged = new Set<string>();
+    for (const ids of perMuni) {
+      if (ids) for (const id of ids) merged.add(id);
+    }
+    return Array.from(merged);
+  })();
   if (areaUserIds !== null) {
     idSets.push(new Set(areaUserIds));
   }
@@ -205,7 +227,9 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
               activeTradeTypes={activeTradeTypes}
               activeSkillTags={activeSkillTags}
               activeQualifications={activeQualifications}
-              municipalitiesByPrefecture={municipalitiesByPrefecture}
+              candidateMunicipalitiesByPrefecture={
+                candidateMunicipalitiesByPrefecture
+              }
             />
           </div>
         </div>

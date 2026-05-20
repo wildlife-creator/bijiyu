@@ -40,7 +40,12 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
   const q = (sp.q as string) ?? "";
   const prefecture = (sp.prefecture as string) ?? "";
-  const municipality = (sp.municipality as string) ?? "";
+  // 同名キー繰返し形式 (?municipality=A&municipality=B) を配列に復元
+  const municipalities: string[] = !sp.municipality
+    ? []
+    : Array.isArray(sp.municipality)
+      ? sp.municipality
+      : [sp.municipality];
   const tradeTypes = !sp.tradeType
     ? []
     : Array.isArray(sp.tradeType)
@@ -48,7 +53,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
       : [sp.tradeType];
 
   // 検索ポップアップに渡す active 募集職種マスタ + 市区町村マスタ
-  const [allTradeTypes, municipalitiesByPrefecture] = await Promise.all([
+  const [allTradeTypes, candidateMunicipalitiesByPrefecture] = await Promise.all([
     getAllMasterRows("trade-types"),
     getMunicipalitiesByPrefecture(),
   ]);
@@ -90,13 +95,34 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     keywordUserIds = Array.from(idSet);
   }
 
-  // master-area: prefecture/municipality 階層フィルタで client_id 集合を取得（上位包含ルール）
-  const areaClientIds = await buildAreaFilterIds({
-    entity: "client",
-    prefecture: prefecture || null,
-    municipality: municipality || null,
-    supabase,
-  });
+  // master-area-multi-select: prefecture/municipality[] 階層フィルタ。
+  // muni 配列が空: buildAreaFilterIds を 1 回。複数: 各 muni で呼び Set 和 OR 結合。
+  const areaClientIds: string[] | null = await (async () => {
+    if (!prefecture) return null;
+    if (municipalities.length === 0) {
+      return buildAreaFilterIds({
+        entity: "client",
+        prefecture,
+        municipality: null,
+        supabase,
+      });
+    }
+    const perMuni = await Promise.all(
+      municipalities.map((m) =>
+        buildAreaFilterIds({
+          entity: "client",
+          prefecture,
+          municipality: m,
+          supabase,
+        }),
+      ),
+    );
+    const merged = new Set<string>();
+    for (const ids of perMuni) {
+      if (ids) for (const id of ids) merged.add(id);
+    }
+    return Array.from(merged);
+  })();
 
   // Build query - fetch users with role='client' joined with client_profiles
   // Use !inner join when filters target client_profiles columns,
@@ -204,7 +230,9 @@ export default async function ClientListPage({ searchParams }: PageProps) {
           <div className="flex items-center gap-2">
             <ClientSearchForm
               activeTradeTypes={activeTradeTypes}
-              municipalitiesByPrefecture={municipalitiesByPrefecture}
+              candidateMunicipalitiesByPrefecture={
+                candidateMunicipalitiesByPrefecture
+              }
             />
           </div>
         </div>

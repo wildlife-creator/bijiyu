@@ -55,6 +55,31 @@ test.describe("master-area: 検索の上位包含ルール", () => {
     // 東京都全域指定の案件 (「応募フォームテスト用案件」) もヒット (上位包含)
     await expect(page.getByText("応募フォームテスト用案件").first()).toBeVisible();
   });
+
+  test("受注者: CON-002 で同名キー繰返し『?municipality=港区&municipality=世田谷区』検索 → 各 muni と東京都全域案件すべてヒット (multi-select R7B-7)", async ({
+    page,
+  }) => {
+    // master-area-multi-select Phase D: 複数 muni を同名キー繰返し形式で渡し、
+    // 各 muni × buildAreaFilterIds の結果を Set 和で OR 結合した検索が動作することを確認
+    await login(page, TEST_CONTRACTOR.email);
+    await page.goto(
+      "/jobs/search?prefecture=" +
+        encodeURIComponent("東京都") +
+        "&municipality=" +
+        encodeURIComponent("港区") +
+        "&municipality=" +
+        encodeURIComponent("世田谷区"),
+    );
+
+    // 港区を含む案件
+    await expect(
+      page.getByText("東京都 大型マンション新築 大工工事").first(),
+    ).toBeVisible();
+    // 東京都全域指定の案件も上位包含で含まれる
+    await expect(
+      page.getByText("応募フォームテスト用案件").first(),
+    ).toBeVisible();
+  });
 });
 
 test.describe("master-area: 受注者検索 (CLI-005) の上位包含", () => {

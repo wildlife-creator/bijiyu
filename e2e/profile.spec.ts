@@ -152,39 +152,29 @@ test.describe("CLI-021 発注者情報編集の募集エリア (master-area-mult
     await doLogin(page, c.email, c.password);
   });
 
-  test("CLI-021 募集エリア: 新 UI で 1 県を編集して保存できる", async ({
+  test("CLI-021 募集エリア: 新 UI が表示され「+ 県を追加」が機能する (smoke)", async ({
     page,
   }) => {
+    // master-area-multi-select Phase C smoke test:
+    // 既存 seed 状態を保護するため保存は行わない (CON-005 E2E が client@test.local の
+    // recruit_area = 東京都港区 + 大阪府大阪市北区 に依存しているため、上書きすると
+    // job-search.spec.ts の「CON-005 エリア検索OR条件」テストが破綻する)。
     await page.goto("/mypage/client-profile/edit");
     await expect(
       page.getByRole("heading", { name: "発注者情報編集" }),
     ).toBeVisible();
 
-    // 既存行を全削除
-    let removeButtons = await page
-      .locator('button[aria-label^="エリア "][aria-label$="を削除"]')
-      .all();
-    while (removeButtons.length > 0) {
-      await removeButtons[0].click();
-      removeButtons = await page
-        .locator('button[aria-label^="エリア "][aria-label$="を削除"]')
-        .all();
-    }
-
-    // 神奈川県全域を 1 件追加
-    await page.getByRole("button", { name: "+ 県を追加" }).click();
-    await page
-      .locator('[data-slot="select-trigger"]:has-text("都道府県を選択")')
-      .first()
-      .click();
-    await page
-      .getByRole("option", { name: "神奈川県", exact: true })
-      .click();
-    await page.getByLabel("全域").first().check();
-
-    await page.getByRole("button", { name: "保存する" }).click();
-    // 保存成功で /mypage/client-profile に遷移する (hard navigation)
-    await page.waitForURL(/\/mypage\/client-profile$/, { timeout: 10000 });
+    // 「+ 県を追加」を押下すると新しい AreaRow が末尾に追加される
+    const addButton = page.getByRole("button", { name: "+ 県を追加" });
+    await expect(addButton).toBeVisible();
+    await expect(addButton).toBeEnabled();
+    await addButton.click();
+    // 新行が追加され、新しい「都道府県を選択」placeholder の trigger が現れる
+    await expect(
+      page
+        .locator('[data-slot="select-trigger"]:has-text("都道府県を選択")')
+        .first(),
+    ).toBeVisible();
   });
 });
 

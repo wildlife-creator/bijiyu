@@ -17,7 +17,8 @@ import {
   useSheetClose,
 } from "@/components/job-search/search-filter-sheet";
 import { MasterCombobox } from "@/components/master/master-combobox";
-import { AreaPicker } from "@/components/area/area-picker";
+import { SearchAreaPicker } from "@/components/area/search-area-picker";
+import type { AreaRow } from "@/components/area/types";
 
 const EXPERIENCE_YEARS_OPTIONS = [
   "1年未満",
@@ -32,7 +33,7 @@ interface ContractorSearchFilterProps {
   activeSkillTags: string[];
   activeQualifications: string[];
   /** master-area: 都道府県 → 市区町村[] のマップ */
-  municipalitiesByPrefecture: Record<string, string[]>;
+  candidateMunicipalitiesByPrefecture: Record<string, string[]>;
 }
 
 export function ContractorSearchFilter(props: ContractorSearchFilterProps) {
@@ -47,7 +48,7 @@ function ContractorSearchFilterContent({
   activeTradeTypes,
   activeSkillTags,
   activeQualifications,
-  municipalitiesByPrefecture,
+  candidateMunicipalitiesByPrefecture,
 }: ContractorSearchFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,12 +59,10 @@ function ContractorSearchFilterContent({
   const [tradeTypes, setTradeTypes] = useState<string[]>(
     searchParams.getAll("tradeType"),
   );
-  const [areaValue, setAreaValue] = useState<{
-    prefecture: string | null;
-    municipality: string | null;
-  }>({
-    prefecture: searchParams.get("prefecture") || null,
-    municipality: searchParams.get("municipality") || null,
+  const [areaValue, setAreaValue] = useState<AreaRow>({
+    prefecture: searchParams.get("prefecture") ?? "",
+    whole: false,
+    municipalities: searchParams.getAll("municipality"),
   });
   const [experienceYears, setExperienceYears] = useState(
     searchParams.get("experienceYears") ?? "",
@@ -79,9 +78,12 @@ function ContractorSearchFilterContent({
     const params = new URLSearchParams();
     if (keyword) params.set("q", keyword);
     for (const v of tradeTypes) params.append("tradeType", v);
-    if (areaValue.prefecture) params.set("prefecture", areaValue.prefecture);
-    if (areaValue.prefecture && areaValue.municipality)
-      params.set("municipality", areaValue.municipality);
+    if (areaValue.prefecture) {
+      params.set("prefecture", areaValue.prefecture);
+      for (const m of areaValue.municipalities) {
+        params.append("municipality", m);
+      }
+    }
     if (experienceYears && experienceYears !== "all")
       params.set("experienceYears", experienceYears);
     for (const v of skillTags) params.append("skillTag", v);
@@ -116,10 +118,12 @@ function ContractorSearchFilterContent({
 
       <div className="space-y-1">
         <Label className="font-bold">対応エリア</Label>
-        <AreaPicker
+        <SearchAreaPicker
           value={areaValue}
           onChange={setAreaValue}
-          municipalitiesByPrefecture={municipalitiesByPrefecture}
+          candidateMunicipalitiesByPrefecture={
+            candidateMunicipalitiesByPrefecture
+          }
         />
       </div>
 

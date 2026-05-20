@@ -414,11 +414,12 @@ test.describe("9.3e CLI-004 案件作成 → CON-002 検索ヒット", () => {
     await page.locator('input[name="rewardUpper"]').fill("25000");
     await page.locator('input[name="rewardLower"]').fill("18000");
 
-    // エリア (AreaListEditor 内の AreaPicker — shadcn Select の 都道府県) を選択
-    // Phase 4.4 以降、エリアは AreaListEditor (1 行 = 都道府県 Select +
-    // 市区町村 MasterCombobox) に変わったため、最初の select-trigger は都道府県。
+    // エリア (master-area-multi-select Phase C 以降: AreaListEditor は初期空配列。
+    // 「+ 県を追加」で 1 行追加 → 都道府県 Select → 「全域」Checkbox で県全域指定)
+    await page.getByRole("button", { name: "+ 県を追加" }).click();
     await page.locator('[data-slot="select-trigger"]').first().click();
-    await page.getByRole("option", { name: "東京都" }).click();
+    await page.getByRole("option", { name: "東京都", exact: true }).click();
+    await page.getByLabel("全域").check();
 
     // 募集職種 (MasterCombobox multi, 2 件)
     // AreaListEditor が disabled な 市区町村 master-combobox-trigger を 1 個追加するため、

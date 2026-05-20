@@ -173,8 +173,8 @@
 
 ## 4. Phase D — 検索系 3 フォーム + 3 サーバーページ + area-picker.tsx 削除 + 検索系 E2E 更新
 
-- [ ] 4. Phase D: 検索系の本体書換と URL searchParams 拡張、旧 `area-picker.tsx` 削除、検索系 E2E のグリーン化までを一括完了
-- [ ] 4.1 (P) CON-002(案件検索)を新 UI + 複数 muni URL 形式に書き換え
+- [x] 4. Phase D: 検索系の本体書換と URL searchParams 拡張、旧 `area-picker.tsx` 削除、検索系 E2E のグリーン化までを一括完了
+- [x] 4.1 (P) CON-002(案件検索)を新 UI + 複数 muni URL 形式に書き換え
   - `src/app/(authenticated)/jobs/search/job-search-filter.tsx` の `<AreaPicker>` 単一行を `<SearchAreaPicker>` に置換する
   - 「適用」ボタン押下時に URL searchParams を `?prefecture=東京都&municipality=港区&municipality=渋谷区` の同名キー繰返し形式で書き出す
   - `useSearchParams` で初期値を復元し、`SearchAreaPicker` の `value` props に渡す(SearchAreaPicker 自体は URL に依存しない controlled component とする)
@@ -182,29 +182,29 @@
   - muni 配列が空の場合は `buildAreaFilterIds({ entity, prefecture, municipality: null })` を 1 回だけ呼ぶ
   - `buildAreaFilterIds()` の API は **無変更**(呼び出し側ループのみ追加)
   - _Requirements: 7B.1, 7B.2, 7B.4, 7B.5, 7B.6, 7B.7, 10.1, 10.6_
-- [ ] 4.2 (P) CON-005(発注者検索)を新 UI + 複数 muni URL 形式に書き換え
+- [x] 4.2 (P) CON-005(発注者検索)を新 UI + 複数 muni URL 形式に書き換え
   - `src/app/(authenticated)/clients/client-search-form.tsx` の `<AreaPicker>` 単一行を `<SearchAreaPicker>` に置換する
   - URL searchParams を同名キー繰返し形式で書き出すロジックを実装する
   - `src/app/(authenticated)/clients/page.tsx`(L42-43)で `getArrayParam` + `searchAreaRowSchema.safeParse` + muni ごとの `buildAreaFilterIds` ループ + Set 和 OR 結合を実装する
   - _Requirements: 7B.1, 7B.2, 7B.4, 7B.5, 7B.6, 7B.7, 10.1, 10.6_
-- [ ] 4.3 (P) CLI-005(受注者検索)を新 UI + 複数 muni URL 形式に書き換え
+- [x] 4.3 (P) CLI-005(受注者検索)を新 UI + 複数 muni URL 形式に書き換え
   - `src/app/(authenticated)/users/contractors/contractor-search-filter.tsx` の `<AreaPicker>` 単一行を `<SearchAreaPicker>` に置換する
   - URL searchParams を同名キー繰返し形式で書き出すロジックを実装する
   - `src/app/(authenticated)/users/contractors/page.tsx`(L46-47 / L112-115)で `getArrayParam` + `searchAreaRowSchema.safeParse` + muni ごとの `buildAreaFilterIds` ループ + Set 和 OR 結合を実装する
   - 既存の「`!inner` ジョイン禁止 + ID 集合の積で AND」パターン(CLAUDE.md「一覧画面の検索フィルタはサーバー側で適用すること」準拠)を維持する
   - _Requirements: 7B.1, 7B.2, 7B.4, 7B.5, 7B.6, 7B.7, 10.1, 10.6_
-- [ ] 4.4 旧 `src/components/area/area-picker.tsx` を削除
+- [x] 4.4 旧 `src/components/area/area-picker.tsx` を削除
   - 8 親フォーム(登録系 5 + 検索系 3)すべてで `AreaPicker` import が無くなっていることを `grep -r 'from "@/components/area/area-picker"'` で確認する
   - `grep -r 'AreaPicker' src/` でも残存参照がないか確認する
   - `src/components/area/area-picker.tsx`(106 行)を削除する
   - 削除後に `npm run build` が成功することを確認する
   - _Requirements: 7B.8_
-- [ ] 4.5 (P) `e2e/master-area.spec.ts` を URL アサーション + 検索シナリオ書換で更新
+- [x] 4.5 (P) `e2e/master-area.spec.ts` を URL アサーション + 検索シナリオ書換で更新
   - `e2e/master-area.spec.ts` 内の URL アサーション(`?prefecture=..&municipality=..` 単数形)を同名キー繰返し形式に全件書き換える
   - 検索系の AreaPicker 操作シーケンスを `SearchAreaPicker` の DOM(都道府県 Select + 市区町村 Checkbox 群)に書き換える
   - 既存データ正規化シナリオ(seed の「東京都全域 + 東京都港区」混在ユーザーがフォームを開くと「東京都全域」のみ表示)を追加する
   - _Requirements: 9.5, 9.6_
-- [ ] 4.6 (P) `e2e/job-search.spec.ts` を複数 muni 検索シナリオ追加で更新
+- [x] 4.6 (P) `e2e/job-search.spec.ts` を複数 muni 検索シナリオ追加で更新
   - 受注者(CON-002)で「東京都 + 港区・渋谷区」を検索 → 港区案件・渋谷区案件・東京都全域指定案件のすべてが結果に含まれることを assert する(上位包含ルール維持)
   - 「都道府県のみ指定」(`?prefecture=東京都` のみ、`municipality` パラメータなし)で同県内の全レコードがヒットすることを assert する
   - shadcn Select の操作は `getByLabel().click()` → `getByRole("option").click()` の 2 段クリック方式を使う
