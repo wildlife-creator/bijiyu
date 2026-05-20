@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
   );
 
   // PKCE flow: code exchange
+  // Note: AUTH-001 signup は implicit flow に切り替えたため、ここを通るのは
+  // 主にパスワードリセット (recovery) 等の他フロー。
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {

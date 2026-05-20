@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -33,7 +33,12 @@ export default function RegisterPage() {
   const onSubmit = (data: SignupEmailInput) => {
     const formData = new FormData();
     formData.append("email", data.email);
-    formAction(formData);
+    // useActionState の formAction は transition 内で呼ぶ必要がある。
+    // transition 外で呼ぶと Server Action の Set-Cookie がブラウザに反映されず
+    // PKCE 用 code_verifier が永続化されない（AUTH-001 で実例発生）。
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   const isSuccess = state?.success === true;

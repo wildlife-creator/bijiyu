@@ -277,12 +277,16 @@ export async function middleware(request: NextRequest) {
   // --- Authenticated user: fetch role from DB ---
   const { data: userData } = await supabase
     .from("users")
-    .select("role, deleted_at, is_active")
+    .select("role, deleted_at, is_active, last_name")
     .eq("id", user.id)
     .single();
 
-  // If user record not found in DB, allow through (new user completing registration)
-  if (!userData) {
+  // AUTH-001 signup ユーザーは handle_new_user トリガーで public.users 行が
+  // signUp 時点で作成されるが、last_name は NULL のまま /register/profile
+  // で入力するまで未確定。userData が NULL のケースと同じ扱いで /register/* を許可する。
+  const profileIncomplete = userData && !userData.last_name;
+
+  if (!userData || profileIncomplete) {
     // Allow auth pages and registration flow
     if (isAuthPage(pathname) || pathname.startsWith("/register")) {
       return finalize(supabaseResponse);
