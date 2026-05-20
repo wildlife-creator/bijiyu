@@ -27,8 +27,12 @@ VALUES ('bbb22222-2222-2222-2222-222222222222', 'bbb22222-2222-2222-2222-2222222
 UPDATE public.users SET role = 'client', last_name = 'テスト', first_name = 'クライアント' WHERE id = 'bbb22222-2222-2222-2222-222222222222';
 
 -- Create a draft job (only owner should see it)
-INSERT INTO jobs (id, owner_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, prefecture)
-VALUES ('ccc33333-3333-3333-3333-333333333333', 'bbb22222-2222-2222-2222-222222222222', 'Draft Job', 'Draft', ARRAY['大工']::text[], 1, 'draft', 10000, 20000, CURRENT_DATE + 7, CURRENT_DATE + 14, '東京都');
+-- master-area: jobs.prefecture は廃止。エリアは job_areas 別テーブル
+INSERT INTO jobs (id, owner_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date)
+VALUES ('ccc33333-3333-3333-3333-333333333333', 'bbb22222-2222-2222-2222-222222222222', 'Draft Job', 'Draft', ARRAY['大工']::text[], 1, 'draft', 10000, 20000, CURRENT_DATE + 7, CURRENT_DATE + 14);
+
+INSERT INTO job_areas (job_id, prefecture, municipality)
+VALUES ('ccc33333-3333-3333-3333-333333333333', '東京都', NULL);
 
 -- ============================================================
 -- 1. Contractor can see open jobs

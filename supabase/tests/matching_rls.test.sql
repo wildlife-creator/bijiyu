@@ -33,16 +33,23 @@ INSERT INTO subscriptions (id, user_id, stripe_subscription_id, status, plan_typ
 VALUES ('dd444444-4444-4444-4444-444444444444', 'dd222222-2222-2222-2222-222222222222', 'sub_test_match', 'active', 'individual', now(), now() + interval '30 days');
 
 -- Create test job
-INSERT INTO jobs (id, owner_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, prefecture)
-VALUES ('dd555555-5555-5555-5555-555555555555', 'dd222222-2222-2222-2222-222222222222', 'RLSテスト案件', '説明', ARRAY['大工']::text[], 3, 'open', 18000, 22000, CURRENT_DATE, CURRENT_DATE + 30, '東京都');
+-- master-area: jobs.prefecture は廃止。エリアは job_areas 別テーブル
+INSERT INTO jobs (id, owner_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date)
+VALUES ('dd555555-5555-5555-5555-555555555555', 'dd222222-2222-2222-2222-222222222222', 'RLSテスト案件', '説明', ARRAY['大工']::text[], 3, 'open', 18000, 22000, CURRENT_DATE, CURRENT_DATE + 30);
+
+INSERT INTO job_areas (job_id, prefecture, municipality)
+VALUES ('dd555555-5555-5555-5555-555555555555', '東京都', NULL);
 
 -- Create test application (status = applied)
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status)
 VALUES ('dd666666-6666-6666-6666-666666666666', 'dd555555-5555-5555-5555-555555555555', 'dd111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + 30, 'applied');
 
 -- Create second test job for the accepted application
-INSERT INTO jobs (id, owner_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, prefecture)
-VALUES ('dd555556-5555-5555-5555-555555555555', 'dd222222-2222-2222-2222-222222222222', 'RLSテスト案件2', '説明2', ARRAY['電気工事']::text[], 2, 'open', 20000, 25000, CURRENT_DATE, CURRENT_DATE + 30, '東京都');
+INSERT INTO jobs (id, owner_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date)
+VALUES ('dd555556-5555-5555-5555-555555555555', 'dd222222-2222-2222-2222-222222222222', 'RLSテスト案件2', '説明2', ARRAY['電気工事']::text[], 2, 'open', 20000, 25000, CURRENT_DATE, CURRENT_DATE + 30);
+
+INSERT INTO job_areas (job_id, prefecture, municipality)
+VALUES ('dd555556-5555-5555-5555-555555555555', '東京都', NULL);
 
 -- Create test application (status = accepted, for review test) - on a different job
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date)

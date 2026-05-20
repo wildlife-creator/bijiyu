@@ -95,7 +95,8 @@ SELECT public.complete_registration(
   '東京都',
   'テスト建設',
   '[{"trade_type":"大工","experience_years":5},{"trade_type":"電気工事士","experience_years":3}]'::jsonb,
-  ARRAY['東京都','神奈川県']
+  -- master-area Phase 4.5: p_areas は text[] → jsonb に変更
+  '[{"prefecture":"東京都","municipality":null},{"prefecture":"神奈川県","municipality":null}]'::jsonb
 );
 
 SELECT is(
@@ -137,7 +138,8 @@ SELECT public.complete_registration(
   '大阪府',
   NULL,
   '[{"trade_type":"大工","experience_years":1},{"trade_type":"鳶職","experience_years":2},{"trade_type":"左官","experience_years":3},{"trade_type":"配管工","experience_years":4}]'::jsonb,
-  ARRAY['大阪府']
+  -- master-area Phase 4.5: p_areas は text[] → jsonb に変更
+  '[{"prefecture":"大阪府","municipality":null}]'::jsonb
 );
 
 SELECT is(
