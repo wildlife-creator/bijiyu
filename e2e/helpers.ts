@@ -35,6 +35,12 @@ export const TEST_INDIVIDUAL_CLIENT = {
   password: "testpass123",
 };
 
+// master-area-multi-select Phase F: メール確認済 + プロフィール未設定の AUTH-006 通し E2E 用
+export const TEST_NEW_CONTRACTOR_E2E = {
+  email: "new-contractor-e2e@test.local",
+  password: "testpass123",
+};
+
 export const TEST_STAFF = {
   email: "staff@test.local",
   password: "testpass123",

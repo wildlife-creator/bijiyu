@@ -187,23 +187,29 @@ lg: 1024px〜（ワイドPC、必要な場合のみ）
 - **disabled / readonly 状態のみ** `bg-muted`（薄いグレー）を適用し、操作不可であることを視覚的に示す
 - ファイルアップロード枠（破線ボーダーのドロップエリア）も同様に白背景とする
 
-### エリア (都道府県+市区町村) 入力 (必ず守ること)
+### エリア (都道府県+市区町村) 入力 (必ず守ること) — master-area-multi-select Phase C 以降
 
-エリア入力は **`AreaPicker` (単一行) / `AreaListEditor` (動的リスト)** 共通コンポーネントで実装する。手書きで `<Select>` + `<MasterCombobox>` を組み合わせない。
+エリア入力は **`<AreaListEditor>` (登録系) / `<SearchAreaPicker>` (検索系)** 共通コンポーネントで実装する。共通 1 行 UI は `<AreaRow>` 部品が担う。手書きで `<Select>` + `<Checkbox>` を組み合わせない。
 
 | 用途 | コンポーネント | props 抜粋 |
 |------|---------------|-----------|
-| 検索 popup の単一行入力 | `<AreaPicker value onChange municipalitiesByPrefecture />` | 都道府県 Select + 市区町村 MasterCombobox の 2 段(都道府県未選択時は市区町村 disabled) |
-| 案件/プロフィール編集の動的リスト | `<AreaListEditor value onChange municipalitiesByPrefecture minItems maxItems softCapWarning />` | useFieldArray ベース、行追加/削除/ソフトキャップ警告 |
+| 登録系 5 フォーム (AUTH-006 / COM-002 / CLI-021 / CLI-003 / CLI-004) | `<AreaListEditor value={AreaRow[]} onChange candidateMunicipalitiesByPrefecture />` | 「+ 県を追加」で `AreaRow` 行を末尾追加、ゴミ箱で即時削除。他行で選択済みの都道府県は disabled |
+| 検索系 3 フォーム (CON-002 / CON-005 / CLI-005) | `<SearchAreaPicker value={AreaRow} onChange candidateMunicipalitiesByPrefecture />` | 単一 `AreaRow` (配列長 1 制約)。`showWholeCheckbox={false}` で全域 Checkbox を非表示、muni 0 個 = 県のみ指定で代替 |
+| 1 県分の共通 1 行 UI (内部部品) | `<AreaRow value={AreaRow} onChange ... showWholeCheckbox?: boolean />` | 都道府県 Select + (登録系のみ) 全域 Checkbox + 市区町村 Checkbox 群 (グリッド表示) |
 
-仕様(Req 2.3〜2.7 / 3.3〜3.6 / 4.4〜4.6 / 6.3〜6.4 / 10.4〜10.5):
+仕様 (master-area-multi-select Req 1〜7B):
 
-- 都道府県を変更すると `municipality` を null にリセット(不整合防止)
-- 市区町村は任意 (未選択 = null = 「県全域」「現場未定」「全域募集」)
-- 案件は `maxItems={10}` 必須(DB トリガーで 10 件超過時に `RAISE EXCEPTION`)
-- 受注者・発注者は `maxItems` 指定なし。代わりに `softCapWarning={30}` で警告表示
-- `<form>` 内の追加/削除ボタンは `type="button"` 明示(CLAUDE.md フォーム内ボタンルール)
-- 廃止市区町村は `applyDeprecatedSuffix` で chip に「（廃止）」を付与、保存前に `stripDeprecatedSuffix` で素 label に戻す
+- **UI 状態モデル**: `AreaRow { prefecture: string; whole: boolean; municipalities: string[] }` (`src/components/area/types.ts`)。`prefecture === ""` = 未選択中の編集途中状態
+- **排他制約**: `whole === true` 時に muni をチェックすると Zod refine でエラー (`areaErrorMessages.exclusiveViolation`)。UI 側でも全域 ON で muni を即時クリア + Checkbox 群を disabled (グレーアウト) 表示
+- **同県重複禁止**: `AreaListEditor` が他行で選択済みの都道府県を各 `<AreaRow>` の `disabledPrefectures` に集約。Select 候補で「(他の行で選択済み)」サフィックス付き disabled 表示
+- **案件 10 件上限**: 保存時 `jobAreaRowsSchema` の `.refine` で検証 (`areaErrorMessages.tooManyAreasForJob`)。「+ 県を追加」ボタンを disabled にしない (押下後の保存で初めてエラー)。**常時カウンター UI / soft cap 警告は表示しない**
+- **検索系の URL 形式**: `?prefecture=東京都&municipality=港区&municipality=渋谷区` 同名キー繰返し形式。サーバーページ側は `getArrayParam` で配列復元 → 各 muni × `buildAreaFilterIds` を `Promise.all` + Set 和 OR 結合
+- **「全域」チェックのラベルは「全域」で統一** (都道府県名を冠さない、登録系のみ。検索系には全域チェックなし)
+- **市区町村 Checkbox 群はレスポンシブグリッド**: スマホ 1 列 / タブレット以上 2 列
+- `<form>` 内の追加/削除ボタンは `type="button"` 明示 (CLAUDE.md フォーム内ボタンルール)
+- 廃止市区町村は `existingDeprecatedMunicipalitiesByPrefecture` で allow-list 渡し、チェック済みの場合のみ「○○区（廃止）」サフィックスで保持表示
+- **UI ↔ DB 変換は純粋関数を経由**: `expandAreasForDb(AreaRow[]): AreaTuple[]` (UI → DB) / `collapseAreasFromDb(AreaTuple[], sortOrderMap): AreaRow[]` (DB → UI、混在は全域優先で正規化)
+- **旧 `<AreaPicker>` / 旧 `AreaDraft` 型 / 旧 `softCap` / `minItems` / `maxItems` props は廃止済**。新規実装で参照してはならない
 
 ### エリア表示 (必ず守ること)
 

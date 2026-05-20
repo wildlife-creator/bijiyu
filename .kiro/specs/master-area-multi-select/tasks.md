@@ -232,8 +232,8 @@
 
 ## 6. Phase F — AUTH-006 含む E2E + ドキュメント / steering / 関連 spec 更新
 
-- [ ] 6. Phase F: AUTH-006 を中心とする新規 E2E と全プロジェクト文書類の整合更新
-- [ ] 6.1 (P) AUTH-006 を中心とした登録フロー E2E `e2e/auth-signup.spec.ts` を新規追加
+- [x] 6. Phase F: AUTH-006 を中心とする新規 E2E と全プロジェクト文書類の整合更新
+- [x] 6.1 (P) AUTH-006 を中心とした登録フロー E2E `e2e/auth-signup.spec.ts` を新規追加
   - `e2e/auth-signup.spec.ts` を新規作成する(ファイル名は `auth-signup` だが範囲は AUTH-006 のプロフィール入力フォーム中心、AUTH-001〜005 メール認証は対象外)
   - seed.sql に「メール確認済(`auth.users.email_confirmed_at = now()`)+ プロフィール未設定(`public.users.last_name IS NULL`)」の仮ユーザー `new-contractor-e2e@test.local` を投入する
   - 当該ユーザーでログイン → `/register/profile` を開く → 氏名・お住まい・対応職種・対応エリア(新 UI で複数県マルチ選択を含む)・自己紹介を入力 → 「登録する」クリック → `/mypage` 到達確認までを通しで実装する
@@ -241,7 +241,7 @@
   - middleware の「signup 完了」判定で `last_name IS NULL` を未完了扱いとしていることを確認する(CLAUDE.md「middleware の『signup 完了』判定は public.users の存在だけでは不十分」準拠)
   - 実行前に `supabase start` + `supabase db reset` + `npm run dev` の起動を確認する
   - _Requirements: 9.5, 13.4_
-- [ ] 6.2 (P) CLAUDE.md「対応エリア・募集エリアの設計」セクションを新 UI モデルに更新
+- [x] 6.2 (P) CLAUDE.md「対応エリア・募集エリアの設計」セクションを新 UI モデルに更新
   - CLAUDE.md の「対応エリア・募集エリアの設計(必ず守ること — master-area)」セクションを新仕様準拠に書き換える
   - 入力 UI は `AreaListEditor` の「1 行 = 1 県 + N 市区町村 / または県全域」モデルである旨を明示する
   - 検索 UI は `SearchAreaPicker`(配列長 1 制約)の「1 県 + その県内 muni 複数チェック」モデルである旨を明示する
@@ -253,12 +253,12 @@
   - 検索 URL の muni は同名キー繰返し形式(`?municipality=A&municipality=B`)を明示する
   - 旧 `area-picker.tsx` 削除済み・旧 `AreaDraft` 型廃止済みを明示する
   - _Requirements: 14.1_
-- [ ] 6.3 (P) steering(`design-rule.md` / `design-system.md`)に新 UI コンポーネント利用ルールを追記
+- [x] 6.3 (P) steering(`design-rule.md` / `design-system.md`)に新 UI コンポーネント利用ルールを追記
   - `.kiro/steering/design-rule.md` または `.kiro/steering/design-system.md` に `AreaListEditor` / `SearchAreaPicker` / `AreaRow` の利用ルールを追記する
   - 登録系 vs 検索系の使い分け、`showWholeCheckbox` props の意味、件数カウンター非表示原則を明文化する
   - 既存 `AreaList` / `AreaSummary` / `formatAreas*` 表示コンポーネントは無変更で継続利用することを明示する
   - _Requirements: 14.2_
-- [ ] 6.4 (P) 親仕様 master-area の関連 spec にクロスリファレンスを追加
+- [x] 6.4 (P) 親仕様 master-area の関連 spec にクロスリファレンスを追加
   - `.kiro/specs/master-area/requirements.md` に「UI 改修(別 spec master-area-multi-select で実施完了)」のクロスリファレンスを追加する(完了済み記述で過去形ではない)
   - `.kiro/specs/master-area/design.md` に同様のクロスリファレンスを追加する
   - `.kiro/specs/master-area/tasks.md` の Phase 9 関連セクションに「UI 改修は master-area-multi-select で実施」を明示する

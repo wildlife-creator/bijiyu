@@ -1,5 +1,7 @@
 # Technical Design — master-area
 
+> **クロスリファレンス (master-area-multi-select)**: 本仕様の UI モデル (Phase 9 で投入された旧 `AreaPicker` / `AreaListEditor` `AreaDraft[]` 構造) は別 spec `.kiro/specs/master-area-multi-select/` でマルチ選択型 UI (1 行 = 1 県 + N 市区町村 / または県全域) に刷新済み。本 spec の **DB スキーマ** / **RPC** (`replace_user_areas` / `replace_job_areas` / `replace_client_recruit_areas`) / **上位包含検索ビルダー** (`buildAreaFilterIds`) / **マッチング判定** (`canApplyJob`) / **マスタ整合性検証** (`validateAreaChanges`) / **表示コンポーネント** (`AreaList` / `AreaSummary` / `formatAreas*`) は multi-select 側で**無変更**で踏襲されている。UI 部品 (`AreaListEditor` / `SearchAreaPicker` / `AreaRow` / `expandAreasForDb` / `collapseAreasFromDb` / 共通 Zod `areaRowsSchema`) は multi-select spec を参照。
+
 ## Overview
 
 **Purpose**: 既存「都道府県」粒度の住所運用を「都道府県 + 市区町村」粒度へ拡張する。総務省「市町村コード・特別区コード」(令和6年1月1日版) 由来の **1,898 件**を `master_municipalities` マスタに収め、案件・受注者対応エリア・発注者募集エリア・検索フィルタを統一的にこの粒度で扱う。マッチング判定（無料受注者の応募制限）は互換性維持のため都道府県のままとし、市区町村は表示・検索専用とする。

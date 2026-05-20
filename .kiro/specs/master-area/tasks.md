@@ -341,6 +341,7 @@
   - _Requirements: 13.4, 13.5_
 
 - [ ] 9. 手動テスト + 発見バグ修正
+  > **クロスリファレンス (master-area-multi-select)**: 本 Phase 9 は手動テスト A〜C シナリオで UI 起因のバグ B1〜B4 を発見した時点で中断され、UI 改修は別 spec `.kiro/specs/master-area-multi-select/` で実施完了。残シナリオ D〜J の手動再実行は multi-select Phase G 7.2 / 7.3 で行う。
   - `supabase start` + `supabase db reset` + `npm run dev` でローカル環境を起動し、ブラウザで以下を手動確認する:
     - AUTH-006 で受注者新規登録 → 対応エリアを「東京都港区」+「神奈川県全域」で登録 → COM-001 で表示確認
     - COM-002 で対応エリアを編集・追加・削除 → 30 件超で警告表示が出ること

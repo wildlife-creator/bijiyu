@@ -1,5 +1,7 @@
 # Requirements Document
 
+> **クロスリファレンス (master-area-multi-select)**: 本仕様はエリア機能の DB スキーマ・RPC・マスタ・上位包含検索ロジック・マッチング判定を定義する。**UI 改修** (1 行 = 1 県 + N 市区町村 / または県全域のマルチ選択型 UI への刷新、共通 Zod 統合、`expandAreasForDb` / `collapseAreasFromDb` 純粋関数追加、`area-picker.tsx` 廃止) は別 spec `.kiro/specs/master-area-multi-select/` で実施完了。本 spec の DB / RPC / `buildAreaFilterIds` / `canApplyJob` / `validateAreaChanges` / 表示コンポーネント (`AreaList` / `AreaSummary` / `formatAreas*`) は multi-select 側で**無変更**で踏襲されている。
+
 ## Introduction
 
 ビジ友(建設業マッチングサービス)の住所粒度を「都道府県のみ」から「市区町村レベル」に拡張する。既存の `jobs.prefecture` / `user_available_areas.prefecture` / `client_profiles.recruit_area` は都道府県粒度で運用されており、「港区の現場」と「練馬区の現場」を判別できない。本機能により、受注者の対応エリア、発注者の募集エリア、案件の現場住所、検索フィルタすべてを市区町村粒度で扱えるようにし、マッチング精度と検索体験を向上させる。

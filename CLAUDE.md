@@ -447,11 +447,22 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **マッチング判定は都道府県のまま**(`src/lib/matching.ts` の `canApplyJob`)。`jobPrefectures: string[]` で OR 一致、市区町村は判定に使わない(Req 7.4)。市区町村レベルに引き上げてはならない
 - **検索クエリは上位包含ルール**: 「東京都+港区」検索でも「東京都(県全域)」案件をヒットさせる。`buildAreaFilterIds({ entity, prefecture, municipality, supabase })`(`src/lib/utils/area-search-clauses.ts`)を使うこと。手書きの `.eq('prefecture', ...)` で「県全域」レコードを取りこぼさないように注意
 - **異県は絶対に含めない**(R6 ガード)。`buildAreaFilterIds` は同一 prefecture 内のみで exact + 県全域を結合する
-- **入力 UI は共通コンポーネント**: `<AreaPicker>`(都道府県 Select + 市区町村 MasterCombobox 2 段)と `<AreaListEditor>`(useFieldArray ベースの動的行管理)を使う。フォーム内では `<button type="button">` 明示(CLAUDE.md フォーム内ボタン ルール準拠)
-- **表示 UI は共通コンポーネント**: 詳細画面は `<AreaList areas={...} />`(全件展開、`formatAreasLong`)、カードは `<AreaSummary areas={...} maxVisible={3} />`(「他Nエリア」省略表示、`formatAreasShort`)。手書きで `slice(0, 3).join('、')` を散らさない
-- **件数制限**: 案件は DB トリガーで 10 件ハード上限。受注者・発注者の対応/募集エリアは DB 制約なし、UI で 30 件超を soft cap 警告
+- **入力 UI モデル (master-area-multi-select Phase C 以降)**: 「1 行 = 1 県 + N 市区町村 / または県全域」のマルチ選択型 UI
+  - **登録系 5 フォーム** (AUTH-006 / COM-002 / CLI-021 / CLI-003 / CLI-004) は `<AreaListEditor>` を使う。中で行ごとに `<AreaRow>` 部品 (`src/components/area/area-row.tsx`) を縦並べ。行 = 都道府県 Select + 「全域」Checkbox + 市区町村 Checkbox 群
+  - **検索系 3 フォーム** (CON-002 / CON-005 / CLI-005) は `<SearchAreaPicker>` を使う。配列長 1 制約 (県 1 つ + その県内 muni 複数) で、全域 Checkbox なし (muni 0 個 = 県のみ指定で代替)
+  - 共通 1 行 UI は `<AreaRow>` 経由で再利用 (`showWholeCheckbox` props で登録/検索を切替)
+  - フォーム内では `<button type="button">` を明示 (CLAUDE.md フォーム内ボタンルール準拠)
+- **UI ↔ DB の変換** (必ず守ること): UI 層は `AreaRow { prefecture, whole, municipalities: string[] }` で扱い、DB 層は `AreaTuple { prefecture, municipality: string | null }` で扱う。両者の変換は純粋関数 `expandAreasForDb` / `collapseAreasFromDb` (`src/lib/master/area-conversion.ts`) を必ず通す
+  - 命名規則: UI 層 = 複数形 `municipalities`、DB 層 = 単数形 `municipality`
+  - 既存 DB データの「同県 NULL + 具体 muni 混在」は `collapseAreasFromDb` で全域優先 = 具体 muni を捨てる正規化 (Req 5-2)
+- **Zod 検証は共通スキーマ** `areaRowsSchema` / `jobAreaRowsSchema` / `searchAreaRowSchema` (`src/lib/validations/area.ts`) を使う。排他違反 / 同県重複 / 未完成行 / 案件 10 件上限を superRefine で一括検証 (`areaErrorMessages` 定数経由でメッセージ集約)
+- **検索 URL の muni は同名キー繰返し形式**: `?prefecture=東京都&municipality=港区&municipality=渋谷区`。サーバーページ側は `getArrayParam` で配列復元 → 各 muni について `buildAreaFilterIds` ループ → Set 和で OR 結合
+- **表示 UI は共通コンポーネント** (master-area-multi-select で **無変更**): 詳細画面は `<AreaList areas={...} />`(全件展開、`formatAreasLong`)、カードは `<AreaSummary areas={...} maxVisible={3} />`(「他Nエリア」省略表示、`formatAreasShort`)。手書きで `slice(0, 3).join('、')` を散らさない
+- **件数制限**: 案件は DB トリガー + Zod (`jobAreaRowsSchema`) で 10 件上限。保存時のみエラー化 (常時カウンター UI / 「+ 県を追加」ボタンの disabled 化は行わない)。受注者・発注者の対応/募集エリアは DB 制約なし、UI 警告も無し (旧 softCap 30 件警告は廃止)
+- **「全域」チェックのラベルは「全域」で統一** (都道府県名を冠さない、登録系のみ。検索系には全域チェックなし)
 - **廃止市区町村**: 既存登録の deprecated muni は保持を許可。編集画面のみ chip に「（廃止）」サフィックスを付与(`applyDeprecatedSuffix`)、保存前に `stripDeprecatedSuffix` で素 label に戻して `validateAreaChanges` に渡す
-- 関連 spec: `.kiro/specs/master-area/`(全 9 Phase)
+- **旧 `area-picker.tsx` / 旧 `AreaDraft` 型は廃止済**。新規実装で参照してはならない
+- 関連 spec: `.kiro/specs/master-area/`(DB スキーマ / マスタ / 検索ロジック)、`.kiro/specs/master-area-multi-select/`(UI モデル / 共通 Zod / pure 関数)
 
 ### 名前表示・姓名結合のルール
 - 日本語の姓名結合は**スペースなし**で行うこと（`${lastName}${firstName}`）。`${lastName} ${firstName}` のようにスペースを入れると、既存の表示パターンと不一致になりテストが失敗する

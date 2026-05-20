@@ -1141,6 +1141,28 @@ INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
   ('55555555-5555-5555-5555-555555555555', 'c4442222-2222-2222-2222-222222222222', 'admin');
 
 -- ------------------------------------------------------------
+-- master-area-multi-select Phase F (Task 6.1):
+-- AUTH-006 通し E2E 用の「メール確認済 + プロフィール未設定」仮ユーザー
+-- ------------------------------------------------------------
+-- 用途:
+--   - auth.users.email_confirmed_at = now() → メール確認済
+--   - public.users.last_name IS NULL → middleware の「signup 完了」判定で未完了扱い
+--     → 認証済ログイン後に /register/profile へリダイレクト
+-- 既存の invited-admin（同じく email_confirmed_at=NULL は招待中扱い）と異なる
+-- 「メール確認は完了したがプロフィール未入力」状態を再現する。
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('e2e0e2e0-e2e0-e2e0-e2e0-e2e0e2e0e2e0', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'new-contractor-e2e@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES
+  ('e2e0e2e0-e2e0-e2e0-e2e0-e2e0e2e0e2e0', 'e2e0e2e0-e2e0-e2e0-e2e0-e2e0e2e0e2e0', 'new-contractor-e2e@test.local', '{"sub":"e2e0e2e0-e2e0-e2e0-e2e0-e2e0e2e0e2e0","email":"new-contractor-e2e@test.local"}', 'email', now(), now(), now());
+
+-- handle_new_user トリガーで public.users (role='contractor', last_name=NULL, first_name=NULL) が
+-- 自動作成される。AUTH-006 通し E2E はこの NULL 状態を起点に /register/profile 入力フローを検証する。
+-- 後段の bulk UPDATE で password_set_at = now() が自動付与される（招待中バッジ対象外）。
+
+-- ------------------------------------------------------------
 -- Task 7.5: 代理アカウント重複拒否テスト用データ
 -- ------------------------------------------------------------
 -- 既存の staff=33333333（is_proxy_account=true）が代理役を担う。
