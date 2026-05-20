@@ -6,13 +6,18 @@
 
 ## 0. 既存テスト全実行とデグレ確認(着手前ゲート)
 
-- [ ] 0. 既存テスト全実行とデグレ確認
+- [x] 0. 既存テスト全実行とデグレ確認
   - `npm run test`(Vitest)を実行し、全件 PASS を確認する
   - `supabase test db`(pgTAP)を実行し、全件 PASS を確認する
   - `npm run test:e2e`(Playwright)を実行する前に `supabase start` + `supabase db reset` + `npm run dev` の起動を確認したうえで実行し、全件 PASS を確認する
   - 失敗ケースが 1 つでもあれば、本仕様の実装に着手せず原因を調査・修正してから着手する(過渡的失敗の場合はコールド再起動で再確認、`project_e2e_test_pollution.md` 参照)
   - 着手前ベースラインのテスト件数(Vitest / pgTAP / Playwright)を記録しておき、Phase 完了ごとの突き合わせに使う
   - _Requirements: 9.7, 13.1_
+  - **実施結果 (2026-05-20)**:
+    - Vitest: 42 files / **600 tests 全 PASS** (1.39s)
+    - pgTAP: 19 files / **178 tests 全 PASS**
+    - Playwright: **198 tests / 197 PASS + 1 過渡的失敗** (毎回別テストが落ち単独実行で復帰、`project_e2e_test_pollution.md` の documented パターン)
+    - 着手前修正: Phase 9 (81b6454) で format-areas を県別グルーピングに変更したが、seed の 661 job (4 muni 全て 東京都+神奈川県) と E2E `master-area.spec.ts:79` (「他Nエリア」想定) が未追従だったため、seed の 661 job に `千葉県 NULL` / `埼玉県 NULL` を追加して 4 都道府県グループに拡張、テストコメントを新仕様に更新
 
 ## 1. Phase A — 共通型 + 純粋変換関数 + Zod 共通スキーマ + 単体テスト
 
