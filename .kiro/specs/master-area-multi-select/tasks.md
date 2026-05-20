@@ -59,8 +59,8 @@
 
 ## 2. Phase B — 新規 UI 部品(AreaRow / SearchAreaPicker)
 
-- [ ] 2. Phase B: 新規 UI 部品を**追加のみ**で実装し既存コードに影響を与えない
-- [ ] 2.1 1 県分の UI 部品 `AreaRow` を新規実装
+- [x] 2. Phase B: 新規 UI 部品を**追加のみ**で実装し既存コードに影響を与えない
+- [x] 2.1 1 県分の UI 部品 `AreaRow` を新規実装
   - `src/components/area/area-row.tsx` を新規作成する
   - 都道府県 Select(shadcn `Select`)+ 「全域」Checkbox + 市区町村 Checkbox 群の構成を Phase A の `AreaRow` 型に対する controlled component として実装する
   - `prefecture === ""`(未選択)の間は「全域」Checkbox と市区町村 Checkbox 群を **非表示**(`return null` 等)にする
@@ -71,7 +71,7 @@
   - `showWholeCheckbox` props(default true)で検索系での「全域」非表示モードを切り替え可能にする
   - すべての追加・削除・チェックボックス操作ボタンに `type="button"` を明示する(CLAUDE.md「フォーム内 `<button>` には必ず `type` を明示する」準拠)
   - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.7, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 7.3_
-- [ ] 2.2 検索系専用 `SearchAreaPicker` を新規実装
+- [x] 2.2 検索系専用 `SearchAreaPicker` を新規実装
   - `src/components/area/search-area-picker.tsx` を新規作成する
   - 単一 `AreaRow` を扱う controlled component として、内部で `AreaRow` 部品(Task 2.1)を `showWholeCheckbox={false}` で 1 つだけレンダリングする(**2.1 完了後**に着手する逐次依存あり)
   - URL searchParams の読み書き(`useSearchParams` / `useRouter`)は **親フォーム側(`job-search-filter.tsx` 等)の責務** とし、本コンポーネント自体は URL に依存しない
