@@ -433,6 +433,26 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 新しく「保有スキル」を表示する画面を作る際は必ず `users.skill_tags` を SELECT すること。user_skills から引かないこと
 - マスタ候補の取得は `getActiveTradeTypes()` / `getActiveQualifications()` / `getActiveSkillTags()`（`src/lib/master/fetch.ts`）を使い、検索ポップアップ・編集フォーム共に MasterCombobox に渡す。`unstable_cache` で 1 時間キャッシュ + tag `'master-skills'` で一括無効化可能
 
+### 対応エリア・募集エリアの設計（必ず守ること — master-area）
+- **保存形式**: 1 行 = 1 (prefecture, municipality?) ペア。`municipality IS NULL` = 「県全域」(受注者) / 「現場未定」(案件) / 「全域募集」(発注者)
+- **3 つの専用テーブル**:
+  - 受注者の対応エリア: `user_available_areas (user_id, prefecture, municipality)`、UNIQUE NULLS NOT DISTINCT 制約
+  - 案件のエリア: `job_areas (job_id, prefecture, municipality)`、`enforce_job_areas_max` トリガーで 1 案件 10 件上限
+  - 発注者の募集エリア: `client_recruit_areas (client_id, prefecture, municipality)`、件数制限なし
+- **マスタ参照**: `master_municipalities (prefecture, municipality, sort_order, deprecated_at)` 1,897 件(政令市 20 件は本体除外、行政区のみ。北海道泊村 dedupe 済)。`getAllMunicipalityRows()` / `getActiveMunicipalities()` で取得し、`'master-area'` タグで `unstable_cache`
+- **書き込みは RPC**: `replace_user_areas(p_user_id, p_areas jsonb)` / `replace_job_areas(p_job_id, p_areas jsonb)` / `replace_client_recruit_areas(p_client_id, p_areas jsonb)`(SECURITY INVOKER + RLS 経由)。Server Action 側で `validateAreaChanges(newAreas, previousAreas)` を呼んでから RPC を実行
+- **`users.prefecture` は個人住所として据え置く**(プライバシー観点、市区町村化しない)。受注者の対応エリアとは別概念
+- **`jobs.address` は番地以下の詳細住所として保持**(CLI-004 入力)。job_areas (エリア概念) とは別管理。DROP しないこと
+- **旧カラム廃止済**: `jobs.prefecture` / `client_profiles.recruit_area` は master-area Migration 4 で DROP。`client_profiles` 系の引き継ぎは `client_recruit_areas` 別テーブルに変更
+- **マッチング判定は都道府県のまま**(`src/lib/matching.ts` の `canApplyJob`)。`jobPrefectures: string[]` で OR 一致、市区町村は判定に使わない(Req 7.4)。市区町村レベルに引き上げてはならない
+- **検索クエリは上位包含ルール**: 「東京都+港区」検索でも「東京都(県全域)」案件をヒットさせる。`buildAreaFilterIds({ entity, prefecture, municipality, supabase })`(`src/lib/utils/area-search-clauses.ts`)を使うこと。手書きの `.eq('prefecture', ...)` で「県全域」レコードを取りこぼさないように注意
+- **異県は絶対に含めない**(R6 ガード)。`buildAreaFilterIds` は同一 prefecture 内のみで exact + 県全域を結合する
+- **入力 UI は共通コンポーネント**: `<AreaPicker>`(都道府県 Select + 市区町村 MasterCombobox 2 段)と `<AreaListEditor>`(useFieldArray ベースの動的行管理)を使う。フォーム内では `<button type="button">` 明示(CLAUDE.md フォーム内ボタン ルール準拠)
+- **表示 UI は共通コンポーネント**: 詳細画面は `<AreaList areas={...} />`(全件展開、`formatAreasLong`)、カードは `<AreaSummary areas={...} maxVisible={3} />`(「他Nエリア」省略表示、`formatAreasShort`)。手書きで `slice(0, 3).join('、')` を散らさない
+- **件数制限**: 案件は DB トリガーで 10 件ハード上限。受注者・発注者の対応/募集エリアは DB 制約なし、UI で 30 件超を soft cap 警告
+- **廃止市区町村**: 既存登録の deprecated muni は保持を許可。編集画面のみ chip に「（廃止）」サフィックスを付与(`applyDeprecatedSuffix`)、保存前に `stripDeprecatedSuffix` で素 label に戻して `validateAreaChanges` に渡す
+- 関連 spec: `.kiro/specs/master-area/`(全 9 Phase)
+
 ### 名前表示・姓名結合のルール
 - 日本語の姓名結合は**スペースなし**で行うこと（`${lastName}${firstName}`）。`${lastName} ${firstName}` のようにスペースを入れると、既存の表示パターンと不一致になりテストが失敗する
 - **すべての UI で発注者表示名の解決は `resolveParticipantName()` を使うこと**。メッセージ UI・メール通知に限らず、発注者一覧・案件カード・マイページ完了案件・お気に入り等、ユーザー名を表示するすべての場所で統一する

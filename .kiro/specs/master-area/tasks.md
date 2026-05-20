@@ -246,7 +246,7 @@
   - この段階で `supabase db reset` を流し、Phase 1〜4 の状態が新 seed で再現できることを確認する（旧カラムは Phase 6 まで残るため `supabase db reset` は通る前提）
   - _Requirements: 8.7, 12.4_
 
-- [ ] 6. Migration 4（旧カラム DROP）+ supabase gen types
+- [x] 6. Migration 4（旧カラム DROP）+ supabase gen types
   - Migration 4 ファイルを新規追加: `jobs.prefecture` / `client_profiles.recruit_area` の `DROP COLUMN`、旧 `idx_jobs_search (status, prefecture)` を DROP して `(status)` のみで再作成
   - **`jobs.address text(200)` は DROP しないこと**（CLI-004 番地以下の詳細住所用、Req 4.8）
   - **`users.prefecture` は DROP しないこと**（個人住所、Req 9.1）
@@ -256,8 +256,8 @@
   - 移行後の既存案件・ユーザー（市区町村未指定状態）は Phase 2 の上位包含ルールで市区町村絞り込み検索でも結果に含まれる（Req 8.6）
   - _Requirements: 8.5, 8.6, 8.8_
 
-- [ ] 7. テスト網羅（Migration 検証 + pgTAP RLS + Vitest 単体・統合 + Playwright E2E）
-- [ ] 7.0 Migration 検証クエリ
+- [x] 7. テスト網羅（Migration 検証 + pgTAP RLS + Vitest 単体・統合 + Playwright E2E）
+- [x] 7.0 Migration 検証クエリ
   - `SELECT count(*) FROM master_municipalities` が 1,897 を返すこと（Migration 1 投入確認、research.md §5.1 参照）
   - `SELECT count(*) FROM master_municipalities WHERE municipality IN ('横浜市','大阪市','名古屋市','札幌市','京都市','神戸市','福岡市','北九州市','広島市','仙台市','千葉市','さいたま市','静岡市','浜松市','新潟市','岡山市','熊本市','相模原市','堺市','川崎市')` が 0 を返すこと（政令指定都市本体 20 件不在の確認、Req 1.2）
   - Migration 3 後の `job_areas` / `client_recruit_areas` 件数が seed 案件・発注者の旧カラム件数と一致すること（DML 移行の対称性確認、Req 8.2 / 8.3）
@@ -266,7 +266,7 @@
   - これらは `supabase test db` 内のヘルパー SQL もしくは `scripts/verify-master-area-migration.sql` として保存し、CI で実行可能にする
   - _Requirements: 1.2, 8.1, 8.2, 8.3, 8.5, 8.8_
 
-- [ ] 7.1 (P) pgTAP RLS テスト 3 テーブル
+- [x] 7.1 (P) pgTAP RLS テスト 3 テーブル
   - `supabase/tests/` 配下に `master_area_rls.sql` を新規追加し、`master_municipalities` / `job_areas` / `client_recruit_areas` / `user_available_areas` の RLS を検証する
   - 検証項目:
     - anon が `SELECT master_municipalities` 可能（1,898 行返る）
@@ -281,7 +281,7 @@
   - 7.2 / 7.3 と独立しているため並列実行可能
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 12.1_
 
-- [ ] 7.2 (P) Vitest 単体・統合テスト
+- [x] 7.2 (P) Vitest 単体・統合テスト
   - `formatAreas`: 0 件 / 県のみ / 県+市 / 同県混在（「東京都港区」+「東京都」）/ 異県複数 / 4 件超省略 / NULL municipality 表示の各ケース
   - `validateAreaChanges`: added のみ active 必須、既存保有 deprecated 保持、unknown 検出、空 previousAreas（新規登録）、`municipality: null` 常 valid の各ケース
   - `canApplyJob`（拡張）: `jobPrefectures` 配列 OR 一致、paid bypass、空配列拒否、staff 拒否、`municipality` 無視の各ケース
@@ -293,7 +293,7 @@
   - 7.1 / 7.3 と独立しているため並列実行可能
   - _Requirements: 12.2, 12.3_
 
-- [ ] 7.3 Playwright E2E 12 シナリオ
+- [x] 7.3 Playwright E2E 12 シナリオ
   - 既存全 spec の検索フォーム操作を `AreaPicker` 用 2 段クリックパターン（`getByLabel().click()` → `getByRole('option').click()`）に書き換える（shadcn Select 操作、CLAUDE.md 既存ルール）
   - E2E シナリオ（design.md Testing Strategy 12 シナリオ）:
     - 受注者が COM-002 で「東京都港区」「神奈川県全域」を登録 → 保存 → COM-001 で表示確認
@@ -312,8 +312,8 @@
   - 7.1 / 7.2 完了後に実施（shadcn Select 操作の変更が広範囲に及ぶため、ユニットテストの安定を確認してから着手）
   - _Requirements: 12.4_
 
-- [ ] 8. ドキュメント波及更新
-- [ ] 8.1 CLAUDE.md「実装時の必須チェック項目」に追記
+- [x] 8. ドキュメント波及更新
+- [x] 8.1 CLAUDE.md「実装時の必須チェック項目」に追記
   - マッチング判定は都道府県のまま。`src/lib/matching.ts` を市区町村レベルに引き上げてはならない（Req 7.4）
   - 検索クエリは上位包含ルールに従う（市区町村絞り込みでも同県全域指定を含める）
   - 個人住所 `users.prefecture` は市区町村化しない（プライバシー）
@@ -322,13 +322,13 @@
   - `jobs.address`（番地以下の詳細住所）は `job_areas`（エリア）と別管理。DROP しないこと
   - _Requirements: 13.1_
 
-- [ ] 8.2 (P) steering 更新（database-schema.md / design-system.md）
+- [x] 8.2 (P) steering 更新（database-schema.md / design-system.md）
   - `.kiro/steering/database-schema.md` を新スキーマに合わせて更新する: `master_municipalities` / `job_areas` / `client_recruit_areas` の説明追加、`users.prefecture` 据え置きの注記、`client_profiles.recruit_area` カラム削除の反映、`jobs.prefecture` カラム削除の反映、`jobs.address` 保持の注記
   - `.kiro/steering/design-system.md` または `.kiro/steering/design-rule.md` に階層プルダウン UI コンポーネント（`AreaPicker` / `AreaListEditor`）の使用ルールを追記する
   - 8.1 / 8.3 と独立しているため並列実行可能
   - _Requirements: 13.2, 13.3_
 
-- [ ] 8.3 (P) 関連 spec の波及更新（matching / job-search / job-posting / profile / billing / organization）
+- [x] 8.3 (P) 関連 spec の波及更新（matching / job-search / job-posting / profile / billing / organization）
   - `.kiro/specs/matching/` の記述で「都道府県」前提の箇所を「都道府県+市区町村」に更新し、応募制限は都道府県のまま据え置きである旨を明記する
   - `.kiro/specs/job-search/` の検索フィルタ仕様を `AreaPicker` 階層フィルタ + 上位包含ルールに更新する
   - `.kiro/specs/job-posting/` の案件エリア入力を「1 案件最大 10 件・県跨ぎ可能・全域 NULL 表現」に更新する

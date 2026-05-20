@@ -312,7 +312,7 @@ sequenceDiagram
   - Card ではなくボーダー付き div（`border border-border rounded-[8px] p-4`）
   - セクション見出しはボックスの外（上）に太字配置
   - 全8項目を常に表示（null の場合は「—」）:
-    - 【勤務地】jobs.prefecture + jobs.address
+    - 【勤務地】job_areas のエリア一覧 + jobs.address（master-area: jobs.prefecture は廃止、エリアは job_areas 別テーブル）
     - 【勤務日・稼働時間】jobs.work_start_date〜work_end_date + jobs.work_hours
     - 【持ち物】jobs.items
     - 【必須スキル】jobs.required_skills

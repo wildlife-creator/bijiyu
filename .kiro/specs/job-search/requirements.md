@@ -122,13 +122,12 @@
 - 検索・フィルター:
   - キーワード検索（会社名）— display_name に対する部分一致（ILIKE）
   - 職種フィルター — client_profiles.recruit_job_types 配列に対する重複チェック（`&&` 演算子）。選択した職種のいずれかが recruit_job_types に含まれていればヒット
-  - エリアフィルター — client_profiles.recruit_area 配列に対する重複チェック（`&&` 演算子）。選択したエリアのいずれかが recruit_area に含まれていればヒット
+  - エリアフィルター — `client_recruit_areas` 別テーブル(master-area 正規化)に対して `buildAreaFilterIds({ entity: "client", prefecture, municipality, supabase })` で client_id 集合を構築し、`.in("id", ids)` でメインクエリに渡す。上位包含ルール: 「東京都港区」検索でも県全域指定(municipality IS NULL)の発注者を含める、異県は絶対に含めない
 - **検索ロジックの詳細（エリア・職種フィルター）**:
   - エリアフィルターと職種フィルターはOR条件で動作する
-  - 例: recruit_area = ['東京都', '神奈川県'] の発注者は、エリアフィルターで「神奈川県」を選択した場合にヒットする
-  - 例: recruit_job_types = ['大工', '電気工事士'] の発注者は、職種フィルターで「大工」を選択した場合にヒットする
-  - SQL例: `WHERE recruit_area && ARRAY['神奈川県']::text[]`（配列の重複チェック）
-  - 完全一致（`=`）や文字列の部分一致（`LIKE`）を使ってはならない
+  - エリアフィルター: 都道府県のみ指定 → 同県内の全 client_id、都道府県+市区町村指定 → 対応市区町村 + 同県全域指定の OR(`buildAreaFilterIds` 内で 2 query を結合)
+  - 職種: recruit_job_types = ['大工', '電気工事士'] の発注者は、職種フィルターで「大工」を選択した場合にヒットする(`.overlaps()` で配列 OR)
+  - 旧 `client_profiles.recruit_area text[]` カラムは master-area Migration 4 で DROP 済。`client_profiles && ARRAY[...]` パターンは使わない
 - ページネーション: 20件ずつ
 - お気に入りボタン（♡）
 - 各発注者クリック → CON-006 へ遷移

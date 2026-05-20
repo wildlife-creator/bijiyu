@@ -629,7 +629,7 @@ const applicationSchema = z.object({
 
 **searchParams**:
 - `q`: キーワード（`users.last_name` / `users.first_name` / `client_profiles.display_name` の3軸 OR 検索）。Supabase JS の `.or()` は foreign relation 参照を安定して扱えないため、2 段階クエリ（user 名検索 + プロフィール名検索）で `user_id` 集合を解決し、本クエリで `.in('id', ids)` 絞り込み
-- `prefecture`: 募集エリア（`PREFECTURES` 定数の値1つ）→ `client_profiles.recruit_area text[]` への overlaps 検索
+- `prefecture` / `municipality`: 募集エリア → master-area 以降は `client_recruit_areas` 別テーブルに対して `buildAreaFilterIds({ entity: "client", prefecture, municipality, supabase })` で client_id 集合を構築 → `.in("id", ids)`。上位包含ルール(港区検索でも県全域指定をヒット、異県は絶対除外)。旧 `client_profiles.recruit_area text[]` カラムは Migration 4 で DROP 済
 - `tradeType`: 募集職種（`master_trade_types.label`、複数選択可で `searchParams.getAll('tradeType')` で配列復元）→ `client_profiles.recruit_job_types text[]` への `.overlaps()` + `!inner` ジョインで OR 一致検索（master-skills 仕様）
 - `employeeScale`: 従業員規模レンジ（`EMPLOYEE_SCALE_RANGES` の `label` 1つ、例 `10〜49人`）→ `client_profiles.employee_scale integer` に `gte(min)` + `lte(max)` の BETWEEN クエリ。最上位レンジ（`1000人以上`）は `max = null` なので `gte` のみ
 - `workingWay`: 求める働き方（`WORKING_WAYS` 定数の値1つ）→ `client_profiles.working_way text[]` への overlaps 検索（複数登録された発注者は OR でヒット）

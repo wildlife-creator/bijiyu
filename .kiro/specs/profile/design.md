@@ -292,13 +292,14 @@ interface ProfileEditInput {
   firstName: string;
   gender: string;
   email?: string;
-  prefecture: string;
+  prefecture: string;          // 個人住所(users.prefecture)、市区町村化しない
   companyName?: string;
   bio?: string;
   skills: Array<{ tradeType: string; experienceYears: number }>;
   skillTags: string[];         // 保有スキル（自由入力タグ → users.skill_tags）
   qualifications: string[];    // 保有資格 → user_qualifications
-  availableAreas: string[];
+  // master-area Phase 4 以降: string[] → AreaTuple[] に拡張
+  availableAreas: Array<{ prefecture: string; municipality: string | null }>;
 }
 
 function updateProfileAction(input: ProfileEditInput): Promise<ActionResult>;
@@ -566,12 +567,21 @@ BEGIN
   INSERT INTO public.user_qualifications (id, user_id, qualification_name)
   SELECT gen_random_uuid(), p_user_id, unnest(p_qualifications);
 
-  -- Replace available areas
-  DELETE FROM public.user_available_areas WHERE user_id = p_user_id;
-  INSERT INTO public.user_available_areas (id, user_id, prefecture)
-  SELECT gen_random_uuid(), p_user_id, unnest(p_areas);
+  -- master-area Phase 4.5 以降: areas は別 RPC replace_user_areas(p_user_id, p_areas jsonb)
+  -- で全置換する。本 RPC からは areas 部分を呼び出さず、Server Action 側で
+  -- replace_user_areas を別途呼ぶ
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+`replace_user_areas(p_user_id uuid, p_areas jsonb)` (SECURITY INVOKER + RLS 経由):
+```sql
+DELETE FROM user_available_areas WHERE user_id = p_user_id;
+INSERT INTO user_available_areas (user_id, prefecture, municipality)
+SELECT p_user_id,
+       (elem->>'prefecture')::text,
+       NULLIF(elem->>'municipality', '')
+FROM jsonb_array_elements(p_areas) AS elem;
 ```
 
 ### Data Contracts

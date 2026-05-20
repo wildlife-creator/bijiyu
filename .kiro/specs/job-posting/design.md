@@ -296,7 +296,8 @@ interface JobFormValues {
   tradeType: string;
   rewardLower: number;
   rewardUpper: number;
-  prefecture: string;
+  // master-area Phase 4 以降: prefecture 単一値 → areas 配列 (1 案件最大 10 件、県跨ぎ可)
+  areas: Array<{ prefecture: string; municipality: string | null }>;
   address: string;
   workStartDate: string;
   workEndDate: string;
@@ -542,7 +543,11 @@ export const jobSchema = z.object({
   tradeType: z.string().min(1, "職種を選択してください"),
   rewardLower: z.number({ message: "報酬下限は数値で入力してください" }).int().positive("報酬下限は正の数で入力してください"),
   rewardUpper: z.number({ message: "報酬上限は数値で入力してください" }).int().positive("報酬上限は正の数で入力してください"),
-  prefecture: z.string().min(1, "都道府県を選択してください"),
+  // master-area Phase 4 以降: prefecture 単一値 → areas 配列 schema (1 案件最大 10 件、master_municipalities validate は Server Action で実施)
+  areas: z.array(z.object({
+    prefecture: z.string().min(1),
+    municipality: z.string().nullable(),
+  })).min(1, "エリアを 1 件以上指定してください").max(10, "エリアは 10 件まで"),
   address: z.string().max(200, "詳細住所は200文字以内で入力してください").optional().or(z.literal("")),
   workStartDate: z.string().min(1, "工期開始日を選択してください"),
   workEndDate: z.string().min(1, "工期終了日を選択してください"),
@@ -613,10 +618,13 @@ export const jobDraftSchema = z.object({
 | organization_id | uuid | FK → organizations(id) |
 | title | text | NOT NULL |
 | description | text | |
-| prefecture | text | |
-| address | text | |
-| trade_type | text | |
+| address | text | 詳細住所(番地以下)。エリアは別テーブル `job_areas` |
+| trade_types | text[] | master-skills 仕様、`.overlaps()` 検索用 |
 | headcount | integer | |
+
+**`job_areas` テーブル**（master-area Migration 2 / 4 で新設・正規化）:
+- `(id, job_id, prefecture, municipality, created_at)`、`enforce_job_areas_max` トリガーで 10 件上限
+- 旧 `jobs.prefecture` は Migration 4 で DROP 済
 | reward_lower | integer | |
 | reward_upper | integer | |
 | work_start_date | date | |

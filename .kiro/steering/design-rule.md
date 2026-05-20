@@ -187,6 +187,38 @@ lg: 1024px〜（ワイドPC、必要な場合のみ）
 - **disabled / readonly 状態のみ** `bg-muted`（薄いグレー）を適用し、操作不可であることを視覚的に示す
 - ファイルアップロード枠（破線ボーダーのドロップエリア）も同様に白背景とする
 
+### エリア (都道府県+市区町村) 入力 (必ず守ること)
+
+エリア入力は **`AreaPicker` (単一行) / `AreaListEditor` (動的リスト)** 共通コンポーネントで実装する。手書きで `<Select>` + `<MasterCombobox>` を組み合わせない。
+
+| 用途 | コンポーネント | props 抜粋 |
+|------|---------------|-----------|
+| 検索 popup の単一行入力 | `<AreaPicker value onChange municipalitiesByPrefecture />` | 都道府県 Select + 市区町村 MasterCombobox の 2 段(都道府県未選択時は市区町村 disabled) |
+| 案件/プロフィール編集の動的リスト | `<AreaListEditor value onChange municipalitiesByPrefecture minItems maxItems softCapWarning />` | useFieldArray ベース、行追加/削除/ソフトキャップ警告 |
+
+仕様(Req 2.3〜2.7 / 3.3〜3.6 / 4.4〜4.6 / 6.3〜6.4 / 10.4〜10.5):
+
+- 都道府県を変更すると `municipality` を null にリセット(不整合防止)
+- 市区町村は任意 (未選択 = null = 「県全域」「現場未定」「全域募集」)
+- 案件は `maxItems={10}` 必須(DB トリガーで 10 件超過時に `RAISE EXCEPTION`)
+- 受注者・発注者は `maxItems` 指定なし。代わりに `softCapWarning={30}` で警告表示
+- `<form>` 内の追加/削除ボタンは `type="button"` 明示(CLAUDE.md フォーム内ボタンルール)
+- 廃止市区町村は `applyDeprecatedSuffix` で chip に「（廃止）」を付与、保存前に `stripDeprecatedSuffix` で素 label に戻す
+
+### エリア表示 (必ず守ること)
+
+エリア表示も共通コンポーネントを使う。手書きで `slice(0, 3).join('、')` を散らさない。
+
+| 用途 | コンポーネント | 出力例 |
+|------|---------------|--------|
+| 詳細画面(全件展開) | `<AreaList areas={...} emptyLabel="—" />` | "東京都港区、東京都新宿区、神奈川県（市区町村未指定）" |
+| カード(省略表示) | `<AreaSummary areas={...} maxVisible={3} />` | "東京都港区、東京都新宿区、神奈川県... 他2エリア" |
+
+ロジックは `formatAreas` / `formatAreasLong` / `formatAreasShort` (`src/lib/utils/format-areas.ts`):
+- 同一県の「県全域 + 市区町村」混在 → 「東京都（港区・新宿区ほか）」のグルーピング表示
+- 県全域のみ → 「東京都（市区町村未指定）」
+- 異県は順序を保持して「、」連結
+
 ### カード
 
 ```tsx
