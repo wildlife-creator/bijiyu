@@ -1,0 +1,293 @@
+# Implementation Plan
+
+> **Phase 順の重要原則**: 各 Phase 完了時点で `npm run test` / `supabase test db` / `npm run test:e2e` の **3 種すべてがグリーン** である状態を維持する(CLAUDE.md「テスト失敗時のルール」厳守)。そのため、本体コード書換とテスト更新は同一 Phase 内で同時実施する。
+>
+> **並列マーカー `(P)` の意味**: 同じ Major タスク配下で、独立した別ファイルを触り、相互依存・前後関係がないサブタスク群を示す。Major タスク間は順序依存があるため `(P)` を付けない。
+
+## 0. 既存テスト全実行とデグレ確認(着手前ゲート)
+
+- [ ] 0. 既存テスト全実行とデグレ確認
+  - `npm run test`(Vitest)を実行し、全件 PASS を確認する
+  - `supabase test db`(pgTAP)を実行し、全件 PASS を確認する
+  - `npm run test:e2e`(Playwright)を実行する前に `supabase start` + `supabase db reset` + `npm run dev` の起動を確認したうえで実行し、全件 PASS を確認する
+  - 失敗ケースが 1 つでもあれば、本仕様の実装に着手せず原因を調査・修正してから着手する(過渡的失敗の場合はコールド再起動で再確認、`project_e2e_test_pollution.md` 参照)
+  - 着手前ベースラインのテスト件数(Vitest / pgTAP / Playwright)を記録しておき、Phase 完了ごとの突き合わせに使う
+  - _Requirements: 9.7, 13.1_
+
+## 1. Phase A — 共通型 + 純粋変換関数 + Zod 共通スキーマ + 単体テスト
+
+- [ ] 1. Phase A: 純粋関数層とスキーマ層を整備し Vitest で単体検証を完了させる
+- [ ] 1.1 共通型 `AreaRow` を新規ファイルに定義
+  - `src/components/area/types.ts` を新規作成し、UI 層の `AreaRow` 型(`prefecture: string` / `whole: boolean` / `municipalities: string[]`)を手書きで定義する
+  - DB 層既存型 `AreaTuple`(`{ prefecture, municipality: string | null }`)の使い分け方針(UI 層 = 複数形 `municipalities`、DB 層 = 単数形 `municipality`)を型定義のすぐ近くに JSDoc コメントで明示する
+  - `z.infer<typeof areaRowSchema>` で導出する案を採らず手書きで分離する理由(編集途中 `prefecture === ""` を許す必要)を JSDoc に残す
+  - すべての他レイヤー(AreaPicker / AreaListEditor / SearchAreaPicker / Zod スキーマ / area-conversion)が import する単一エクスポート源を確立する
+  - _Requirements: 1.1, 1.2_
+- [ ] 1.2 純粋関数 `expandAreasForDb` / `collapseAreasFromDb` を新規ファイルに実装
+  - `src/lib/master/area-conversion.ts` を新規作成し、`expandAreasForDb(rows: AreaRow[]): AreaTuple[]` を純粋関数として実装する
+  - `whole === true` 行は `[(prefecture, null)]`、`municipalities` 配列は同一県の複数 muni 行に展開、空行(`whole=false && municipalities=[]`)は出力に含めない仕様を満たす
+  - `collapseAreasFromDb(pairs, sortOrderMap)` を実装し、同一県内 NULL 混在は「県全域優先で具体 muni を捨てる」正規化を行う
+  - 戻り値の AreaRow 配列を `PREFECTURES` 定数順で安定ソートし、内部の `municipalities` は呼び出し側が渡す `sortOrderMap[prefecture][muni]` で sort_order 昇順に整列する
+  - I/O・副作用なしの純粋関数として実装し、外部依存は `PREFECTURES` 定数と入力引数のみに限定する
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 12.3_
+- [ ] 1.3 共通 Zod スキーマと エラーメッセージ定数を新規ファイルに実装
+  - `src/lib/validations/area.ts` を新規作成し、`areaRowSchema` / `areaRowsSchema` / `jobAreaRowsSchema` / `searchAreaRowSchema` / `areaErrorMessages` を export する
+  - `areaRowsSchema.superRefine` で「排他違反(whole=true && muni>0)」「未完成行(whole=false && muni=0)」「同県重複」の 3 種を一括検証する
+  - `jobAreaRowsSchema` は `areaRowsSchema` に `.refine((rows) => expandAreasForDb(rows).length <= 10)` を加え、案件 10 件上限を強制する(`expandAreasForDb` を Task 1.2 から import するため **1.2 完了後**に着手する逐次依存あり)
+  - `searchAreaRowSchema` は単一 `AreaRow` を直接 parse する派生スキーマで、`whole === false` を強制する(検索系では「全域」概念を muni 0 個 = 県のみ指定で代替するため)
+  - エラーメッセージ(`exclusiveViolation` / `incompleteRow` / `duplicatePrefecture` / `tooManyAreasForJob`)を `areaErrorMessages` 定数として 1 か所に集約し、Zod のメッセージはすべてこの定数経由で参照する
+  - _Requirements: 2.7, 2.8, 3.3, 3.5, 6.1, 6.2, 6.4, 6.5, 6.6, 8.3_
+- [ ] 1.4 (P) `expandAreasForDb` / `collapseAreasFromDb` の Vitest 単体テストを新規追加
+  - `src/__tests__/master/area-conversion.test.ts` を新規作成する
+  - `expandAreasForDb`: 県全域単独 / muni 複数 / 複数県混在 / 空行混入 / 同県重複 input(後者は throw せず展開はするが、Zod 側で弾く想定)の 5+ ケースを assert する
+  - `collapseAreasFromDb`: NULL+具体混在の県全域優先正規化 / 通常集約 / 単一行 / sort_order 昇順 / 空入力 / sortOrderMap に存在しない muni のフォールバック挙動の 5+ ケースを assert する
+  - 往復冪等性 `expand → collapse → expand` を Property-based 風に 3+ ケースで検証する(混在 input を除く)
+  - 純粋関数のため Supabase / fetch / Date 等のモック不要
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.8, 9.1_
+- [ ] 1.5 (P) `areaRowsSchema` / `jobAreaRowsSchema` / `searchAreaRowSchema` の Vitest 単体テストを新規追加
+  - `src/__tests__/validations/area.test.ts` を新規作成する
+  - `areaRowsSchema`: 正常系 / 排他違反 / 同県重複 / 未完成行 のそれぞれをエラーメッセージ込みで assert する
+  - `jobAreaRowsSchema`: 展開後 9 件・10 件・11 件の境界値を assert(11 件で `tooManyAreasForJob` メッセージ)
+  - `searchAreaRowSchema`: `whole === true` 拒否、`whole === false` 受理、muni 0 個受理(=県のみ指定)を assert
+  - すべてのエラーパスで `areaErrorMessages` 定数経由のメッセージが返ることを確認する
+  - _Requirements: 2.7, 2.8, 3.3, 3.5, 6.1, 6.2, 6.4, 6.5, 9.2_
+
+## 2. Phase B — 新規 UI 部品(AreaRow / SearchAreaPicker)
+
+- [ ] 2. Phase B: 新規 UI 部品を**追加のみ**で実装し既存コードに影響を与えない
+- [ ] 2.1 1 県分の UI 部品 `AreaRow` を新規実装
+  - `src/components/area/area-row.tsx` を新規作成する
+  - 都道府県 Select(shadcn `Select`)+ 「全域」Checkbox + 市区町村 Checkbox 群の構成を Phase A の `AreaRow` 型に対する controlled component として実装する
+  - `prefecture === ""`(未選択)の間は「全域」Checkbox と市区町村 Checkbox 群を **非表示**(`return null` 等)にする
+  - 「全域」ON 時は `municipalities` を即時クリアし、Checkbox 群は **非表示にせず disabled でグレーアウト**表示する
+  - `disabledPrefectures` props で他行で選択済みの prefecture を Select 候補リスト先頭に「(他の行で選択済み)」サフィックス付き disabled で表示する(完全非表示にしない)
+  - 市区町村 Checkbox 群はスマホ幅 1 列・タブレット以上 2 列のレスポンシブグリッドで描画する
+  - `existingDeprecatedMunicipalitiesByPrefecture` props でチェック済みの廃止 muni を「○○区(廃止)」サフィックス付きで保持表示する
+  - `showWholeCheckbox` props(default true)で検索系での「全域」非表示モードを切り替え可能にする
+  - すべての追加・削除・チェックボックス操作ボタンに `type="button"` を明示する(CLAUDE.md「フォーム内 `<button>` には必ず `type` を明示する」準拠)
+  - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.7, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.2, 7.3_
+- [ ] 2.2 検索系専用 `SearchAreaPicker` を新規実装
+  - `src/components/area/search-area-picker.tsx` を新規作成する
+  - 単一 `AreaRow` を扱う controlled component として、内部で `AreaRow` 部品(Task 2.1)を `showWholeCheckbox={false}` で 1 つだけレンダリングする(**2.1 完了後**に着手する逐次依存あり)
+  - URL searchParams の読み書き(`useSearchParams` / `useRouter`)は **親フォーム側(`job-search-filter.tsx` 等)の責務** とし、本コンポーネント自体は URL に依存しない
+  - 市区町村 0 個チェック = 県のみ指定として解釈する旨を JSDoc とプレースホルダー文言の両方で明示する
+  - 配列長 1 制約のため `value: AreaRow`(配列ではなく単一)で props 設計する
+  - すべての操作ボタンに `type="button"` を明示する
+  - _Requirements: 7B.1, 7B.2, 7B.3, 7B.5, 7B.8_
+
+## 3. Phase C — AreaListEditor リライト + 登録系 5 フォーム + 4 Server Action + Zod 4 ファイル削除 + 該当テスト更新
+
+- [ ] 3. Phase C: 登録系の本体書換を一括で行い、フォーム・Server Action・Zod・関連 Vitest / E2E をまとめてグリーンに戻す
+- [ ] 3.1 `area-list-editor.tsx` を新型 `AreaRow[]` 対応に全面リライト
+  - `src/components/area/area-list-editor.tsx`(143 行)を新型対応にリライトする
+  - 内部で `AreaRow` 部品を縦並べし、`value: AreaRow[]` と `onChange: (next: AreaRow[]) => void` で親フォームと統合する
+  - 「県を追加」ボタンで `{ prefecture: "", whole: false, municipalities: [] }` を末尾追加し、ゴミ箱ボタンで該当行を即時削除する(確認ダイアログなし)
+  - 他行で選択済みの prefecture を各行の `AreaRow` の `disabledPrefectures` に集約して渡す(同県重複禁止の UI 層防御)
+  - `addLabel` props で「+ 県を追加」文言を切替可能にし、デフォルト値を統一する(Req 8.2)
+  - 件数カウンター・上限警告・soft cap 警告 UI は **一切表示しない**(旧 `softCapWarning` props は削除)
+  - 追加・削除・編集すべてのボタンに `type="button"` を明示する
+  - _Requirements: 1.1, 1.2, 1.8, 1.9, 1.10, 1.11, 3.1, 3.2, 7.3, 7.4_
+- [ ] 3.2 既存 4 Zod スキーマファイルから area 部分を削除し共通 schema を import に置き換え
+  - `src/lib/validations/auth.ts`(L84-109 の `registerProfileSchema.availableAreas`)を `areaRowsSchema` を import して差し替える
+  - `src/lib/validations/profile.ts`(L65-89 の `profileEditSchema.availableAreas`)を同様に差し替える
+  - `src/lib/validations/client-profile.ts`(L60-83 の `clientProfileSchema.recruitArea`)を同様に差し替える
+  - `src/lib/validations/job.ts`(L28-54 / L117〜 の `jobSchema.areas` / `updateJobSchema.areas`)を `jobAreaRowsSchema` で差し替える(10 件上限を含む)
+  - 旧 `transform(dedupe)` ロジック(同一 (prefecture, muni) ペア重複除去)を削除する(新仕様では同県重複は **エラー**として扱う)
+  - 4 ファイルそれぞれで area 関連の旧ローカル定義をすべて削除し、`src/lib/validations/area.ts` の単一定義に集約されていることを grep で確認する
+  - _Requirements: 6.3, 6.7_
+- [ ] 3.3 4 Server Action のエリア処理を新スキーマ + 平坦化に書き換え
+  - `src/app/(auth)/register/profile/actions.ts` を新スキーマ前提に書き換え、Zod 通過後に `expandAreasForDb(parsed.data.availableAreas)` を挟んで既存 `validateAreaChanges` と `replace_user_areas` RPC に渡す
+  - `src/app/(authenticated)/profile/edit/actions.ts` を同様に書き換える
+  - `src/app/(authenticated)/mypage/client-profile/edit/actions.ts` を書き換え、`recruitArea` を `expandAreasForDb` 経由で `replace_client_recruit_areas` RPC に渡す
+  - `src/app/(authenticated)/jobs/actions.ts` の `createJob` / `updateJob` を書き換え、`areas` を `jobAreaRowsSchema` で検証 → `expandAreasForDb` → `replace_job_areas` RPC の順で処理する
+  - FormData 受信側で `JSON.parse` 失敗時の catch + generic error 返却を既存パターンに従って実装する
+  - 既存 RPC の引数・戻り値は **一切変更しない**(`replace_user_areas` / `replace_job_areas` / `replace_client_recruit_areas`)
+  - `validateAreaChanges(newAreas, previousAreas)` の呼び出し位置を、平坦化後の `AreaTuple[]` に対して行うよう調整する
+  - 4 Server Action すべてで `ActionResult { success, error?, data? }` 形式を維持し、`success: false` 時に日本語エラーメッセージを返却する
+  - _Requirements: 4.6, 4.7, 4.8, 6.3, 10.1_
+- [ ] 3.4 (P) AUTH-006(`register-profile-form.tsx`)を新 UI に統合
+  - `src/app/(auth)/register/profile/register-profile-form.tsx` の `useFieldArray("availableAreas")` 型を新 `AreaRow[]` 対応に置換する
+  - Server Component(`page.tsx`)で `getActiveMunicipalities()` + `getAllMunicipalityRows()` を fetch し、`candidateMunicipalitiesByPrefecture`(prefecture → muni 配列)と `sortOrderMap`(prefecture → muni → sort_order)を構築する
+  - DB から既存エリア読込結果を `collapseAreasFromDb(pairs, sortOrderMap)` 経由した `AreaRow[]` を defaultValues に渡す経路を組む(sortOrderMap を渡し忘れると muni 順が辞書順になり master_municipalities の sort_order と乖離する)
+  - 構築した `candidateMunicipalitiesByPrefecture` を `AreaListEditor` の props として渡す
+  - `AreaListEditor` 統合部分の `watch` / `setValue` を新型に合わせる
+  - 保存時に `availableAreas` フィールドを `JSON.stringify(AreaRow[])` で FormData に詰めて Server Action に送る
+  - 件数カウンター・上限警告は表示しない
+  - _Requirements: 5.7, 7.1, 7.2, 7.3, 7.4_
+- [ ] 3.5 (P) COM-002(`profile-edit-form.tsx`)を新 UI に統合
+  - `src/app/(authenticated)/profile/edit/profile-edit-form.tsx`(L146 / L155 / L165 / L368-369 周辺)を新 `AreaRow[]` 対応に書き換える
+  - Server Component で `getActiveMunicipalities()` + `getAllMunicipalityRows()` を fetch し、`candidateMunicipalitiesByPrefecture` と `sortOrderMap` を構築して `AreaListEditor` / `collapseAreasFromDb` に渡す
+  - DB から既存エリア読込結果を `collapseAreasFromDb(pairs, sortOrderMap)` 経由した `AreaRow[]` を defaultValues に注入する
+  - 保存時 `JSON.stringify(parsed.data.availableAreas)` を FormData に詰める経路を維持する
+  - 件数カウンター・上限警告は表示しない
+  - _Requirements: 5.7, 7.1, 7.2, 7.3, 7.4_
+- [ ] 3.6 (P) CLI-021(`client-profile-edit-form.tsx`)を新 UI に統合
+  - `src/app/(authenticated)/mypage/client-profile/edit/client-profile-edit-form.tsx`(L284 周辺の `<Controller name="recruitArea" />`)を新 `AreaRow[]` 対応に置換する
+  - Server Component で `candidateMunicipalitiesByPrefecture` + `sortOrderMap` を構築し、`collapseAreasFromDb(pairs, sortOrderMap)` 経由した defaultValues を注入する
+  - 既存の `<Controller>` パターンを維持しつつ、`render` 内で `AreaListEditor` を新型 `AreaRow[]` で組み込む
+  - 件数カウンター・上限警告は表示しない
+  - _Requirements: 5.7, 7.1, 7.2, 7.3, 7.4_
+- [ ] 3.7 (P) CLI-003 / CLI-004(`job-form.tsx`)を新 UI に統合し 10 件上限を保存時エラーで実現
+  - `src/components/jobs/job-form.tsx` の `areas` 統合部分を新 `AreaRow[]` 対応に書き換える(CLI-003 新規作成と CLI-004 編集の両画面で同じコンポーネントを使う)
+  - 親 page(CLI-003 / CLI-004 双方の Server Component)で `candidateMunicipalitiesByPrefecture` + `sortOrderMap` を構築して props で渡す
+  - 編集時は `collapseAreasFromDb(pairs, sortOrderMap)` 経由した defaultValues を注入し、新規作成時は空配列 `[]` を渡す
+  - 保存ボタン押下時に `jobAreaRowsSchema` のサーバー側エラー(`tooManyAreasForJob`)を捕捉し、`toast.error(result.error)` でユーザーに 1 度だけ表示する
+  - 10 件超で保存ボタンを disabled に **しない**(押した瞬間にエラーフィードバックする方式)
+  - 常時カウンター UI も上限事前警告も **表示しない**
+  - _Requirements: 5.7, 7.1, 7.2, 7.3, 7.5, 7.6_
+- [ ] 3.8 (P) 既存 Vitest 4+ ファイルの mock データを新 `AreaRow[]` 形式に書き換え
+  - `src/__tests__/master/validate-area.test.ts` を新形式(平坦化後の `AreaTuple[]` に対する `validateAreaChanges` 呼び出し)に書き換える
+  - `src/__tests__/auth/validations.test.ts`(L140-238 の 11+ ケース)を新 `AreaRow[]` 形式に書き換える
+  - `src/__tests__/profile/validations.test.ts`(L34-175)を同様に書き換える
+  - `src/__tests__/job/validations.test.ts`(L32 / L64)を新形式 + 案件 10 件上限の境界値テストを追加する
+  - `src/__tests__/organization/client-profile-actions.test.ts` の募集エリア mock を新形式に書き換える
+  - 各 Server Action ユニットテストで Supabase クライアントモックの戻り値を `{ data, error }` 形状で正確に再現し、`expandAreasForDb` 通過後に既存 RPC が正しい平坦化結果で呼ばれることを assert する(Server Action 自体は vi.mock で差し替えない)
+  - `vi.clearAllMocks()` ではなく `spy.mockReset()` で onceValues queue を明示的にクリアする(CLAUDE.md「Vitest の `mockReturnValueOnce` キューが `vi.clearAllMocks()` で消えない」準拠)
+  - _Requirements: 9.3, 9.4_
+- [ ] 3.9 (P) 既存 Playwright `e2e/profile.spec.ts` をフォーム操作シーケンス書換で更新
+  - `e2e/profile.spec.ts` の AreaListEditor 操作部分を新 UI の DOM 構造(都道府県 Select → 市区町村 Checkbox 群)に書き換える
+  - shadcn の Select は `selectOption()` でなく `await page.getByLabel(...).click()` → `await page.getByRole("option", { name: "..." }).click()` の 2 段クリックで操作する
+  - 新 UI 基本動作(「東京都全域」+「神奈川県の港区・川崎区」登録 → 保存 → 再表示で同状態)シナリオを追加する
+  - 排他切替(「東京都全域」→ 全域オフ → 港区・渋谷区チェック → 保存 → 再表示で具体 muni のみ)シナリオを追加する
+  - CLI-021 で同様の登録フローで募集エリアを編集できることを追加する
+  - 3.4-3.7(フォーム書換)完了後に着手する(runtime DOM 構造が新 UI に切替わってから検証)
+  - _Requirements: 9.5, 9.6_
+- [ ] 3.10 (P) 既存 Playwright `e2e/job-posting.spec.ts` を案件 10 件上限テスト追加で更新
+  - `e2e/job-posting.spec.ts` の AreaListEditor 操作部分を新 UI の DOM 構造に書き換える
+  - CLI-004 で案件作成時に展開後 11 件相当を入力 → 保存ボタン → 「エリアは最大 10 件までです」エラーで save 失敗するシナリオを追加する
+  - 保存ボタンが disabled になっていない(押下可能)状態でエラートーストが表示されることを assert する
+  - 3.7(job-form 書換)完了後に着手する
+  - _Requirements: 7.5, 7.6, 9.5, 9.6_
+- [ ] 3.11 (P) `e2e/master-area.spec.ts` のうち Phase C で破綻する登録系 UI 操作部分を書換
+  - gap-analysis 1.9 が「AreaPicker 操作」シナリオを含むと指摘している箇所のうち、profile / job 登録系フォーム UI を触る部分を特定する
+  - 該当シナリオの DOM 操作を新 UI(都道府県 Select + 全域 Checkbox + 市区町村 Checkbox 群)に書き換える
+  - URL searchParams アサーション部分(`?municipality=..` 単数形)と検索系 AreaPicker 操作部分は **Phase D の 4.5 で書き換える**ため本タスクでは触らない(Phase D で旧 area-picker.tsx が削除されるまで検索系 UI は旧 DOM のまま動く前提)
+  - shadcn Select 操作は `getByLabel().click()` → `getByRole("option").click()` の 2 段クリックパターンで統一する
+  - 3.4-3.7(フォーム書換)完了後に着手し、Phase C 完了時点で `e2e/master-area.spec.ts` が PASS することを確認する(Phase C「全テスト緑」原則維持のため必須)
+  - _Requirements: 9.5, 9.6_
+
+## 4. Phase D — 検索系 3 フォーム + 3 サーバーページ + area-picker.tsx 削除 + 検索系 E2E 更新
+
+- [ ] 4. Phase D: 検索系の本体書換と URL searchParams 拡張、旧 `area-picker.tsx` 削除、検索系 E2E のグリーン化までを一括完了
+- [ ] 4.1 (P) CON-002(案件検索)を新 UI + 複数 muni URL 形式に書き換え
+  - `src/app/(authenticated)/jobs/search/job-search-filter.tsx` の `<AreaPicker>` 単一行を `<SearchAreaPicker>` に置換する
+  - 「適用」ボタン押下時に URL searchParams を `?prefecture=東京都&municipality=港区&municipality=渋谷区` の同名キー繰返し形式で書き出す
+  - `useSearchParams` で初期値を復元し、`SearchAreaPicker` の `value` props に渡す(SearchAreaPicker 自体は URL に依存しない controlled component とする)
+  - `src/app/(authenticated)/jobs/search/page.tsx`(L70-71)で `getArrayParam(sp.municipality)` で muni 配列を取得し、`searchAreaRowSchema.safeParse` で検証(マスタ不存在は silent ignore)後、muni ごとに `buildAreaFilterIds` を呼んで Set 和で OR 結合する
+  - muni 配列が空の場合は `buildAreaFilterIds({ entity, prefecture, municipality: null })` を 1 回だけ呼ぶ
+  - `buildAreaFilterIds()` の API は **無変更**(呼び出し側ループのみ追加)
+  - _Requirements: 7B.1, 7B.2, 7B.4, 7B.5, 7B.6, 7B.7, 10.1, 10.6_
+- [ ] 4.2 (P) CON-005(発注者検索)を新 UI + 複数 muni URL 形式に書き換え
+  - `src/app/(authenticated)/clients/client-search-form.tsx` の `<AreaPicker>` 単一行を `<SearchAreaPicker>` に置換する
+  - URL searchParams を同名キー繰返し形式で書き出すロジックを実装する
+  - `src/app/(authenticated)/clients/page.tsx`(L42-43)で `getArrayParam` + `searchAreaRowSchema.safeParse` + muni ごとの `buildAreaFilterIds` ループ + Set 和 OR 結合を実装する
+  - _Requirements: 7B.1, 7B.2, 7B.4, 7B.5, 7B.6, 7B.7, 10.1, 10.6_
+- [ ] 4.3 (P) CLI-005(受注者検索)を新 UI + 複数 muni URL 形式に書き換え
+  - `src/app/(authenticated)/users/contractors/contractor-search-filter.tsx` の `<AreaPicker>` 単一行を `<SearchAreaPicker>` に置換する
+  - URL searchParams を同名キー繰返し形式で書き出すロジックを実装する
+  - `src/app/(authenticated)/users/contractors/page.tsx`(L46-47 / L112-115)で `getArrayParam` + `searchAreaRowSchema.safeParse` + muni ごとの `buildAreaFilterIds` ループ + Set 和 OR 結合を実装する
+  - 既存の「`!inner` ジョイン禁止 + ID 集合の積で AND」パターン(CLAUDE.md「一覧画面の検索フィルタはサーバー側で適用すること」準拠)を維持する
+  - _Requirements: 7B.1, 7B.2, 7B.4, 7B.5, 7B.6, 7B.7, 10.1, 10.6_
+- [ ] 4.4 旧 `src/components/area/area-picker.tsx` を削除
+  - 8 親フォーム(登録系 5 + 検索系 3)すべてで `AreaPicker` import が無くなっていることを `grep -r 'from "@/components/area/area-picker"'` で確認する
+  - `grep -r 'AreaPicker' src/` でも残存参照がないか確認する
+  - `src/components/area/area-picker.tsx`(106 行)を削除する
+  - 削除後に `npm run build` が成功することを確認する
+  - _Requirements: 7B.8_
+- [ ] 4.5 (P) `e2e/master-area.spec.ts` を URL アサーション + 検索シナリオ書換で更新
+  - `e2e/master-area.spec.ts` 内の URL アサーション(`?prefecture=..&municipality=..` 単数形)を同名キー繰返し形式に全件書き換える
+  - 検索系の AreaPicker 操作シーケンスを `SearchAreaPicker` の DOM(都道府県 Select + 市区町村 Checkbox 群)に書き換える
+  - 既存データ正規化シナリオ(seed の「東京都全域 + 東京都港区」混在ユーザーがフォームを開くと「東京都全域」のみ表示)を追加する
+  - _Requirements: 9.5, 9.6_
+- [ ] 4.6 (P) `e2e/job-search.spec.ts` を複数 muni 検索シナリオ追加で更新
+  - 受注者(CON-002)で「東京都 + 港区・渋谷区」を検索 → 港区案件・渋谷区案件・東京都全域指定案件のすべてが結果に含まれることを assert する(上位包含ルール維持)
+  - 「都道府県のみ指定」(`?prefecture=東京都` のみ、`municipality` パラメータなし)で同県内の全レコードがヒットすることを assert する
+  - shadcn Select の操作は `getByLabel().click()` → `getByRole("option").click()` の 2 段クリック方式を使う
+  - _Requirements: 7B.7, 9.5, 9.6, 10.6_
+
+## 5. Phase E — 最終整合性チェック + seed.sql 整備
+
+- [ ] 5. Phase E: 旧型参照の grep 確認と既存データ正規化テスト用 seed の仕込み
+- [ ] 5.1 旧 `AreaDraft` 型参照のゼロ確認と表示コンポーネント無変更の確認
+  - `grep -r 'AreaDraft' src/ __tests__/ e2e/` で旧型参照がゼロであることを確認する
+  - `grep -r 'area-picker' src/ __tests__/ e2e/` で旧ファイル参照がゼロであることを確認する
+  - `src/components/area/area-list.tsx` / `src/components/area/area-summary.tsx` / `formatAreas*` ヘルパーが本仕様で **変更されていない** ことを `git diff` で確認する
+  - `src/lib/utils/area-search-clauses.ts` の `buildAreaFilterIds()` API が変更されていないことを確認する
+  - `src/lib/matching.ts` の `canApplyJob()` が変更されていないことを確認する
+  - `src/lib/master/validate-area.ts` の `validateAreaChanges` 本体が変更されていないことを確認する
+  - `supabase/migrations/` 配下に本仕様起因の新規 / 変更マイグレーションファイルが追加されていないことを `git status` / `git diff` で確認する(DB スキーマ無変更原則の検証、Req 12.1)
+  - _Requirements: 10.1, 10.2, 10.5, 11.1, 11.2, 11.3, 11.4, 11.5, 12.1_
+- [ ] 5.2 seed.sql に既存データ正規化テスト用の混在ケースを意図的に仕込む
+  - `supabase/seed.sql` に「東京都全域(NULL)+ 東京都港区」が同時登録された受注者ユーザーを 1 名追加する(E2E `e2e/master-area.spec.ts` の正規化シナリオで使用)
+  - そのユーザーは AUTH-006 / COM-002 / CLI-021 を開いた際に `collapseAreasFromDb` で「東京都全域」1 行のみに正規化されて表示される動作確認用
+  - その他 seed ユーザーのエリアデータからは「県全域 + 具体 muni」混在ケースを排除する(Req 12.2、意図仕込みユーザー以外は混在禁止)
+  - seed の整合性確認のため `supabase db reset` 後に `npm run test:e2e` を実行してグリーンを確認する
+  - 集計クエリ例(本番運用後に admin が混在検出に使う)を design.md 末尾セクションへの追記として用意する(本タスクでは design.md の該当節更新まで行う)
+  - _Requirements: 9.5, 12.1, 12.2, 12.3, 12.4, 12.5_
+
+## 6. Phase F — AUTH-006 含む E2E + ドキュメント / steering / 関連 spec 更新
+
+- [ ] 6. Phase F: AUTH-006 を中心とする新規 E2E と全プロジェクト文書類の整合更新
+- [ ] 6.1 (P) AUTH-006 を中心とした登録フロー E2E `e2e/auth-signup.spec.ts` を新規追加
+  - `e2e/auth-signup.spec.ts` を新規作成する(ファイル名は `auth-signup` だが範囲は AUTH-006 のプロフィール入力フォーム中心、AUTH-001〜005 メール認証は対象外)
+  - seed.sql に「メール確認済(`auth.users.email_confirmed_at = now()`)+ プロフィール未設定(`public.users.last_name IS NULL`)」の仮ユーザー `new-contractor-e2e@test.local` を投入する
+  - 当該ユーザーでログイン → `/register/profile` を開く → 氏名・お住まい・対応職種・対応エリア(新 UI で複数県マルチ選択を含む)・自己紹介を入力 → 「登録する」クリック → `/mypage` 到達確認までを通しで実装する
+  - エリア入力は「東京都全域」+「神奈川県の港区・川崎区」のような複数県マルチ選択を含めることで Req 13-4 の範囲を満たす
+  - middleware の「signup 完了」判定で `last_name IS NULL` を未完了扱いとしていることを確認する(CLAUDE.md「middleware の『signup 完了』判定は public.users の存在だけでは不十分」準拠)
+  - 実行前に `supabase start` + `supabase db reset` + `npm run dev` の起動を確認する
+  - _Requirements: 9.5, 13.4_
+- [ ] 6.2 (P) CLAUDE.md「対応エリア・募集エリアの設計」セクションを新 UI モデルに更新
+  - CLAUDE.md の「対応エリア・募集エリアの設計(必ず守ること — master-area)」セクションを新仕様準拠に書き換える
+  - 入力 UI は `AreaListEditor` の「1 行 = 1 県 + N 市区町村 / または県全域」モデルである旨を明示する
+  - 検索 UI は `SearchAreaPicker`(配列長 1 制約)の「1 県 + その県内 muni 複数チェック」モデルである旨を明示する
+  - 共通 UI 部品として `AreaRow`(`src/components/area/area-row.tsx`)を経由することを明示する
+  - DB 構造は変わらず `(prefecture, municipality)` ペアの集合であり、UI ↔ DB 間に `expandAreasForDb` / `collapseAreasFromDb` の純粋関数を必ず通すことを明示する
+  - 同県重複・排他制約・件数上限のチェックは共通 Zod スキーマ `areaRowsSchema` で実装することを明示する
+  - 「全域」チェックのラベルは「全域」で統一(都道府県名を冠さない、登録系のみ。検索系には全域チェックなし)を明示する
+  - 案件フォームの 10 件上限は保存時のみエラー表示(常時カウンター UI なし)を明示する
+  - 検索 URL の muni は同名キー繰返し形式(`?municipality=A&municipality=B`)を明示する
+  - 旧 `area-picker.tsx` 削除済み・旧 `AreaDraft` 型廃止済みを明示する
+  - _Requirements: 14.1_
+- [ ] 6.3 (P) steering(`design-rule.md` / `design-system.md`)に新 UI コンポーネント利用ルールを追記
+  - `.kiro/steering/design-rule.md` または `.kiro/steering/design-system.md` に `AreaListEditor` / `SearchAreaPicker` / `AreaRow` の利用ルールを追記する
+  - 登録系 vs 検索系の使い分け、`showWholeCheckbox` props の意味、件数カウンター非表示原則を明文化する
+  - 既存 `AreaList` / `AreaSummary` / `formatAreas*` 表示コンポーネントは無変更で継続利用することを明示する
+  - _Requirements: 14.2_
+- [ ] 6.4 (P) 親仕様 master-area の関連 spec にクロスリファレンスを追加
+  - `.kiro/specs/master-area/requirements.md` に「UI 改修(別 spec master-area-multi-select で実施完了)」のクロスリファレンスを追加する(完了済み記述で過去形ではない)
+  - `.kiro/specs/master-area/design.md` に同様のクロスリファレンスを追加する
+  - `.kiro/specs/master-area/tasks.md` の Phase 9 関連セクションに「UI 改修は master-area-multi-select で実施」を明示する
+  - phase 番号は当該 spec の現状(Phase 0-8 完了 / Phase 9 中断)に合わせる
+  - _Requirements: 14.3_
+
+## 7. Phase G — 全テスト最終確認 + master-area Phase 9 残シナリオ手動テスト + 完了処理
+
+- [ ] 7. Phase G: 自動テスト 3 種すべて PASS を最終確認後、master-area Phase 9 D〜J を新 UI で実行し両 spec を完了状態にする
+- [ ] 7.1 自動テスト 3 種を最終実行して全 PASS を確認
+  - `npm run test`(Vitest)を実行し、全件 PASS を確認する
+  - `supabase test db`(pgTAP)を実行し、全件 PASS を確認する
+  - `npm run test:e2e`(Playwright)を実行し、全件 PASS を確認する
+  - Task 0 で記録したベースライン件数 + 本仕様で追加した件数(Vitest 2 ファイル / E2E 1 ファイル + 既存ファイル内の追加シナリオ)と一致することを確認する
+  - 過渡的失敗が観測された場合はコールド再起動で再確認(`project_e2e_test_pollution.md` 参照)
+  - _Requirements: 9.7, 13.1_
+- [ ] 7.2 master-area の手動 UX バグ B1〜B4 解消確認と manual-test-report.md への追記
+  - `.kiro/specs/master-area/manual-test-report.md` に記録された UX 起因バグ 4 件(B1〜B4)が新 UI で解消されていることをブラウザ上で目視確認する
+  - `manual-test-report.md` の該当 4 件に「解消(master-area-multi-select Phase C で対応)」等の解消記述を追記する
+  - _Requirements: 13.2_
+- [ ] 7.3 master-area Phase 9 シナリオ D〜J(残 7 シナリオ)を新 UI で手動実行
+  - `.kiro/specs/master-area/manual-test-report.md` または `.kiro/specs/master-area/tasks.md` で定義されている Phase 9 シナリオ D〜J を新 UI(登録系 `AreaListEditor` + 検索系 `SearchAreaPicker`)で実行する
+  - 実行結果(PASS / FAIL / 観察事項)を `manual-test-report.md` に追記する
+  - FAIL が発見された場合は該当 Phase に戻って修正する(本 Phase 内で完結させる)
+  - _Requirements: 13.3_
+- [ ] 7.4 master-area / master-area-multi-select の tasks.md を完了状態にチェック
+  - `.kiro/specs/master-area/tasks.md` の §9 を `[x]` に更新する
+  - `.kiro/specs/master-area-multi-select/tasks.md`(本ファイル)の全タスクを `[x]` に更新する
+  - 両 spec の `spec.json` の `ready_for_implementation` / 完了状態フラグを更新する(該当フィールドがあれば)
+  - _Requirements: 13.5_
+- [ ] 7.5 メモリ `project_master_area_progress.md` を「Phase 9 完了」状態に更新
+  - `/Users/nozomikinoshita/.claude/projects/-Users-nozomikinoshita-Desktop-bijiyu/memory/project_master_area_progress.md` を新仕様完了反映で更新する
+  - 「Phase 9 シナリオ A〜C 完了で中断」→「Phase 9 全シナリオ完了」へ状態遷移を記載する
+  - `AreaListEditor` / `SearchAreaPicker` / `AreaRow` の新モデルを次セッション以降の作業者が把握できる粒度で記載する
+  - 旧 `area-picker.tsx` / 旧 `AreaDraft` 型は廃止済みである旨を明示する
+  - 関連メモリ([[project_master_skills_progress]] / [[feedback_master_design_principles]])との相互リンクを更新する
+  - _Requirements: 13.6, 14.4_
