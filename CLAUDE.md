@@ -552,6 +552,41 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **対策**: 検出時の redirect response に対し、`sb-` で始まる全 cookie を `response.cookies.delete(name)` で削除して session を即時無効化してから redirect する（`redirectToLoginAndClearSession` ヘルパー）
 - 実例: 2026-04-25 に退会 C 案の連動凍結メンバーでループを踏んで修正
 
+### AUTH-001 サインアップも implicit flow を使う（必ず守ること）
+- AUTH-001（`/register` → メール確認 → `/register/profile`）の Supabase 認証は **PKCE ではなく implicit flow** を使う
+- 理由: Next.js 16 + Turbopack + `@supabase/ssr` v0.9 の組み合わせで、Server Action から PKCE の `code_verifier` cookie をブラウザに propagate できない問題が再現（2026-05-20 Phase 9 で実例発生）。サーバー側 `cookieStore.set()` は呼ばれていても、レスポンスの Set-Cookie がブラウザに届かない
+- **対策**:
+  1. signupAction で `@supabase/supabase-js` の `createClient` を直接使い、`auth: { flowType: 'implicit', persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }` を明示
+  2. `@supabase/ssr` の `createServerClient` で `flowType: 'implicit'` を渡しても PKCE が選択されるケースがあるため、ssr ではなく素の supabase-js を使う
+  3. `emailRedirectTo` は `/auth/callback`（PKCE 用）ではなく **client ページ `/register/verify`** に向ける
+  4. `/register/verify` で `window.location.hash` から access_token / refresh_token を読み `setSession()`、その後 `/register/profile` へ navigate（招待フローと同じパターン）
+- 関連: 招待フロー（次セクション）と同じ implicit flow + フラグメントトークン方式
+
+### Server Action から emailRedirectTo を組む時は host header を使う（必ず守ること）
+- Supabase Auth の `signUp` / `resetPasswordForEmail` 等の `emailRedirectTo` は、ユーザーが今アクセスしている host に揃える必要がある（localhost / 127.0.0.1 のクッキードメインずれ防止）
+- **❌ NG**: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback` で固定値
+- **✅ OK**: 以下のように host header から動的構築
+  ```ts
+  const hdrs = await headers();
+  const host = hdrs.get("host");
+  const proto = hdrs.get("x-forwarded-proto") ?? "http";
+  const siteUrl = host
+    ? `${proto}://${host}`
+    : (process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000");
+  ```
+- 実例: 2026-05-20 Phase 9 で `register/actions.ts` がこれを怠り、localhost ユーザーに 127.0.0.1 redirect が飛んで認証失敗
+
+### 環境変数の参照名は `.env.local.example` と一致を確認（必ず守ること）
+- Server Action / API Route で `process.env.NEXT_PUBLIC_XXX` を参照する場合、その変数名が **`.env.local.example` に存在することを必ず確認**
+- 存在しない変数名（タイポ含む）を参照しても TypeScript も Lint もエラーを出さず、実行時に `undefined` → フォールバック値が静かに使われて本番で壊れる
+- 実例: 2026-05-20 Phase 9 で `register/actions.ts` が `NEXT_PUBLIC_SITE_URL` を参照していた（実際の変数名は `NEXT_PUBLIC_APP_URL`）。フォールバックの `"http://localhost:3000"` が常に使われていた
+
+### middleware の「signup 完了」判定は public.users の存在だけでは不十分（必ず守ること）
+- middleware が `userData が NULL なら未登録` の判定だけだと、`handle_new_user` トリガーが auth.users INSERT 時点で public.users 行を作成するため、**メール確認直後の不完全プロフィール状態が「登録済み」と誤判定**される
+- その結果、`/register/profile` が auth page と判定され `/mypage` にリダイレクトされて、ユーザーがプロフィール入力画面に辿り着けない
+- **対策**: middleware で SELECT に `last_name` を追加し、`last_name IS NULL` を未完了扱いとして `/register/*` 系のパスを許可する
+- 実例: 2026-05-20 Phase 9 でこの罠を発見（AUTH-001 で実例発生）。本番でも未然に防げた
+
 ### Supabase Auth の invite は implicit flow（必ず守ること）
 - `admin.auth.admin.inviteUserByEmail()` が生成するリンクは `http://127.0.0.1:54321/auth/v1/verify?token=...&type=invite&redirect_to=<app_url>`。ユーザーがクリックすると GoTrue が session を確立し、303 で `redirect_to` へ戻すが、access_token / refresh_token は **URL fragment（`#access_token=...&refresh_token=...`）** で渡ってくる
 - fragment は **サーバーに届かない**ため、app 側の Server Route Handler では session 情報が取れない。`/auth/callback?type=invite` を中継させると「code も session も無い」状態で server-side fallback に落ちる
