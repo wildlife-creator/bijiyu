@@ -64,7 +64,7 @@ export async function applyJobAction(
     // 4. Job status check
     const { data: job } = await supabase
       .from("jobs")
-      .select("id, status, trade_types, prefecture")
+      .select("id, status, trade_types")
       .eq("id", data.jobId)
       .is("deleted_at", null)
       .single();

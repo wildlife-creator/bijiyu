@@ -201,7 +201,6 @@ export type Database = {
           is_urgent_option: boolean
           language: string[] | null
           message: string | null
-          recruit_area: string[] | null
           recruit_job_types: string[] | null
           sns_facebook: boolean
           sns_instagram: boolean
@@ -223,7 +222,6 @@ export type Database = {
           is_urgent_option?: boolean
           language?: string[] | null
           message?: string | null
-          recruit_area?: string[] | null
           recruit_job_types?: string[] | null
           sns_facebook?: boolean
           sns_instagram?: boolean
@@ -245,7 +243,6 @@ export type Database = {
           is_urgent_option?: boolean
           language?: string[] | null
           message?: string | null
-          recruit_area?: string[] | null
           recruit_job_types?: string[] | null
           sns_facebook?: boolean
           sns_instagram?: boolean
@@ -559,7 +556,6 @@ export type Database = {
           organization_id: string | null
           owner_id: string
           owner_message: string | null
-          prefecture: string | null
           project_details: string | null
           recruit_end_date: string | null
           recruit_start_date: string | null
@@ -591,7 +587,6 @@ export type Database = {
           organization_id?: string | null
           owner_id: string
           owner_message?: string | null
-          prefecture?: string | null
           project_details?: string | null
           recruit_end_date?: string | null
           recruit_start_date?: string | null
@@ -623,7 +618,6 @@ export type Database = {
           organization_id?: string | null
           owner_id?: string
           owner_message?: string | null
-          prefecture?: string | null
           project_details?: string | null
           recruit_end_date?: string | null
           recruit_start_date?: string | null

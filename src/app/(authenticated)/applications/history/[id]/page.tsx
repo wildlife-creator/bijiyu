@@ -8,6 +8,8 @@ import {
 } from "@/lib/utils/display-name";
 import { ApplicationStatusBadge } from "@/components/shared/application-status-badge";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { AreaList } from "@/components/area/area-list";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { CancelButton } from "./cancel-button";
 import { BackButton } from "../back-button";
 import Link from "next/link";
@@ -34,7 +36,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
     .from("applications")
     .select(
       `*, jobs(id, title, owner_id, organization_id, trade_types, headcount,
-              reward_lower, reward_upper, prefecture, address,
+              reward_lower, reward_upper, address,
               work_start_date, work_end_date, recruit_start_date, recruit_end_date,
               work_hours, items, required_skills, schedule_detail, etc_message,
               owner:users!owner_id(
@@ -67,7 +69,6 @@ export default async function ApplicationDetailPage({ params }: Props) {
     headcount: number | null;
     reward_lower: number | null;
     reward_upper: number | null;
-    prefecture: string | null;
     address: string | null;
     work_start_date: string | null;
     work_end_date: string | null;
@@ -130,6 +131,18 @@ export default async function ApplicationDetailPage({ params }: Props) {
       }
     } else {
       canCancel = true;
+    }
+  }
+
+  // master-area: fetch job_areas for area display
+  const jobAreas: AreaForDisplay[] = [];
+  if (job?.id) {
+    const { data: areaRows } = await supabase
+      .from("job_areas")
+      .select("prefecture, municipality")
+      .eq("job_id", job.id);
+    for (const row of areaRows ?? []) {
+      jobAreas.push({ prefecture: row.prefecture, municipality: row.municipality });
     }
   }
 
@@ -237,10 +250,13 @@ export default async function ApplicationDetailPage({ params }: Props) {
             <span className="min-w-[6rem] shrink-0 font-semibold">報酬</span>
             <span>{rewardText}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <img src="/images/icons/icon-pin.png" alt="" className="size-4 shrink-0" />
+          <div className="flex items-start gap-2">
+            <img src="/images/icons/icon-pin.png" alt="" className="size-4 shrink-0 mt-1" />
             <span className="min-w-[6rem] shrink-0 font-semibold">エリア</span>
-            <span>{job?.prefecture ?? "未定"}{job?.address ? ` ${job.address}` : ""}</span>
+            <span>
+              <AreaList areas={jobAreas} emptyLabel="未定" />
+              {job?.address ? ` ${job.address}` : ""}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
@@ -306,7 +322,10 @@ export default async function ApplicationDetailPage({ params }: Props) {
           <div className="space-y-3 rounded-[8px] border border-border bg-background p-4 text-body-sm text-foreground">
             <div>
               <span className="font-semibold">【勤務地】</span>
-              <p className="pl-4">{job?.prefecture ?? "—"}{job?.address ? ` ${job.address}` : ""}</p>
+              <div className="pl-4">
+                <AreaList areas={jobAreas} emptyLabel="—" />
+                {job?.address ? <p>{job.address}</p> : null}
+              </div>
             </div>
             <div>
               <span className="font-semibold">【勤務日・稼働時間】</span>

@@ -241,7 +241,7 @@ async function ClientFavorites({
     .select(
       `
       id, avatar_url, last_name, first_name, deleted_at, prefecture,
-      client_profiles(display_name, recruit_job_types, recruit_area, working_way)
+      client_profiles(display_name, recruit_job_types, working_way)
     `,
     )
     .in("id", targetIds)

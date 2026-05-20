@@ -188,9 +188,8 @@ export async function saveClientProfileAction(
     };
   }
 
-  // client_profiles は recruit_area カラムなしで upsert (Phase 6 で DROP 予定だが
-  // 本 Phase 4 では writeを止めるだけにとどめる)。エリアは client_recruit_areas
-  // 別テーブルへ replace_client_recruit_areas RPC で全置換
+  // client_profiles.recruit_area は Phase 6 (Migration 4) で DROP 済。
+  // エリアは client_recruit_areas 別テーブルへ replace_client_recruit_areas RPC で全置換
   const upsertPayload = {
     user_id: profileUserId,
     display_name: data.displayName ?? null,

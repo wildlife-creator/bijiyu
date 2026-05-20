@@ -6,6 +6,8 @@ import {
   resolveClientProfileForRow,
   resolveParticipantName,
 } from "@/lib/utils/display-name";
+import { AreaSummary } from "@/components/area/area-summary";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { ApplicationForm } from "./application-form";
 
 interface PageProps {
@@ -27,7 +29,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      `id, title, trade_types, prefecture, reward_lower, reward_upper, work_hours,
+      `id, title, trade_types, reward_lower, reward_upper, work_hours,
        owner_id, organization_id,
        owner:users!owner_id(
          last_name, first_name, deleted_at,
@@ -48,6 +50,16 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
   if (!job) {
     notFound();
   }
+
+  // master-area: fetch job_areas for display + matching
+  const { data: jobAreaRowsAll } = await supabase
+    .from("job_areas")
+    .select("prefecture, municipality")
+    .eq("job_id", job.id);
+  const jobAreas: AreaForDisplay[] = (jobAreaRowsAll ?? []).map((a) => ({
+    prefecture: a.prefecture,
+    municipality: a.municipality,
+  }));
 
   // Application eligibility check (prevent direct URL access)
   const { data: userData } = await supabase
@@ -71,18 +83,12 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       .select("trade_type")
       .eq("user_id", user.id);
 
-    const [{ data: areas }, { data: jobAreaRows }] = await Promise.all([
-      supabase
-        .from("user_available_areas")
-        .select("prefecture")
-        .eq("user_id", user.id),
-      supabase
-        .from("job_areas")
-        .select("prefecture")
-        .eq("job_id", job.id),
-    ]);
+    const { data: areas } = await supabase
+      .from("user_available_areas")
+      .select("prefecture")
+      .eq("user_id", user.id);
     const jobPrefectures = Array.from(
-      new Set((jobAreaRows ?? []).map((a) => a.prefecture)),
+      new Set(jobAreas.map((a) => a.prefecture)),
     );
 
     const applyCheck = canApplyJob({
@@ -124,7 +130,9 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
               {job.reward_upper.toLocaleString()}円（人工）
             </span>
           )}
-          {job.prefecture && <span>{job.prefecture}</span>}
+          {jobAreas.length > 0 && (
+            <AreaSummary areas={jobAreas} maxVisible={2} />
+          )}
           {job.work_hours && <span>{job.work_hours}</span>}
         </div>
       </div>
