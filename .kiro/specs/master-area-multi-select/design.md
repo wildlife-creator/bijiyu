@@ -854,6 +854,44 @@ flowchart TD
 - Checkbox 群描画(東京都 62 件等)は普通の React render の範囲内、`useMemo` で candidate 計算をキャッシュ
 - マスタ取得(`getActiveMunicipalities`)は既存 `unstable_cache` で 1 時間キャッシュ済
 
+## Admin 用: 既存データ混在ケース検出クエリ (Phase E 5.2 追記)
+
+本仕様は **本番運用前** のため、既存 DB に「県全域 + 同県市区町村」混在レコードは原則存在しない想定。
+ただし旧 UI 経由で投入されたデータや、本番運用後に発生しうる混在を **admin が検出** するための集計クエリを以下に示す。
+
+```sql
+-- 1) user_available_areas: 同一 (user_id, prefecture) で NULL と 具体 muni が混在しているユーザーを列挙
+SELECT user_id, prefecture,
+       COUNT(*) FILTER (WHERE municipality IS NULL) AS whole_count,
+       COUNT(*) FILTER (WHERE municipality IS NOT NULL) AS muni_count
+FROM user_available_areas
+GROUP BY user_id, prefecture
+HAVING COUNT(*) FILTER (WHERE municipality IS NULL) > 0
+   AND COUNT(*) FILTER (WHERE municipality IS NOT NULL) > 0;
+
+-- 2) job_areas: 同一 (job_id, prefecture) で混在しているケースを列挙
+SELECT job_id, prefecture,
+       COUNT(*) FILTER (WHERE municipality IS NULL) AS whole_count,
+       COUNT(*) FILTER (WHERE municipality IS NOT NULL) AS muni_count
+FROM job_areas
+GROUP BY job_id, prefecture
+HAVING COUNT(*) FILTER (WHERE municipality IS NULL) > 0
+   AND COUNT(*) FILTER (WHERE municipality IS NOT NULL) > 0;
+
+-- 3) client_recruit_areas: 同一 (client_id, prefecture) で混在しているケースを列挙
+SELECT client_id, prefecture,
+       COUNT(*) FILTER (WHERE municipality IS NULL) AS whole_count,
+       COUNT(*) FILTER (WHERE municipality IS NOT NULL) AS muni_count
+FROM client_recruit_areas
+GROUP BY client_id, prefecture
+HAVING COUNT(*) FILTER (WHERE municipality IS NULL) > 0
+   AND COUNT(*) FILTER (WHERE municipality IS NOT NULL) > 0;
+```
+
+**運用**: 混在レコードが発見された場合は `collapseAreasFromDb` の正規化動作(全域優先 = 具体 muni を捨てる、Req 5-2)に合わせて、該当ユーザー/案件の `replace_*_areas` RPC を再実行する。
+
+**seed.sql の意図的混在**: `cc111111-1111-1111-1111-111111111111` (contractor2) のみ「東京都全域 + 港区 + 新宿区」混在を保持。これは `collapseAreasFromDb` の正規化動作確認用シナリオで使用される(`e2e/master-area.spec.ts` Phase E シナリオ 5)。それ以外の seed ユーザー / 案件は混在ゼロ。
+
 ## Supporting References
 
 - 親仕様: `.kiro/specs/master-area/requirements.md`(エリア検索上位包含ルール、案件 10 件上限、マスタ管理)

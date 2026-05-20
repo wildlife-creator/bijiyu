@@ -212,8 +212,8 @@
 
 ## 5. Phase E — 最終整合性チェック + seed.sql 整備
 
-- [ ] 5. Phase E: 旧型参照の grep 確認と既存データ正規化テスト用 seed の仕込み
-- [ ] 5.1 旧 `AreaDraft` 型参照のゼロ確認と表示コンポーネント無変更の確認
+- [x] 5. Phase E: 旧型参照の grep 確認と既存データ正規化テスト用 seed の仕込み
+- [x] 5.1 旧 `AreaDraft` 型参照のゼロ確認と表示コンポーネント無変更の確認
   - `grep -r 'AreaDraft' src/ __tests__/ e2e/` で旧型参照がゼロであることを確認する
   - `grep -r 'area-picker' src/ __tests__/ e2e/` で旧ファイル参照がゼロであることを確認する
   - `src/components/area/area-list.tsx` / `src/components/area/area-summary.tsx` / `formatAreas*` ヘルパーが本仕様で **変更されていない** ことを `git diff` で確認する
@@ -222,7 +222,7 @@
   - `src/lib/master/validate-area.ts` の `validateAreaChanges` 本体が変更されていないことを確認する
   - `supabase/migrations/` 配下に本仕様起因の新規 / 変更マイグレーションファイルが追加されていないことを `git status` / `git diff` で確認する(DB スキーマ無変更原則の検証、Req 12.1)
   - _Requirements: 10.1, 10.2, 10.5, 11.1, 11.2, 11.3, 11.4, 11.5, 12.1_
-- [ ] 5.2 seed.sql に既存データ正規化テスト用の混在ケースを意図的に仕込む
+- [x] 5.2 seed.sql に既存データ正規化テスト用の混在ケースを意図的に仕込む
   - `supabase/seed.sql` に「東京都全域(NULL)+ 東京都港区」が同時登録された受注者ユーザーを 1 名追加する(E2E `e2e/master-area.spec.ts` の正規化シナリオで使用)
   - そのユーザーは AUTH-006 / COM-002 / CLI-021 を開いた際に `collapseAreasFromDb` で「東京都全域」1 行のみに正規化されて表示される動作確認用
   - その他 seed ユーザーのエリアデータからは「県全域 + 具体 muni」混在ケースを排除する(Req 12.2、意図仕込みユーザー以外は混在禁止)
