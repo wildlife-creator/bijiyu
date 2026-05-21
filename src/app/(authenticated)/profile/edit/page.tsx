@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import {
+  buildExistingDeprecatedMunicipalitiesByPrefecture,
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
   getMunicipalitySortOrderMap,
 } from "@/lib/master/fetch";
+import { collapseAreasFromDb } from "@/lib/master/area-conversion";
 
 import { ProfileEditForm } from "./profile-edit-form";
 
@@ -78,6 +80,30 @@ export default async function ProfileEditPage() {
   const isOwner = memberResult.data?.org_role === "owner";
   const showOwnerBanner = isCorporate && isOwner;
 
+  // 既存登録の deprecated muni を allow-list として AreaListEditor に渡す。
+  // form 側でも fetchProfile() で再取得するが、deprecated 判定は master の
+  // 状態に依存するため Server 側で確定値を計算しておく。
+  const { data: existingAreas } = await supabase
+    .from("user_available_areas")
+    .select("prefecture, municipality")
+    .eq("user_id", user.id);
+  const collapsedAreas = collapseAreasFromDb(
+    (existingAreas ?? []).map((r) => ({
+      prefecture: r.prefecture,
+      municipality: r.municipality,
+    })),
+    municipalitySortOrderMap,
+  );
+  const existingDeprecatedMunicipalitiesByPrefecture =
+    await buildExistingDeprecatedMunicipalitiesByPrefecture(
+      collapsedAreas.flatMap((row) =>
+        row.municipalities.map((m) => ({
+          prefecture: row.prefecture,
+          municipality: m,
+        })),
+      ),
+    );
+
   return (
     <>
       {showOwnerBanner && (
@@ -108,6 +134,9 @@ export default async function ProfileEditPage() {
           candidateMunicipalitiesByPrefecture
         }
         municipalitySortOrderMap={municipalitySortOrderMap}
+        existingDeprecatedMunicipalitiesByPrefecture={
+          existingDeprecatedMunicipalitiesByPrefecture
+        }
       />
     </>
   );

@@ -48,6 +48,7 @@ interface JobFormProps {
   activeTradeTypes: string[];
   deprecatedTradeSet: string[];
   candidateMunicipalitiesByPrefecture: Record<string, string[]>;
+  existingDeprecatedMunicipalitiesByPrefecture?: Record<string, string[]>;
 }
 
 export function JobForm({
@@ -58,6 +59,7 @@ export function JobForm({
   activeTradeTypes,
   deprecatedTradeSet,
   candidateMunicipalitiesByPrefecture,
+  existingDeprecatedMunicipalitiesByPrefecture,
 }: JobFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -274,6 +276,9 @@ export function JobForm({
             }
             candidateMunicipalitiesByPrefecture={
               candidateMunicipalitiesByPrefecture
+            }
+            existingDeprecatedMunicipalitiesByPrefecture={
+              existingDeprecatedMunicipalitiesByPrefecture
             }
           />
           {errors.areas && (

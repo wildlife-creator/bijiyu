@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { JobForm } from "@/components/jobs/job-form";
 import {
+  buildExistingDeprecatedMunicipalitiesByPrefecture,
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
   getMunicipalitySortOrderMap,
@@ -66,19 +67,29 @@ export default async function JobEditPage({ params }: PageProps) {
     .map((r) => r.label);
 
   // Map to form default values
+  const collapsedJobAreas = collapseAreasFromDb(
+    (jobAreas ?? []).map((a) => ({
+      prefecture: a.prefecture,
+      municipality: a.municipality,
+    })),
+    municipalitySortOrderMap,
+  );
+  const existingDeprecatedMunicipalitiesByPrefecture =
+    await buildExistingDeprecatedMunicipalitiesByPrefecture(
+      collapsedJobAreas.flatMap((row) =>
+        row.municipalities.map((m) => ({
+          prefecture: row.prefecture,
+          municipality: m,
+        })),
+      ),
+    );
   const defaultValues: Partial<JobFormValues> = {
     title: job.title,
     description: job.description ?? "",
     tradeTypes: job.trade_types ?? [],
     rewardLower: job.reward_lower ?? undefined,
     rewardUpper: job.reward_upper ?? undefined,
-    areas: collapseAreasFromDb(
-      (jobAreas ?? []).map((a) => ({
-        prefecture: a.prefecture,
-        municipality: a.municipality,
-      })),
-      municipalitySortOrderMap,
-    ),
+    areas: collapsedJobAreas,
     address: job.address ?? "",
     workStartDate: job.work_start_date ?? "",
     workEndDate: job.work_end_date ?? "",
@@ -119,6 +130,9 @@ export default async function JobEditPage({ params }: PageProps) {
           deprecatedTradeSet={deprecatedTradeSet}
           candidateMunicipalitiesByPrefecture={
             candidateMunicipalitiesByPrefecture
+          }
+          existingDeprecatedMunicipalitiesByPrefecture={
+            existingDeprecatedMunicipalitiesByPrefecture
           }
         />
       </div>

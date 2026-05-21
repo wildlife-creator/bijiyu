@@ -221,3 +221,37 @@ export async function getMunicipalitySortOrderMap(): Promise<
   });
   return map;
 }
+
+/**
+ * AreaListEditor の `existingDeprecatedMunicipalitiesByPrefecture` props 用に、
+ * ユーザーの既存登録エリアのうち master 側で廃止された (deprecated_at IS NOT NULL)
+ * muni だけを prefecture → muni[] の Map で返す。
+ *
+ * 仕様 (CLAUDE.md「廃止市区町村」): 既存登録の deprecated muni は保持を許可し、
+ * 編集画面の checkbox に「（廃止）」suffix 付きで表示する。
+ *
+ * 全域 (`municipality === null`) はそもそも廃止判定対象外なので除外。
+ */
+export async function buildExistingDeprecatedMunicipalitiesByPrefecture(
+  existingPairs: Array<{ prefecture: string; municipality: string | null }>,
+): Promise<Record<string, string[]>> {
+  if (existingPairs.length === 0) return {};
+  const allRows = await getAllMunicipalityRows();
+  const deprecatedSet = new Set<string>();
+  for (const row of allRows) {
+    if (row.deprecated_at) {
+      deprecatedSet.add(`${row.prefecture}|${row.municipality}`);
+    }
+  }
+  const result: Record<string, string[]> = {};
+  const seen = new Set<string>();
+  for (const pair of existingPairs) {
+    if (!pair.municipality) continue;
+    const key = `${pair.prefecture}|${pair.municipality}`;
+    if (!deprecatedSet.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    if (!result[pair.prefecture]) result[pair.prefecture] = [];
+    result[pair.prefecture].push(pair.municipality);
+  }
+  return result;
+}

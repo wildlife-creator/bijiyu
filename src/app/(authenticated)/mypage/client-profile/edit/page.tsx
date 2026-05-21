@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  buildExistingDeprecatedMunicipalitiesByPrefecture,
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
   getMunicipalitySortOrderMap,
@@ -105,6 +106,26 @@ export default async function ClientProfileEditPage({
     .eq("id", profileUserId)
     .maybeSingle();
 
+  // 正規化後 (collapseAreasFromDb 後) の AreaRow[] に基づいて deprecated 判定する。
+  // 混在 seed (全域 + 具体 muni) が collapse で 全域 only になるケースで、
+  // 不要な「（廃止）」表示を避けるため。
+  const collapsedRecruitArea = collapseAreasFromDb(
+    (recruitAreaRows ?? []).map((r) => ({
+      prefecture: r.prefecture,
+      municipality: r.municipality,
+    })),
+    municipalitySortOrderMap,
+  );
+  const existingDeprecatedMunicipalitiesByPrefecture =
+    await buildExistingDeprecatedMunicipalitiesByPrefecture(
+      collapsedRecruitArea.flatMap((row) =>
+        row.municipalities.map((m) => ({
+          prefecture: row.prefecture,
+          municipality: m,
+        })),
+      ),
+    );
+
   const initialValues: ClientProfileFormInput = {
     displayName:
       profile?.display_name ??
@@ -114,13 +135,7 @@ export default async function ClientProfileEditPage({
     address: profile?.address ?? null,
     imageUrl: profile?.image_url ?? null,
     recruitJobTypes: profile?.recruit_job_types ?? [],
-    recruitArea: collapseAreasFromDb(
-      (recruitAreaRows ?? []).map((r) => ({
-        prefecture: r.prefecture,
-        municipality: r.municipality,
-      })),
-      municipalitySortOrderMap,
-    ),
+    recruitArea: collapsedRecruitArea,
     employeeScale: profile?.employee_scale ?? null,
     workingWay: ((profile?.working_way ?? []) as string[]).filter(
       (v): v is WorkingWay => (WORKING_WAYS as readonly string[]).includes(v),
@@ -148,6 +163,9 @@ export default async function ClientProfileEditPage({
           deprecatedTradeSet={deprecatedTradeSet}
           candidateMunicipalitiesByPrefecture={
             candidateMunicipalitiesByPrefecture
+          }
+          existingDeprecatedMunicipalitiesByPrefecture={
+            existingDeprecatedMunicipalitiesByPrefecture
           }
         />
       </div>

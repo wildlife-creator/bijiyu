@@ -103,6 +103,7 @@ interface ProfileEditFormProps {
   deprecatedTagSet: string[];
   candidateMunicipalitiesByPrefecture: Record<string, string[]>;
   municipalitySortOrderMap: Record<string, Record<string, number>>;
+  existingDeprecatedMunicipalitiesByPrefecture?: Record<string, string[]>;
 }
 
 export function ProfileEditForm({
@@ -114,6 +115,7 @@ export function ProfileEditForm({
   deprecatedTagSet,
   candidateMunicipalitiesByPrefecture,
   municipalitySortOrderMap,
+  existingDeprecatedMunicipalitiesByPrefecture,
 }: ProfileEditFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState("");
@@ -601,6 +603,9 @@ export function ProfileEditForm({
                 onChange={handleAreaChange}
                 candidateMunicipalitiesByPrefecture={
                   candidateMunicipalitiesByPrefecture
+                }
+                existingDeprecatedMunicipalitiesByPrefecture={
+                  existingDeprecatedMunicipalitiesByPrefecture
                 }
                 disabled={isPending}
               />

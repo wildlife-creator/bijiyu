@@ -45,6 +45,7 @@ interface Props {
   activeTradeTypes: string[];
   deprecatedTradeSet: string[];
   candidateMunicipalitiesByPrefecture: Record<string, string[]>;
+  existingDeprecatedMunicipalitiesByPrefecture?: Record<string, string[]>;
 }
 
 const SNS_FIELDS = [
@@ -68,6 +69,7 @@ export function ClientProfileEditForm({
   activeTradeTypes,
   deprecatedTradeSet,
   candidateMunicipalitiesByPrefecture,
+  existingDeprecatedMunicipalitiesByPrefecture,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -286,6 +288,9 @@ export function ClientProfileEditForm({
               onChange={(next) => field.onChange(next)}
               candidateMunicipalitiesByPrefecture={
                 candidateMunicipalitiesByPrefecture
+              }
+              existingDeprecatedMunicipalitiesByPrefecture={
+                existingDeprecatedMunicipalitiesByPrefecture
               }
               disabled={isPending}
             />
