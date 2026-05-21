@@ -35,34 +35,43 @@ export const areaRowSchema = z.object({
 export const areaRowsSchema = z
   .array(areaRowSchema)
   .superRefine((rows, ctx) => {
-    rows.forEach((row, i) => {
-      if (row.whole && row.municipalities.length > 0) {
-        ctx.addIssue({
-          code: "custom",
-          path: [i],
-          message: areaErrorMessages.exclusiveViolation,
-        });
-      }
-      if (!row.whole && row.municipalities.length === 0) {
-        ctx.addIssue({
-          code: "custom",
-          path: [i],
-          message: areaErrorMessages.incompleteRow,
-        });
-      }
+    // エラーは配列ルート (path: []) に集約する。各フォームの FieldError は
+    // `errors.<fieldName>.message` (= 配列ルートのメッセージ) を参照しているため、
+    // path: [i] (行レベル) に置くと画面に表示されない (Phase 9 #6 の再発防止)。
+    let hasExclusive = false;
+    let hasIncomplete = false;
+    rows.forEach((row) => {
+      if (row.whole && row.municipalities.length > 0) hasExclusive = true;
+      if (!row.whole && row.municipalities.length === 0) hasIncomplete = true;
     });
+    if (hasExclusive) {
+      ctx.addIssue({
+        code: "custom",
+        path: [],
+        message: areaErrorMessages.exclusiveViolation,
+      });
+    }
+    if (hasIncomplete) {
+      ctx.addIssue({
+        code: "custom",
+        path: [],
+        message: areaErrorMessages.incompleteRow,
+      });
+    }
 
     const seen = new Set<string>();
-    rows.forEach((row, i) => {
-      if (seen.has(row.prefecture)) {
-        ctx.addIssue({
-          code: "custom",
-          path: [i, "prefecture"],
-          message: areaErrorMessages.duplicatePrefecture,
-        });
-      }
-      seen.add(row.prefecture);
+    let hasDuplicate = false;
+    rows.forEach((row) => {
+      if (row.prefecture && seen.has(row.prefecture)) hasDuplicate = true;
+      if (row.prefecture) seen.add(row.prefecture);
     });
+    if (hasDuplicate) {
+      ctx.addIssue({
+        code: "custom",
+        path: [],
+        message: areaErrorMessages.duplicatePrefecture,
+      });
+    }
   });
 
 /**

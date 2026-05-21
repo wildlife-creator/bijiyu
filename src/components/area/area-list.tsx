@@ -15,6 +15,7 @@ import {
   formatAreasLong,
   type AreaForDisplay,
 } from "@/lib/utils/format-areas";
+import { cn } from "@/lib/utils";
 
 export interface AreaListProps {
   areas: AreaForDisplay[];
@@ -28,5 +29,7 @@ export function AreaList({
   className,
 }: AreaListProps) {
   const text = formatAreasLong(areas);
-  return <p className={className}>{text || emptyLabel}</p>;
+  // デフォルトで text-body-sm を付与。DetailRow 等の周辺テキストとフォントサイズを揃える。
+  // caller が text-body-md 等の上書きを渡した場合は twMerge で後勝ち。
+  return <p className={cn("text-body-sm", className)}>{text || emptyLabel}</p>;
 }

@@ -175,3 +175,69 @@ describe("areaErrorMessages 定数経由", () => {
     expect(areaErrorMessages.tooManyAreasForJob).toBeTypeOf("string");
   });
 });
+
+/**
+ * 回帰防止: バグ #6「行レベルエラーが画面に出ない」(Phase 9) は
+ * multi-select Phase C の schema 統合で再発した。エラーは必ず配列ルート
+ * (path: []) に集約し、親フォームの FieldError (errors.<field>.message)
+ * で表示できる状態を維持すること。
+ */
+describe("回帰防止: エラーパスは配列ルートに集約される", () => {
+  it("未完成行のエラーは path: [] で出る (行 index ではない)", () => {
+    const result = areaRowsSchema.safeParse([
+      { prefecture: "東京都", whole: false, municipalities: [] },
+    ]);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.message === areaErrorMessages.incompleteRow,
+      );
+      expect(issue).toBeDefined();
+      expect(issue?.path).toEqual([]);
+    }
+  });
+
+  it("排他違反のエラーは path: [] で出る", () => {
+    const result = areaRowsSchema.safeParse([
+      { prefecture: "東京都", whole: true, municipalities: ["港区"] },
+    ]);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.message === areaErrorMessages.exclusiveViolation,
+      );
+      expect(issue).toBeDefined();
+      expect(issue?.path).toEqual([]);
+    }
+  });
+
+  it("同県重複のエラーは path: [] で出る", () => {
+    const result = areaRowsSchema.safeParse([
+      { prefecture: "東京都", whole: false, municipalities: ["港区"] },
+      { prefecture: "東京都", whole: false, municipalities: ["渋谷区"] },
+    ]);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.message === areaErrorMessages.duplicatePrefecture,
+      );
+      expect(issue).toBeDefined();
+      expect(issue?.path).toEqual([]);
+    }
+  });
+
+  it("複数の未完成行があっても重複エラーは出ない (1 回のみ)", () => {
+    const result = areaRowsSchema.safeParse([
+      { prefecture: "東京都", whole: false, municipalities: [] },
+      { prefecture: "神奈川県", whole: false, municipalities: [] },
+      { prefecture: "千葉県", whole: false, municipalities: [] },
+    ]);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const incompleteIssues = result.error.issues.filter(
+        (i) => i.message === areaErrorMessages.incompleteRow,
+      );
+      expect(incompleteIssues).toHaveLength(1);
+    }
+  });
+});
