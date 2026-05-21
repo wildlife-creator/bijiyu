@@ -306,6 +306,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **E2Eテストの期待値は seed.sql のデータと整合させること**: テストが前提とするユーザー状態（本人確認済み、サブスクリプション有効等）が seed.sql の実際のデータと一致しているか確認する。seed.sql でフラグを変更した場合、そのフラグに依存するE2Eテストも同時に更新すること。原因例: seed.sql で `identity_verified = true` を設定しているのに、E2Eテストが「本人確認バッジが表示されない」ことを期待して失敗した
 - **`page.goto(URL)` 直接遷移だけで E2E を完結させない**: 対象画面に直接飛ぶだけのテストは、その画面に**辿り着ける経路**（マイページのメニュー、ヘッダー、前画面のボタン）が壊れていても検出できない。少なくとも主要ユーザーストーリーの起点は「ログイン → マイページ → メニュークリック → 画面到達」まで click で繋ぐこと。機能詳細テスト（フォーム入力等）は page.goto 直接遷移でよい。`e2e/mypage-navigation.spec.ts` がこのロール別導線スモークの基準実装（2026-04 に /mypage のリンク URL が全て誤っていたが、既存 E2E が page.goto 直接遷移型だったため検出されなかった実例の再発防止）
 - **shadcn/ui の Select は `selectOption()` で操作してはならない（必ず守ること）**: shadcn の `<Select>`（Radix UI ベース）は DOM 上 `<button role="combobox">` として描画されるため、Playwright の `selectOption()` は `Element is not a <select> element` で失敗する。正しいパターンは `await page.getByLabel(...).click()` → `await page.getByRole("option", { name: "..." }).click()` の 2 段クリック。基準実装は `e2e/matching.spec.ts` / `e2e/messaging.spec.ts`。同じ落とし穴: フォーム実装を native `<select>` から shadcn Select に置き換えた際に対応する E2E テストの更新が漏れるパターン（2026-04-22 に `e2e/profile.spec.ts` の都道府県変更テストで実例発生）
+- **react-hook-form の defaultValue 同期前に `.fill("")` するな（必ず守ること）**: `useForm({ defaultValues })` の値は `ref` 経由でマウント後に DOM へ書き込まれるため、Playwright が早すぎる timing で `.fill("")` を呼ぶと「空欄→空欄＝差分なし」と判定されて input/change イベント発火を skip する。直後に React が defaultValue を書き戻すと、Playwright 視点では値が変わっていないのに送信時には初期値が乗ったまま、というすり抜けが起きる（必須バリデーションがすり抜けて save 成功してしまう実害）。対策: `await expect(input).toHaveValue(initialValue)` で初期値同期を待ってから `.clear()` を呼ぶ（`.clear()` は値が空でもイベント発火するので no-op 化に強い）。2026-05-21 に `e2e/client-profile.spec.ts:109` (CLI-021 setup) で実例発生
 
 ### ナビゲーションリンクと実ルートの整合（必ず守ること）
 - 新規画面を実装したら、**その画面への導線となる全リンク**（マイページ、ヘッダー、画面内ボタン）の `href` 値を検索し、実在のルートと完全一致することを確認する
@@ -510,6 +511,26 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - Zod v4 の `z.string().uuid()` は RFC 4122 準拠の厳密検証（variant bits まで検査）。**seed.sql の手書きダミー UUID（`66666666-6666-6666-6666-666666666666` 等）は非準拠で弾かれる**
 - 現在 `src/app/(authenticated)/billing/actions.ts` の `urgentOptionInputSchema.jobId` は暫定対応として `UUID_LIKE_REGEX` に緩和中（`TODO(restore-strict-uuid):` コメント付き）。本番投入前に戻すか、seed データを RFC 準拠に書き換えること
 - 新しい Server Action で UUID バリデーションを追加する際は、seed を使った手動テストで弾かれないか事前確認すること。弾かれる場合、同様の正規表現緩和 + TODO コメントで対応
+
+### Zod schema を共通化するときの path 戦略（必ず守ること）
+- 配列スキーマで `.refine()` から `.superRefine()` に置き換える際は、エラーパスがどこに乗るかを変えてしまわないか必ず確認する
+- `z.array(...).refine(fn, { message })` のエラーは **配列ルート (path: [])** に乗る → `errors.<fieldName>.message` で参照可能
+- `z.array(...).superRefine((rows, ctx) => ctx.addIssue({ path: [i], ... }))` のエラーは **行レベル (path: [i])** に乗る → `errors.<fieldName>[i]?.message` で参照する必要がある
+- 各フォームの `FieldError` が見ているのが `errors.<field>.message` なのに schema を `path: [i]` に変えると、エラーが画面に出ない（保存ボタンを押しても無反応）サイレントバグになる
+- 共通スキーマを設計する時のチェックリスト:
+  1. このスキーマを使う全 caller の FieldError 構造を grep で確認する
+  2. 全 caller が配列ルートのキーを見ているなら `path: []` 必須
+  3. 行ごとのインライン表示が必要なら、`path: [i]` + 配列ルート集約の二重出力か、UI 側の対応を必須化する
+- 2026-05-21 実例: master-area-multi-select Phase C で `areaRowsSchema.superRefine` を `path: [i]` で書いたが、5 フォーム全てが `errors.<field>.message` しか見ておらず、不完全行のバリデーションエラーが画面に表示されない問題が発生（Phase 9 #6 の再発）。`path: []` に集約する形に修正。`src/__tests__/validations/area.test.ts` に「エラーは path: [] に集約される」回帰防止テスト 4 件追加済
+
+### 新規 optional prop を追加したら caller を全件 grep で確認（必ず守ること）
+- コンポーネントに optional な props (`prop?:`) を新設しても、caller が値を渡さなければ **TypeScript エラーは出ず、サイレントに無効化**される
+- 「prop を定義したから機能は動く」と思い込んで実装完了とすると、Phase 完了後に「機能が動いていない」と気づくことになる（手動テスト or ユーザーが踏まない限り検出不能）
+- Phase 完了時のチェック手順:
+  1. `grep -rn "<ComponentName" src/` で全 caller を列挙
+  2. 各 caller が新規 prop を渡しているか目視確認（optional でもデータの意味があるなら明示渡しが必須）
+  3. caller が複数あるなら、最低 1 件は E2E テスト or 手動シナリオで「prop が効いている」ことを検証
+- 2026-05-21 実例: master-area-multi-select Phase C で `AreaRow` / `AreaListEditor` に `existingDeprecatedMunicipalitiesByPrefecture?: Record<string, string[]>` を定義したが、5 つの登録系フォーム (受注者プロフィール / CLI-021 / AUTH-006 / CLI-003 / CLI-004) のいずれの page.tsx でも値を渡していなかったため、廃止 muni allow-list が常に空の状態だった。シナリオ J 手動検証で初めて気づき、helper 追加 + 4 フォーム伝播で修正
 
 ### メールテンプレートの使用確認
 - メールテンプレートファイル（`src/lib/email/templates/`）を作成したら、対応する Server Action で**実際に使われているか**確認すること。テンプレートが存在するのにインライン HTML で送信しているコードが過去に発見された（`scoutNotificationEmail` テンプレートが未使用だった）
