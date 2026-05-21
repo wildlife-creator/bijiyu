@@ -123,7 +123,11 @@ test.describe("CLI-021 setup モード（課金直後フロー）", () => {
 
     // 社名を空にして保存しようとするとエラー
     // （setup モードでは button ラベルが「保存する」）
-    await page.getByLabel("会社名・氏名").fill("");
+    // react-hook-form の defaultValues 同期完了を待ってから clear する
+    // （fill("") は DOM が一瞬空のタイミングで no-op 化されることがある）
+    const displayNameInput = page.getByLabel("会社名・氏名");
+    await expect(displayNameInput).toHaveValue("鈴木工務店株式会社");
+    await displayNameInput.clear();
     await page.getByRole("button", { name: "保存する" }).click();
     await expect(page.getByText("社名を入力してください")).toBeVisible();
   });
