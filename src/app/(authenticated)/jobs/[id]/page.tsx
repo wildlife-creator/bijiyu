@@ -16,6 +16,7 @@ import { SafeImage } from "@/components/job-search/safe-image";
 import { AreaList } from "@/components/area/area-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatDate } from "@/lib/utils/format-date";
+import { formatRewardRange } from "@/lib/utils/format-reward";
 import { CloseJobButton } from "./close-job-button";
 
 interface PageProps {
@@ -265,11 +266,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
           <div className="mt-2">
             <DetailRow
               label="報酬"
-              value={
-                job.reward_lower || job.reward_upper
-                  ? `${(job.reward_lower ?? 0).toLocaleString()}円（人工）`
-                  : null
-              }
+              value={formatRewardRange(job.reward_lower, job.reward_upper)}
               alwaysShow
             />
             <DetailRow
@@ -534,11 +531,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
         <div className="mt-2">
           <DetailRow
             label="報酬"
-            value={
-              job.reward_lower || job.reward_upper
-                ? `${(job.reward_lower ?? 0).toLocaleString()}円（人工）`
-                : null
-            }
+            value={formatRewardRange(job.reward_lower, job.reward_upper)}
             alwaysShow
           />
           <DetailRow
