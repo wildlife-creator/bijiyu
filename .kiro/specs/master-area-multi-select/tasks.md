@@ -267,29 +267,29 @@
 
 ## 7. Phase G — 全テスト最終確認 + master-area Phase 9 残シナリオ手動テスト + 完了処理
 
-- [ ] 7. Phase G: 自動テスト 3 種すべて PASS を最終確認後、master-area Phase 9 D〜J を新 UI で実行し両 spec を完了状態にする
-- [ ] 7.1 自動テスト 3 種を最終実行して全 PASS を確認
+- [x] 7. Phase G: 自動テスト 3 種すべて PASS を最終確認後、master-area Phase 9 D〜J を新 UI で実行し両 spec を完了状態にする
+- [x] 7.1 自動テスト 3 種を最終実行して全 PASS を確認
   - `npm run test`(Vitest)を実行し、全件 PASS を確認する
   - `supabase test db`(pgTAP)を実行し、全件 PASS を確認する
   - `npm run test:e2e`(Playwright)を実行し、全件 PASS を確認する
   - Task 0 で記録したベースライン件数 + 本仕様で追加した件数(Vitest 2 ファイル / E2E 1 ファイル + 既存ファイル内の追加シナリオ)と一致することを確認する
   - 過渡的失敗が観測された場合はコールド再起動で再確認(`project_e2e_test_pollution.md` 参照)
   - _Requirements: 9.7, 13.1_
-- [ ] 7.2 master-area の手動 UX バグ B1〜B4 解消確認と manual-test-report.md への追記
+- [x] 7.2 master-area の手動 UX バグ B1〜B4 解消確認と manual-test-report.md への追記
   - `.kiro/specs/master-area/manual-test-report.md` に記録された UX 起因バグ 4 件(B1〜B4)が新 UI で解消されていることをブラウザ上で目視確認する
   - `manual-test-report.md` の該当 4 件に「解消(master-area-multi-select Phase C で対応)」等の解消記述を追記する
   - _Requirements: 13.2_
-- [ ] 7.3 master-area Phase 9 シナリオ D〜J(残 7 シナリオ)を新 UI で手動実行
+- [x] 7.3 master-area Phase 9 シナリオ D〜J(残 7 シナリオ)を新 UI で手動実行
   - `.kiro/specs/master-area/manual-test-report.md` または `.kiro/specs/master-area/tasks.md` で定義されている Phase 9 シナリオ D〜J を新 UI(登録系 `AreaListEditor` + 検索系 `SearchAreaPicker`)で実行する
   - 実行結果(PASS / FAIL / 観察事項)を `manual-test-report.md` に追記する
   - FAIL が発見された場合は該当 Phase に戻って修正する(本 Phase 内で完結させる)
   - _Requirements: 13.3_
-- [ ] 7.4 master-area / master-area-multi-select の tasks.md を完了状態にチェック
+- [x] 7.4 master-area / master-area-multi-select の tasks.md を完了状態にチェック
   - `.kiro/specs/master-area/tasks.md` の §9 を `[x]` に更新する
   - `.kiro/specs/master-area-multi-select/tasks.md`(本ファイル)の全タスクを `[x]` に更新する
   - 両 spec の `spec.json` の `ready_for_implementation` / 完了状態フラグを更新する(該当フィールドがあれば)
   - _Requirements: 13.5_
-- [ ] 7.5 メモリ `project_master_area_progress.md` を「Phase 9 完了」状態に更新
+- [x] 7.5 メモリ `project_master_area_progress.md` を「Phase 9 完了」状態に更新
   - `/Users/nozomikinoshita/.claude/projects/-Users-nozomikinoshita-Desktop-bijiyu/memory/project_master_area_progress.md` を新仕様完了反映で更新する
   - 「Phase 9 シナリオ A〜C 完了で中断」→「Phase 9 全シナリオ完了」へ状態遷移を記載する
   - `AreaListEditor` / `SearchAreaPicker` / `AreaRow` の新モデルを次セッション以降の作業者が把握できる粒度で記載する

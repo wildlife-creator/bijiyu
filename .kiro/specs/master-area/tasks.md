@@ -340,7 +340,8 @@
   - **デザインカンプ（`design-assets/screens/` の PNG）はこのフェーズで更新せず、本仕様の実装完了後にまとめて差し替える**（Req 13.5、実装中は ASCII モック等で都度確認）
   - _Requirements: 13.4, 13.5_
 
-- [ ] 9. 手動テスト + 発見バグ修正
+- [x] 9. 手動テスト + 発見バグ修正
+  > **完了 (2026-05-21)**: 手動テスト A〜C は旧 UI で実施し UX バグ #6〜#10 を発見・修正。残 D〜J は新 UI 改修 (`master-area-multi-select`) 完了後に Phase G で再実行し全 OK。詳細は `manual-test-report.md` 参照。
   > **クロスリファレンス (master-area-multi-select)**: 本 Phase 9 は手動テスト A〜C シナリオで UI 起因のバグ B1〜B4 を発見した時点で中断され、UI 改修は別 spec `.kiro/specs/master-area-multi-select/` で実施完了。残シナリオ D〜J の手動再実行は multi-select Phase G 7.2 / 7.3 で行う。
   - `supabase start` + `supabase db reset` + `npm run dev` でローカル環境を起動し、ブラウザで以下を手動確認する:
     - AUTH-006 で受注者新規登録 → 対応エリアを「東京都港区」+「神奈川県全域」で登録 → COM-001 で表示確認
