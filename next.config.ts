@@ -23,7 +23,8 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   experimental: {
     serverActions: {
-      bodySizeLimit: "6mb",
+      // 添付（最大5枚×5MB=25MB）がフレームワーク段階で弾かれないよう余裕を持たせる（support spec）
+      bodySizeLimit: "30mb",
     },
   },
 };

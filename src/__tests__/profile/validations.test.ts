@@ -5,7 +5,6 @@ import {
   validateAvatarFile,
   validateDocumentFile,
   withdrawalSchema,
-  contactSchema,
   identityUploadSchema,
   ccusUploadSchema,
 } from "@/lib/validations/profile";
@@ -338,94 +337,5 @@ describe("withdrawalSchema", () => {
       reason: "その他",
     });
     expect(result.success).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// contactSchema
-// ---------------------------------------------------------------------------
-describe("contactSchema", () => {
-  const validContact = {
-    lastName: "山田",
-    firstName: "太郎",
-    email: "test@example.com",
-    contactTypes: ["サービスについて"],
-    content: "お問い合わせ内容です",
-  };
-
-  it("accepts valid contact input", () => {
-    const result = contactSchema.safeParse(validContact);
-    expect(result.success).toBe(true);
-  });
-
-  it("accepts multiple contact types", () => {
-    const result = contactSchema.safeParse({
-      ...validContact,
-      contactTypes: ["サービスについて", "不具合の報告"],
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects empty lastName", () => {
-    const result = contactSchema.safeParse({
-      ...validContact,
-      lastName: "",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects empty firstName", () => {
-    const result = contactSchema.safeParse({
-      ...validContact,
-      firstName: "",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects invalid email", () => {
-    const result = contactSchema.safeParse({
-      ...validContact,
-      email: "not-email",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects empty email", () => {
-    const result = contactSchema.safeParse({
-      ...validContact,
-      email: "",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects empty contactTypes", () => {
-    const result = contactSchema.safeParse({
-      ...validContact,
-      contactTypes: [],
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects empty content", () => {
-    const result = contactSchema.safeParse({
-      ...validContact,
-      content: "",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("shows Japanese error messages", () => {
-    const result = contactSchema.safeParse({
-      lastName: "",
-      firstName: "",
-      email: "",
-      contactTypes: [],
-      content: "",
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const messages = result.error.issues.map((i) => i.message);
-      expect(messages.some((m) => m.includes("姓"))).toBe(true);
-    }
   });
 });

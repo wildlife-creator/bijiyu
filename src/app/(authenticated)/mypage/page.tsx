@@ -78,6 +78,7 @@ const CORPORATE_ONLY_MENU: MenuItem = {
 const SUPPORT_MENU: MenuItem[] = [
   { label: "よくある質問", href: "/faq" },
   { label: "お問い合わせ", href: "/contact" },
+  { label: "トラブル報告", href: "/trouble-report" },
 ];
 
 // -------------------------------------------------------------------

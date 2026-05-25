@@ -358,33 +358,68 @@ export type Database = {
       }
       contacts: {
         Row: {
-          contact_types: string[]
-          content: string
+          address: string | null
+          attachments: string[] | null
+          company_name: string
           created_at: string
+          detail: string
           email: string
-          first_name: string
           id: string
-          last_name: string
+          industry: string
+          inquiry_type: string
+          name: string
+          phone: string
+          project_area: string | null
+          project_description: string | null
+          purpose: string
+          user_id: string | null
+          video_consultation: string | null
         }
         Insert: {
-          contact_types: string[]
-          content: string
+          address?: string | null
+          attachments?: string[] | null
+          company_name: string
           created_at?: string
+          detail: string
           email: string
-          first_name: string
           id?: string
-          last_name: string
+          industry: string
+          inquiry_type: string
+          name: string
+          phone: string
+          project_area?: string | null
+          project_description?: string | null
+          purpose: string
+          user_id?: string | null
+          video_consultation?: string | null
         }
         Update: {
-          contact_types?: string[]
-          content?: string
+          address?: string | null
+          attachments?: string[] | null
+          company_name?: string
           created_at?: string
+          detail?: string
           email?: string
-          first_name?: string
           id?: string
-          last_name?: string
+          industry?: string
+          inquiry_type?: string
+          name?: string
+          phone?: string
+          project_area?: string | null
+          project_description?: string | null
+          purpose?: string
+          user_id?: string | null
+          video_consultation?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       favorites: {
         Row: {
@@ -1151,6 +1186,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trouble_reports: {
+        Row: {
+          attachments: string[] | null
+          category: string | null
+          content: string
+          counterparty_name: string
+          created_at: string
+          email: string
+          id: string
+          reporter_name: string
+          user_id: string | null
+        }
+        Insert: {
+          attachments?: string[] | null
+          category?: string | null
+          content: string
+          counterparty_name: string
+          created_at?: string
+          email: string
+          id?: string
+          reporter_name: string
+          user_id?: string | null
+        }
+        Update: {
+          attachments?: string[] | null
+          category?: string | null
+          content?: string
+          counterparty_name?: string
+          created_at?: string
+          email?: string
+          id?: string
+          reporter_name?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trouble_reports_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"

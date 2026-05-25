@@ -141,20 +141,3 @@ export const withdrawalSchema = z.object({
   confirmed: z.literal(true, { error: "同意チェックが必要です" }),
 });
 export type WithdrawalInput = z.infer<typeof withdrawalSchema>;
-
-// ---------------------------------------------------------------------------
-// Contact (COM-008)
-// ---------------------------------------------------------------------------
-export const contactSchema = z.object({
-  lastName: z.string().min(1, "姓を入力してください"),
-  firstName: z.string().min(1, "名を入力してください"),
-  email: z
-    .string()
-    .min(1, "メールアドレスを入力してください")
-    .email("正しいメールアドレスを入力してください"),
-  contactTypes: z
-    .array(z.string())
-    .min(1, "お問い合わせ項目を選択してください"),
-  content: z.string().min(1, "内容を入力してください"),
-});
-export type ContactInput = z.infer<typeof contactSchema>;

@@ -1,49 +1,69 @@
 "use server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { contactSchema } from "@/lib/validations/profile";
+import {
+  removeSupportAttachments,
+  uploadSupportAttachments,
+} from "@/lib/support/attachments";
+import { contactSchema } from "@/lib/validations/contact";
 import type { ActionResult } from "@/lib/types/action-result";
 
 const MAX_SUBMISSIONS_PER_HOUR = 5;
+const GENERIC_ERROR =
+  "送信中にエラーが発生しました。しばらくしてから再度お試しください。";
 
 export async function submitContactAction(
   formData: FormData,
 ): Promise<ActionResult> {
-  // Parse and validate form data
+  // 1. FormData をパース（選択肢・テキストは文字列に正規化）
+  const str = (key: string) => String(formData.get(key) ?? "");
   const raw = {
-    lastName: formData.get("lastName"),
-    firstName: formData.get("firstName"),
-    email: formData.get("email"),
-    contactTypes: formData.getAll("contactTypes"),
-    content: formData.get("content"),
+    companyName: str("companyName"),
+    name: str("name"),
+    phone: str("phone"),
+    email: str("email"),
+    address: str("address"),
+    inquiryType: str("inquiryType"),
+    purpose: str("purpose"),
+    industry: str("industry"),
+    projectDescription: str("projectDescription"),
+    projectArea: str("projectArea"),
+    videoConsultation: str("videoConsultation"),
+    detail: str("detail"),
   };
 
+  // 2. サーバー側 Zod 検証（許可リスト含む）
   const parsed = contactSchema.safeParse(raw);
   if (!parsed.success) {
-    const firstError = parsed.error.issues[0]?.message ?? "入力内容を確認してください";
+    const firstError =
+      parsed.error.issues[0]?.message ?? "入力内容を確認してください";
     return { success: false, error: firstError };
   }
+  const input = parsed.data;
 
-  const { lastName, firstName, email, contactTypes, content } = parsed.data;
-
+  // 3. ログイン中なら user_id をセッションから取得（FormData からは取らない＝なりすまし防止）
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const userId = user?.id ?? null;
 
-  // Simple rate limiting: check submissions from same email in the last hour
+  const admin = createAdminClient();
+
+  // 4. レート制限: 同一メールの直近1時間が5件以上なら拒否（admin クライアントで集計）
+  //    contacts の SELECT は admin のみ許可のため、通常クライアントでは常に0件になり機能しない
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-
-  const { count, error: countError } = await supabase
+  const { count, error: countError } = await admin
     .from("contacts")
     .select("*", { count: "exact", head: true })
-    .eq("email", email)
+    .eq("email", input.email)
     .gte("created_at", oneHourAgo);
 
   if (countError) {
-    return {
-      success: false,
-      error: "送信中にエラーが発生しました。しばらくしてから再度お試しください。",
-    };
+    console.error("contact rate-limit count failed:", countError.message);
+    return { success: false, error: GENERIC_ERROR };
   }
-
   if (count !== null && count >= MAX_SUBMISSIONS_PER_HOUR) {
     return {
       success: false,
@@ -51,20 +71,53 @@ export async function submitContactAction(
     };
   }
 
-  // Insert contact record
-  const { error: insertError } = await supabase.from("contacts").insert({
-    last_name: lastName,
-    first_name: firstName,
-    email,
-    contact_types: contactTypes,
-    content,
-  });
+  // 5. レコード保存（添付は空）→ アップロード → 添付パスを更新 の順で整合を保つ
+  const { data: inserted, error: insertError } = await admin
+    .from("contacts")
+    .insert({
+      user_id: userId,
+      company_name: input.companyName,
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      address: input.address || null,
+      inquiry_type: input.inquiryType,
+      purpose: input.purpose,
+      industry: input.industry,
+      project_description: input.projectDescription || null,
+      project_area: input.projectArea || null,
+      video_consultation: input.videoConsultation || null,
+      detail: input.detail,
+    })
+    .select("id")
+    .single();
 
-  if (insertError) {
-    return {
-      success: false,
-      error: "送信中にエラーが発生しました。しばらくしてから再度お試しください。",
-    };
+  if (insertError || !inserted) {
+    console.error("contact insert failed:", insertError?.message);
+    return { success: false, error: GENERIC_ERROR };
+  }
+
+  // 6. 添付アップロード（service role）。失敗時はレコードを削除して中断
+  const files = formData.getAll("attachments") as File[];
+  const uploaded = await uploadSupportAttachments(files, "contact");
+  if (!uploaded.success) {
+    await admin.from("contacts").delete().eq("id", inserted.id);
+    return { success: false, error: uploaded.error };
+  }
+
+  // 7. 添付があれば添付パスを更新。失敗時はファイル削除＋レコード削除で中断
+  if (uploaded.paths.length > 0) {
+    const { error: updateError } = await admin
+      .from("contacts")
+      .update({ attachments: uploaded.paths })
+      .eq("id", inserted.id);
+
+    if (updateError) {
+      await removeSupportAttachments(uploaded.paths);
+      await admin.from("contacts").delete().eq("id", inserted.id);
+      console.error("contact attachment update failed:", updateError.message);
+      return { success: false, error: GENERIC_ERROR };
+    }
   }
 
   return { success: true };
