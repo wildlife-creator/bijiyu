@@ -36,7 +36,7 @@
   - 能力（DetailRow 形式）: 対応できる職種、経験年数、**保有スキル**、保有資格
     - 「対応できる職種」は `user_skills.trade_type`（固定リスト由来の大分類）
     - 「保有スキル」は `users.skill_tags`（自由入力の詳細タグ）— 両者は別物なので重複表示しない
-  - PR動画（`users.video_url` がある場合のみ）
+  - PR動画（`users.video_url` 存在 **かつ** active な `video` オプションがある場合のみ。video-display spec で `<VideoEmbed>` 埋込再生 + active 判定に刷新。テキストリンク「動画を見る」は廃止）
 - 「編集する」ボタン（primary pill `w-full max-w-xs rounded-pill` centered）→ COM-002 へ遷移
 - 「もどる」ボタン（BackButton `href="/mypage"`）で CON-001 へ戻る
 - 「退会希望の方はこちら」リンク（小さく下部）→ COM-006 へ遷移

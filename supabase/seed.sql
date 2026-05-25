@@ -1246,3 +1246,45 @@ INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
   -- ダウングレードテスト案件 (法人四郎)
   ('b1116666-0000-1000-8000-000000000001', '大阪府',   '大阪市北区'),
   ('b1116666-0000-1000-8000-000000000002', '大阪府',   '大阪市中央区');
+
+
+-- ============================================================
+-- video-display spec テストデータ (Task 7.1)
+-- ============================================================
+-- 受注者PR動画 (users.video_url) / 職場紹介動画 (client_profiles.workplace_video_url)
+-- の表示判定 = 「URL 存在 かつ active option」の AND を検証するためのデータ。
+-- one_time オプションは CHECK 制約で stripe_subscription_id を NULL にする必要があるため
+-- stripe_payment_intent_id を使う。
+
+-- (1) contractor@test.local: video_url あり + active 'video' あり → PR動画が表示される
+UPDATE public.users
+  SET video_url = 'https://www.tiktok.com/@bijiyu/video/7111111111111111111'
+  WHERE id = '11111111-1111-1111-1111-111111111111';
+INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
+  VALUES ('11111111-1111-1111-1111-111111111111', 'one_time', 'pi_seed_video_11111', 'video', 'active', NULL);
+
+-- (2) 受注者2 高橋 (cc111111): video_url あり + active 'video' なし → 非表示（挙動変更の回帰検証）
+UPDATE public.users
+  SET video_url = 'https://www.tiktok.com/@takahashi/video/7222222222222222222'
+  WHERE id = 'cc111111-1111-1111-1111-111111111111';
+
+-- (3) client@test.local: workplace_video_url あり + active 'video_workplace' あり → CON-006 で表示される
+UPDATE client_profiles
+  SET workplace_video_url = 'https://www.tiktok.com/@suzuki/video/7333333333333333333'
+  WHERE user_id = '22222222-2222-2222-2222-222222222222';
+INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
+  VALUES ('22222222-2222-2222-2222-222222222222', 'one_time', 'pi_seed_vw_22222', 'video_workplace', 'active', NULL);
+
+-- (4) 発注者2 山田 (aabbccdd): workplace_video_url あり + active なし → CON-006 非表示（回帰検証）
+UPDATE client_profiles
+  SET workplace_video_url = 'https://www.tiktok.com/@yamada/video/7444444444444444444'
+  WHERE user_id = 'aabbccdd-1111-2222-3333-444455556666';
+
+-- (5) corp-comp (b111...0005): 管理者の ADM-010B「空更新（掲載停止）」E2E 専用。
+--     CON-006 表示用の (3) client@test を E2E が破壊しないよう、掲載停止テストの
+--     対象をこの独立ユーザーに分離する。workplace_video_url + active video_workplace を付与。
+UPDATE client_profiles
+  SET workplace_video_url = 'https://www.tiktok.com/@hoshou/video/7555555555555555555'
+  WHERE user_id = 'b1110000-0000-1000-8000-000000000005';
+INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
+  VALUES ('b1110000-0000-1000-8000-000000000005', 'one_time', 'pi_seed_vw_corpcomp', 'video_workplace', 'active', NULL);

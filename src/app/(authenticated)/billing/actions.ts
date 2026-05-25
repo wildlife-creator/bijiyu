@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { ensureStripeCustomer } from "@/lib/billing/ensure-stripe-customer";
 import { readFeeCookie, FEE_COOKIE_NAME } from "@/lib/billing/fee-cookie";
+import type { OptionType } from "@/lib/billing/options";
 import { getStripeClient } from "@/lib/billing/stripe";
 import { PAID_PLAN_TYPES, type PaidPlanType } from "@/lib/constants/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -43,11 +44,18 @@ const videoOptionInputSchema = z.object({
   optionType: z.literal("video"),
 });
 
+// 職場紹介動画掲載（発注者向け新規オプション、video-display Task 4.1）
+const videoWorkplaceOptionInputSchema = z.object({
+  type: z.literal("option"),
+  optionType: z.literal("video_workplace"),
+});
+
 const startCheckoutInputSchema = z.union([
   planInputSchema,
   compensationOptionInputSchema,
   urgentOptionInputSchema,
   videoOptionInputSchema,
+  videoWorkplaceOptionInputSchema,
 ]);
 
 export type StartCheckoutInput = z.infer<typeof startCheckoutInputSchema>;
@@ -73,13 +81,7 @@ function priceIdForPlan(planType: PaidPlanType): string {
   }
 }
 
-function priceIdForOption(
-  optionType:
-    | "compensation_5000"
-    | "compensation_9800"
-    | "urgent"
-    | "video",
-): string {
+function priceIdForOption(optionType: OptionType): string {
   switch (optionType) {
     case "compensation_5000":
       return process.env.STRIPE_PRICE_COMPENSATION_5000 ?? "";
@@ -89,6 +91,8 @@ function priceIdForOption(
       return process.env.STRIPE_PRICE_URGENT ?? "";
     case "video":
       return process.env.STRIPE_PRICE_VIDEO ?? "";
+    case "video_workplace":
+      return process.env.STRIPE_PRICE_VIDEO_WORKPLACE ?? "";
   }
 }
 
@@ -108,6 +112,8 @@ function buildSuccessUrl(input: StartCheckoutInput): string {
       return `${base}/billing?option_success=urgent`;
     case "video":
       return `${base}/billing?option_success=video`;
+    case "video_workplace":
+      return `${base}/billing?option_success=video_workplace`;
   }
 }
 
@@ -244,6 +250,24 @@ export async function startCheckoutAction(
         return {
           success: false,
           error: "この案件は既に急募オプションが適用されています",
+        };
+      }
+    } else if (input.optionType === "video_workplace") {
+      // 職場紹介動画掲載は発注者プラン加入者のみ（要件 7.3）。
+      // active な発注者プラン（individual/small/corporate/corporate_premium）が
+      // 無ければ拒否。past_due は active ではないため自動的に弾かれる。
+      // staff/admin は step 4 のグローバルロールガードで既に拒否済み。
+      const planSub = await admin
+        .from("subscriptions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .in("plan_type", PAID_PLAN_TYPES)
+        .limit(1);
+      if ((planSub.data?.length ?? 0) === 0) {
+        return {
+          success: false,
+          error: "職場紹介動画掲載は発注者プラン加入者のみご利用いただけます",
         };
       }
     }

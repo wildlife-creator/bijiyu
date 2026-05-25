@@ -210,6 +210,7 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_COMPENSATION_9800 = "price_comp_9800";
   process.env.STRIPE_PRICE_URGENT = "price_urgent";
   process.env.STRIPE_PRICE_VIDEO = "price_video";
+  process.env.STRIPE_PRICE_VIDEO_WORKPLACE = "price_video_workplace";
 
   // Reset mock state
   supabaseAuthState.user = { id: "user-c1" };
@@ -615,6 +616,85 @@ describe("startCheckoutAction — video option", () => {
     expect(params.success_url).toBe(
       "http://localhost:3000/billing?option_success=video",
     );
+  });
+});
+
+describe("startCheckoutAction — video_workplace option (職場紹介動画掲載)", () => {
+  it("happy path: 発注者プラン active なら payment mode + video_workplace success_url", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "client",
+      email: "client@test.local",
+    };
+    // 発注者プラン加入ガードを通す
+    adminResults["select:subscriptions"] = {
+      data: [{ id: "sub-active" }],
+      error: null,
+    };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "video_workplace",
+    });
+    expect(result.success).toBe(true);
+    const params = stripeMockState.sessionsCreated[0]!;
+    expect(params.mode).toBe("payment");
+    expect(params.line_items).toEqual([
+      { price: "price_video_workplace", quantity: 1 },
+    ]);
+    expect(params.metadata).toEqual({
+      type: "option",
+      user_id: "user-c1",
+      option_type: "video_workplace",
+    });
+    expect(params.success_url).toBe(
+      "http://localhost:3000/billing?option_success=video_workplace",
+    );
+  });
+
+  it("rejects 発注者プラン未加入（active な発注者プランが無い）", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "contractor",
+      email: "contractor@test.local",
+    };
+    adminResults["select:subscriptions"] = { data: [], error: null };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "video_workplace",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("発注者プラン加入者のみ");
+    }
+    expect(stripeMockState.sessionsCreated).toHaveLength(0);
+  });
+
+  it("rejects staff（グローバルロールガードで拒否）", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "staff",
+      email: "staff@test.local",
+    };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "video_workplace",
+    });
+    expect(result.success).toBe(false);
+    expect(stripeMockState.sessionsCreated).toHaveLength(0);
+  });
+
+  it("rejects admin（グローバルロールガードで拒否）", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "admin",
+      email: "admin@test.local",
+    };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "video_workplace",
+    });
+    expect(result.success).toBe(false);
+    expect(stripeMockState.sessionsCreated).toHaveLength(0);
   });
 });
 

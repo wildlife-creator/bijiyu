@@ -210,6 +210,7 @@ export type Database = {
           updated_at: string
           user_id: string
           working_way: string[] | null
+          workplace_video_url: string | null
         }
         Insert: {
           address?: string | null
@@ -231,6 +232,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           working_way?: string[] | null
+          workplace_video_url?: string | null
         }
         Update: {
           address?: string | null
@@ -252,6 +254,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           working_way?: string[] | null
+          workplace_video_url?: string | null
         }
         Relationships: [
           {

@@ -392,3 +392,69 @@ describe("handleCheckoutCompleted (video option)", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// metadata.type === 'option' / video_workplace（職場紹介動画掲載）
+// ---------------------------------------------------------------------------
+
+describe("handleCheckoutCompleted (video_workplace option)", () => {
+  it("inserts a one_time option_subscription with end_date null and option_type video_workplace", async () => {
+    const { admin, calls } = makeAdmin({});
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "option",
+        option_type: "video_workplace",
+        user_id: "user-vw",
+      }),
+    );
+
+    const insert = calls.find(
+      (c) => c.op === "insert" && c.table === "option_subscriptions",
+    );
+    expect(insert?.payload).toMatchObject({
+      user_id: "user-vw",
+      payment_type: "one_time",
+      stripe_payment_intent_id: "pi_test_123",
+      option_type: "video_workplace",
+      status: "active",
+      end_date: null,
+    });
+  });
+
+  it("throws when payment_intent is missing", async () => {
+    const { admin } = makeAdmin({});
+    await expect(
+      handleCheckoutCompleted(
+        admin,
+        makeSession(
+          {
+            type: "option",
+            option_type: "video_workplace",
+            user_id: "user-vw",
+          },
+          { payment_intent: null },
+        ),
+      ),
+    ).rejects.toThrow(/no payment_intent/);
+  });
+
+  it("rethrows when the insert returns an error", async () => {
+    const { admin } = makeAdmin({
+      insertByTable: {
+        option_subscriptions: { error: { message: "insert boom" } },
+      },
+    });
+    await expect(
+      handleCheckoutCompleted(
+        admin,
+        makeSession({
+          type: "option",
+          option_type: "video_workplace",
+          user_id: "user-vw",
+        }),
+      ),
+    ).rejects.toThrow(/video_workplace option_subscriptions insert failed/);
+  });
+});

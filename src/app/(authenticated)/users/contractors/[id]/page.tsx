@@ -7,7 +7,10 @@ import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
+import { VideoEmbed } from "@/components/video-embed/video-embed";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { hasActiveOption } from "@/lib/billing/options";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
@@ -66,7 +69,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       `
       id, avatar_url, last_name, first_name, birth_date,
       deleted_at, role, identity_verified, ccus_verified, bio,
-      prefecture, gender, skill_tags
+      prefecture, gender, skill_tags, video_url
     `,
     )
     .eq("id", id)
@@ -132,6 +135,14 @@ export default async function ContractorDetailPage({ params }: PageProps) {
 
   const reviewCount = reviews?.length ?? 0;
   const againCount = (reviews ?? []).filter((r) => r.rating_again === "yes" || r.rating_again === "true").length;
+
+  // PR動画: video_url 設定済み かつ active な 'video' オプションがある場合のみ表示。
+  // cross-user 参照のため active 判定は admin（service-role）client で行う
+  // （通常クライアントは他ユーザーの option_subscriptions を RLS で読めずサイレント null）。
+  const showVideo =
+    !!contractor.video_url &&
+    !isDeleted &&
+    (await hasActiveOption(createAdminClient(), id, "video"));
 
   return (
     <div className="min-h-dvh bg-muted">
@@ -248,6 +259,16 @@ export default async function ContractorDetailPage({ params }: PageProps) {
           <h3 className="text-[15px] font-bold tracking-wider mb-2">自己紹介</h3>
           <div className="rounded-[8px] border border-border/10 bg-background p-4">
             <p className="text-[13px] leading-[180%]">{contractor.bio}</p>
+          </div>
+        </section>
+      )}
+
+      {/* PR動画（video_url 設定済み かつ active な 'video' オプションがある場合のみ） */}
+      {showVideo && (
+        <section className="mx-5 mt-6">
+          <h3 className="text-[15px] font-bold tracking-wider mb-2">PR動画</h3>
+          <div className="rounded-[8px] border border-border/10 bg-background p-4">
+            <VideoEmbed url={contractor.video_url!} label="PR動画" />
           </div>
         </section>
       )}

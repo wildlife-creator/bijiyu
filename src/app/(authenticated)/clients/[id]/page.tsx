@@ -8,7 +8,10 @@ import { BackButton } from "@/components/job-search/back-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
+import { VideoEmbed } from "@/components/video-embed/video-embed";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { hasActiveOption } from "@/lib/billing/options";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 
@@ -59,7 +62,8 @@ export default async function ClientDetailPage({ params }: PageProps) {
       client_profiles(
         display_name, image_url, address,
         recruit_job_types, working_way,
-        employee_scale, message, language
+        employee_scale, message, language,
+        workplace_video_url
       )
     `,
     )
@@ -92,6 +96,14 @@ export default async function ClientDetailPage({ params }: PageProps) {
   });
   // 発注者アバターは client_profiles.image_url を優先し、未設定なら users.avatar_url
   const avatarUrl = profile?.image_url ?? client.avatar_url;
+
+  // 職場紹介動画: workplace_video_url 設定済み かつ active な 'video_workplace'
+  // オプションがある場合のみ表示。cross-user 参照のため active 判定は
+  // admin（service-role）client で行う（要件 5.1/5.3）。
+  const showWorkplaceVideo =
+    !!profile?.workplace_video_url &&
+    !isDeleted &&
+    (await hasActiveOption(createAdminClient(), id, "video_workplace"));
 
   // Fetch client's open jobs with thumbnail + urgency info
   const { data: jobs } = await supabase
@@ -198,6 +210,19 @@ export default async function ClientDetailPage({ params }: PageProps) {
             このユーザーは退会済みです。
           </p>
         </div>
+      )}
+
+      {/* 職場紹介動画（アクションボタン直下・募集職種より上） */}
+      {showWorkplaceVideo && (
+        <section className="mt-6">
+          <h3 className="text-body-lg font-bold text-foreground">職場紹介動画</h3>
+          <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
+            <VideoEmbed
+              url={profile!.workplace_video_url!}
+              label="職場紹介動画"
+            />
+          </div>
+        </section>
       )}
 
       {/* Detail rows */}

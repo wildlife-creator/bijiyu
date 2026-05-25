@@ -137,6 +137,11 @@ async function handleOptionCheckout(
     return;
   }
 
+  if (optionType === "video_workplace") {
+    await handleVideoWorkplaceOption(admin, session, userId);
+    return;
+  }
+
   throw new Error(`handleOptionCheckout: unknown option_type='${optionType}'`);
 }
 
@@ -263,6 +268,36 @@ async function handleVideoOption(
   if (insert.error) {
     throw new Error(
       `video option_subscriptions insert failed: ${insert.error.message}`,
+    );
+  }
+}
+
+async function handleVideoWorkplaceOption(
+  admin: SupabaseClient<Database>,
+  session: Stripe.Checkout.Session,
+  userId: string,
+): Promise<void> {
+  // 職場紹介動画掲載（video-display Task 4.2）。
+  // 既存 handleVideoOption と同パターン（option_type のみ差し替え）。
+  // 冪等性は webhook の event dedupe（stripe_webhook_events）に委ねる。
+  const paymentIntentId = extractPaymentIntentId(session.payment_intent);
+  if (!paymentIntentId) {
+    throw new Error(
+      `handleVideoWorkplaceOption: session ${session.id} has no payment_intent`,
+    );
+  }
+
+  const insert = await admin.from("option_subscriptions").insert({
+    user_id: userId,
+    payment_type: "one_time",
+    stripe_payment_intent_id: paymentIntentId,
+    option_type: "video_workplace",
+    status: "active",
+    end_date: null,
+  });
+  if (insert.error) {
+    throw new Error(
+      `video_workplace option_subscriptions insert failed: ${insert.error.message}`,
     );
   }
 }

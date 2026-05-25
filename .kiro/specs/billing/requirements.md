@@ -72,7 +72,8 @@
   - メッセージ表示:「担当者アカウントではプランの変更はできません。組織の管理者にお問い合わせください。」
   - Server Action でも role='staff' の場合はエラーを返す（フロントエンドのバイパス対策）
 - **オプションプラン**:
-  - 動画掲載: 100,000円/動画（ビジ友TikTokにユーザー紹介動画として掲載、管理者がADM-010で登録）
+  - 動画掲載（受注者PR）: 100,000円/動画（ビジ友TikTokにユーザー紹介動画として掲載、管理者がADM-010で登録）。Stripe Price = `STRIPE_PRICE_VIDEO`、option_type = `video`
+  - 職場紹介動画掲載: 100,000円/動画（発注者詳細 CON-006 に職場紹介動画を掲載、管理者がADM-010Bで登録）。Stripe Price = `STRIPE_PRICE_VIDEO_WORKPLACE`、option_type = `video_workplace`。発注者プラン加入者のみ購入可（video-display spec で追加。受注者PR動画とは独立した別 Price）
   - 急募: 20,000円（7日間、募集が最上位表示 + 急募タグ表示）
   - 補償 ¥5,000/月（受注者向け）: 給与未払いトラブル発生時、最大200万円までの補償
   - 補償 ¥9,800/月（受注者向け）: 給与未払いトラブル発生時、最大500万円までの補償
@@ -90,7 +91,7 @@
     - 押下時に確認ダイアログ:「補償オプション（¥{金額}/月）を解約しますか？　解約すると補償が適用されなくなります。」
     - Server Action で `stripe.subscriptions.cancel()` を呼び出し、即時解約する
     - Webhook（customer.subscription.deleted）で option_subscriptions.status を 'cancelled' に更新する（`client_profiles` への書き込みは行わない。フラグカラム廃止により `option_subscriptions` が active 判定の Single Source of Truth）
-  - **動画掲載オプションの解約**: 動画掲載は買い切り（one_time）のため、ユーザー側の解約UIは設けない。掲載停止が必要な場合は管理者が ADM-010 で対応する運用とする
+  - **動画掲載オプションの解約**: 動画掲載（受注者PR / 職場紹介）は買い切り（one_time）のため、ユーザー側の解約UIは設けない。掲載停止が必要な場合は管理者が URL を空更新する運用とする（受注者PR=ADM-010 / 職場紹介=ADM-010B。video-display spec）
 
 ### REQ-BL-002: 決済画面（CLI-027）
 
@@ -109,6 +110,7 @@
   - 急募: success_url = CLI-026（プラン案内）+ `?option_success=urgent`（トースト:「急募オプションを購入しました」）
   - 補償: success_url = CLI-026 + `?option_success=compensation`（トースト:「補償オプションに加入しました」）
   - 動画掲載: success_url = CLI-026 + `?option_success=video`（トースト:「動画掲載オプションを購入しました」）
+  - 職場紹介動画掲載: success_url = CLI-026 + `?option_success=video_workplace`（トースト:「職場紹介動画掲載オプションのお申し込みが完了しました」。video-display spec）
   - cancel_url: いずれも CLI-026（プラン案内画面に戻る）
 - **二重課金防止の実装箇所**:
   1. Server Action（Checkout Session 作成時）: subscriptions テーブルに status IN ('active', 'past_due') のレコードがある場合、新規プランの Checkout Session は mode='subscription' ではなく既存サブスクリプションの update で処理する（プラン変更フロー）
@@ -126,11 +128,12 @@
     - line_items: 選択された補償プランの Stripe Price ID（recurring）
     - metadata: `{ type: 'option', option_type: 'compensation_5000' | 'compensation_9800', user_id: '...' }`
     - success_url, cancel_url
-  - **急募・動画掲載オプション（単発課金）**:
+  - **急募・動画掲載・職場紹介動画掲載オプション（単発課金）**:
     - mode: 'payment'
     - customer: users.stripe_customer_id（既存の場合）/ 新規作成
-    - line_items: 選択されたオプションの Stripe Price ID
-    - metadata: `{ type: 'option', option_type: 'urgent' | 'video', user_id: '...', job_id: '...'（急募の場合） }`
+    - line_items: 選択されたオプションの Stripe Price ID（職場紹介動画掲載は `STRIPE_PRICE_VIDEO_WORKPLACE`）
+    - metadata: `{ type: 'option', option_type: 'urgent' | 'video' | 'video_workplace', user_id: '...', job_id: '...'（急募の場合） }`
+    - 職場紹介動画掲載は発注者プラン（individual/small/corporate/corporate_premium かつ status='active'）加入者のみ。未加入・past_due は拒否（video-display spec）
     - success_url, cancel_url
 
 ### REQ-BL-003: Stripe Webhook 処理（バックエンド）
@@ -154,7 +157,7 @@
 |---------|---------|
 | checkout.session.completed（基本プラン） | **metadata.type = 'plan' で判別**。metadata.plan_type で subscriptions.plan_type を決定。subscriptions テーブルに新規レコード作成。users.role が 'contractor' の場合のみ 'client' に更新（既に 'staff' のユーザーは role を変更しない — 担当者は法人プランのオーナー経由で発注者機能を利用するため）。users.stripe_customer_id を設定。**client_profiles を UPSERT（存在しなければ INSERT、存在すれば何もしない）**。初期値: display_name = users.last_name + users.first_name。※ client_profiles の作成責務はこの Webhook が唯一の正規ルートとする（admin REQ-ADM-007 経由で作成された管理責任者も、課金完了時にこの Webhook で client_profiles が作成される。管理者が作成したユーザーも role='contractor' で作成され、通常の課金フローを通す）。**法人プラン（corporate / corporate_premium）の場合: organizations テーブルにレコードが存在しなければ自動作成（`owner_id` のみ設定、organization spec 実装時に `name` カラムは廃止される）し、organization_members に購入者を org_role='owner' で追加する** |
 | checkout.session.completed（補償オプション） | **metadata.type = 'option' かつ option_type が compensation_5000 / compensation_9800 で判別**。option_subscriptions テーブルに INSERT（payment_type = 'subscription', stripe_subscription_id を設定、status='active'）。**`client_profiles` への書き込みは行わない**（受注者は client_profiles を持たないため。active 判定は option_subscriptions 単独で行う） |
-| checkout.session.completed（単発オプション） | **metadata.type = 'option' かつ option_type が urgent / video で判別**。option_subscriptions テーブルに INSERT（payment_type = 'one_time'）。急募の場合: end_date = NOW() + 7日、client_profiles.is_urgent_option = true、対象案件の jobs.is_urgent = true に更新。動画掲載の場合: end_date = NULL で INSERT |
+| checkout.session.completed（単発オプション） | **metadata.type = 'option' かつ option_type が urgent / video / video_workplace で判別**。option_subscriptions テーブルに INSERT（payment_type = 'one_time'）。急募の場合: end_date = NOW() + 7日、client_profiles.is_urgent_option = true、対象案件の jobs.is_urgent = true に更新。動画掲載（video）/ 職場紹介動画掲載（video_workplace）の場合: end_date = NULL で INSERT（video-display spec で video_workplace 分岐追加） |
 | customer.subscription.updated | **stripe_subscription_id で subscriptions テーブルを検索**。見つかった場合: plan_type, status, 期間を更新（プランアップグレード/ダウングレードの反映）。**plan_type が corporate / corporate_premium に変更された場合: organizations テーブルにレコードが存在しなければ自動作成（checkout.session.completed の法人プラン処理と同じロジック。共通関数 `ensureOrganizationExists(userId)` として切り出す）。organization_members に該当ユーザーを org_role='owner' で追加する**。**見つからない場合: option_subscriptions テーブルを stripe_subscription_id で検索し、補償オプションの status を更新**。**どちらにも見つからない場合: 200 を返して処理をスキップ**（checkout.session.completed が後から届くケースに対応。Stripe はイベントの到着順序を保証しないため） |
 | customer.subscription.deleted | **stripe_subscription_id で subscriptions / option_subscriptions を検索**。subscriptions の場合: status を 'cancelled' に更新。users.role が 'client' の場合は 'contractor' にダウングレード。'staff'（担当者）の場合は users.is_active を false に設定してログインを停止する（roles-and-permissions.md の past_due 動作に準拠）。掲載中の案件（jobs.status = 'open'）を 'closed' に変更。**法人プランの場合: 組織配下の Admin / Staff 両方（`org_role IN ('admin', 'staff')`）の users.is_active を false に設定**（2026-04-19 改訂: 旧版は staff のみだったが、Admin も Owner の契約に連動するため対象に含める）。**`subscriptions.status='cancelled'` 時に同ユーザーの補償オプションを連鎖キャンセルしない**（補償は基本プランから独立、受注者の保険として継続課金される）。option_subscriptions の場合: status を 'cancelled' に更新する（`client_profiles` への書き込みは不要）。**見つからない場合: 200 を返して処理をスキップ** |
 | customer.subscription.created | **新規サブスクリプション作成時**。`stripe_subscription_id` で subscriptions テーブルを検索し、未登録なら INSERT。法人プラン（corporate / corporate_premium）で既存組織が見つかる（`organizations.owner_id = user_id`）場合: 同一組織の **Admin / Staff 両方**（`org_role IN ('admin', 'staff')`）の users.is_active を true に復帰（再アップグレード時の冷凍解除、organization spec REQ-ORG-006-B J1 と整合。past_due → active 復帰と同じ `reactivateCorporateMembers()` 関数を共通利用。`org_role = 'staff'` のみの絞り込みは不可、Admin も含める必要あり） |

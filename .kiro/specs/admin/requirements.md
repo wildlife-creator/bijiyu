@@ -139,7 +139,7 @@
 
 - ユーザー（受注者）アカウントの一覧を表示する
 - 検索: キーワード検索（氏名、メールアドレス）
-- フィルター: オプションプラン加入者（動画掲載 / 補償¥5,000 / 補償¥9,800 の単一選択）
+- フィルター: オプションプラン加入者（動画掲載(受注者PR) / 職場紹介動画掲載 / 補償¥5,000 / 補償¥9,800 の単一選択）※video-display spec で 4 選択肢に拡張
   - 補償オプションは受注者向け給与未払い保険として全 contractor / client(owner) が購入可能なため、受注者一覧でも絞り込めるようにする
   - active 判定は `option_subscriptions WHERE option_type IN ('compensation_5000','compensation_9800') AND status='active'` を参照
 - 各行の表示: 氏名、年齢、メールアドレス、退会済み表示
@@ -150,7 +150,10 @@
 
 - ユーザーの詳細情報を表示する
 - 表示項目:
-  - 「動画を投稿する」ボタン（動画掲載オプション加入者のみ表示）→ ADM-010 へ遷移
+  - 動画投稿ボタン（購入オプションごとに 0/1/2 個を動的表示。video-display spec）:
+    - active `video` で「受注者PR動画を投稿する」→ ADM-010 へ遷移
+    - active `video_workplace` で「職場紹介動画を投稿する」→ ADM-010B へ遷移
+    - どちらも無ければボタンは表示しない
   - アイコン、氏名、年齢
   - バッジ: 本人確認済み、CCUS登録済み
   - PR動画（登録済みの場合）
@@ -172,13 +175,20 @@
 - 入力フィールド:
   - TikTok動画URL（必須）— TikTokの埋め込みURLを想定
 - 表示:
-  - 既登録時: 「更新」ボタン + 現在の登録URL表示 + プレビュー
-  - 未登録時: 「登録」ボタン
-- users.video_url を更新
-- 登録された動画は以下で表示:
+  - 「更新」ボタン（URL 入力状態に依らず固定。video-display spec でデザインカンプ準拠に修正）+ 現在の登録URL表示（未登録時「未登録」）
+- users.video_url を更新（`VideoUrlSchema` 検証通過時のみ。空文字入力で NULL 更新＝掲載停止）
+- 登録された動画は以下で表示（いずれも video_url 存在 かつ active `video` の AND）:
   - COM-001（ユーザープロフィール詳細）のPR動画エリア
   - ADM-009（ユーザーアカウント詳細）のPR動画エリア
   - CLI-006（ユーザー詳細 / 発注者が見る職人プロフィール）のPR動画エリア
+
+#### REQ-ADM-010B: ユーザー動画投稿（職場紹介 / ADM-010B）※video-display spec で新設
+
+- 管理者が発注者の代わりに職場紹介動画の TikTok URL を登録する（オプション「職場紹介動画掲載」100,000円/動画）
+- ADM-010 と**同一レイアウト**（URL 入力 + 「更新」ボタン固定 + 現在の登録URL表示 + もどる）。差分は対象カラムと Server Action のみ
+- 前提条件: 対象ユーザーが active `video_workplace` に加入していること（ADM-009 の「職場紹介動画を投稿する」ボタンから遷移）
+- `client_profiles.workplace_video_url` を更新（`VideoUrlSchema` 検証通過時のみ。空文字で NULL 更新＝掲載停止）
+- 登録された動画は CON-006（発注者詳細）で表示（workplace_video_url 存在 かつ active `video_workplace` の AND）
 
 ### 本人確認承認
 

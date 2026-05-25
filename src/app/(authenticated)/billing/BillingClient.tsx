@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  PAID_PLAN_TYPES,
   PLAN_LABELS,
   PLAN_LIMITS,
   type PaidPlanType,
@@ -137,6 +138,11 @@ export function BillingClient({
     (o) => o.optionType === "compensation_9800",
   );
 
+  // 職場紹介動画掲載は発注者プラン加入者のみ（要件 7.3）。
+  // currentPlan が有料プラン かつ past_due でないときのみ申込可。
+  const isClientPlanActive =
+    (PAID_PLAN_TYPES as readonly string[]).includes(currentPlan) && !isPastDue;
+
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<
@@ -161,6 +167,9 @@ export function BillingClient({
       router.replace("/billing");
     } else if (checkoutSuccess === "video") {
       toast.success("動画掲載オプションのお申し込みが完了しました");
+      router.replace("/billing");
+    } else if (checkoutSuccess === "video_workplace") {
+      toast.success("職場紹介動画掲載オプションのお申し込みが完了しました");
       router.replace("/billing");
     }
   }, [checkoutSuccess, router]);
@@ -287,7 +296,12 @@ export function BillingClient({
   }
 
   function handleOptionCheckout(
-    optionType: "compensation_5000" | "compensation_9800" | "urgent" | "video",
+    optionType:
+      | "compensation_5000"
+      | "compensation_9800"
+      | "urgent"
+      | "video"
+      | "video_workplace",
     jobId?: string,
   ) {
     startTransition(async () => {
@@ -296,7 +310,10 @@ export function BillingClient({
           ? { type: "option" as const, optionType, jobId }
           : optionType === "compensation_5000" || optionType === "compensation_9800"
             ? { type: "option" as const, optionType }
-            : { type: "option" as const, optionType: optionType as "video" };
+            : {
+                type: "option" as const,
+                optionType: optionType as "video" | "video_workplace",
+              };
       const result = await startCheckoutAction(input);
       if (!result.success) {
         toast.error(result.error);
@@ -488,6 +505,27 @@ export function BillingClient({
                 onClick={() => handleOptionCheckout("video")}
               >
                 動画掲載を申し込む
+              </Button>
+            </div>
+          </div>
+
+          {/* 職場紹介動画掲載（発注者向け） */}
+          <div className="py-4">
+            <div className="flex items-center justify-between">
+              <span className="text-body-md font-bold">職場紹介動画掲載</span>
+              <span className="text-body-md">100,000円/動画</span>
+            </div>
+            <p className="mt-1 text-body-sm text-muted-foreground">
+              現場や会社の雰囲気を伝える動画を、発注者詳細画面に掲載します。
+            </p>
+            <div className="mt-3 flex justify-center">
+              <Button
+                variant="default"
+                className="w-full max-w-xs rounded-full text-white"
+                disabled={pending || isStaff || !isClientPlanActive}
+                onClick={() => handleOptionCheckout("video_workplace")}
+              >
+                職場紹介動画掲載を申し込む
               </Button>
             </div>
           </div>

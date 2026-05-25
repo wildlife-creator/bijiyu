@@ -46,6 +46,11 @@ export const TEST_STAFF = {
   password: "testpass123",
 };
 
+export const TEST_ADMIN = {
+  email: "admin@test.local",
+  password: "testpass123",
+};
+
 export const TEST_STAFF_ADMIN = {
   email: "staff-admin@test.local",
   password: "testpass123",

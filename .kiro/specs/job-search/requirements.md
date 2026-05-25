@@ -137,6 +137,7 @@
 - 発注者の詳細情報を表示する
 - 表示項目:
   - プロフィール画像、会社名/表示名
+  - 職場紹介動画（アクションボタン群の直下・募集職種より上。`client_profiles.workplace_video_url` 存在 **かつ** active な `video_workplace` オプションがある場合のみ `<VideoEmbed>` で表示。video-display spec で追加。active 判定は cross-user のため admin client）
   - 募集職種、募集エリア、従業員規模
   - 求める働き方、言語、発注者メッセージ（紹介文）
   - 掲載中の案件一覧

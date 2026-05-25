@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/shared/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
+import { VideoEmbed } from "@/components/video-embed/video-embed";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { hasActiveOption } from "@/lib/billing/options";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 
@@ -186,6 +188,12 @@ export default async function ProfilePage() {
       : null;
   const skillTags = (profile.skill_tags ?? []) as string[];
 
+  // PR動画は video_url 設定済み かつ active な 'video' オプションがある場合のみ表示。
+  // 自分のページなので通常クライアントで判定できる（要件 4.1/4.4）。
+  const showVideo =
+    !!profile.video_url &&
+    (await hasActiveOption(supabase, user.id, "video"));
+
   return (
     <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
       {/* タイトル */}
@@ -301,19 +309,12 @@ export default async function ProfilePage() {
         </div>
       </section>
 
-      {/* PR 動画（登録があれば） */}
-      {profile.video_url && (
+      {/* PR 動画（video_url 設定済み かつ active な 'video' オプションがある場合のみ） */}
+      {showVideo && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">PR動画</h2>
           <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <a
-              href={profile.video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-body-sm text-primary underline"
-            >
-              動画を見る
-            </a>
+            <VideoEmbed url={profile.video_url!} label="PR動画" />
           </div>
         </section>
       )}
