@@ -166,7 +166,7 @@ export function BillingClient({
       toast.success("急募オプションのお申し込みが完了しました");
       router.replace("/billing");
     } else if (checkoutSuccess === "video") {
-      toast.success("動画掲載オプションのお申し込みが完了しました");
+      toast.success("自己PR動画掲載オプションのお申し込みが完了しました");
       router.replace("/billing");
     } else if (checkoutSuccess === "video_workplace") {
       toast.success("職場紹介動画掲載オプションのお申し込みが完了しました");
@@ -487,15 +487,15 @@ export function BillingClient({
       <section className="mt-6 rounded-lg border border-border bg-background p-5 pb-8">
         <h2 className="text-heading-sm font-bold">オプションプラン</h2>
         <div className="mt-5 divide-y divide-border">
-          {/* 動画掲載 */}
+          {/* 自己PR動画掲載（受注者向け） */}
           <div className="py-4 first:pt-0">
             <div className="flex items-center justify-between">
-              <span className="text-body-md font-bold">動画掲載</span>
+              <span className="text-body-md font-bold">自己PR動画掲載</span>
               <span className="text-body-md">100,000円/動画</span>
             </div>
             <p className="mt-1 text-body-sm text-muted-foreground">
-              ユーザー情報画面へのPR動画掲載や<br />
-              ビジ友TikTok紹介ページへの動画掲載を承ります。
+              あなたの仕事ぶりや人柄を動画でアピール。<br />
+              プロフィール画面とビジ友のTikTok紹介ページに掲載します。
             </p>
             <div className="mt-3 flex justify-center">
               <Button
@@ -504,7 +504,7 @@ export function BillingClient({
                 disabled={pending || isStaff}
                 onClick={() => handleOptionCheckout("video")}
               >
-                動画掲載を申し込む
+                自己PR動画掲載を申し込む
               </Button>
             </div>
           </div>
@@ -516,7 +516,8 @@ export function BillingClient({
               <span className="text-body-md">100,000円/動画</span>
             </div>
             <p className="mt-1 text-body-sm text-muted-foreground">
-              現場や会社の雰囲気を伝える動画を、発注者詳細画面に掲載します。
+              現場や会社の雰囲気を動画でアピール。<br />
+              職人が見る会社詳細ページとビジ友のTikTok紹介ページに掲載します。
             </p>
             <div className="mt-3 flex justify-center">
               <Button
