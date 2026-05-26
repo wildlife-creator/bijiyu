@@ -198,15 +198,32 @@ export default async function ContractorDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* ♡マイリスト登録（名前・バッジの直下、動画の上に配置。
+          カンプは名前行右端のアイコンのみだが、可読性のためテキスト併記の独立行に変更） */}
       {!isDeleted && (
-        <div className="px-5 mt-4 flex items-center gap-3">
+        <div className="px-5 mt-3">
           <FavoriteButton
             targetType="user"
             targetId={id}
             initialIsFavorited={!!favorite}
             showLabel
           />
+        </div>
+      )}
+
+      {/* PR動画（デザインカンプ CLI-006: 名前・バッジの直下、アクションボタンの上） */}
+      {showVideo && (
+        <section className="mx-5 mt-6">
+          <h3 className="text-[15px] font-bold tracking-wider mb-2">PR動画</h3>
+          <div className="rounded-[8px] border border-border/10 bg-background p-4">
+            <VideoEmbed url={contractor.video_url!} label="PR動画" />
+          </div>
+        </section>
+      )}
+
+      {/* Action buttons */}
+      {!isDeleted && (
+        <div className="px-5 mt-4 flex items-center gap-3">
           <Button
             variant="outline"
             className="flex-1 rounded-[47px] border-secondary text-secondary font-bold text-[13px]"
@@ -263,15 +280,6 @@ export default async function ContractorDetailPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* PR動画（video_url 設定済み かつ active な 'video' オプションがある場合のみ） */}
-      {showVideo && (
-        <section className="mx-5 mt-6">
-          <h3 className="text-[15px] font-bold tracking-wider mb-2">PR動画</h3>
-          <div className="rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoEmbed url={contractor.video_url!} label="PR動画" />
-          </div>
-        </section>
-      )}
 
       {/* 能力 */}
       {(() => {

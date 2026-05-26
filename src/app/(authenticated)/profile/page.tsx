@@ -244,6 +244,17 @@ export default async function ProfilePage() {
         </div>
       </div>
 
+      {/* PR 動画（video_url 設定済み かつ active な 'video' オプションがある場合のみ）
+          デザインカンプ COM-001: 名前・バッジの直下、基本情報の上に配置 */}
+      {showVideo && (
+        <section className="mt-6">
+          <h2 className="text-body-lg font-bold text-foreground">PR動画</h2>
+          <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
+            <VideoEmbed url={profile.video_url!} label="PR動画" />
+          </div>
+        </section>
+      )}
+
       {/* 基本情報 */}
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">基本情報</h2>
@@ -308,16 +319,6 @@ export default async function ProfilePage() {
           />
         </div>
       </section>
-
-      {/* PR 動画（video_url 設定済み かつ active な 'video' オプションがある場合のみ） */}
-      {showVideo && (
-        <section className="mt-6">
-          <h2 className="text-body-lg font-bold text-foreground">PR動画</h2>
-          <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoEmbed url={profile.video_url!} label="PR動画" />
-          </div>
-        </section>
-      )}
 
       {/* アクションボタン */}
       <div className="mt-8 flex flex-col items-center gap-3">

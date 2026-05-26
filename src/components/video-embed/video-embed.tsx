@@ -43,7 +43,7 @@ export function VideoEmbed({ url, label }: VideoEmbedProps) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`${title}を再生`}
-        className={`group relative ${aspectClass} w-full max-w-[280px] overflow-hidden rounded-[8px] border border-border/20 bg-muted`}
+        className={`group relative ${aspectClass} mx-auto block w-full max-w-[280px] overflow-hidden rounded-[8px] border border-border/20 bg-muted`}
       >
         {/* 静的プレースホルダー（薄いブランドマーク） */}
         <img
