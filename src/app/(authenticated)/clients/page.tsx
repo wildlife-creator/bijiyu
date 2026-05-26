@@ -138,8 +138,8 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     .from("users")
     .select(
       `
-      id, avatar_url, last_name, first_name, deleted_at, prefecture,
-      ${profileJoin}(display_name, image_url, recruit_job_types, working_way, employee_scale)
+      id, avatar_url, last_name, first_name, deleted_at,
+      ${profileJoin}(display_name, image_url, recruit_job_types, working_way, employee_scale, address)
     `,
       { count: "exact" },
     )
@@ -279,9 +279,9 @@ export default async function ClientListPage({ searchParams }: PageProps) {
                       <h3 className="text-body-lg font-semibold truncate">
                         {displayName}
                       </h3>
-                      {client.prefecture && (
-                        <p className="text-body-sm text-muted-foreground">
-                          {client.prefecture}
+                      {profile?.address && (
+                        <p className="text-body-sm text-muted-foreground truncate">
+                          {profile.address}
                         </p>
                       )}
                     </div>
