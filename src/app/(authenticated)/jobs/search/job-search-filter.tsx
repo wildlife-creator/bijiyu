@@ -89,16 +89,17 @@ function JobSearchFilterContent({
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <Label>キーワード（タイトル・発注者名）</Label>
+        <Label className="font-bold">キーワード（タイトル・発注者名）</Label>
         <Input
           placeholder="キーワードを入力"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
+          className="min-h-10"
         />
       </div>
 
       <div className="space-y-1">
-        <Label>エリア</Label>
+        <Label className="font-bold">エリア</Label>
         <SearchAreaPicker
           value={areaValue}
           onChange={setAreaValue}
@@ -109,9 +110,9 @@ function JobSearchFilterContent({
       </div>
 
       <div className="space-y-1">
-        <Label>希望日程</Label>
+        <Label className="font-bold">希望日程</Label>
         <Select value={workPeriod} onValueChange={setWorkPeriod}>
-          <SelectTrigger>
+          <SelectTrigger className="min-h-10 w-full bg-background">
             <SelectValue placeholder="お選びください" />
           </SelectTrigger>
           <SelectContent>
@@ -126,7 +127,7 @@ function JobSearchFilterContent({
       </div>
 
       <div className="space-y-1">
-        <Label>募集職種</Label>
+        <Label className="font-bold">募集職種</Label>
         <MasterCombobox
           mode="multi"
           options={activeTradeTypes}
@@ -138,9 +139,9 @@ function JobSearchFilterContent({
       </div>
 
       <div className="space-y-1">
-        <Label>経験年数</Label>
+        <Label className="font-bold">経験年数</Label>
         <Select value={experienceYears} onValueChange={setExperienceYears}>
-          <SelectTrigger>
+          <SelectTrigger className="min-h-10 w-full bg-background">
             <SelectValue placeholder="お選びください" />
           </SelectTrigger>
           <SelectContent>
@@ -155,9 +156,9 @@ function JobSearchFilterContent({
       </div>
 
       <div className="space-y-1">
-        <Label>言語</Label>
+        <Label className="font-bold">言語</Label>
         <Select value={language} onValueChange={setLanguage}>
-          <SelectTrigger>
+          <SelectTrigger className="min-h-10 w-full bg-background">
             <SelectValue placeholder="お選びください" />
           </SelectTrigger>
           <SelectContent>

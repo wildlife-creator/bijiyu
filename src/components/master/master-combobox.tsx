@@ -108,7 +108,7 @@ export function MasterCombobox({
           disabled={disabled}
           data-slot="master-combobox-trigger"
           className={cn(
-            "flex min-h-10 w-full items-center gap-2 rounded-[8px] border border-input bg-background px-3 py-2 text-left text-body-sm shadow-xs",
+            "flex min-h-10 w-full items-center gap-2 rounded-[8px] border border-input bg-background px-3 py-2 text-left text-sm shadow-xs",
             "focus-visible:outline-2 focus-visible:outline-ring",
             "disabled:cursor-not-allowed disabled:opacity-50",
             className,

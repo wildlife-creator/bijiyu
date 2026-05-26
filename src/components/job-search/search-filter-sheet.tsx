@@ -42,7 +42,7 @@ export function SearchFilterSheet({ children, trigger }: SearchFilterSheetProps)
         <SheetHeader>
           <SheetTitle>検索条件</SheetTitle>
         </SheetHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 px-4 py-4">
           <SheetCloseContext.Provider value={close}>
             {children}
           </SheetCloseContext.Provider>

@@ -100,7 +100,7 @@ function ClientSearchFormContent({
           <Input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            className="bg-background pl-9"
+            className="min-h-10 bg-background pl-9"
           />
         </div>
       </div>
@@ -134,7 +134,7 @@ function ClientSearchFormContent({
       <div className="space-y-1">
         <Label className="font-bold">従業員規模</Label>
         <Select value={employeeScale} onValueChange={setEmployeeScale}>
-          <SelectTrigger className="bg-background">
+          <SelectTrigger className="min-h-10 w-full bg-background">
             <SelectValue placeholder="お選びください" />
           </SelectTrigger>
           <SelectContent>
@@ -152,7 +152,7 @@ function ClientSearchFormContent({
       <div className="space-y-1">
         <Label className="font-bold">求める働き方</Label>
         <Select value={workingWay} onValueChange={setWorkingWay}>
-          <SelectTrigger className="bg-background">
+          <SelectTrigger className="min-h-10 w-full bg-background">
             <SelectValue placeholder="お選びください" />
           </SelectTrigger>
           <SelectContent>
@@ -170,7 +170,7 @@ function ClientSearchFormContent({
       <div className="space-y-1">
         <Label className="font-bold">言語</Label>
         <Select value={language} onValueChange={setLanguage}>
-          <SelectTrigger className="bg-background">
+          <SelectTrigger className="min-h-10 w-full bg-background">
             <SelectValue placeholder="お選びください" />
           </SelectTrigger>
           <SelectContent>

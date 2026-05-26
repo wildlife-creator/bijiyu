@@ -116,7 +116,7 @@ export function AreaRow({
         onValueChange={handlePrefectureChange}
         disabled={disabled}
       >
-        <SelectTrigger className="w-full bg-background text-body-sm">
+        <SelectTrigger className="min-h-10 w-full bg-background text-sm">
           <SelectValue placeholder="都道府県を選択" />
         </SelectTrigger>
         <SelectContent>

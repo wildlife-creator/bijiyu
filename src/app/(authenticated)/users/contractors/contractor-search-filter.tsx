@@ -101,6 +101,7 @@ function ContractorSearchFilterContent({
           placeholder="キーワードを入力"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
+          className="min-h-10"
         />
       </div>
 
@@ -130,7 +131,7 @@ function ContractorSearchFilterContent({
       <div className="space-y-1">
         <Label className="font-bold">経験年数</Label>
         <Select value={experienceYears} onValueChange={setExperienceYears}>
-          <SelectTrigger>
+          <SelectTrigger className="min-h-10 w-full bg-background">
             <SelectValue placeholder="お選びください" />
           </SelectTrigger>
           <SelectContent>
