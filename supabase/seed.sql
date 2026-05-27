@@ -1288,3 +1288,18 @@ UPDATE client_profiles
   WHERE user_id = 'b1110000-0000-1000-8000-000000000005';
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
   VALUES ('b1110000-0000-1000-8000-000000000005', 'one_time', 'pi_seed_vw_corpcomp', 'video_workplace', 'active', NULL);
+
+-- ============================================================
+-- 退会手動テスト用の使い捨てユーザー（COM-006 / withdrawal_surveys 検証用）
+-- ============================================================
+-- フリー受注者・進行中案件なし＝退会ガードに引っかからず退会できる状態。
+-- 退会するとこのアカウントは BAN + 論理削除されるため使い捨て。再度試すには
+-- supabase db reset で復活する。login: withdraw-test@test.local / testpass123
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES ('b1110000-0000-1000-8000-000000000099', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'withdraw-test@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES ('b1110000-0000-1000-8000-000000000099', 'b1110000-0000-1000-8000-000000000099', 'withdraw-test@test.local', '{"sub":"b1110000-0000-1000-8000-000000000099","email":"withdraw-test@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'contractor', last_name = '退会', first_name = 'テスト', email = 'withdraw-test@test.local', prefecture = '東京都'
+WHERE id = 'b1110000-0000-1000-8000-000000000099';

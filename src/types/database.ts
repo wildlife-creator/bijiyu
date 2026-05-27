@@ -1478,6 +1478,47 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_surveys: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          plan_type: string | null
+          reason_code: string
+          reason_label: string
+          role: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          plan_type?: string | null
+          reason_code: string
+          reason_label: string
+          role?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          plan_type?: string | null
+          reason_code?: string
+          reason_label?: string
+          role?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_surveys_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

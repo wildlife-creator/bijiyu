@@ -121,8 +121,8 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     {WITHDRAWAL_REASONS.map((reason) => (
-                      <SelectItem key={reason} value={reason}>
-                        {reason}
+                      <SelectItem key={reason.code} value={reason.code}>
+                        {reason.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
