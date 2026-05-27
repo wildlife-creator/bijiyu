@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send-email";
 import { withdrawalCompletedEmail } from "@/lib/email/templates/withdrawal-completed";
 import { withdrawalSchema } from "@/lib/validations/profile";
+import { getWithdrawalReasonLabel } from "@/lib/constants/profile-options";
 import type { ActionResult } from "@/lib/types/action-result";
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
@@ -96,6 +97,49 @@ export async function withdrawAction(
   }
 
   // --- Cascade processing ---
+
+  // 5.5 Record withdrawal survey（集計用の器 / withdrawal_surveys）
+  //     ban / signOut 前の認証済みセッションで自分の退会理由を保存する。
+  //     reason_code（文言変更に強い固定識別子）+ reason_label（退会時点の表示文）
+  //     + role / plan_type のスナップショットを残す。subscriptions を cancel する
+  //     step 9 より前に plan_type を読む必要があるためここで実行する。
+  //     保存失敗は退会処理をブロックしない（非ロールバック）。
+  try {
+    const { data: snapshotUser } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const { data: snapshotSub } = await supabase
+      .from("subscriptions")
+      .select("plan_type")
+      .eq("user_id", user.id)
+      .in("status", ["active", "past_due"])
+      .maybeSingle();
+
+    const reasonCode = parsed.data.reason;
+    const { error: surveyError } = await supabase
+      .from("withdrawal_surveys")
+      .insert({
+        user_id: user.id,
+        reason_code: reasonCode,
+        reason_label: getWithdrawalReasonLabel(reasonCode) ?? reasonCode,
+        details: parsed.data.details ?? null,
+        role: snapshotUser?.role ?? null,
+        plan_type: snapshotSub?.plan_type ?? null,
+      });
+    if (surveyError) {
+      console.error(
+        "[withdrawAction] withdrawal survey insert failed (non-blocking)",
+        surveyError,
+      );
+    }
+  } catch (surveyError) {
+    console.error(
+      "[withdrawAction] withdrawal survey capture failed (non-blocking)",
+      surveyError,
+    );
+  }
 
   // 6. Soft-delete user
   await supabase

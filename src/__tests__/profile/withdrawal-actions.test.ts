@@ -82,6 +82,7 @@ function makeChain(config: ChainConfig = {}) {
     }),
     update: vi.fn().mockReturnThis(),
     delete: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
     maybeSingle: vi
       .fn()
       .mockResolvedValue({ data: config.data ?? null, error: null }),
@@ -115,7 +116,8 @@ beforeEach(() => {
 
 function buildFormData(): FormData {
   const fd = new FormData();
-  fd.set("reason", "その他");
+  // reason は WITHDRAWAL_REASONS の code（フォームは code を submit する）
+  fd.set("reason", "other");
   fd.set("details", "テスト");
   fd.set("confirmed", "on");
   return fd;
@@ -228,5 +230,65 @@ describe("withdrawAction の発注中案件チェックスコープ (REQ-PF-006)
     if (!result.success) {
       expect(result.error).toContain("管理責任者");
     }
+  });
+});
+
+describe("withdrawAction の退会理由保存 (withdrawal_surveys)", () => {
+  it("reason_code / reason_label / role / plan_type を付けて保存する", async () => {
+    let insertedPayload: Record<string, unknown> | null = null;
+
+    // テーブル名でチェインを振り分け（insert payload を捕捉するため）
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "applications") {
+        // Check1（count=0）/ Check2（owned jobs 空）/ cascade update を兼ねる
+        return makeChain({ count: 0, thenable: { data: [], error: null } });
+      }
+      if (table === "organization_members") {
+        return makeChain({ data: null }); // 個人ユーザー（組織なし）
+      }
+      if (table === "users") {
+        // snapshot 用 select(role) と cascade の soft-delete update を兼ねる
+        return makeChain({
+          data: { role: "contractor" },
+          thenable: { data: null, error: null },
+        });
+      }
+      if (table === "subscriptions") {
+        return makeChain({
+          data: { plan_type: "corporate" },
+          thenable: { data: null, error: null },
+        });
+      }
+      if (table === "withdrawal_surveys") {
+        const chain = makeChain({ thenable: { data: null, error: null } });
+        chain.insert = vi.fn((payload: Record<string, unknown>) => {
+          insertedPayload = payload;
+          return chain;
+        });
+        return chain;
+      }
+      return makeChain({ thenable: { data: null, error: null } });
+    });
+    mockAdminFrom.mockReturnValue(
+      makeChain({ thenable: { data: null, error: null }, data: null }),
+    );
+
+    const fd = new FormData();
+    fd.set("reason", "price_high"); // code
+    fd.set("details", "高い");
+    fd.set("confirmed", "on");
+
+    const result = await withdrawAction({ success: false, error: "" }, fd);
+
+    expect(result.success).toBe(true);
+    expect(insertedPayload).not.toBeNull();
+    expect(insertedPayload).toMatchObject({
+      user_id: OWNER_ID,
+      reason_code: "price_high",
+      reason_label: "料金が高い", // code から解決された表示文
+      details: "高い",
+      role: "contractor",
+      plan_type: "corporate",
+    });
   });
 });
