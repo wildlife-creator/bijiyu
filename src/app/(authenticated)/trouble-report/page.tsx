@@ -29,6 +29,8 @@ export default async function TroubleReportPage() {
   const defaultEmail = profile?.email ?? user.email ?? "";
 
   return (
-    <TroubleReportForm defaultName={defaultName} defaultEmail={defaultEmail} />
+    <div className="min-h-dvh px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
+      <TroubleReportForm defaultName={defaultName} defaultEmail={defaultEmail} />
+    </div>
   );
 }

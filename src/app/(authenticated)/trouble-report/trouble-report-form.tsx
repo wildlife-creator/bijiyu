@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +45,7 @@ export function TroubleReportForm({
 }: TroubleReportFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -65,17 +66,27 @@ export function TroubleReportForm({
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
-    if (selected.length > SUPPORT_ATTACHMENT_RULES.maxFiles) {
+    // 同じファイルの再選択を許可し、state とのズレを防ぐため input を空に戻す
+    e.target.value = "";
+    if (selected.length === 0) return;
+
+    // 既存の選択に追加する（名前＋サイズが同じものは重複として除く）
+    const merged = [...files];
+    for (const f of selected) {
+      if (!merged.some((m) => m.name === f.name && m.size === f.size)) {
+        merged.push(f);
+      }
+    }
+
+    if (merged.length > SUPPORT_ATTACHMENT_RULES.maxFiles) {
       toast.error(
         `添付できるファイルは最大${SUPPORT_ATTACHMENT_RULES.maxFiles}件です`,
       );
-      e.target.value = "";
       return;
     }
     for (const f of selected) {
       if (f.size > SUPPORT_ATTACHMENT_RULES.maxBytesPerFile) {
         toast.error("1ファイルあたり5MBまでのファイルを添付できます");
-        e.target.value = "";
         return;
       }
       if (
@@ -84,11 +95,14 @@ export function TroubleReportForm({
         ).includes(f.type)
       ) {
         toast.error("添付できるのは画像（JPEG／PNG）とPDFのみです");
-        e.target.value = "";
         return;
       }
     }
-    setFiles(selected);
+    setFiles(merged);
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function onSubmit(data: TroubleReportInput) {
@@ -209,22 +223,50 @@ export function TroubleReportForm({
           )}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-2">
           <Label htmlFor="attachments">資料添付{OPTIONAL_BADGE}</Label>
-          <Input
+          <input
+            ref={fileInputRef}
             id="attachments"
             type="file"
             multiple
             accept={ACCEPT_ATTR}
+            aria-label="資料添付"
+            className="sr-only"
             onChange={handleFileChange}
           />
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              ファイルを選ぶ
+            </Button>
+          </div>
           <p className="text-body-sm text-muted-foreground">
             画像（JPEG／PNG）・PDF、最大5枚・各5MBまで
           </p>
           {files.length > 0 && (
-            <ul className="text-body-sm text-muted-foreground">
-              {files.map((f) => (
-                <li key={f.name}>{f.name}</li>
+            <ul className="space-y-1 pt-1">
+              {files.map((f, i) => (
+                <li
+                  key={`${f.name}-${f.size}`}
+                  className="flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-body-sm"
+                >
+                  <span className="truncate text-muted-foreground">
+                    {f.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="ml-2 shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`${f.name}を削除`}
+                  >
+                    ✕
+                  </button>
+                </li>
               ))}
             </ul>
           )}

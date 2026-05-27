@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,6 +43,7 @@ const ACCEPT_ATTR = "image/jpeg,image/png,application/pdf";
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -70,18 +71,28 @@ export default function ContactPage() {
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
+    // 同じファイルの再選択を許可し、state とのズレを防ぐため input を空に戻す
+    e.target.value = "";
+    if (selected.length === 0) return;
+
+    // 既存の選択に追加する（名前＋サイズが同じものは重複として除く）
+    const merged = [...files];
+    for (const f of selected) {
+      if (!merged.some((m) => m.name === f.name && m.size === f.size)) {
+        merged.push(f);
+      }
+    }
+
     // クライアント側の軽い検証（最終判定はサーバー）
-    if (selected.length > SUPPORT_ATTACHMENT_RULES.maxFiles) {
+    if (merged.length > SUPPORT_ATTACHMENT_RULES.maxFiles) {
       toast.error(
         `添付できるファイルは最大${SUPPORT_ATTACHMENT_RULES.maxFiles}件です`,
       );
-      e.target.value = "";
       return;
     }
     for (const f of selected) {
       if (f.size > SUPPORT_ATTACHMENT_RULES.maxBytesPerFile) {
         toast.error("1ファイルあたり5MBまでのファイルを添付できます");
-        e.target.value = "";
         return;
       }
       if (
@@ -90,11 +101,14 @@ export default function ContactPage() {
         ).includes(f.type)
       ) {
         toast.error("添付できるのは画像（JPEG／PNG）とPDFのみです");
-        e.target.value = "";
         return;
       }
     }
-    setFiles(selected);
+    setFiles(merged);
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function onSubmit(data: ContactInput) {
@@ -199,25 +213,6 @@ export default function ContactPage() {
             <Label htmlFor="address">所在地{OPTIONAL_BADGE}</Label>
             <Input id="address" {...register("address")} />
           </div>
-        </section>
-
-        {/* セクション2: お問い合わせについて */}
-        <section className="space-y-4">
-          <h2 className="text-body-lg font-bold text-secondary">
-            お問い合わせについて
-          </h2>
-
-          <ChoiceField
-            id="inquiryType"
-            label="お問い合わせ内容"
-            required
-            options={CONTACT_INQUIRY_TYPES}
-            value={watch("inquiryType")}
-            onChange={(v) =>
-              setValue("inquiryType", v, { shouldValidate: true })
-            }
-            error={errors.inquiryType?.message}
-          />
 
           <ChoiceField
             id="purpose"
@@ -240,46 +235,23 @@ export default function ContactPage() {
           />
         </section>
 
-        {/* セクション3: 案件情報 */}
-        <section className="space-y-4">
-          <h2 className="text-body-lg font-bold text-secondary">案件情報</h2>
-
-          <div className="space-y-1">
-            <Label htmlFor="projectDescription">工事内容{OPTIONAL_BADGE}</Label>
-            <Textarea
-              id="projectDescription"
-              rows={3}
-              {...register("projectDescription")}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="projectArea">工事エリア{OPTIONAL_BADGE}</Label>
-            <Input id="projectArea" {...register("projectArea")} />
-          </div>
-        </section>
-
-        {/* セクション4: 動画掲載の相談 */}
+        {/* セクション2: お問い合わせについて */}
         <section className="space-y-4">
           <h2 className="text-body-lg font-bold text-secondary">
-            動画掲載の相談
+            お問い合わせ内容
           </h2>
 
           <ChoiceField
-            id="videoConsultation"
-            label="動画掲載の相談"
-            options={CONTACT_VIDEO_CONSULTATIONS}
-            value={watch("videoConsultation") ?? ""}
+            id="inquiryType"
+            label="お問い合わせの種類"
+            required
+            options={CONTACT_INQUIRY_TYPES}
+            value={watch("inquiryType")}
             onChange={(v) =>
-              setValue("videoConsultation", v, { shouldValidate: true })
+              setValue("inquiryType", v, { shouldValidate: true })
             }
-            error={errors.videoConsultation?.message}
+            error={errors.inquiryType?.message}
           />
-        </section>
-
-        {/* セクション5: 詳細・添付 */}
-        <section className="space-y-4">
-          <h2 className="text-body-lg font-bold text-secondary">詳細・添付</h2>
 
           <div className="space-y-1">
             <Label htmlFor="detail">問い合わせ詳細{REQUIRED_BADGE}</Label>
@@ -290,26 +262,94 @@ export default function ContactPage() {
               </p>
             )}
           </div>
+        </section>
+
+        {/* セクション3: 案件情報 */}
+        <section className="space-y-4">
+          <h2 className="text-body-lg font-bold text-secondary">案件情報</h2>
 
           <div className="space-y-1">
-            <Label htmlFor="attachments">
-              資料添付{OPTIONAL_BADGE}
-            </Label>
-            <Input
+            <Label htmlFor="projectArea">工事エリア{OPTIONAL_BADGE}</Label>
+            <Input id="projectArea" {...register("projectArea")} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="projectDescription">工事内容{OPTIONAL_BADGE}</Label>
+            <Textarea
+              id="projectDescription"
+              rows={3}
+              {...register("projectDescription")}
+            />
+          </div>
+        </section>
+
+        {/* セクション4: 動画掲載の相談 */}
+        <section className="space-y-4">
+          <h2 className="text-body-lg font-bold text-secondary">
+            動画掲載の相談{OPTIONAL_BADGE}
+          </h2>
+
+          <ChoiceField
+            id="videoConsultation"
+            label="動画掲載の相談"
+            hideLabel
+            options={CONTACT_VIDEO_CONSULTATIONS}
+            value={watch("videoConsultation") ?? ""}
+            onChange={(v) =>
+              setValue("videoConsultation", v, { shouldValidate: true })
+            }
+            error={errors.videoConsultation?.message}
+          />
+        </section>
+
+        {/* セクション5: 資料添付 */}
+        <section className="space-y-4">
+          <h2 className="text-body-lg font-bold text-secondary">
+            資料添付{OPTIONAL_BADGE}
+          </h2>
+
+          <div className="space-y-2">
+            <input
+              ref={fileInputRef}
               id="attachments"
               type="file"
               multiple
               accept={ACCEPT_ATTR}
+              aria-label="資料添付"
               data-bucket={SUPPORT_ATTACHMENTS_BUCKET}
+              className="sr-only"
               onChange={handleFileChange}
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              ファイルを選ぶ
+            </Button>
             <p className="text-body-sm text-muted-foreground">
               画像（JPEG／PNG）・PDF、最大5枚・各5MBまで
             </p>
             {files.length > 0 && (
-              <ul className="text-body-sm text-muted-foreground">
-                {files.map((f) => (
-                  <li key={f.name}>{f.name}</li>
+              <ul className="space-y-1 pt-1">
+                {files.map((f, i) => (
+                  <li
+                    key={`${f.name}-${f.size}`}
+                    className="flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-body-sm"
+                  >
+                    <span className="truncate text-muted-foreground">
+                      {f.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="ml-2 shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label={`${f.name}を削除`}
+                    >
+                      ✕
+                    </button>
+                  </li>
                 ))}
               </ul>
             )}
@@ -340,6 +380,7 @@ interface ChoiceFieldProps {
   onChange: (value: string) => void;
   required?: boolean;
   error?: string;
+  hideLabel?: boolean;
 }
 
 function ChoiceField({
@@ -350,10 +391,11 @@ function ChoiceField({
   onChange,
   required = false,
   error,
+  hideLabel = false,
 }: ChoiceFieldProps) {
   return (
     <div className="space-y-1">
-      <Label htmlFor={id}>
+      <Label htmlFor={id} className={hideLabel ? "sr-only" : undefined}>
         {label}
         {required ? REQUIRED_BADGE : OPTIONAL_BADGE}
       </Label>

@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
+import { Toaster } from "@/components/ui/sonner";
 
 interface SupportLayoutProps {
   children: React.ReactNode;
@@ -29,6 +30,7 @@ export default function SupportLayout({ children }: SupportLayoutProps) {
         </Button>
         {children}
       </main>
+      <Toaster position="top-center" />
     </div>
   );
 }
