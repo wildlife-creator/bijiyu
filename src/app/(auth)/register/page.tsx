@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
+import { BackChevron } from "@/components/shared/back-chevron";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -60,6 +61,7 @@ export default function RegisterPage() {
 
   return (
     <div className="space-y-6">
+      <BackChevron />
       <h1 className="text-center text-heading-xl font-bold text-secondary">
         会員登録メール認証
       </h1>

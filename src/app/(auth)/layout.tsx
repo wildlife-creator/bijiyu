@@ -1,8 +1,3 @@
-"use client";
-
-import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 
 interface AuthLayoutProps {
@@ -10,25 +5,13 @@ interface AuthLayoutProps {
 }
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
-  const router = useRouter();
-
   return (
     <div className="min-h-dvh bg-background">
       <SiteHeader isAuthenticated={false} />
 
-      {/* Main content */}
-      <main className="px-4 py-6 md:mx-auto md:max-w-lg">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-          aria-label="戻る"
-          className="mb-4"
-        >
-          <ChevronLeft className="size-6" />
-        </Button>
-        {children}
-      </main>
+      {/* 戻る導線は layout では持たない。入口フォーム3画面のみ各ページで
+          <BackChevron /> を配置する（CLAUDE.md 戻るボタン方針）。 */}
+      <main className="px-4 py-6 md:mx-auto md:max-w-lg">{children}</main>
     </div>
   );
 }

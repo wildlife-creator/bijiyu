@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
+import { BackChevron } from "@/components/shared/back-chevron";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -32,58 +33,54 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center px-6 pt-10">
-      <div className="w-full max-w-lg">
-        <h1 className="text-heading-xl font-bold text-center text-secondary">
-          パスワード再設定依頼
-        </h1>
+    <div className="space-y-6">
+      {!sent && <BackChevron />}
+      <h1 className="text-center text-heading-xl font-bold text-secondary">
+        パスワード再設定依頼
+      </h1>
 
-        {sent ? (
-          <div className="mt-8 text-center">
-            <p className="text-body-base text-foreground">
-              リセットメールを送信しました
-            </p>
-            <p className="mt-2 text-body-sm text-muted-foreground">
-              メールに記載されたURLからパスワードを再設定してください
-            </p>
-          </div>
-        ) : (
-          <>
-            <p className="mt-4 text-body-sm text-center text-muted-foreground">
-              ご入力いただいたメールアドレスにパスワード再設定のためのURLをお送りいたします
-            </p>
+      {sent ? (
+        <div className="text-center">
+          <p className="text-body-base text-foreground">
+            リセットメールを送信しました
+          </p>
+          <p className="mt-2 text-body-sm text-muted-foreground">
+            メールに記載されたURLからパスワードを再設定してください
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="text-center text-body-sm text-muted-foreground">
+            ご入力いただいたメールアドレスにパスワード再設定のためのURLをお送りいたします
+          </p>
 
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              className="mt-8 flex flex-col gap-6"
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="email">メールアドレス</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="sample@sample.com"
+                aria-invalid={!!errors.email}
+                {...register("email")}
+              />
+              {errors.email && (
+                <p className="text-body-sm text-destructive">
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-[47px] bg-primary text-primary-foreground h-12 w-full font-bold"
             >
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email">メールアドレス</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="sample@sample.com"
-                  aria-invalid={!!errors.email}
-                  {...register("email")}
-                />
-                {errors.email && (
-                  <p className="text-body-sm text-destructive">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="rounded-[47px] bg-primary text-primary-foreground h-12 w-full font-bold"
-              >
-                {isSubmitting ? "送信中..." : "送信する"}
-              </Button>
-            </form>
-          </>
-        )}
-      </div>
+              {isSubmitting ? "送信中..." : "送信する"}
+            </Button>
+          </form>
+        </>
+      )}
     </div>
   );
 }

@@ -1,9 +1,3 @@
-"use client";
-
-import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -12,22 +6,13 @@ interface SupportLayoutProps {
 }
 
 export default function SupportLayout({ children }: SupportLayoutProps) {
-  const router = useRouter();
-
   return (
     <div className="min-h-dvh bg-background">
       <SiteHeader isAuthenticated={false} />
 
+      {/* 戻る導線は各ページ下部の <BackButton />（もどる）に一本化。
+          layout の左上「＜」は撤去（ログイン後アプリと表示を揃える）。 */}
       <main className="px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-          aria-label="戻る"
-          className="mb-4"
-        >
-          <ChevronLeft className="size-6" />
-        </Button>
         {children}
       </main>
       <Toaster position="top-center" />

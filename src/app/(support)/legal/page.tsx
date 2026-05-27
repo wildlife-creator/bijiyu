@@ -1,6 +1,4 @@
-import Link from "next/link";
-
-import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/shared/back-button";
 
 const LEGAL_SECTIONS = [
   {
@@ -59,10 +57,8 @@ export default function LegalPage() {
         </section>
       ))}
 
-      <div className="flex justify-center">
-        <Button variant="outline" className="rounded-full" asChild>
-          <Link href="/">もどる</Link>
-        </Button>
+      <div className="flex flex-col items-center gap-4 pt-4">
+        <BackButton className="w-full rounded-full" />
       </div>
     </div>
   );
