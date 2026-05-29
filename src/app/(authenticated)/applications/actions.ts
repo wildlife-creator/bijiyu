@@ -490,12 +490,13 @@ export async function submitClientReportAction(
       applicationId: formData.get("applicationId") as string,
       operatingStatus: formData.get("operatingStatus") as string,
       statusSupplement: (formData.get("statusSupplement") as string) || undefined,
-      ratingAgain: formData.get("ratingAgain") as string,
-      ratingFollowsInstructions: formData.get("ratingFollowsInstructions") as string,
+      ratingOverall: formData.get("ratingOverall") as string,
       ratingPunctual: formData.get("ratingPunctual") as string,
+      ratingFollowsInstructions: formData.get("ratingFollowsInstructions") as string,
       ratingSpeed: formData.get("ratingSpeed") as string,
       ratingQuality: formData.get("ratingQuality") as string,
       ratingHasTools: formData.get("ratingHasTools") as string,
+      ratingHasSpecialEquipment: formData.get("ratingHasSpecialEquipment") as string,
       comment: (formData.get("comment") as string) || undefined,
     };
 
@@ -553,12 +554,13 @@ export async function submitClientReportAction(
         reviewee_id: application.applicant_id,
         operating_status: input.operatingStatus,
         status_supplement: input.statusSupplement ?? null,
-        rating_again: input.ratingAgain,
-        rating_follows_instructions: input.ratingFollowsInstructions,
+        rating_overall: input.ratingOverall,
         rating_punctual: input.ratingPunctual,
+        rating_follows_instructions: input.ratingFollowsInstructions,
         rating_speed: input.ratingSpeed,
         rating_quality: input.ratingQuality,
         rating_has_tools: input.ratingHasTools,
+        rating_has_special_equipment: input.ratingHasSpecialEquipment,
         comment: input.comment ?? null,
       });
 

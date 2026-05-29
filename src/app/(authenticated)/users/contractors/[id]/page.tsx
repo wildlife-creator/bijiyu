@@ -8,6 +8,8 @@ import { BackButton } from "@/components/job-search/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
 import { VideoEmbed } from "@/components/video-embed/video-embed";
+import { StarRatingDisplay } from "@/components/shared/star-rating-display";
+import { fetchOverallSummary } from "@/lib/rating/aggregate";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { hasActiveOption } from "@/lib/billing/options";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -97,7 +99,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
     { data: areas },
     { data: qualifications },
     { data: schedules },
-    { data: reviews },
+    overallSummary,
     { data: favorite },
   ] = await Promise.all([
     supabase
@@ -120,10 +122,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       .gte("end_date", todayIso)
       .order("start_date", { ascending: true })
       .limit(3),
-    supabase
-      .from("user_reviews")
-      .select("id, rating_again")
-      .eq("reviewee_id", id),
+    fetchOverallSummary(supabase, id),
     supabase
       .from("favorites")
       .select("id")
@@ -132,9 +131,6 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       .eq("target_id", id)
       .maybeSingle(),
   ]);
-
-  const reviewCount = reviews?.length ?? 0;
-  const againCount = (reviews ?? []).filter((r) => r.rating_again === "yes" || r.rating_again === "true").length;
 
   // PR動画: video_url 設定済み かつ active な 'video' オプションがある場合のみ表示。
   // cross-user 参照のため active 判定は admin（service-role）client で行う
@@ -335,59 +331,53 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       })()}
 
       {/* 空き日程 & 発注者評価 — PC では横並び */}
-      {((schedules && schedules.length > 0) || reviewCount > 0) && (
-        <div className="mx-5 mt-6 flex flex-col md:flex-row md:gap-6">
-          {/* 空き日程 */}
-          {schedules && schedules.length > 0 && (
-            <section className="flex-1 min-w-0">
-              <h3 className="text-[15px] font-bold tracking-wider mb-2">空き日程</h3>
-              <div className="rounded-[8px] border border-border/10 bg-background overflow-hidden">
-                <table className="w-full border-collapse">
-                  <tbody>
-                    {schedules.map((s, i) => (
-                      <tr key={i} className="border-b border-primary/20 last:border-b-0">
-                        <td className="py-2 px-3 text-body-sm">
-                          {formatDate(s.start_date)}〜{formatDate(s.end_date)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
+      <div className="mx-5 mt-6 flex flex-col md:flex-row md:gap-6">
+        {/* 空き日程 */}
+        {schedules && schedules.length > 0 && (
+          <section className="flex-1 min-w-0">
+            <h3 className="text-[15px] font-bold tracking-wider mb-2">空き日程</h3>
+            <div className="rounded-[8px] border border-border/10 bg-background overflow-hidden">
+              <table className="w-full border-collapse">
+                <tbody>
+                  {schedules.map((s, i) => (
+                    <tr key={i} className="border-b border-primary/20 last:border-b-0">
+                      <td className="py-2 px-3 text-body-sm">
+                        {formatDate(s.start_date)}〜{formatDate(s.end_date)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
-          {/* 発注者評価 */}
-          {reviewCount > 0 && (
-            <section className="flex-1 min-w-0 mt-6 md:mt-0">
-              <h3 className="text-[15px] font-bold tracking-wider mb-2">発注者評価</h3>
-              <div className="rounded-[8px] border border-border/10 bg-primary/[0.06] p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-[14px] font-bold">また依頼したい</p>
-                  <Link
-                    href={`/users/${id}/reviews`}
-                    className="text-[10px] text-foreground/60 flex items-center gap-1"
-                  >
-                    詳しく見る
-                    <span className="text-[10px]">▶</span>
-                  </Link>
-                </div>
-                <div className="mt-3 flex items-end gap-2">
-                  <span className="text-[24px] font-bold text-secondary">{againCount}</span>
-                  <span className="text-[14px] font-bold mb-0.5">/ {reviewCount}件</span>
-                </div>
-                {/* Progress bar */}
-                <div className="mt-2 rounded-full border border-border/10 h-8 overflow-hidden bg-background">
-                  <div
-                    className="h-full rounded-full bg-primary/80"
-                    style={{ width: reviewCount > 0 ? `${(againCount / reviewCount) * 100}%` : "0%" }}
-                  />
-                </div>
-              </div>
-            </section>
-          )}
-        </div>
-      )}
+        {/* 発注者評価（総合評価サマリー） */}
+        <section className="flex-1 min-w-0 mt-6 md:mt-0">
+          <h3 className="text-[15px] font-bold tracking-wider mb-2">発注者評価</h3>
+          <div className="rounded-[8px] border border-border/10 bg-primary/[0.06] p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[14px] font-bold">総合評価</p>
+              {overallSummary.count > 0 && (
+                <Link
+                  href={`/users/${id}/reviews`}
+                  className="text-[10px] text-foreground/60 flex items-center gap-1"
+                >
+                  詳しく見る
+                  <span className="text-[10px]">▶</span>
+                </Link>
+              )}
+            </div>
+            <div className="mt-3">
+              <StarRatingDisplay
+                avg={overallSummary.avg}
+                count={overallSummary.count}
+                size="md"
+              />
+            </div>
+          </div>
+        </section>
+      </div>
 
       {/* Bottom action buttons */}
       {!isDeleted && (

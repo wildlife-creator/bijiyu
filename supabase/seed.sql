@@ -780,8 +780,9 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac', '88888888-8888-8888-8888-888888888882', 'cc222222-2222-2222-2222-222222222222', 1, '常勤', CURRENT_DATE + interval '5 days', 'accepted', CURRENT_DATE + interval '7 days');
 
 -- contractor1 の1件目のみ評価済み（発注済み表示）、2件目は未評価（評価登録未入力表示）
-INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools, comment) VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', '丁寧な仕事でした。また依頼したいです。');
+-- rating-redesign: 7項目★×5（rating_overall 必須・他6項目任意）。has_special_equipment は NULL = CLI-028「未評価」表示の検証用
+INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, operating_status, rating_overall, rating_punctual, rating_follows_instructions, rating_speed, rating_quality, rating_has_tools, rating_has_special_equipment, comment) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', '問題なく稼働完了', 5, 5, 5, 4, 5, 5, NULL, '丁寧な仕事でした。また依頼したいです。');
 
 -- ============================================================
 -- 12.5 CLI-010〜012 / CLI-028 テスト用データ
@@ -795,10 +796,21 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status) VALUES
   ('cccccccc-cccc-cccc-cccc-cccccccccc03', '77777777-7777-7777-7777-777777777777', 'cc222222-2222-2222-2222-222222222222', 1, 'スポット', CURRENT_DATE + interval '14 days', 'cancelled');
 
--- user_reviews: contractor2 への評価（CLI-028 テスト用、同一 reviewee に2件）
-INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools, comment) VALUES
-  ('cccccccc-cccc-cccc-cccc-cccccccccc01', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', 'good', 'good', 'good', 'good', 'good', 'good', '作業が丁寧で、時間通りに来てくれました。道具も揃っていて安心でした。'),
-  ('cccccccc-cccc-cccc-cccc-cccccccccc02', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', 'good', 'good', 'good', 'bad', 'good', 'good', '丁寧な作業でしたが、もう少しスピードが欲しかったです。');
+-- user_reviews: contractor2 (cc111111) への評価（CLI-028 テスト用、同一 reviewee に2件）
+-- 2件のみ = CLI-005 高評価バッジの「件数3未満 → 非表示」検証用。★平均 (5+4)/2 = 4.5
+INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, operating_status, rating_overall, rating_punctual, rating_follows_instructions, rating_speed, rating_quality, rating_has_tools, rating_has_special_equipment, comment) VALUES
+  ('cccccccc-cccc-cccc-cccc-cccccccccc01', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', '問題なく稼働完了', 5, 5, 5, 5, 5, 5, 4, '作業が丁寧で、時間通りに来てくれました。道具も揃っていて安心でした。'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc02', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', '問題なく稼働完了', 4, 4, 4, 2, 4, 4, NULL, '丁寧な作業でしたが、もう少しスピードが欲しかったです。');
+
+-- rating-redesign E2E: cc111111 に3件目の高評価を追加 → 総合3件・★平均 (5+4+5)/3≈4.67 で CLI-005「高評価」バッジ表示
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
+VALUES ('99999999-9999-9999-9999-999999999990', '22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', '高評価バッジ検証用案件', 'rating-redesign E2E 用の完了案件', ARRAY['建築/内装｜木工']::text[], 1, 'open', 20000, 25000, CURRENT_DATE - 40, CURRENT_DATE - 30, CURRENT_DATE - 50, CURRENT_DATE - 20);
+
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date)
+VALUES ('cccccccc-cccc-cccc-cccc-cccccccccc04', '99999999-9999-9999-9999-999999999990', 'cc111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE - 40, 'completed', CURRENT_DATE - 35);
+
+INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, operating_status, rating_overall, rating_punctual, rating_follows_instructions, rating_speed, rating_quality, rating_has_tools, rating_has_special_equipment, comment) VALUES
+  ('cccccccc-cccc-cccc-cccc-cccccccccc04', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', '問題なく稼働完了', 5, 5, 5, 5, 5, 5, 5, '毎回素晴らしい仕事です。');
 
 -- ============================================================
 -- 14. スカウト経由応募テスト用データ（E2E: scout → application flow）

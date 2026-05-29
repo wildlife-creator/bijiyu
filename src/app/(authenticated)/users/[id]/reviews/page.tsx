@@ -4,20 +4,25 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
+import { StarRatingDisplay } from "@/components/shared/star-rating-display";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
+import { RATING_ITEMS } from "@/lib/constants/rating";
+import {
+  fetchPerItemSummary,
+  type OverallSummary,
+  type PerItemSummary,
+} from "@/lib/rating/aggregate";
 import Link from "next/link";
 
-const RATING_ITEMS = [
-  { key: "rating_again", label: "また依頼したい" },
-  { key: "rating_punctual", label: "稼働予定日に来る" },
-  { key: "rating_follows_instructions", label: "指示通りに動ける" },
-  { key: "rating_speed", label: "作業が速い" },
-  { key: "rating_quality", label: "作業が丁寧" },
-  { key: "rating_has_tools", label: "道具を持っている" },
-] as const;
-
 const COMMENTS_PER_PAGE = 20;
+
+// RATING_ITEMS の snake_case key → PerItemSummary の camelCase プロパティ名
+function summaryKeyOf(key: string): keyof PerItemSummary {
+  return key
+    .replace(/^rating_/, "")
+    .replace(/_([a-z])/g, (_, c: string) => c.toUpperCase()) as keyof PerItemSummary;
+}
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -75,27 +80,15 @@ export default async function ContractorReviewsPage({
     .eq("target_id", id)
     .maybeSingle();
 
-  // Fetch all user_reviews (発注者→受注者の評価)
+  // 7項目の★平均・件数（任意項目は評価あり件のみで平均）
+  const perItem = await fetchPerItemSummary(supabase, id);
+
+  // Fetch reviews for status/comment pagination（補足一覧用、評価カラムは集計ヘルパで取得済み）
   const { data: reviews } = await supabase
     .from("user_reviews")
-    .select(
-      "id, rating_again, rating_punctual, rating_follows_instructions, rating_speed, rating_quality, rating_has_tools, status_supplement, comment, created_at",
-    )
+    .select("id, status_supplement, comment, created_at")
     .eq("reviewee_id", id)
     .order("created_at", { ascending: false });
-
-  const totalReviews = reviews?.length ?? 0;
-
-  // Count good for each rating item
-  function countGood(key: string): number {
-    return (
-      reviews?.filter(
-        (r) =>
-          (r as Record<string, unknown>)[key] === "good" ||
-          (r as Record<string, unknown>)[key] === "yes",
-      ).length ?? 0
-    );
-  }
 
   // Paginate status supplements
   const reviewsWithStatus =
@@ -195,28 +188,31 @@ export default async function ContractorReviewsPage({
           </div>
         )}
 
-      {/* 6-item rating summary */}
+      {/* 7-item rating summary（★平均 + 件数。任意項目0件は「未評価」） */}
       <Card className="mt-6 rounded-[8px]">
         <CardContent className="p-4">
           <div className="space-y-0">
             {RATING_ITEMS.map((item) => {
-              const good = countGood(item.key);
+              const summary: OverallSummary = perItem[summaryKeyOf(item.key)];
               return (
                 <div
                   key={item.key}
-                  className="flex items-center justify-between border-b border-border py-3 last:border-b-0"
+                  className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0"
                 >
                   <span className="text-body-md text-foreground">
                     {item.label}
                   </span>
-                  <span className="flex items-baseline gap-0.5">
-                    <span className="text-body-lg font-bold text-foreground">
-                      {good}/{totalReviews}
-                    </span>
+                  {summary.count === 0 ? (
                     <span className="text-body-sm text-muted-foreground">
-                      案件中
+                      未評価
                     </span>
-                  </span>
+                  ) : (
+                    <StarRatingDisplay
+                      avg={summary.avg}
+                      count={summary.count}
+                      size="sm"
+                    />
+                  )}
                 </div>
               );
             })}

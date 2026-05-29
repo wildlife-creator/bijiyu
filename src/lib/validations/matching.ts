@@ -49,17 +49,32 @@ export const contractorReportSchema = z.object({
   comment: z.string().optional(),
 });
 
+// rating-redesign: ★×5 評価（1〜5 整数）。FormData の数値文字列を coerce で受ける。
+const starRatingSchema = z.coerce
+  .number()
+  .int()
+  .min(1, "1〜5で評価してください")
+  .max(5, "1〜5で評価してください");
+
+// 任意項目: 空文字/undefined は null 扱い（未評価）
+const optionalStarRatingSchema = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? null : v),
+  starRatingSchema.nullable(),
+);
+
 // 発注者 完了報告 + 受注者評価スキーマ (CLI-012)
+// rating-redesign: 7項目★×5（総合評価のみ必須、他6項目は任意 = nullable）
 export const clientReportSchema = z.object({
   applicationId: z.string().regex(uuidRegex, "応募IDが不正です"),
   operatingStatus: clientOperatingStatusEnum,
   statusSupplement: z.string().optional(),
-  ratingAgain: ratingEnum,
-  ratingFollowsInstructions: ratingEnum,
-  ratingPunctual: ratingEnum,
-  ratingSpeed: ratingEnum,
-  ratingQuality: ratingEnum,
-  ratingHasTools: ratingEnum,
+  ratingOverall: starRatingSchema,
+  ratingPunctual: optionalStarRatingSchema,
+  ratingFollowsInstructions: optionalStarRatingSchema,
+  ratingSpeed: optionalStarRatingSchema,
+  ratingQuality: optionalStarRatingSchema,
+  ratingHasTools: optionalStarRatingSchema,
+  ratingHasSpecialEquipment: optionalStarRatingSchema,
   comment: z.string().optional(),
 });
 

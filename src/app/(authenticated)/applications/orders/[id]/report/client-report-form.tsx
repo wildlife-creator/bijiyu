@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,47 +12,51 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { StarRatingInput } from "@/components/shared/star-rating-input";
 import { submitClientReportAction } from "@/app/(authenticated)/applications/actions";
 import { CONTRACTOR_OPERATING_STATUS_OPTIONS } from "@/lib/validations/matching";
+import { RATING_ITEMS, type RatingItemKey } from "@/lib/constants/rating";
 
 interface ClientReportFormProps {
   applicationId: string;
 }
 
-const RATING_ITEMS = [
-  { name: "ratingAgain", label: "また依頼したいか？" },
-  { name: "ratingFollowsInstructions", label: "指示通りに動けるか？" },
-  { name: "ratingPunctual", label: "稼働予定日にちゃんと来たか？" },
-  { name: "ratingSpeed", label: "作業は速いか？" },
-  { name: "ratingQuality", label: "作業は丁寧か？" },
-  { name: "ratingHasTools", label: "必要な道具を持っているか？" },
-] as const;
+// snake_case のカラム名 → FormData / Server Action が期待する camelCase 名へ変換
+function toCamel(key: string): string {
+  return key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
 
 export function ClientReportForm({ applicationId }: ClientReportFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [operatingStatus, setOperatingStatus] = useState("");
-  const [ratings, setRatings] = useState<Record<string, string>>({});
+  const [ratings, setRatings] = useState<Record<RatingItemKey, number | null>>(
+    Object.fromEntries(RATING_ITEMS.map((item) => [item.key, null])) as Record<
+      RatingItemKey,
+      number | null
+    >,
+  );
 
-  function setRating(name: string, value: string) {
-    setRatings((prev) => ({ ...prev, [name]: value }));
+  function setRating(key: RatingItemKey, value: number | null) {
+    setRatings((prev) => ({ ...prev, [key]: value }));
   }
 
-  const allRatingsFilled = RATING_ITEMS.every((item) => ratings[item.name]);
+  // 送信可否: 総合評価 + 稼働状況が必須
+  const canSubmit = operatingStatus !== "" && ratings.rating_overall !== null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!canSubmit) return;
     setIsLoading(true);
     setError(null);
 
     const formData = new FormData(e.currentTarget);
     formData.set("applicationId", applicationId);
     formData.set("operatingStatus", operatingStatus);
-
-    // Set ratings
     for (const item of RATING_ITEMS) {
-      formData.set(item.name, ratings[item.name] ?? "");
+      const value = ratings[item.key];
+      formData.set(toCamel(item.key), value === null ? "" : String(value));
     }
 
     const result = await submitClientReportAction(formData);
@@ -77,7 +80,7 @@ export function ClientReportForm({ applicationId }: ClientReportFormProps) {
             稼働状況 <span className="text-destructive text-body-sm">必須</span>
           </Label>
           <Select value={operatingStatus} onValueChange={setOperatingStatus}>
-            <SelectTrigger className="w-full rounded-[8px]">
+            <SelectTrigger className="w-full rounded-[8px] bg-background">
               <SelectValue placeholder="お選びください" />
             </SelectTrigger>
             <SelectContent>
@@ -97,44 +100,32 @@ export function ClientReportForm({ applicationId }: ClientReportFormProps) {
           <Textarea
             id="statusSupplement"
             name="statusSupplement"
-            className="rounded-[8px]"
+            className="rounded-[8px] bg-background"
           />
         </div>
       </section>
 
-      {/* Rating section */}
+      {/* Rating section: 7項目★×5（総合のみ必須） */}
       <section>
         <h2 className="text-body-lg font-bold text-foreground">評価入力</h2>
 
-        <div className="mt-3 space-y-3">
+        <div className="mt-3 space-y-4">
           {RATING_ITEMS.map((item) => (
             <div
-              key={item.name}
-              className="flex items-center justify-between border-b border-border pb-3"
+              key={item.key}
+              className="flex flex-col gap-1 border-b border-border pb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
             >
-              <span className="text-body-md text-foreground">{item.label}</span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRating(item.name, "good")}
-                  className={`rounded-full p-2 transition-colors ${
-                    ratings[item.name] === "good" ? "text-primary" : "text-gray-400"
-                  }`}
-                  aria-label={`${item.label} Good`}
-                >
-                  <ThumbsUp className="size-6" fill={ratings[item.name] === "good" ? "currentColor" : "none"} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRating(item.name, "bad")}
-                  className={`rounded-full p-2 transition-colors ${
-                    ratings[item.name] === "bad" ? "text-primary" : "text-gray-400"
-                  }`}
-                  aria-label={`${item.label} Bad`}
-                >
-                  <ThumbsDown className="size-6" fill={ratings[item.name] === "bad" ? "currentColor" : "none"} />
-                </button>
-              </div>
+              <span className="text-body-md text-foreground">
+                {item.label}
+                {item.required && (
+                  <span className="ml-1 text-destructive text-body-sm">必須</span>
+                )}
+              </span>
+              <StarRatingInput
+                value={ratings[item.key]}
+                onChange={(v) => setRating(item.key, v)}
+                ariaLabel={item.label}
+              />
             </div>
           ))}
         </div>
@@ -149,7 +140,7 @@ export function ClientReportForm({ applicationId }: ClientReportFormProps) {
           id="comment"
           name="comment"
           placeholder="持っている道具の名前、具体的な評価の内容などをご記入ください"
-          className="rounded-[8px]"
+          className="rounded-[8px] bg-background"
         />
       </div>
 
@@ -158,7 +149,7 @@ export function ClientReportForm({ applicationId }: ClientReportFormProps) {
       <Button
         type="submit"
         className="w-full rounded-pill"
-        disabled={isLoading || !operatingStatus || !allRatingsFilled}
+        disabled={isLoading || !canSubmit}
       >
         {isLoading ? "送信中..." : "評価を登録する"}
       </Button>

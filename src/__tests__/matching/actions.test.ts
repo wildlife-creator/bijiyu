@@ -422,17 +422,19 @@ describe("rejectApplicationAction", () => {
 // ---------------------------------------------------------------------------
 // submitClientReportAction
 // ---------------------------------------------------------------------------
-describe("submitClientReportAction", () => {
+describe("submitClientReportAction（7項目★×5）", () => {
+  // 総合評価のみ必須。任意6項目は数値文字列で渡す（一部省略可）。
   function buildFormData(overrides: Record<string, string> = {}): FormData {
     const defaults: Record<string, string> = {
       applicationId: APP_ID,
       operatingStatus: "問題なく稼働完了",
-      ratingAgain: "good",
-      ratingFollowsInstructions: "good",
-      ratingPunctual: "good",
-      ratingSpeed: "good",
-      ratingQuality: "good",
-      ratingHasTools: "good",
+      ratingOverall: "5",
+      ratingPunctual: "5",
+      ratingFollowsInstructions: "4",
+      ratingSpeed: "3",
+      ratingQuality: "4",
+      ratingHasTools: "5",
+      ratingHasSpecialEquipment: "",
     };
     const fd = new FormData();
     const merged = { ...defaults, ...overrides };
@@ -442,19 +444,33 @@ describe("submitClientReportAction", () => {
     return fd;
   }
 
+  function acceptedApplicationMock() {
+    return createQueryMock({
+      single: {
+        data: {
+          id: APP_ID,
+          applicant_id: "applicant-1",
+          status: "accepted",
+          jobs: { id: "j1", title: "Job", owner_id: USER_ID, organization_id: null },
+          applicant: null,
+        },
+        error: null,
+      },
+    });
+  }
+
   it("未認証ユーザーはエラーを返す", async () => {
     mockAuth(null);
     const result = await submitClientReportAction(buildFormData());
     expect(result.success).toBe(false);
   });
 
-  it("Zodバリデーションエラーを返す（評価項目が不足）", async () => {
+  it("Zodバリデーションエラーを返す（総合評価が未入力）", async () => {
     mockAuth(USER_ID);
     const fd = new FormData();
     fd.set("applicationId", APP_ID);
     fd.set("operatingStatus", "問題なく稼働完了");
-    fd.set("ratingAgain", "good");
-    // Missing other 5 rating fields
+    // ratingOverall を渡さない → 必須エラー
     const result = await submitClientReportAction(fd);
     expect(result.success).toBe(false);
   });
@@ -479,5 +495,62 @@ describe("submitClientReportAction", () => {
     const result = await submitClientReportAction(buildFormData());
     expect(result.success).toBe(false);
     expect(result).toHaveProperty("error", "発注済みの応募のみ完了報告できます");
+  });
+
+  it("正常系: INSERT 成功 + client_reviews 既存なら status を更新する", async () => {
+    mockAuth(USER_ID);
+    mockFrom.mockReturnValue(acceptedApplicationMock());
+
+    const insertMock = createQueryMock({ error: null });
+    const clientReviewMock = createQueryMock({
+      data: { operating_status: "問題なく稼働完了" },
+      error: null,
+    });
+    const updateMock = createQueryMock({ error: null });
+    mockAdminFrom
+      .mockReturnValueOnce(insertMock) // user_reviews insert
+      .mockReturnValueOnce(clientReviewMock) // client_reviews select
+      .mockReturnValueOnce(updateMock); // applications update
+
+    const result = await submitClientReportAction(buildFormData());
+    expect(result.success).toBe(true);
+    // 新7カラムで insert されていること
+    expect(insertMock.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rating_overall: 5,
+        rating_has_special_equipment: null,
+        application_id: APP_ID,
+      }),
+    );
+    // client_reviews 既存 → status 更新が呼ばれる
+    expect(updateMock.update).toHaveBeenCalledWith({ status: "completed" });
+  });
+
+  it("正常系: client_reviews 未登録なら status を更新しない", async () => {
+    mockAuth(USER_ID);
+    mockFrom.mockReturnValue(acceptedApplicationMock());
+
+    const insertMock = createQueryMock({ error: null });
+    const clientReviewMock = createQueryMock({ data: null, error: null });
+    mockAdminFrom
+      .mockReturnValueOnce(insertMock)
+      .mockReturnValueOnce(clientReviewMock);
+
+    const result = await submitClientReportAction(buildFormData());
+    expect(result.success).toBe(true);
+    // 3回目（applications update）は呼ばれない
+    expect(mockAdminFrom).toHaveBeenCalledTimes(2);
+  });
+
+  it("二重提出（UNIQUE 違反 23505）は専用エラーを返す", async () => {
+    mockAuth(USER_ID);
+    mockFrom.mockReturnValue(acceptedApplicationMock());
+
+    const insertMock = createQueryMock({ error: { code: "23505" } });
+    mockAdminFrom.mockReturnValueOnce(insertMock);
+
+    const result = await submitClientReportAction(buildFormData());
+    expect(result.success).toBe(false);
+    expect(result).toHaveProperty("error", "既に評価を登録済みです");
   });
 });

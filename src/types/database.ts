@@ -1305,12 +1305,13 @@ export type Database = {
           created_at: string
           id: string
           operating_status: string | null
-          rating_again: string | null
-          rating_follows_instructions: string | null
-          rating_has_tools: string | null
-          rating_punctual: string | null
-          rating_quality: string | null
-          rating_speed: string | null
+          rating_follows_instructions: number | null
+          rating_has_special_equipment: number | null
+          rating_has_tools: number | null
+          rating_overall: number
+          rating_punctual: number | null
+          rating_quality: number | null
+          rating_speed: number | null
           reviewee_id: string
           reviewer_id: string
           status_supplement: string | null
@@ -1321,12 +1322,13 @@ export type Database = {
           created_at?: string
           id?: string
           operating_status?: string | null
-          rating_again?: string | null
-          rating_follows_instructions?: string | null
-          rating_has_tools?: string | null
-          rating_punctual?: string | null
-          rating_quality?: string | null
-          rating_speed?: string | null
+          rating_follows_instructions?: number | null
+          rating_has_special_equipment?: number | null
+          rating_has_tools?: number | null
+          rating_overall: number
+          rating_punctual?: number | null
+          rating_quality?: number | null
+          rating_speed?: number | null
           reviewee_id: string
           reviewer_id: string
           status_supplement?: string | null
@@ -1337,12 +1339,13 @@ export type Database = {
           created_at?: string
           id?: string
           operating_status?: string | null
-          rating_again?: string | null
-          rating_follows_instructions?: string | null
-          rating_has_tools?: string | null
-          rating_punctual?: string | null
-          rating_quality?: string | null
-          rating_speed?: string | null
+          rating_follows_instructions?: number | null
+          rating_has_special_equipment?: number | null
+          rating_has_tools?: number | null
+          rating_overall?: number
+          rating_punctual?: number | null
+          rating_quality?: number | null
+          rating_speed?: number | null
           reviewee_id?: string
           reviewer_id?: string
           status_supplement?: string | null

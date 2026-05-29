@@ -189,27 +189,38 @@ test.describe("受注者: 作業報告・評価入力（CON-013）", () => {
 // ---------------------------------------------------------------------------
 // 発注者: 作業完了報告・評価登録（CLI-012）
 // ---------------------------------------------------------------------------
-test.describe("発注者: 作業完了報告・評価登録（CLI-012）", () => {
-  test("評価を登録できる", async ({ page }) => {
+test.describe("発注者: 作業完了報告・評価登録（CLI-012, 7項目★×5）", () => {
+  test("総合評価のみ必須・任意項目も入力して登録できる", async ({ page }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto(`/applications/orders/${APPLICATION_FOR_CLIENT_REPORT}/report`);
     await expect(page.locator("h1", { hasText: "評価入力" })).toBeVisible();
+
+    // 7項目すべて表示される（7番目の新規項目で確認）
+    await expect(
+      page.getByText("特別な道具/重機等を持っている"),
+    ).toBeVisible();
+
+    // 総合評価未入力・稼働状況未選択 → 送信ボタンは非活性
+    const submit = page.getByRole("button", { name: "評価を登録する" });
+    await expect(submit).toBeDisabled();
 
     // 稼働状況を選択
     await page.getByRole("combobox").click();
     await page.getByRole("option", { name: "問題なく稼働完了", exact: true }).click();
 
-    // 6項目の評価をすべて Good にする（aria-label が "質問文 Good" の形式）
-    const goodButtons = page.getByRole("button", { name: /Good/ });
-    const count = await goodButtons.count();
-    for (let i = 0; i < count; i++) {
-      await goodButtons.nth(i).click();
+    // 総合評価（必須）+ 任意項目2つに★を付与
+    for (const label of ["総合評価", "作業の速さ", "作業の丁寧さ"]) {
+      await page
+        .getByRole("radiogroup", { name: label })
+        .getByRole("radio", { name: "5", exact: true })
+        .click();
     }
 
-    // 送信
-    await page.getByRole("button", { name: "評価を登録する" }).click();
+    // 必須2項目が揃ったので送信ボタンが活性化
+    await expect(submit).toBeEnabled();
 
-    // 発注履歴一覧にリダイレクト
+    // 送信 → 発注履歴一覧にリダイレクト
+    await submit.click();
     await page.waitForURL(/\/applications\/orders$/, { timeout: 10000 });
   });
 });
@@ -312,11 +323,66 @@ test.describe("発注者: 案件応募者一覧（CLI-007B）", () => {
 // ---------------------------------------------------------------------------
 // 発注者評価表示
 // ---------------------------------------------------------------------------
-test.describe("発注者評価表示（CLI-028）", () => {
-  test("発注者評価ページが表示される", async ({ page }) => {
+// ---------------------------------------------------------------------------
+// rating-redesign: 評価表示（CLI-005 高評価バッジ / CLI-006 総合評価サマリー / CLI-028 7項目集計）
+// ---------------------------------------------------------------------------
+const CONTRACTOR_WITH_BADGE = "cc111111-1111-1111-1111-111111111111"; // 高橋美咲: 3件・★平均4.67 → バッジ表示
+const CONTRACTOR_NO_REVIEWS = "cc333333-3333-3333-3333-333333333333"; // 小林さくら: 0件
+const CONTRACTOR_UNRATED_ITEM = "11111111-1111-1111-1111-111111111111"; // 田中一郎: 1件・特別な道具のみ未評価
+
+test.describe("CLI-005 高評価バッジ（動的）", () => {
+  test("3件以上+★4.0以上の受注者にバッジが表示され、旧ハードコード文言は撤去されている", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto("/users/contractors");
+    await expect(page.getByRole("heading", { name: "職人一覧" })).toBeVisible({
+      timeout: 10000,
+    });
+
+    // 旧ハードコード文言は撤去済み（Req 5.5）
+    await expect(page.getByText("発注者の再発注希望80%！")).toHaveCount(0);
+
+    // 高橋美咲（3件・★4.67）の動的バッジ補足テキストが表示される
+    await expect(page.getByText("★平均 4.7（3件）")).toBeVisible();
+    await expect(page.getByText("高評価").first()).toBeVisible();
+  });
+});
+
+test.describe("CLI-006 総合評価サマリー", () => {
+  test("評価ありの受注者はサマリーと『詳しく見る』リンクを表示する", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/users/contractors/${CONTRACTOR_WITH_BADGE}`);
+    await expect(page.getByText("発注者評価")).toBeVisible();
+    await expect(page.getByText("（3件）")).toBeVisible();
+    await expect(page.getByRole("link", { name: /詳しく見る/ })).toBeVisible();
+  });
+
+  test("評価なしの受注者は『まだ評価がありません』を表示する", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/users/contractors/${CONTRACTOR_NO_REVIEWS}`);
+    await expect(page.getByText("まだ評価がありません")).toBeVisible();
+    await expect(page.getByRole("link", { name: /詳しく見る/ })).toHaveCount(0);
+  });
+});
+
+test.describe("発注者評価表示（CLI-028, 7項目集計）", () => {
+  test("7項目を表示し、評価あり件0の任意項目は『未評価』になる", async ({
+    page,
+  }) => {
     await login(page);
-    // View reviews for the contractor user (user_reviews = 発注者→受注者の評価)
-    await page.goto("/users/11111111-1111-1111-1111-111111111111/reviews");
+    await page.goto(`/users/${CONTRACTOR_UNRATED_ITEM}/reviews`);
     await expect(page.getByRole("heading", { name: "発注者評価" })).toBeVisible();
+
+    // 7項目（総合評価 + 新規項目）が表示される
+    await expect(page.getByText("総合評価")).toBeVisible();
+    await expect(page.getByText("特別な道具/重機等を持っている")).toBeVisible();
+
+    // 田中一郎は特別な道具が未入力(NULL)のみ → 該当項目は「未評価」
+    await expect(page.getByText("未評価").first()).toBeVisible();
   });
 });
