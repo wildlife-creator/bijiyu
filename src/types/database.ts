@@ -577,6 +577,64 @@ export type Database = {
           },
         ]
       }
+      job_inquiries: {
+        Row: {
+          content: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          sender_id: string | null
+          target_client_id: string | null
+          target_organization_id: string | null
+          topics: string[]
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          sender_id?: string | null
+          target_client_id?: string | null
+          target_organization_id?: string | null
+          topics: string[]
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          sender_id?: string | null
+          target_client_id?: string | null
+          target_organization_id?: string | null
+          topics?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_inquiries_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_inquiries_target_client_id_fkey"
+            columns: ["target_client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_inquiries_target_organization_id_fkey"
+            columns: ["target_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           address: string | null

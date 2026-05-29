@@ -1315,3 +1315,33 @@ VALUES ('b1110000-0000-1000-8000-000000000099', 'b1110000-0000-1000-8000-0000000
 
 UPDATE public.users SET role = 'contractor', last_name = '退会', first_name = 'テスト', email = 'withdraw-test@test.local', prefecture = '東京都'
 WHERE id = 'b1110000-0000-1000-8000-000000000099';
+
+-- ============================================================
+-- job-inquiry（求人へのお問い合わせ）E2E 用シードデータ
+-- ============================================================
+-- 受信箱閲覧テスト用: contractor3 → client(法人 owner=鈴木工務店, org 55555555)。
+-- 法人プランのため、宛先本人(client@test.local)と同一組織メンバー(staff@test.local)の
+-- 両方が受信箱で閲覧できる。
+INSERT INTO job_inquiries (id, sender_id, target_client_id, target_organization_id, name, email, topics, content)
+VALUES (
+  'f1110000-0000-4000-8000-0000000000e1',
+  'cc222222-2222-2222-2222-222222222222',
+  '22222222-2222-2222-2222-222222222222',
+  '55555555-5555-5555-5555-555555555555',
+  '佐藤太郎',
+  'sato@example.com',
+  ARRAY['求人について話を聞きたい','その他']::text[],
+  'ぜひ一度お話を聞かせてください'
+);
+
+-- 連投制限テスト用: contractor2 が直近1時間で 5 件送信済み（6 件目は UI で拒否される）。
+INSERT INTO job_inquiries (sender_id, target_client_id, target_organization_id, name, email, topics, content)
+SELECT
+  'cc111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222',
+  '55555555-5555-5555-5555-555555555555',
+  '連投テスト',
+  'rate-limit@example.com',
+  ARRAY['その他']::text[],
+  ''
+FROM generate_series(1, 5);

@@ -62,3 +62,18 @@ export function formatBubbleTime(dateStr: string | null | undefined): string {
   const p = getJstParts(new Date(dateStr));
   return `${p.month}/${p.day} ${p.hour}:${p.minute}`;
 }
+
+/**
+ * Format a full timestamp for display: YYYY/MM/DD HH:mm (JST).
+ * timestamptz カラム（created_at 等）を「受信日時」として表示する用途。
+ * 日付のみの formatDate と違い、時刻まで JST で整形する。
+ */
+export function formatDateTime(
+  dateStr: string | null | undefined,
+  fallback = "—",
+): string {
+  if (!dateStr) return fallback;
+
+  const p = getJstParts(new Date(dateStr));
+  return `${p.year}/${p.month}/${p.day} ${p.hour}:${p.minute}`;
+}

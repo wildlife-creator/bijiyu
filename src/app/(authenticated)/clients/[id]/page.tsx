@@ -14,6 +14,12 @@ import { hasActiveOption } from "@/lib/billing/options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
+import { canSendJobInquiry } from "@/lib/job-inquiry/access-guard";
+import {
+  resolveTargetOrganizationId,
+  resolveViewerOrganizationId,
+} from "@/lib/job-inquiry/resolve-context";
+import { InquirySuccessToast } from "./inquiry-success-toast";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -155,8 +161,35 @@ export default async function ClientDetailPage({ params }: PageProps) {
     .eq("target_id", id)
     .maybeSingle();
 
+  // 「求人へのお問い合わせ」ボタンの表示判定。
+  // Server Action(submitJobInquiryAction) のガードと同一の純粋関数 canSendJobInquiry を
+  // 呼ぶことで UI と許可範囲を一致させる（self / deleted / same_org / admin で非表示）。
+  const adminClient = createAdminClient();
+  const { data: viewerRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const [viewerOrgId, targetOrgId] = await Promise.all([
+    resolveViewerOrganizationId(adminClient, user.id),
+    resolveTargetOrganizationId(adminClient, id),
+  ]);
+  const canInquire = canSendJobInquiry({
+    viewer: {
+      id: user.id,
+      role: viewerRow?.role ?? null,
+      organizationId: viewerOrgId,
+    },
+    target: {
+      id: client.id,
+      deletedAt: client.deleted_at,
+      organizationId: targetOrgId,
+    },
+  }).ok;
+
   return (
     <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
+      <InquirySuccessToast />
       <h1 className="text-center text-heading-lg font-bold text-secondary">発注者詳細</h1>
 
       {/* Profile header */}
@@ -187,7 +220,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
       {/* Action buttons */}
       {!isDeleted && (
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <FavoriteButton
             targetType="client"
             targetId={id}
@@ -195,6 +228,15 @@ export default async function ClientDetailPage({ params }: PageProps) {
             showLabel
           />
           <div className="flex-1" />
+          {canInquire && (
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-[47px] border-primary bg-background text-primary hover:bg-primary/5 hover:text-primary"
+            >
+              <Link href={`/clients/${id}/inquiry`}>求人へのお問い合わせ</Link>
+            </Button>
+          )}
           <Button
             asChild
             className="rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
