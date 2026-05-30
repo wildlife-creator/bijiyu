@@ -413,20 +413,26 @@ export const RATING_ITEMS = [
   { key: "rating_follows_instructions",   label: "指示通りに動ける",          required: false },
   { key: "rating_speed",                  label: "作業の速さ",                required: false },
   { key: "rating_quality",                label: "作業の丁寧さ",              required: false },
-  { key: "rating_has_tools",              label: "作業に関する道具を持っている", required: false },
-  { key: "rating_has_special_equipment",  label: "特別な道具/重機等を持っている", required: false },
+  { key: "rating_has_tools",              label: "作業に関する道具を持っている", required: false, allowNotApplicable: true },
+  { key: "rating_has_special_equipment",  label: "特別な道具/重機等を持っている", required: false, allowNotApplicable: true },
 ] as const satisfies ReadonlyArray<{
   key: string;
   label: string;
   required: boolean;
+  allowNotApplicable?: boolean;
 }>;
 
 export type RatingItemKey = (typeof RATING_ITEMS)[number]["key"];
+
+// 「該当なし」項目に表示する補足テキスト
+export const NOT_APPLICABLE_HINT =
+  "お持ちでない・現場で支給/貸与された・その作業では使わなかった等、評価が難しい場合は「該当なし」を選んでください";
 ```
 
 **Implementation Notes**
 - Integration: CLI-005 バッジ判定 / CLI-012 フォーム / CLI-028 集計表示 / Vitest テストで共有
 - Validation: 閾値変更時はこのファイル1箇所のみ修正、DB マイグレーション不要
+- **`allowNotApplicable`（道具2項目）**: 評価不能時に「該当なし」を選べる項目フラグ。保存は未評価と同じ NULL（マイグレーション不要）、`summarize` が NULL を除外して集計から外す。該当なし件数は記録・表示しない（案A）
 
 ### UI Layer
 
@@ -434,8 +440,8 @@ export type RatingItemKey = (typeof RATING_ITEMS)[number]["key"];
 
 | Field | Detail |
 |-------|--------|
-| Intent | クリックで 1〜5 を選択、再クリックや「クリア」ボタンで未評価に戻せる ★×5 入力 |
-| Requirements | 1.1, 1.4 |
+| Intent | クリックで 1〜5 を選択、再クリックや「クリア」ボタンで未評価に戻せる ★×5 入力。道具項目は「該当なし」トグルを併設 |
+| Requirements | 1.1, 1.4, 1.9, 1.10, 1.11 |
 
 **Contracts**: State ✓
 
@@ -447,8 +453,18 @@ export interface StarRatingInputProps {
   onChange: (value: number | null) => void;
   ariaLabel: string;
   size?: "sm" | "md" | "lg";              // 既定 md
+  // 「該当なし」トグル（道具項目のみ。保存は NULL = 未評価と同じ、集計から除外）
+  allowNotApplicable?: boolean;          // 既定 false
+  notApplicable?: boolean;               // 選択中か（controlled）
+  onNotApplicableChange?: (notApplicable: boolean) => void;
 }
 ```
+
+**「該当なし」の挙動**
+- `allowNotApplicable` のとき★の右にピル型トグル「該当なし」を表示（`aria-pressed`）
+- 選択中は★を減光（`opacity-40`）し点灯させない。★を選ぶと自動解除（`onNotApplicableChange(false)`）
+- 「該当なし」選択時は `onChange(null)` で★クリア。送信時は未評価と同じ NULL
+- 道具項目では「未評価に戻す」リンクは出さない（クリアは★再クリック or 該当なし解除で完結）
 
 **Responsibilities & Constraints**
 

@@ -9,6 +9,12 @@ export interface StarRatingInputProps {
   onChange: (value: number | null) => void;
   ariaLabel: string;
   size?: "sm" | "md" | "lg";
+  /** 「該当なし」トグルを表示するか（道具項目など、評価不能を明示できる項目） */
+  allowNotApplicable?: boolean;
+  /** 「該当なし」が選択中か（保存上は未評価と同じ NULL。集計から除外される） */
+  notApplicable?: boolean;
+  /** 「該当なし」トグルの切替ハンドラ */
+  onNotApplicableChange?: (notApplicable: boolean) => void;
 }
 
 // 星アイコンの見た目サイズ（タップ領域は最低 44px を別途確保）
@@ -27,25 +33,42 @@ export function StarRatingInput({
   onChange,
   ariaLabel,
   size = "md",
+  allowNotApplicable = false,
+  notApplicable = false,
+  onNotApplicableChange,
 }: StarRatingInputProps) {
   const [hover, setHover] = useState<number | null>(null);
   const starPx = STAR_PX[size];
   const tapPx = Math.max(starPx, size === "lg" ? 48 : 44);
-  const active = hover ?? value ?? 0;
+  // 「該当なし」選択中は★を点灯させない
+  const active = notApplicable ? 0 : (hover ?? value ?? 0);
+
+  // ★を選んだら「該当なし」は自動解除する
+  function setStar(star: number | null) {
+    if (star !== null) onNotApplicableChange?.(false);
+    onChange(star);
+  }
 
   function handleClick(star: number) {
     // 同じ星を再クリック → 未評価に戻す
-    onChange(value === star ? null : star);
+    setStar(value === star ? null : star);
+  }
+
+  function toggleNotApplicable() {
+    const next = !notApplicable;
+    onNotApplicableChange?.(next);
+    // 「該当なし」を選んだら★はクリア（保存上は NULL = 未評価と同じ）
+    if (next) onChange(null);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowRight" || e.key === "ArrowUp") {
       e.preventDefault();
-      onChange(Math.min(5, (value ?? 0) + 1));
+      setStar(Math.min(5, (value ?? 0) + 1));
     } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
       e.preventDefault();
       const next = (value ?? 0) - 1;
-      onChange(next < 1 ? null : next);
+      setStar(next < 1 ? null : next);
     } else if (e.key === "Backspace" || e.key === "Delete") {
       e.preventDefault();
       onChange(null);
@@ -53,11 +76,14 @@ export function StarRatingInput({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <div
         role="radiogroup"
         aria-label={ariaLabel}
-        className="flex items-center gap-1"
+        className={cn(
+          "flex items-center gap-1 transition-opacity",
+          notApplicable && "opacity-40",
+        )}
         onKeyDown={handleKeyDown}
         tabIndex={0}
       >
@@ -86,7 +112,22 @@ export function StarRatingInput({
           );
         })}
       </div>
-      {value !== null && (
+      {allowNotApplicable && (
+        <button
+          type="button"
+          aria-pressed={notApplicable}
+          onClick={toggleNotApplicable}
+          className={cn(
+            "rounded-pill border px-3 py-1 text-body-sm transition-colors",
+            notApplicable
+              ? "border-primary bg-primary/10 font-medium text-primary"
+              : "border-border text-muted-foreground",
+          )}
+        >
+          該当なし
+        </button>
+      )}
+      {!allowNotApplicable && value !== null && (
         <button
           type="button"
           onClick={() => onChange(null)}

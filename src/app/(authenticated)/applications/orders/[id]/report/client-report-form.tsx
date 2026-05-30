@@ -15,7 +15,11 @@ import {
 import { StarRatingInput } from "@/components/shared/star-rating-input";
 import { submitClientReportAction } from "@/app/(authenticated)/applications/actions";
 import { CONTRACTOR_OPERATING_STATUS_OPTIONS } from "@/lib/validations/matching";
-import { RATING_ITEMS, type RatingItemKey } from "@/lib/constants/rating";
+import {
+  NOT_APPLICABLE_HINT,
+  RATING_ITEMS,
+  type RatingItemKey,
+} from "@/lib/constants/rating";
 
 interface ClientReportFormProps {
   applicationId: string;
@@ -37,9 +41,22 @@ export function ClientReportForm({ applicationId }: ClientReportFormProps) {
       number | null
     >,
   );
+  // 「該当なし」選択状態（道具項目のみ意味を持つ。保存上は未評価と同じ NULL）
+  const [notApplicable, setNotApplicable] = useState<
+    Record<RatingItemKey, boolean>
+  >(
+    Object.fromEntries(RATING_ITEMS.map((item) => [item.key, false])) as Record<
+      RatingItemKey,
+      boolean
+    >,
+  );
 
   function setRating(key: RatingItemKey, value: number | null) {
     setRatings((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setNa(key: RatingItemKey, value: boolean) {
+    setNotApplicable((prev) => ({ ...prev, [key]: value }));
   }
 
   // 送信可否: 総合評価 + 稼働状況が必須
@@ -110,24 +127,37 @@ export function ClientReportForm({ applicationId }: ClientReportFormProps) {
         <h2 className="text-body-lg font-bold text-foreground">評価入力</h2>
 
         <div className="mt-3 space-y-4">
-          {RATING_ITEMS.map((item) => (
-            <div
-              key={item.key}
-              className="flex flex-col gap-1 border-b border-border pb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-            >
-              <span className="text-body-md text-foreground">
-                {item.label}
-                {item.required && (
-                  <span className="ml-1 text-destructive text-body-sm">必須</span>
+          {RATING_ITEMS.map((item) => {
+            const allowNa =
+              "allowNotApplicable" in item && item.allowNotApplicable === true;
+            return (
+              <div key={item.key} className="border-b border-border pb-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <span className="text-body-md text-foreground">
+                    {item.label}
+                    {item.required && (
+                      <span className="ml-1 text-destructive text-body-sm">
+                        必須
+                      </span>
+                    )}
+                  </span>
+                  <StarRatingInput
+                    value={ratings[item.key]}
+                    onChange={(v) => setRating(item.key, v)}
+                    ariaLabel={item.label}
+                    allowNotApplicable={allowNa}
+                    notApplicable={notApplicable[item.key]}
+                    onNotApplicableChange={(v) => setNa(item.key, v)}
+                  />
+                </div>
+                {allowNa && (
+                  <p className="mt-1.5 text-body-sm text-muted-foreground">
+                    {NOT_APPLICABLE_HINT}
+                  </p>
                 )}
-              </span>
-              <StarRatingInput
-                value={ratings[item.key]}
-                onChange={(v) => setRating(item.key, v)}
-                ariaLabel={item.label}
-              />
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </section>
 
