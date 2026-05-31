@@ -271,6 +271,41 @@ describe("submitContractorReportAction", () => {
     expect(result.success).toBe(false);
     expect(result).toHaveProperty("error", "発注済みの応募のみ完了報告できます");
   });
+
+  it("正常系: 受注者が後に報告 → 発注者の operating_status を変換して status を更新する（回帰: 旧実装は日本語ラベルを enum に生書きして失敗していた）", async () => {
+    mockAuth(USER_ID);
+    mockFrom.mockReturnValue(
+      createQueryMock({
+        single: {
+          data: {
+            id: APP_ID,
+            applicant_id: USER_ID,
+            status: "accepted",
+            jobs: { id: "j1", title: "Job", owner_id: JOB_OWNER_ID, organization_id: null },
+            applicant: null,
+          },
+          error: null,
+        },
+      }),
+    );
+
+    const insertMock = createQueryMock({ error: null });
+    // 発注者(user_reviews)側は既に「欠席（連絡なし）」で報告済み
+    const userReviewMock = createQueryMock({
+      data: { operating_status: "欠席（連絡なし）" },
+      error: null,
+    });
+    const updateMock = createQueryMock({ error: null });
+    mockAdminFrom
+      .mockReturnValueOnce(insertMock) // client_reviews insert
+      .mockReturnValueOnce(userReviewMock) // user_reviews select
+      .mockReturnValueOnce(updateMock); // applications update
+
+    const result = await submitContractorReportAction(buildFormData());
+    expect(result.success).toBe(true);
+    // 日本語ラベルを "lost" に変換して更新する（"欠席（連絡なし）" を生で書かない）
+    expect(updateMock.update).toHaveBeenCalledWith({ status: "lost" });
+  });
 });
 
 // ---------------------------------------------------------------------------

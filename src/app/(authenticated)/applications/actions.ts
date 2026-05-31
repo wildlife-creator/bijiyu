@@ -200,13 +200,22 @@ export async function submitContractorReportAction(
       .eq("application_id", input.applicationId)
       .maybeSingle();
 
-    if (existingUserReview) {
-      // Both reviews are now in — use the client's operating_status for final status
-      const finalStatus = existingUserReview.operating_status as "completed" | "lost";
-      await admin
+    if (existingUserReview?.operating_status) {
+      // Both reviews are now in — map the client's operating_status to final status.
+      // operating_status stores the Japanese 6-choice label, so it MUST go through
+      // mapOperatingStatusToApplicationStatus. A raw cast writes the Japanese string
+      // into the application_status enum → invalid enum value → UPDATE fails silently
+      // and the application stays "accepted" forever (mirrors the client-side path).
+      const finalStatus = mapOperatingStatusToApplicationStatus(
+        existingUserReview.operating_status,
+      );
+      const { error: updateError } = await admin
         .from("applications")
         .update({ status: finalStatus })
         .eq("id", input.applicationId);
+      if (updateError) {
+        return { success: false, error: "ステータスの更新に失敗しました" };
+      }
     }
 
     return { success: true };
