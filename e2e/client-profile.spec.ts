@@ -79,7 +79,10 @@ test.describe("CLI-021 発注者情報編集（編集モード）", () => {
 
     const original = "鈴木工務店株式会社"; // seed の値
     const newName = `E2E_更新_${Date.now()}`;
-    await page.getByLabel("会社名・氏名").fill(newName);
+    const displayNameInput = page.getByLabel("会社名・氏名");
+    // react-hook-form の defaultValue 同期を待ってから入力（待たないと値が連結する）
+    await expect(displayNameInput).toHaveValue(original);
+    await displayNameInput.fill(newName);
     await page.getByRole("button", { name: "保存する" }).click();
 
     // ハードナビゲーション（window.location.href）後に CLI-020 に到達
@@ -93,7 +96,10 @@ test.describe("CLI-021 発注者情報編集（編集モード）", () => {
     await expect(
       page.getByRole("heading", { name: "発注者情報編集" }),
     ).toBeVisible();
-    await page.getByLabel("会社名・氏名").fill(original);
+    const restoreInput = page.getByLabel("会社名・氏名");
+    // 復元時も同期待ち（編集画面の初期値は今 newName）
+    await expect(restoreInput).toHaveValue(newName);
+    await restoreInput.fill(original);
     await page.getByRole("button", { name: "保存する" }).click();
     await expect(
       page.getByRole("heading", { name: "発注者情報詳細" }),
