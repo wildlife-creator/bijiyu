@@ -868,6 +868,22 @@ messages テーブルの RLS ポリシーでは、「自分がアクセス可能
 - INSERT イベントのみ購読（UPDATE/DELETE は購読しない）
 - 自分が送信したメッセージは `onSendComplete` コールバックで即時反映し、Realtime では他ユーザーからのメッセージのみ処理する
 
+#### job_inquiries（求人へのお問い合わせ / job-inquiry）
+発注者詳細(CON-006)から特定発注者宛に送る「橋渡し」の問い合わせ。状態管理フラグも返信機能も持たない最小構成（save-and-read）。
+
+カラム: `id`, `sender_id`（送信者・退会時 NULL 化）, `target_client_id`（宛先発注者・退会時 NULL 化）, `target_organization_id`（宛先組織を denormalize・個人プランは NULL）, `name`, `email`, `topics text[]`（`array_length >= 1` の CHECK）, `content text NOT NULL DEFAULT ''`, `created_at`。
+インデックス3本: `(sender_id, created_at DESC)`（連投 COUNT）/ `(target_client_id, created_at DESC)`（受信箱一覧）/ `(target_organization_id, created_at DESC) WHERE target_organization_id IS NOT NULL`（組織共有受信箱）。
+
+| 操作 | 対象 | 条件 |
+|------|------|------|
+| SELECT | admin | `is_admin(auth.uid())`（将来の運営統合管理画面用データの器） |
+| SELECT | 宛先 client 本人 | `target_client_id = auth.uid()` |
+| SELECT | 宛先組織メンバー | `target_organization_id IS NOT NULL AND is_same_org(auth.uid(), target_organization_id)`（法人プランの owner/admin/staff 共有受信箱） |
+| INSERT | 本人 | `sender_id = auth.uid()` |
+| UPDATE / DELETE | — | **ポリシー無し = default deny**。状態管理機能を持たず編集・削除の用途が無いため、一般ユーザーからの UPDATE/DELETE は一切許可しない（必要時は admin client / バックエンドのみ）。連投制限 COUNT は sender 本人が自分の送信行を SELECT できない設計のため admin client で集計する |
+
+**send 側の SELECT 不可は意図的**: 送信者は自分が送った問い合わせを閲覧できない（運営の透明性確保＋「橋渡し後は当事者間で直接やり取り」コンセプト）。送信控えが必要になった場合は `sender_id` を保存済みのため SELECT ポリシー＋画面の後付けで対応できる。
+
 #### identity_verifications（本人確認書類）
 | 操作 | 対象 | 条件 |
 |------|------|------|
