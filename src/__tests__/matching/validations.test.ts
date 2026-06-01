@@ -111,55 +111,79 @@ describe("mapOperatingStatusToApplicationStatus", () => {
   });
 });
 
-describe("clientReportSchema", () => {
+describe("clientReportSchema（7項目★×5）", () => {
   const validData = {
     applicationId: VALID_UUID,
     operatingStatus: "問題なく稼働完了",
-    ratingAgain: "good",
-    ratingFollowsInstructions: "good",
-    ratingPunctual: "good",
-    ratingSpeed: "good",
-    ratingQuality: "good",
-    ratingHasTools: "good",
+    ratingOverall: 5,
+    ratingPunctual: 4,
+    ratingFollowsInstructions: 5,
+    ratingSpeed: 3,
+    ratingQuality: 4,
+    ratingHasTools: 5,
+    ratingHasSpecialEquipment: 2,
   };
 
-  it("正常なデータはバリデーションを通過する", () => {
+  it("総合評価のみ必須、任意6項目を埋めても通過する", () => {
     const result = clientReportSchema.safeParse(validData);
     expect(result.success).toBe(true);
   });
 
-  it("6項目すべてが必須", () => {
-    const { ratingPunctual: _, ...missing } = validData;
+  it("総合評価(ratingOverall)が未入力ならエラー", () => {
+    const { ratingOverall: _omit, ...missing } = validData;
     const result = clientReportSchema.safeParse(missing);
     expect(result.success).toBe(false);
   });
 
-  it("評価項目に good/bad 以外を指定するとエラー", () => {
+  it("任意6項目は省略しても通過し null になる", () => {
+    const result = clientReportSchema.safeParse({
+      applicationId: VALID_UUID,
+      operatingStatus: "問題なく稼働完了",
+      ratingOverall: 4,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.ratingPunctual).toBeNull();
+      expect(result.data.ratingHasSpecialEquipment).toBeNull();
+    }
+  });
+
+  it("任意項目の空文字は null に変換される（preprocess）", () => {
+    const result = clientReportSchema.safeParse({
+      applicationId: VALID_UUID,
+      operatingStatus: "問題なく稼働完了",
+      ratingOverall: 4,
+      ratingPunctual: "",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.ratingPunctual).toBeNull();
+  });
+
+  it("数値文字列 \"3\" は coerce で 3 になる", () => {
     const result = clientReportSchema.safeParse({
       ...validData,
-      ratingSpeed: "average",
+      ratingOverall: "3",
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.ratingOverall).toBe(3);
+  });
+
+  it("1〜5 範囲外（0 / 6）はエラー", () => {
+    expect(
+      clientReportSchema.safeParse({ ...validData, ratingOverall: 0 }).success,
+    ).toBe(false);
+    expect(
+      clientReportSchema.safeParse({ ...validData, ratingOverall: 6 }).success,
+    ).toBe(false);
+    expect(
+      clientReportSchema.safeParse({ ...validData, ratingSpeed: 6 }).success,
+    ).toBe(false);
   });
 
   it("comment を含めても通過する", () => {
     const result = clientReportSchema.safeParse({
       ...validData,
       comment: "素晴らしい作業でした",
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("全項目を bad にしても通過する", () => {
-    const result = clientReportSchema.safeParse({
-      applicationId: VALID_UUID,
-      operatingStatus: "欠席（連絡なし）",
-      ratingAgain: "bad",
-      ratingFollowsInstructions: "bad",
-      ratingPunctual: "bad",
-      ratingSpeed: "bad",
-      ratingQuality: "bad",
-      ratingHasTools: "bad",
     });
     expect(result.success).toBe(true);
   });

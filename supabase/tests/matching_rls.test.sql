@@ -2,7 +2,7 @@
 -- pgTAP tests for matching RLS policies
 -- ============================================================
 BEGIN;
-SELECT plan(10);
+SELECT plan(16);
 
 -- ============================================================
 -- Test UUIDs (unique to this test, not in seed.sql)
@@ -161,10 +161,10 @@ SELECT lives_ok(
 -- ============================================================
 -- Test 9: Reviews are publicly readable
 -- ============================================================
--- Insert a user_review via admin
+-- Insert a user_review via admin (rating-redesign: 7項目★×5, rating_overall NOT NULL)
 RESET ROLE;
-INSERT INTO user_reviews (id, application_id, reviewer_id, reviewee_id, operating_status, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools)
-VALUES ('dd888888-8888-8888-8888-888888888888', 'dd777777-7777-7777-7777-777777777777', 'dd222222-2222-2222-2222-222222222222', 'dd111111-1111-1111-1111-111111111111', 'completed', 'good', 'good', 'good', 'good', 'good', 'good');
+INSERT INTO user_reviews (id, application_id, reviewer_id, reviewee_id, operating_status, rating_overall, rating_punctual, rating_follows_instructions, rating_speed, rating_quality, rating_has_tools, rating_has_special_equipment)
+VALUES ('dd888888-8888-8888-8888-888888888888', 'dd777777-7777-7777-7777-777777777777', 'dd222222-2222-2222-2222-222222222222', 'dd111111-1111-1111-1111-111111111111', 'completed', 5, 5, 4, 5, 4, 5, NULL);
 
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claim.sub = 'dd333333-3333-3333-3333-333333333333';
@@ -189,6 +189,77 @@ SELECT is(
   (SELECT count(*)::int FROM client_reviews WHERE id = 'dd999999-9999-9999-9999-999999999999'),
   1,
   'Client reviews are readable by reviewer'
+);
+
+-- ============================================================
+-- Test 11: CHECK constraint rejects star rating outside 1..5
+-- ============================================================
+RESET ROLE;
+SELECT throws_ok(
+  $$INSERT INTO user_reviews (id, application_id, reviewer_id, reviewee_id, operating_status, rating_overall)
+    VALUES ('dd000011-0000-0000-0000-000000000011', 'dd666666-6666-6666-6666-666666666666', 'dd222222-2222-2222-2222-222222222222', 'dd111111-1111-1111-1111-111111111111', 'completed', 6)$$,
+  '23514',
+  NULL,
+  'CHECK constraint rejects rating_overall outside 1..5'
+);
+
+-- ============================================================
+-- Test 12: RLS rejects INSERT where reviewer_id != auth.uid()
+-- ============================================================
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = 'dd333333-3333-3333-3333-333333333333';
+
+SELECT throws_ok(
+  $$INSERT INTO user_reviews (id, application_id, reviewer_id, reviewee_id, operating_status, rating_overall)
+    VALUES ('dd000012-0000-0000-0000-000000000012', 'dd666666-6666-6666-6666-666666666666', 'dd222222-2222-2222-2222-222222222222', 'dd111111-1111-1111-1111-111111111111', 'completed', 4)$$,
+  NULL,
+  NULL,
+  'RLS rejects INSERT when reviewer_id is not the authenticated user'
+);
+
+-- ============================================================
+-- Test 13: Valid INSERT with NULL optional ratings succeeds
+-- ============================================================
+RESET ROLE;
+SELECT lives_ok(
+  $$INSERT INTO user_reviews (id, application_id, reviewer_id, reviewee_id, operating_status, rating_overall, rating_punctual)
+    VALUES ('dd000013-0000-0000-0000-000000000013', 'dd666666-6666-6666-6666-666666666666', 'dd222222-2222-2222-2222-222222222222', 'dd111111-1111-1111-1111-111111111111', 'completed', 4, NULL)$$,
+  'INSERT with rating_overall only (optional ratings NULL) succeeds'
+);
+
+-- ============================================================
+-- Test 14: UNIQUE(application_id) rejects a second review
+-- ============================================================
+SELECT throws_ok(
+  $$INSERT INTO user_reviews (id, application_id, reviewer_id, reviewee_id, operating_status, rating_overall)
+    VALUES ('dd000014-0000-0000-0000-000000000014', 'dd666666-6666-6666-6666-666666666666', 'dd222222-2222-2222-2222-222222222222', 'dd111111-1111-1111-1111-111111111111', 'completed', 3)$$,
+  '23505',
+  NULL,
+  'UNIQUE(application_id) rejects a second review for the same application'
+);
+
+-- ============================================================
+-- Test 15: UPDATE is silently blocked (no UPDATE policy) — data unchanged
+-- ============================================================
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = 'dd333333-3333-3333-3333-333333333333';
+UPDATE user_reviews SET rating_overall = 1 WHERE id = 'dd888888-8888-8888-8888-888888888888';
+
+SELECT is(
+  (SELECT rating_overall FROM user_reviews WHERE id = 'dd888888-8888-8888-8888-888888888888')::int,
+  5,
+  'UPDATE is blocked by RLS; rating_overall remains unchanged'
+);
+
+-- ============================================================
+-- Test 16: DELETE is silently blocked (no DELETE policy) — row remains
+-- ============================================================
+DELETE FROM user_reviews WHERE id = 'dd888888-8888-8888-8888-888888888888';
+
+SELECT is(
+  (SELECT count(*)::int FROM user_reviews WHERE id = 'dd888888-8888-8888-8888-888888888888'),
+  1,
+  'DELETE is blocked by RLS; the review row remains'
 );
 
 -- ============================================================

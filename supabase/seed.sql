@@ -520,7 +520,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '木造住宅の内装リフォーム工事',
     '横浜市内の木造住宅のリフォーム工事です。内装の壁紙張り替え、フローリング張り替えをお願いします。',
-    '横浜市中区',
+    '本町3-1-5',
     ARRAY['建築/内装｜木工']::text[],
     2,
     25000,
@@ -537,7 +537,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '店舗改装工事の大工作業',
     '東京都内の店舗改装工事です。木工事全般をお願いします。経験豊富な方を希望します。',
-    '渋谷区',
+    '道玄坂2-10-12',
     ARRAY['建築/躯体｜大工','建築/内装｜木工','建築/仕上げ｜造作大工工']::text[],
     1,
     30000,
@@ -571,7 +571,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '東京都内マンション内装仕上げ工事',
     '東京都品川区のマンション内装仕上げ工事です。クロス張り替え・床材施工をお願いします。',
-    '品川区',
+    '東品川4-12-6',
     ARRAY['建築/内装｜木工']::text[],
     3,
     24000,
@@ -588,7 +588,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '神奈川県オフィスビル内装改修',
     '川崎市のオフィスビル内装改修工事です。パーティション設置と天井仕上げをお願いします。',
-    '川崎市',
+    '砂子1-8-9',
     ARRAY['建築/内装｜木工']::text[],
     2,
     26000,
@@ -605,7 +605,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '大阪市商業施設 電気工事',
     '大阪市中央区の商業施設電気工事です。照明設備の更新作業をお願いします。',
-    '大阪市中央区',
+    '本町橋2-8',
     ARRAY['設備/施工｜電気（その他全般）']::text[],
     1,
     35000,
@@ -622,7 +622,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '東京都内 RC造マンション躯体工事',
     '東京都江東区のRC造マンション新築工事です。型枠・鉄筋工事をお願いします。',
-    '江東区',
+    '豊洲3-5-1',
     ARRAY['建築/躯体｜型枠工']::text[],
     3,
     32000,
@@ -639,7 +639,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '横浜市 住宅塗装工事',
     '横浜市港北区の戸建て住宅の外壁塗装工事です。足場設置から塗装仕上げまでお願いします。',
-    '横浜市港北区',
+    '新横浜2-5-10',
     ARRAY['建築/仕上げ｜塗装工']::text[],
     2,
     28000,
@@ -657,7 +657,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     'aabbccdd-5555-5555-5555-555555555555',
     '東京都 大型マンション新築 大工工事',
     '東京都世田谷区の大型マンション新築工事です。内部造作工事全般をお願いします。長期案件です。',
-    '世田谷区',
+    '三軒茶屋1-5-8',
     ARRAY['建築/躯体｜大工','建築/躯体｜鉄筋工','建築/躯体｜型枠工','建築/躯体｜重量鳶']::text[],
     4,
     32000,
@@ -691,7 +691,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     'aabbccdd-5555-5555-5555-555555555555',
     '東京都 オフィスビル内装工事',
     '東京都千代田区のオフィスビル内装改修工事です。壁紙・床材の張り替え作業をお願いします。',
-    '千代田区',
+    '神田神保町1-2-3',
     ARRAY['建築/内装｜木工']::text[],
     2,
     27000,
@@ -780,8 +780,9 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac', '88888888-8888-8888-8888-888888888882', 'cc222222-2222-2222-2222-222222222222', 1, '常勤', CURRENT_DATE + interval '5 days', 'accepted', CURRENT_DATE + interval '7 days');
 
 -- contractor1 の1件目のみ評価済み（発注済み表示）、2件目は未評価（評価登録未入力表示）
-INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools, comment) VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', '丁寧な仕事でした。また依頼したいです。');
+-- rating-redesign: 7項目★×5（rating_overall 必須・他6項目任意）。has_special_equipment は NULL = CLI-028「未評価」表示の検証用
+INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, operating_status, rating_overall, rating_punctual, rating_follows_instructions, rating_speed, rating_quality, rating_has_tools, rating_has_special_equipment, comment) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', '問題なく稼働完了', 5, 5, 5, 4, 5, 5, NULL, '丁寧な仕事でした。また依頼したいです。');
 
 -- ============================================================
 -- 12.5 CLI-010〜012 / CLI-028 テスト用データ
@@ -795,10 +796,21 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status) VALUES
   ('cccccccc-cccc-cccc-cccc-cccccccccc03', '77777777-7777-7777-7777-777777777777', 'cc222222-2222-2222-2222-222222222222', 1, 'スポット', CURRENT_DATE + interval '14 days', 'cancelled');
 
--- user_reviews: contractor2 への評価（CLI-028 テスト用、同一 reviewee に2件）
-INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, rating_again, rating_follows_instructions, rating_punctual, rating_speed, rating_quality, rating_has_tools, comment) VALUES
-  ('cccccccc-cccc-cccc-cccc-cccccccccc01', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', 'good', 'good', 'good', 'good', 'good', 'good', '作業が丁寧で、時間通りに来てくれました。道具も揃っていて安心でした。'),
-  ('cccccccc-cccc-cccc-cccc-cccccccccc02', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', 'good', 'good', 'good', 'bad', 'good', 'good', '丁寧な作業でしたが、もう少しスピードが欲しかったです。');
+-- user_reviews: contractor2 (cc111111) への評価（CLI-028 テスト用、同一 reviewee に2件）
+-- 2件のみ = CLI-005 高評価バッジの「件数3未満 → 非表示」検証用。★平均 (5+4)/2 = 4.5
+INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, operating_status, rating_overall, rating_punctual, rating_follows_instructions, rating_speed, rating_quality, rating_has_tools, rating_has_special_equipment, comment) VALUES
+  ('cccccccc-cccc-cccc-cccc-cccccccccc01', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', '問題なく稼働完了', 5, 5, 5, 5, 5, 5, 4, '作業が丁寧で、時間通りに来てくれました。道具も揃っていて安心でした。'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc02', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', '問題なく稼働完了', 4, 4, 4, 2, 4, 4, NULL, '丁寧な作業でしたが、もう少しスピードが欲しかったです。');
+
+-- rating-redesign E2E: cc111111 に3件目の高評価を追加 → 総合3件・★平均 (5+4+5)/3≈4.67 で CLI-005「高評価」バッジ表示
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
+VALUES ('99999999-9999-9999-9999-999999999990', '22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', '高評価バッジ検証用案件', 'rating-redesign E2E 用の完了案件', ARRAY['建築/内装｜木工']::text[], 1, 'open', 20000, 25000, CURRENT_DATE - 40, CURRENT_DATE - 30, CURRENT_DATE - 50, CURRENT_DATE - 20);
+
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date)
+VALUES ('cccccccc-cccc-cccc-cccc-cccccccccc04', '99999999-9999-9999-9999-999999999990', 'cc111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE - 40, 'completed', CURRENT_DATE - 35);
+
+INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, operating_status, rating_overall, rating_punctual, rating_follows_instructions, rating_speed, rating_quality, rating_has_tools, rating_has_special_equipment, comment) VALUES
+  ('cccccccc-cccc-cccc-cccc-cccccccccc04', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', '問題なく稼働完了', 5, 5, 5, 5, 5, 5, 5, '毎回素晴らしい仕事です。');
 
 -- ============================================================
 -- 14. スカウト経由応募テスト用データ（E2E: scout → application flow）

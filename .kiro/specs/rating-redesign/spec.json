@@ -1,0 +1,22 @@
+{
+  "feature_name": "rating-redesign",
+  "created_at": "2026-05-28T06:42:04Z",
+  "updated_at": "2026-05-29T11:00:00Z",
+  "language": "ja",
+  "phase": "implemented",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": true
+}

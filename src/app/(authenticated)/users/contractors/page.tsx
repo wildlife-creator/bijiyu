@@ -2,13 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Clock } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
 import { ContractorSearchFilter } from "./contractor-search-filter";
+import { HighRatingBadge } from "@/components/shared/high-rating-badge";
+import { fetchBulkOverallSummary } from "@/lib/rating/aggregate";
 import { createClient } from "@/lib/supabase/server";
 import {
   getAllMasterRows,
@@ -209,6 +210,9 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
 
   const favoritedIds = new Set((favorites ?? []).map((f) => f.target_id));
 
+  // 高評価バッジ用: 総合評価サマリーを1クエリで bulk 取得（N+1 回避）
+  const summaryMap = await fetchBulkOverallSummary(supabase, contractorIds);
+
   return (
     <div className="min-h-dvh bg-muted">
       {/* Header */}
@@ -257,15 +261,10 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
                 className="overflow-hidden rounded-[8px]"
               >
                 <CardContent className="p-4 space-y-3">
-                  {/* High rating badge (placeholder — real logic uses reviews) */}
-                  <div className="flex items-center gap-2">
-                    <Badge className="rounded-sm bg-foreground text-background text-[10px] px-1.5 py-0.5">
-                      高評価
-                    </Badge>
-                    <span className="text-body-sm text-muted-foreground">
-                      発注者の再発注希望80%！
-                    </span>
-                  </div>
+                  {/* 高評価バッジ（総合評価3件以上 + ★平均4.0以上で表示） */}
+                  <HighRatingBadge
+                    summary={summaryMap.get(contractor.id) ?? { avg: null, count: 0 }}
+                  />
 
                   {/* Avatar + Name + Age + Skills */}
                   <div className="flex items-start gap-3">

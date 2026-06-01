@@ -200,13 +200,22 @@ export async function submitContractorReportAction(
       .eq("application_id", input.applicationId)
       .maybeSingle();
 
-    if (existingUserReview) {
-      // Both reviews are now in — use the client's operating_status for final status
-      const finalStatus = existingUserReview.operating_status as "completed" | "lost";
-      await admin
+    if (existingUserReview?.operating_status) {
+      // Both reviews are now in — map the client's operating_status to final status.
+      // operating_status stores the Japanese 6-choice label, so it MUST go through
+      // mapOperatingStatusToApplicationStatus. A raw cast writes the Japanese string
+      // into the application_status enum → invalid enum value → UPDATE fails silently
+      // and the application stays "accepted" forever (mirrors the client-side path).
+      const finalStatus = mapOperatingStatusToApplicationStatus(
+        existingUserReview.operating_status,
+      );
+      const { error: updateError } = await admin
         .from("applications")
         .update({ status: finalStatus })
         .eq("id", input.applicationId);
+      if (updateError) {
+        return { success: false, error: "ステータスの更新に失敗しました" };
+      }
     }
 
     return { success: true };
@@ -490,12 +499,13 @@ export async function submitClientReportAction(
       applicationId: formData.get("applicationId") as string,
       operatingStatus: formData.get("operatingStatus") as string,
       statusSupplement: (formData.get("statusSupplement") as string) || undefined,
-      ratingAgain: formData.get("ratingAgain") as string,
-      ratingFollowsInstructions: formData.get("ratingFollowsInstructions") as string,
+      ratingOverall: formData.get("ratingOverall") as string,
       ratingPunctual: formData.get("ratingPunctual") as string,
+      ratingFollowsInstructions: formData.get("ratingFollowsInstructions") as string,
       ratingSpeed: formData.get("ratingSpeed") as string,
       ratingQuality: formData.get("ratingQuality") as string,
       ratingHasTools: formData.get("ratingHasTools") as string,
+      ratingHasSpecialEquipment: formData.get("ratingHasSpecialEquipment") as string,
       comment: (formData.get("comment") as string) || undefined,
     };
 
@@ -553,12 +563,13 @@ export async function submitClientReportAction(
         reviewee_id: application.applicant_id,
         operating_status: input.operatingStatus,
         status_supplement: input.statusSupplement ?? null,
-        rating_again: input.ratingAgain,
-        rating_follows_instructions: input.ratingFollowsInstructions,
+        rating_overall: input.ratingOverall,
         rating_punctual: input.ratingPunctual,
+        rating_follows_instructions: input.ratingFollowsInstructions,
         rating_speed: input.ratingSpeed,
         rating_quality: input.ratingQuality,
         rating_has_tools: input.ratingHasTools,
+        rating_has_special_equipment: input.ratingHasSpecialEquipment,
         comment: input.comment ?? null,
       });
 

@@ -18,8 +18,8 @@
 | CLI-009 | 発注可否 | 発注者 | 発注の承認/拒否 |
 | CLI-010 | 発注履歴一覧 | 発注者 | mypage 導線。発注可否決定以降（status ≠ 'applied'）の応募一覧 |
 | CLI-011 | 発注履歴詳細 | 発注者 | 発注済み案件の詳細・ステータス |
-| CLI-012 | 作業完了/失注報告・評価登録 | 発注者 | 発注者側の完了報告 + 受注者への評価（6項目） |
-| CLI-028 | 発注者評価 | — | 発注者→受注者の評価表示画面（6項目集計） |
+| CLI-012 | 作業完了/失注報告・評価登録 | 発注者 | 発注者側の完了報告 + 受注者への評価（7項目★×5、総合評価のみ必須） |
+| CLI-028 | 発注者評価 | — | 発注者→受注者の評価表示画面（7項目★×5集計、任意項目は評価あり件のみで平均） |
 
 ## 対象ロール
 
@@ -281,15 +281,17 @@
 - 入力フィールド:
   - 稼働状況（必須、受注者側 CON-013 と同じ6選択肢: 問題なく稼働完了 / 一部欠席したものの概ね問題なく稼働完了 / 欠席（連絡あり）/ 欠席（連絡なし）/ 発注者側からお断り / その他）
   - 稼働状況の補足（任意）
-  - 評価6項目（各 必須、'good' / 'bad'）:
-    1. また依頼したいか（rating_again）
-    2. 指示通りに動けるか（rating_follows_instructions）
-    3. 稼働予定日にちゃんと来たか（rating_punctual）
-    4. 作業は速いか（rating_speed）
-    5. 作業は丁寧か（rating_quality）
-    6. 工事に必要な工具を持っているか（rating_has_tools）
+  - 評価7項目（★×5。総合評価のみ必須、他6項目は任意 = 未入力/NULL 可）。表示順:
+    1. 総合評価（rating_overall）★必須。CLI-006 で表示する代表値
+    2. 稼働予定日にくる（rating_punctual）
+    3. 指示通りに動ける（rating_follows_instructions）
+    4. 作業の速さ（rating_speed）
+    5. 作業の丁寧さ（rating_quality）
+    6. 作業に関する道具を持っている（rating_has_tools）
+    7. 特別な道具/重機等を持っている（rating_has_special_equipment）※rating-redesign で新規追加
   - 評価の補足コメント（任意）
-- user_reviews テーブルにデータを保存
+  - 送信ボタンは「総合評価」と「稼働状況」が揃うまで非活性
+- user_reviews テーブルにデータを保存（rating-redesign で 6カラム string 'good'/'bad' → 7カラム smallint 1〜5 に置換。`.kiro/specs/rating-redesign/` 参照）
 - 受注者側の評価（client_reviews）が既に登録済みの場合、applications テーブルの status を mapOperatingStatusToApplicationStatus() で変換した値（「問題なく稼働完了」「一部欠席〜」→ 'completed'、それ以外 → 'lost'）に更新する。未登録の場合は status は 'accepted' のまま維持する
 - 保存成功後: CLI-010（発注履歴一覧）へ遷移
 
@@ -300,15 +302,34 @@
 - ユーザー詳細（CLI-006）から遷移して、発注者→受注者の評価（user_reviews）を表示する
 - 対象: 指定された受注者（職人）に対する全 user_reviews レコードを集計
 - ユーザープロフィールセクション: アバター画像、氏名（年齢）、本人確認/CCUSバッジ、お気に入りハートアイコンを表示
-- 表示項目（6項目の Good 集計、`good数/総件数案件中` の形式で表示）:
-  1. また依頼したい（rating_again）
-  2. 稼働予定日に来る（rating_punctual）
+- 表示項目（7項目それぞれ「★平均 + 件数」を表示。★平均は小数第一位）:
+  1. 総合評価（rating_overall）
+  2. 稼働予定日にくる（rating_punctual）
   3. 指示通りに動ける（rating_follows_instructions）
-  4. 作業が速い（rating_speed）
-  5. 作業が丁寧（rating_quality）
-  6. 道具を持っている（rating_has_tools）
-- 「稼働状況の補足」セクション: user_reviews.status_supplement の一覧を表示（20件ごとにページネーション）
-- 「評価の補足」セクション: user_reviews.comment の一覧を表示（20件ごとにページネーション）
+  4. 作業の速さ（rating_speed）
+  5. 作業の丁寧さ（rating_quality）
+  6. 作業に関する道具を持っている（rating_has_tools）
+  7. 特別な道具/重機等を持っている（rating_has_special_equipment）
+- 任意項目（総合評価以外6項目）の★平均は「評価あり件のみ」で算出（NULL は分母に含めない）。評価あり件数が0の任意項目は「未評価」と表示
+- 「稼働状況の補足」セクション: user_reviews.status_supplement の一覧を表示（20件ごとにページネーション、新しい順）
+- 「評価の補足」セクション: user_reviews.comment の一覧を表示（20件ごとにページネーション、新しい順）
+
+#### REQ-MT-010B: 総合評価サマリー表示（CLI-006 受注者詳細）
+
+- 受注者詳細（CLI-006）に、その受注者の **総合評価（rating_overall）のみ** のサマリー「★平均 + 件数」を表示する（他6項目は CLI-006 では表示しない）
+- ★平均は小数第一位まで表示（例: ★★★★☆ 4.3 (12件)）
+- サマリーから CLI-028 への「詳しく見る」リンクを提供する
+- user_reviews が0件の受注者は「まだ評価がありません」を表示し、★平均・件数は出さない
+- 集計はリアルタイム SQL 集計（denormalize なし、`lib/rating/aggregate.ts`）。詳細は `.kiro/specs/rating-redesign/` 参照
+
+#### REQ-MT-010C: 高評価バッジ表示（CLI-005 職人一覧）
+
+- 職人一覧（CLI-005）の各受注者カード上部に、動的な「高評価」バッジを表示する
+- **表示条件**: 総合評価の評価件数が3件以上 かつ 総合評価の★平均が4.0以上（閾値は `src/lib/constants/rating.ts` のコード定数。DB マイグレーション不要で変更可能）
+- **表示形式**: 黒地白文字バッジ「高評価」 + グレー補足テキスト「★平均 X.X（N件）」の2要素構造
+- 条件を満たさない受注者（評価0件含む）にはバッジを表示しない
+- 旧ハードコード文言「発注者の再発注希望80%！」は撤去済み
+- 集計は1クエリの bulk 取得で N+1 を回避（`fetchBulkOverallSummary`）
 
 ## 非機能要件
 
