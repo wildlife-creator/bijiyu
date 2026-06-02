@@ -73,7 +73,6 @@ function buildValidFormData(overrides: Record<string, string> = {}): FormData {
     areas: JSON.stringify([
       { prefecture: "東京都", whole: true, municipalities: [] },
     ]),
-    address: "",
     workStartDate: "2026-04-01",
     workEndDate: "2026-06-30",
     recruitStartDate: "2026-03-15",

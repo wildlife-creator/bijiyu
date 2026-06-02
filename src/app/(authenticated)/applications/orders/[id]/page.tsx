@@ -33,13 +33,13 @@ export default async function OrderDetailPage({ params }: Props) {
   const { data: application } = await supabase
     .from("applications")
     .select(
-      `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at, scout_message_id,
+      `id, status, headcount, working_type, preferred_first_work_date, first_work_date, work_location, message, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(
          id, last_name, first_name, avatar_url, birth_date, deleted_at,
          identity_verified, ccus_verified, skill_tags
        ),
        jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper,
-                  address, work_start_date, work_end_date,
+                  work_start_date, work_end_date,
                   recruit_start_date, recruit_end_date, work_hours, owner_id),
        user_reviews(id),
        client_reviews(id)`,
@@ -59,7 +59,6 @@ export default async function OrderDetailPage({ params }: Props) {
     headcount: number | null;
     reward_lower: number | null;
     reward_upper: number | null;
-    address: string | null;
     work_start_date: string | null;
     work_end_date: string | null;
     recruit_start_date: string | null;
@@ -215,7 +214,6 @@ export default async function OrderDetailPage({ params }: Props) {
             <span className="min-w-[6rem] shrink-0 font-semibold">エリア</span>
             <span>
               <AreaSummary areas={jobAreas} className="inline" />
-              {job.address ? ` ${job.address}` : ""}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -380,6 +378,14 @@ export default async function OrderDetailPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {/* 6.1 発注時に入力した勤務地（成立後のみ表示） */}
+      {application.status === "accepted" && application.work_location && (
+        <div className="mt-6 space-y-2">
+          <h2 className="text-body-lg font-bold text-foreground">勤務地</h2>
+          <p className="text-body-sm text-foreground">{application.work_location}</p>
+        </div>
+      )}
 
       {/* 7. Action buttons */}
       <div className="mt-6 flex flex-col items-center gap-3">

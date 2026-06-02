@@ -30,7 +30,6 @@ function parseFormDataToJobInput(formData: FormData) {
       whole: boolean;
       municipalities: string[];
     }>,
-    address: (formData.get("address") as string) ?? "",
     workStartDate: formData.get("workStartDate") as string,
     workEndDate: formData.get("workEndDate") as string,
     recruitStartDate: formData.get("recruitStartDate") as string,
@@ -206,7 +205,6 @@ export async function createJobAction(
         trade_types: data.tradeTypes ?? [],
         reward_lower: numOrNull(data.rewardLower),
         reward_upper: numOrNull(data.rewardUpper),
-        address: data.address || null,
         work_start_date: data.workStartDate || null,
         work_end_date: data.workEndDate || null,
         recruit_start_date: data.recruitStartDate || null,
@@ -449,7 +447,6 @@ export async function updateJobAction(
         trade_types: data.tradeTypes ?? [],
         reward_lower: numOrNull(data.rewardLower),
         reward_upper: numOrNull(data.rewardUpper),
-        address: data.address || null,
         work_start_date: data.workStartDate || null,
         work_end_date: data.workEndDate || null,
         recruit_start_date: data.recruitStartDate || null,

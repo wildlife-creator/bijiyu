@@ -618,7 +618,7 @@ export const jobDraftSchema = z.object({
 | organization_id | uuid | FK → organizations(id) |
 | title | text | NOT NULL |
 | description | text | |
-| address | text | 詳細住所(番地以下)。エリアは別テーブル `job_areas` |
+| ~~address~~ | ~~text~~ | **廃止（work-location-address-fix, 2026-06-02 DROP 済）**。詳細住所は応募レベル `applications.work_location`（CLI-009 入力・成立した受注者にのみ表示）に一本化。案件にエリア以上の住所は持たせない。エリアは別テーブル `job_areas` |
 | trade_types | text[] | master-skills 仕様、`.overlaps()` 検索用 |
 | headcount | integer | |
 

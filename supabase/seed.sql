@@ -513,14 +513,13 @@ INSERT INTO client_profiles (user_id, display_name, address, recruit_job_types, 
 -- 9. jobs（テスト用案件）
 -- ============================================================
 
-INSERT INTO jobs (id, owner_id, organization_id, title, description, address, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
   (
     '66666666-6666-6666-6666-666666666666',
     '22222222-2222-2222-2222-222222222222',
     '55555555-5555-5555-5555-555555555555',
     '木造住宅の内装リフォーム工事',
     '横浜市内の木造住宅のリフォーム工事です。内装の壁紙張り替え、フローリング張り替えをお願いします。',
-    '本町3-1-5',
     ARRAY['建築/内装｜木工']::text[],
     2,
     25000,
@@ -537,7 +536,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '店舗改装工事の大工作業',
     '東京都内の店舗改装工事です。木工事全般をお願いします。経験豊富な方を希望します。',
-    '道玄坂2-10-12',
     ARRAY['建築/躯体｜大工','建築/内装｜木工','建築/仕上げ｜造作大工工']::text[],
     1,
     30000,
@@ -554,7 +552,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '千葉県戸建て新築 大工工事',
     '千葉県船橋市の戸建て新築工事です。木造軸組工法の大工作業全般をお願いします。',
-    '船橋市',
     ARRAY['建築/躯体｜大工']::text[],
     2,
     28000,
@@ -571,7 +568,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '東京都内マンション内装仕上げ工事',
     '東京都品川区のマンション内装仕上げ工事です。クロス張り替え・床材施工をお願いします。',
-    '東品川4-12-6',
     ARRAY['建築/内装｜木工']::text[],
     3,
     24000,
@@ -588,7 +584,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '神奈川県オフィスビル内装改修',
     '川崎市のオフィスビル内装改修工事です。パーティション設置と天井仕上げをお願いします。',
-    '砂子1-8-9',
     ARRAY['建築/内装｜木工']::text[],
     2,
     26000,
@@ -605,7 +600,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '大阪市商業施設 電気工事',
     '大阪市中央区の商業施設電気工事です。照明設備の更新作業をお願いします。',
-    '本町橋2-8',
     ARRAY['設備/施工｜電気（その他全般）']::text[],
     1,
     35000,
@@ -622,7 +616,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '東京都内 RC造マンション躯体工事',
     '東京都江東区のRC造マンション新築工事です。型枠・鉄筋工事をお願いします。',
-    '豊洲3-5-1',
     ARRAY['建築/躯体｜型枠工']::text[],
     3,
     32000,
@@ -639,7 +632,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     '55555555-5555-5555-5555-555555555555',
     '横浜市 住宅塗装工事',
     '横浜市港北区の戸建て住宅の外壁塗装工事です。足場設置から塗装仕上げまでお願いします。',
-    '新横浜2-5-10',
     ARRAY['建築/仕上げ｜塗装工']::text[],
     2,
     28000,
@@ -657,7 +649,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     'aabbccdd-5555-5555-5555-555555555555',
     '東京都 大型マンション新築 大工工事',
     '東京都世田谷区の大型マンション新築工事です。内部造作工事全般をお願いします。長期案件です。',
-    '三軒茶屋1-5-8',
     ARRAY['建築/躯体｜大工','建築/躯体｜鉄筋工','建築/躯体｜型枠工','建築/躯体｜重量鳶']::text[],
     4,
     32000,
@@ -674,7 +665,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     'aabbccdd-5555-5555-5555-555555555555',
     '埼玉県 商業施設 鉄筋工事',
     'さいたま市の商業施設建設に伴う鉄筋工事です。経験者を優遇します。',
-    'さいたま市',
     ARRAY['建築/躯体｜鉄筋工']::text[],
     3,
     30000,
@@ -691,7 +681,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     'aabbccdd-5555-5555-5555-555555555555',
     '東京都 オフィスビル内装工事',
     '東京都千代田区のオフィスビル内装改修工事です。壁紙・床材の張り替え作業をお願いします。',
-    '神田神保町1-2-3',
     ARRAY['建築/内装｜木工']::text[],
     2,
     27000,
@@ -737,14 +726,13 @@ INSERT INTO available_schedules (user_id, start_date, end_date, note) VALUES
 -- Note: user_reviews requires application_id. Create test applications first.
 
 -- 個人発注者の案件（organization_id なし）
-INSERT INTO jobs (id, owner_id, organization_id, title, description, address, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
   (
     '99999999-9999-9999-9999-999999999999',
     'dd111111-1111-2222-3333-444455556666',
     NULL,
     '自宅キッチンリフォーム',
     '埼玉県の自宅キッチンのリフォーム工事です。',
-    'さいたま市大宮区',
     ARRAY['建築/内装｜木工']::text[],
     1,
     25000,
@@ -759,6 +747,11 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '7 days', 'accepted', CURRENT_DATE + interval '10 days'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab', '77777777-7777-7777-7777-777777777777', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'accepted', CURRENT_DATE + interval '21 days');
+
+-- 勤務地（番地以下の詳細住所）: CLI-009 で発注者が入力し、成立した受注者にのみ表示する。
+-- 成立済み応募に設定して CON-012（応募詳細）/ CLI-010（発注履歴）の表示を検証できるようにする。
+UPDATE applications SET work_location = '神奈川県横浜市中区本町3-1-5 ○○ビル3F' WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+UPDATE applications SET work_location = '東京都渋谷区道玄坂2-10-12 △△店舗' WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab';
 
 -- Matching E2E test data: applied application for cancel test (contractor applies to client2's job)
 -- Need a job from client2 for the contractor to apply to
@@ -967,14 +960,13 @@ INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
 
 -- ---------- 法人四郎の公開中案件（ダウングレードバリデーションテスト用） ----------
 -- 個人プランの maxOpenJobs=1 を超える2件を用意
-INSERT INTO jobs (id, owner_id, organization_id, title, description, address, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
   (
     'b1116666-0000-1000-8000-000000000001',
     'b1110000-0000-1000-8000-000000000004',
     'b1115555-0000-1000-8000-000000000004',
     'ダウングレードテスト案件1',
     'ダウングレードバリデーション確認用の案件です。',
-    '大阪市北区',
     ARRAY['建築/躯体｜大工']::text[],
     1,
     20000,
@@ -991,7 +983,6 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, address, tr
     'b1115555-0000-1000-8000-000000000004',
     'ダウングレードテスト案件2',
     'ダウングレードバリデーション確認用の案件です。',
-    '大阪市中央区',
     ARRAY['建築/内装｜木工']::text[],
     2,
     25000,

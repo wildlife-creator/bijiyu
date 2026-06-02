@@ -330,7 +330,7 @@ export function DecisionForm({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => router.push("/applications/received")}>
+            <AlertDialogAction onClick={() => router.replace("/applications/received")}>
               OK
             </AlertDialogAction>
           </AlertDialogFooter>

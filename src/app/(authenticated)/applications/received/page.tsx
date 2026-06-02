@@ -270,8 +270,11 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
         <PaginationControls totalCount={totalCount} itemsPerPage={ITEMS_PER_PAGE} />
       )}
 
+      {/* 親は常にマイページ（唯一の入口）。発注可否(CLI-009)送信後に router.replace で
+          この一覧へ戻る導線があり、router.back() だと完了済みの応募詳細(CLI-008)に
+          逆戻りするため、親を明示してループを防ぐ（CLAUDE.md: 保存後ループ防止） */}
       <div className="mt-6">
-        <BackButton />
+        <BackButton href="/mypage" />
       </div>
     </div>
   );

@@ -443,7 +443,8 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **マスタ参照**: `master_municipalities (prefecture, municipality, sort_order, deprecated_at)` 1,897 件(政令市 20 件は本体除外、行政区のみ。北海道泊村 dedupe 済)。`getAllMunicipalityRows()` / `getActiveMunicipalities()` で取得し、`'master-area'` タグで `unstable_cache`
 - **書き込みは RPC**: `replace_user_areas(p_user_id, p_areas jsonb)` / `replace_job_areas(p_job_id, p_areas jsonb)` / `replace_client_recruit_areas(p_client_id, p_areas jsonb)`(SECURITY INVOKER + RLS 経由)。Server Action 側で `validateAreaChanges(newAreas, previousAreas)` を呼んでから RPC を実行
 - **`users.prefecture` は個人住所として据え置く**(プライバシー観点、市区町村化しない)。受注者の対応エリアとは別概念
-- **`jobs.address` は番地以下の詳細住所として保持**(CLI-004 入力)。job_areas (エリア概念) とは別管理。DROP しないこと
+- **詳細住所（番地以下）は `applications.work_location` に一本化**（work-location-address-fix、2026-06-02）。CLI-009（発注可否）で発注者が承認する受注者ごとに入力し、**マッチング成立した受注者にのみ表示**する（応募レベルの情報）。CON-012（応募詳細）の【勤務地】・CLI-010（発注履歴）で表示。エリア（`job_areas`、誰でも閲覧可）とは別概念
+  - **旧 `jobs.address` は廃止（DROP 済）**。案件レベルの番地詳細住所を意図していたが CLI-004 に入力欄が無く常に空で、成立前の受注者にも漏れうる構造だった。案件（1案件1値）と応募（職人ごと）で単位が合わないため流用せず削除。**新たに jobs に住所カラムを足したり CON-003（募集案件詳細・公開）に番地を出してはならない**（公開画面はエリアまで）
 - **旧カラム廃止済**: `jobs.prefecture` / `client_profiles.recruit_area` は master-area Migration 4 で DROP。`client_profiles` 系の引き継ぎは `client_recruit_areas` 別テーブルに変更
 - **マッチング判定は都道府県のまま**(`src/lib/matching.ts` の `canApplyJob`)。`jobPrefectures: string[]` で OR 一致、市区町村は判定に使わない(Req 7.4)。市区町村レベルに引き上げてはならない
 - **検索クエリは上位包含ルール**: 「東京都+港区」検索でも「東京都(県全域)」案件をヒットさせる。`buildAreaFilterIds({ entity, prefecture, municipality, supabase })`(`src/lib/utils/area-search-clauses.ts`)を使うこと。手書きの `.eq('prefecture', ...)` で「県全域」レコードを取りこぼさないように注意

@@ -274,7 +274,6 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
               value={<AreaList areas={jobAreas} />}
               alwaysShow
             />
-            <DetailRow label="住所" value={job.address} alwaysShow />
             <DetailRow
               label="募集職種"
               value={
