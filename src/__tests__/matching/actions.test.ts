@@ -385,6 +385,37 @@ describe("acceptApplicationAction", () => {
     expect(result.success).toBe(false);
     expect(result).toHaveProperty("error", "応募中の案件のみ発注できます");
   });
+
+  it("正常系: workLocation を applications.work_location に保存する（CLI-009）", async () => {
+    mockAuth(USER_ID);
+
+    const fetchMock = createQueryMock({
+      single: {
+        data: {
+          id: APP_ID,
+          applicant_id: "applicant-1",
+          status: "applied",
+          jobs: { id: "j1", title: "Job", owner_id: USER_ID, organization_id: null },
+          applicant: null,
+        },
+        error: null,
+      },
+    });
+    const updateMock = createQueryMock({ error: null });
+    mockFrom
+      .mockReturnValueOnce(fetchMock) // applications select (fetch details)
+      .mockReturnValueOnce(updateMock); // applications update
+
+    const result = await acceptApplicationAction(buildFormData());
+    expect(result.success).toBe(true);
+    expect(updateMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "accepted",
+        work_location: "東京都渋谷区1-1-1",
+        first_work_date: "2026-05-01",
+      }),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

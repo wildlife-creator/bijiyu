@@ -36,7 +36,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
     .from("applications")
     .select(
       `*, jobs(id, title, owner_id, organization_id, trade_types, headcount,
-              reward_lower, reward_upper, address,
+              reward_lower, reward_upper,
               work_start_date, work_end_date, recruit_start_date, recruit_end_date,
               work_hours, items, required_skills, schedule_detail, etc_message,
               owner:users!owner_id(
@@ -69,7 +69,6 @@ export default async function ApplicationDetailPage({ params }: Props) {
     headcount: number | null;
     reward_lower: number | null;
     reward_upper: number | null;
-    address: string | null;
     work_start_date: string | null;
     work_end_date: string | null;
     recruit_start_date: string | null;
@@ -255,7 +254,6 @@ export default async function ApplicationDetailPage({ params }: Props) {
             <span className="min-w-[6rem] shrink-0 font-semibold">エリア</span>
             <span>
               <AreaList areas={jobAreas} emptyLabel="未定" />
-              {job?.address ? ` ${job.address}` : ""}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -324,7 +322,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
               <span className="font-semibold">【勤務地】</span>
               <div className="pl-4">
                 <AreaList areas={jobAreas} emptyLabel="—" />
-                {job?.address ? <p>{job.address}</p> : null}
+                {application.work_location ? <p>{application.work_location}</p> : null}
               </div>
             </div>
             <div>

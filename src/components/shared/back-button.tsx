@@ -21,6 +21,9 @@ interface BackButtonProps {
    * - 例: CLI-020 は親=/mypage。ところが CLI-021 で保存すると redirect で
    *   /mypage/client-profile に入る → 履歴に /edit が残ったまま。
    *   その状態で router.back() すると /edit に戻ってしまう（ループ）
+   * - 例: CLI-007（応募一覧 /applications/received、親=/mypage）。CLI-009 発注可否を
+   *   送信すると router.replace でこの一覧へ戻るが、router.back() だと完了済みの
+   *   応募詳細(CLI-008)に逆戻りする。href="/mypage" を明示して親へ直帰させる。
    *
    * ツリー構造（画面階層）で上位が固定している画面では、明示的に親を
    * 指定して保存後ループを防ぐ。

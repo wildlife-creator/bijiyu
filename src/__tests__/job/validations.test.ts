@@ -32,7 +32,6 @@ describe("jobSchema", () => {
     areas: [
       { prefecture: "東京都", whole: true, municipalities: [] },
     ],
-    address: "江東区豊洲1-1-1",
     workStartDate: "2026-04-01",
     workEndDate: "2026-06-30",
     recruitStartDate: "2026-03-15",

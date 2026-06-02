@@ -50,6 +50,7 @@ export type Database = {
           scout_message_id: string | null
           status: Database["public"]["Enums"]["application_status"]
           updated_at: string
+          work_location: string | null
           working_type: string | null
         }
         Insert: {
@@ -67,6 +68,7 @@ export type Database = {
           scout_message_id?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           updated_at?: string
+          work_location?: string | null
           working_type?: string | null
         }
         Update: {
@@ -84,6 +86,7 @@ export type Database = {
           scout_message_id?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           updated_at?: string
+          work_location?: string | null
           working_type?: string | null
         }
         Relationships: [
@@ -637,7 +640,6 @@ export type Database = {
       }
       jobs: {
         Row: {
-          address: string | null
           created_at: string
           deleted_at: string | null
           description: string | null
@@ -668,7 +670,6 @@ export type Database = {
           work_start_date: string | null
         }
         Insert: {
-          address?: string | null
           created_at?: string
           deleted_at?: string | null
           description?: string | null
@@ -699,7 +700,6 @@ export type Database = {
           work_start_date?: string | null
         }
         Update: {
-          address?: string | null
           created_at?: string
           deleted_at?: string | null
           description?: string | null

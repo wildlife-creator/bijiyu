@@ -187,7 +187,7 @@
   - 県跨ぎを許可する（Req 4.3）。1 案件で「東京都港区」+「神奈川県横浜市港北区」のような複数都道府県登録を可能にする
   - 「+ エリアを追加」ボタンは 10 件到達時 disabled + tooltip 表示（Req 4.4）
   - 「市区町村未指定」（municipality = null）を選択可能にし、`「現場未定」「複数現場（詳細別途連絡）」` 等のセマンティクスを持たせる（Req 4.7）
-  - **CLI-004 既存の「勤務地」自由入力テキストフィールド（`jobs.address text(200)`）を維持し、番地以下の詳細住所入力用フィールドとして共存させる**（Req 4.8、Migration 4 で DROP しないこと）
+  - ~~**CLI-004 既存の「勤務地」自由入力テキストフィールド（`jobs.address text(200)`）を維持し、番地以下の詳細住所入力用フィールドとして共存させる**（Req 4.8、Migration 4 で DROP しないこと）~~ → **【廃止 work-location-address-fix 2026-06-02】jobs.address は DROP 済。詳細住所は applications.work_location に一本化**
   - 下書き保存時のバリデーション（`jobDraftSchema` / `jobSchema` の使い分け）は既存パターンを踏襲し、下書き時は areas が空でも保存を許可する
   - 4.1 / 4.2 / 4.4 とは異なる入力フォームのため並列実行可能
   - _Requirements: 4.1, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 10.5_
@@ -248,7 +248,7 @@
 
 - [x] 6. Migration 4（旧カラム DROP）+ supabase gen types
   - Migration 4 ファイルを新規追加: `jobs.prefecture` / `client_profiles.recruit_area` の `DROP COLUMN`、旧 `idx_jobs_search (status, prefecture)` を DROP して `(status)` のみで再作成
-  - **`jobs.address text(200)` は DROP しないこと**（CLI-004 番地以下の詳細住所用、Req 4.8）
+  - ~~**`jobs.address text(200)` は DROP しないこと**（CLI-004 番地以下の詳細住所用、Req 4.8）~~ → **【廃止 work-location-address-fix 2026-06-02】後続で DROP 済。詳細住所は applications.work_location へ移管**
   - **`users.prefecture` は DROP しないこと**（個人住所、Req 9.1）
   - `supabase db reset` で全 migrations を流し、Phase 5 の seed.sql が新スキーマで通ることを確認する
   - `supabase gen types typescript --local > src/types/database.ts` を再実行し、旧カラム参照のコードが残っていれば **TypeScript ビルドエラー** で即検知する
@@ -319,7 +319,7 @@
   - 個人住所 `users.prefecture` は市区町村化しない（プライバシー）
   - 新規エリア入力 UI は `AreaPicker` / `AreaListEditor` 共通コンポーネントを利用すること
   - エリア表示は `<AreaList />` / `<AreaSummary />` 経由で行い、手書きで `slice(0, 3).join('、')` を散らさない
-  - `jobs.address`（番地以下の詳細住所）は `job_areas`（エリア）と別管理。DROP しないこと
+  - ~~`jobs.address`（番地以下の詳細住所）は `job_areas`（エリア）と別管理。DROP しないこと~~ → **【廃止 work-location-address-fix 2026-06-02】jobs.address は DROP 済。詳細住所は applications.work_location（応募レベル）へ移管**
   - _Requirements: 13.1_
 
 - [x] 8.2 (P) steering 更新（database-schema.md / design-system.md）

@@ -35,7 +35,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified, birth_date, skill_tags),
-       jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper, address, work_start_date, work_end_date, recruit_start_date, recruit_end_date, work_hours, schedule_detail, owner_id)`,
+       jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date, work_hours, schedule_detail, owner_id)`,
     )
     .eq("id", id)
     .single();
@@ -51,7 +51,6 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     headcount: number | null;
     reward_lower: number | null;
     reward_upper: number | null;
-    address: string | null;
     work_start_date: string | null;
     work_end_date: string | null;
     recruit_start_date: string | null;
@@ -206,7 +205,6 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
             <span className="min-w-[6rem] shrink-0">エリア</span>
             <span>
               <AreaSummary areas={jobAreas} className="inline" />
-              {job.address ? ` ${job.address}` : ""}
             </span>
           </div>
           <div className="flex items-center gap-2">

@@ -82,7 +82,6 @@ export function JobForm({
       rewardLower: undefined as unknown as number,
       rewardUpper: undefined as unknown as number,
       areas: [],
-      address: "",
       workStartDate: "",
       workEndDate: "",
       recruitStartDate: "",

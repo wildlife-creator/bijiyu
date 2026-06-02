@@ -57,7 +57,8 @@
 
 **維持する既存資産（誤って削除しないこと）**:
 
-- `jobs.address text(200)` カラム — エリアフィールド（`job_areas`）とは別管理で、CLI-004 の「勤務地」自由入力欄（番地以下の詳細住所）として現状維持する（Req 4-8）。Migration 4 の `DROP COLUMN` 対象は `jobs.prefecture` のみ
+- ~~`jobs.address text(200)` カラム — エリアフィールド（`job_areas`）とは別管理で、CLI-004 の「勤務地」自由入力欄（番地以下の詳細住所）として現状維持する（Req 4-8）。Migration 4 の `DROP COLUMN` 対象は `jobs.prefecture` のみ~~
+  - **【廃止 / superseded by work-location-address-fix, 2026-06-02】** `jobs.address` は DROP 済。詳細住所は `applications.work_location`（応募レベル、CLI-009 入力・成立した受注者にのみ表示）に一本化。
 - `users.prefecture text` カラム — 個人住所（プライバシー観点で都道府県のまま据え置き、Req 9）。AUTH-006 / COM-002 の「お住まい」フィールドは単一プルダウンのまま
 
 **新規依存**: なし。cmdk・shadcn・Radix UI は master-skills で導入済み。
@@ -997,7 +998,8 @@ $$;
 DROP INDEX IF EXISTS idx_jobs_search;
 
 -- 旧カラム削除
--- NOTE: jobs.address は CLI-004 の番地以下の詳細住所用に保持する（Req 4-8）。DROP しない
+-- NOTE: 【廃止 / superseded by work-location-address-fix, 2026-06-02】jobs.address は DROP 済。
+--       詳細住所は applications.work_location（CLI-009 入力・成立した受注者にのみ表示）に一本化。
 -- NOTE: users.prefecture は個人住所として保持する（Req 9）。DROP しない
 ALTER TABLE jobs DROP COLUMN prefecture;
 ALTER TABLE client_profiles DROP COLUMN recruit_area;

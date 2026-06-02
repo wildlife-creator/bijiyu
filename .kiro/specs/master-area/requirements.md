@@ -86,7 +86,8 @@
 5. The master-area system shall 1 案件に最低 1 件以上のエリア登録を必須とする
 6. When 発注者が CLI-003(募集現場編集)または CLI-004(募集現場新規登録)で案件を作成・編集する, the master-area system shall 動的にエリア行を追加・削除できる UI を提供する
 7. When 発注者が案件作成時に「市区町村未指定」を選択する, the master-area system shall `municipality = NULL` で保存し、「現場未定」「複数現場(詳細別途連絡)」等の意味を持たせる
-8. The master-area system shall CLI-004 の既存「勤務地」自由入力テキストフィールドを維持し、番地以下の詳細住所入力用フィールドとして共存させる(エリアフィールドとは別管理)
+8. ~~The master-area system shall CLI-004 の既存「勤務地」自由入力テキストフィールドを維持し、番地以下の詳細住所入力用フィールドとして共存させる(エリアフィールドとは別管理)~~
+   - **【廃止 / superseded by work-location-address-fix, 2026-06-02】** 実際には CLI-004 に該当入力欄は実装されておらず `jobs.address` は常に空だった。詳細住所は応募レベルの `applications.work_location` に一本化（CLI-009 で発注者が承認する受注者ごとに入力し、成立した受注者にのみ表示）。`jobs.address` カラムは DROP 済。**この要件に従って jobs に住所カラムや CLI-004 住所入力欄を復活させてはならない。**
 9. When 発注者が案件を保存する, the master-area system shall Server Action 内でマスタ整合性検証を行う(Requirement 2-10 と同様)
 
 ### Requirement 5: エリア表示の統一ルール

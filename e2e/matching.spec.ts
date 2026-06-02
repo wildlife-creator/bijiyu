@@ -152,6 +152,10 @@ test.describe("発注者: 発注を依頼する（CLI-009）", () => {
     const dateStr = futureDate.toISOString().split("T")[0];
     await dateInput.fill(dateStr);
 
+    // 勤務地（番地以下の詳細住所）を入力 — 成立した受注者にのみ表示される
+    const workLocation = "東京都港区テスト勤務地1-2-3";
+    await page.getByPlaceholder("東京都千代田区丸の内XX-XX").fill(workLocation);
+
     // 送信
     await page.getByRole("button", { name: "送信する" }).click();
 
@@ -159,6 +163,10 @@ test.describe("発注者: 発注を依頼する（CLI-009）", () => {
     await expect(page.getByText("ユーザーへ結果を送信しました")).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: "OK" }).click();
     await page.waitForURL(/\/applications\/received$/);
+
+    // round-trip 検証: 入力した勤務地が発注履歴詳細（CLI-010）に表示される
+    await page.goto(`/applications/orders/${APPLICATION_FOR_ACCEPT}`);
+    await expect(page.getByText(workLocation)).toBeVisible();
   });
 });
 

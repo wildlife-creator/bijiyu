@@ -317,6 +317,7 @@ export async function acceptApplicationAction(
       .update({
         status: "accepted",
         first_work_date: input.firstWorkDate,
+        work_location: input.workLocation,
         client_notes: input.clientNotes ?? null,
         document_urls: documentUrls.length > 0 ? documentUrls : null,
       })

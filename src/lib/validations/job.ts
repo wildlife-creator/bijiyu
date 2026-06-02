@@ -34,11 +34,6 @@ export const jobSchema = z
     areas: jobAreaRowsSchema.refine((arr) => arr.length >= 1, {
       message: "エリアを1つ以上選択してください",
     }),
-    address: z
-      .string()
-      .max(200, "詳細住所は200文字以内で入力してください")
-      .optional()
-      .or(z.literal("")),
     workStartDate: z.string().min(1, "工期開始日を選択してください"),
     workEndDate: z.string().min(1, "工期終了日を選択してください"),
     recruitStartDate: z.string().min(1, "募集開始日を選択してください"),
@@ -110,7 +105,6 @@ export const jobDraftSchema = z.object({
     .refine((arr) => expandAreasForDb(arr).length <= 10, {
       message: areaErrorMessages.tooManyAreasForJob,
     }),
-  address: z.string().max(200).optional().or(z.literal("")),
   workStartDate: z.string().optional().or(z.literal("")),
   workEndDate: z.string().optional().or(z.literal("")),
   recruitStartDate: z.string().optional().or(z.literal("")),

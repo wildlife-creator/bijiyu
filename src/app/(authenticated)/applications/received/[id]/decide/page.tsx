@@ -29,7 +29,7 @@ export default async function DecisionPage({ params }: Props) {
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, message,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified),
-       jobs!inner(id, title, trade_types, recruit_end_date, owner_id, address)`,
+       jobs!inner(id, title, trade_types, recruit_end_date, owner_id)`,
     )
     .eq("id", id)
     .single();
@@ -44,7 +44,6 @@ export default async function DecisionPage({ params }: Props) {
     trade_types: string[];
     recruit_end_date: string | null;
     owner_id: string;
-    address: string | null;
   };
 
   // Verify ownership
@@ -100,10 +99,8 @@ export default async function DecisionPage({ params }: Props) {
     })),
   );
 
-  // Default work location from job
-  const defaultWorkLocation = [jobAreasText, job.address]
-    .filter((s): s is string => Boolean(s && s.trim()))
-    .join(" ");
+  // Default work location: prefill with the job's area (発注者が番地以下を追記する)
+  const defaultWorkLocation = jobAreasText;
 
   return (
     <div className="mx-auto min-h-dvh max-w-2xl bg-muted px-4 py-6 md:px-8 md:py-8">

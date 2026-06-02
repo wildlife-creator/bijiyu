@@ -90,7 +90,6 @@ export default async function JobEditPage({ params }: PageProps) {
     rewardLower: job.reward_lower ?? undefined,
     rewardUpper: job.reward_upper ?? undefined,
     areas: collapsedJobAreas,
-    address: job.address ?? "",
     workStartDate: job.work_start_date ?? "",
     workEndDate: job.work_end_date ?? "",
     recruitStartDate: job.recruit_start_date ?? "",
