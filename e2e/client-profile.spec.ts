@@ -63,6 +63,34 @@ test.describe("CLI-020 発注者情報詳細", () => {
       page.getByRole("link", { name: "担当者を確認する" }),
     ).toHaveCount(0);
   });
+
+  // client-review-completion: 評判表示（また仕事を受けたい good／合計）
+  test("評判あり: また仕事を受けたい（good／合計）を表示する", async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto("/mypage/client-profile");
+    await expect(
+      page.getByRole("heading", { name: "発注者情報詳細" }),
+    ).toBeVisible();
+    // seed: 22222222 への client_reviews は good 3件 + bad 1件 = 「3／4件」
+    await expect(page.getByText("・また仕事を受けたい")).toBeVisible();
+    await expect(page.getByText("（3／4件）")).toBeVisible();
+    // 0件メッセージは出ない
+    await expect(page.getByText("評判はまだありません")).toHaveCount(0);
+  });
+
+  test("評価0件: 評判はまだありませんを表示する", async ({ page }) => {
+    await login(
+      page,
+      TEST_INDIVIDUAL_CLIENT.email,
+      TEST_INDIVIDUAL_CLIENT.password,
+    );
+    await page.goto("/mypage/client-profile");
+    await expect(
+      page.getByRole("heading", { name: "発注者情報詳細" }),
+    ).toBeVisible();
+    // seed: dd111111（中村リフォーム）には client_reviews が無い
+    await expect(page.getByText("評判はまだありません")).toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------

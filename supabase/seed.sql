@@ -806,6 +806,22 @@ INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, operating_st
   ('cccccccc-cccc-cccc-cccc-cccccccccc04', '22222222-2222-2222-2222-222222222222', 'cc111111-1111-1111-1111-111111111111', '問題なく稼働完了', 5, 5, 5, 5, 5, 5, 5, '毎回素晴らしい仕事です。');
 
 -- ============================================================
+-- 12.6 client_reviews（受注者→発注者評価テストデータ / client-review-completion）
+-- ============================================================
+-- CLI-020 評判表示（また受けたい good／合計）の検証用。
+-- 被評価者 = client@test.local (22222222 / 鈴木工務店, org 55555555 の Owner)。
+-- 評価者 = 各応募の applicant（受注者）、被評価者 = 案件オーナー（発注者）で FK 整合を厳守。
+-- application_id は UNIQUE のため 1応募1評価。good 3件 + bad 1件 = 「3／4件」を検証可能にする。
+-- 注意: CON-013 提出 E2E が使う未評価応募（aaaa...aaab / 受注者→job2、aaaa...aaac / 発注者作業報告用）
+--       には紐付けないこと（UNIQUE 衝突・既評価化を避ける）。
+-- status_supplement / comment は保存するが本 spec ではどの画面にも表示しない（保留）。
+INSERT INTO client_reviews (application_id, reviewer_id, reviewee_id, operating_status, status_supplement, rating_again, comment) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '問題なく稼働完了', NULL, 'good', '指示が明確で働きやすい現場でした。'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc01', 'cc111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '問題なく稼働完了', NULL, 'good', 'また機会があればお願いしたいです。'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc02', 'cc111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '問題なく稼働完了', NULL, 'good', NULL),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc04', 'cc111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '一部欠席したものの概ね問題なく稼働完了', '初日に到着が遅れました。', 'bad', NULL);
+
+-- ============================================================
 -- 14. スカウト経由応募テスト用データ（E2E: scout → application flow）
 -- ============================================================
 -- スレッド: client(22222222) → contractor(11111111) のスカウトスレッド
