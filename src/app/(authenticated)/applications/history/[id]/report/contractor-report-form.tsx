@@ -90,7 +90,10 @@ export function ContractorReportForm({
         <h2 className="text-body-lg font-bold text-foreground">評価入力</h2>
 
         <div className="mt-3 flex items-center justify-between border-b border-border pb-3">
-          <span className="text-body-md text-foreground">また仕事を受けたいか？</span>
+          <span className="text-body-md font-bold text-foreground">
+            また仕事を受けたいか？{" "}
+            <span className="text-destructive text-body-sm">必須</span>
+          </span>
           <div className="flex gap-2">
             <button
               type="button"

@@ -179,6 +179,9 @@ test.describe("受注者: 作業報告・評価入力（CON-013）", () => {
     await page.goto(`/applications/history/${APPLICATION_FOR_CONTRACTOR_REPORT}/report`);
     await expect(page.getByRole("heading", { name: "作業報告・評価入力" })).toBeVisible();
 
+    // 「また仕事を受けたいか？」に必須表示がある（client-review-completion）
+    await expect(page.getByText("また仕事を受けたいか？")).toContainText("必須");
+
     // 稼働状況を選択
     await page.getByRole("combobox").click();
     await page.getByRole("option", { name: "問題なく稼働完了", exact: true }).click();

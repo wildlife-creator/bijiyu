@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ThumbsUp } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { AreaList } from "@/components/area/area-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
+import { fetchClientReputation } from "@/lib/client-review/aggregate";
 
 /**
  * CLI-020 発注者情報詳細
@@ -127,16 +129,11 @@ export default async function ClientProfilePage() {
     deletedAt: ownerUser?.deleted_at ?? null,
   });
 
-  // 評判集計: rating_again の Good 数
-  const { data: reviews } = await supabase
-    .from("client_reviews")
-    .select("rating_again")
-    .eq("reviewee_id", profileUserId);
-
-  const reputationGood = (reviews ?? []).filter(
-    (r) => r.rating_again === "good",
-  ).length;
-  const totalReviews = reviews?.length ?? 0;
+  // 評判集計: また受けたい（good／合計）。集計の正準定義は fetchClientReputation に一本化
+  const { goodCount, total } = await fetchClientReputation(
+    supabase,
+    profileUserId,
+  );
 
   const isStaff = orgRole === "staff";
   const canEdit = orgRole === "owner" || orgRole === "admin" || orgRole === null;
@@ -241,7 +238,7 @@ export default async function ClientProfilePage() {
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">評判</h2>
         <Card className="mt-2 rounded-[8px] p-4">
-          {totalReviews === 0 ? (
+          {total === 0 ? (
             <p className="text-body-md text-muted-foreground">
               評判はまだありません
             </p>
@@ -249,7 +246,11 @@ export default async function ClientProfilePage() {
             <div className="flex items-center justify-between text-body-md text-foreground">
               <span>・また仕事を受けたい</span>
               <span className="flex items-center gap-1 text-muted-foreground">
-                👍 {reputationGood}
+                <ThumbsUp
+                  className="size-5 text-primary"
+                  fill="currentColor"
+                />
+                （{goodCount}／{total}件）
               </span>
             </div>
           )}
