@@ -103,27 +103,39 @@ export default async function ClientDetailPage({ params }: PageProps) {
   // 発注者アバターは client_profiles.image_url を優先し、未設定なら users.avatar_url
   const avatarUrl = profile?.image_url ?? client.avatar_url;
 
+  // 他者組織の解決は admin client（resolveTargetOrganizationId / hasActiveOption の前提）。
+  // 掲載案件の会社単位表示・職場紹介動画判定・お問い合わせ判定で共用する。
+  const adminClient = createAdminClient();
+  // 見ている発注者(id)が法人 Owner なら、その組織IDを掲載案件の会社単位スコープに使う。
+  // 個人発注者は null（従来どおり owner_id 軸）。
+  const targetOrgId = await resolveTargetOrganizationId(adminClient, id);
+
   // 職場紹介動画: workplace_video_url 設定済み かつ active な 'video_workplace'
   // オプションがある場合のみ表示。cross-user 参照のため active 判定は
   // admin（service-role）client で行う（要件 5.1/5.3）。
   const showWorkplaceVideo =
     !!profile?.workplace_video_url &&
     !isDeleted &&
-    (await hasActiveOption(createAdminClient(), id, "video_workplace"));
+    (await hasActiveOption(adminClient, id, "video_workplace"));
 
-  // Fetch client's open jobs with thumbnail + urgency info
-  const { data: jobs } = await supabase
+  // Fetch client's open jobs with thumbnail + urgency info.
+  // 法人 Owner を見ている場合は会社全体（organization_id 軸＝担当者作成案件も含む）、
+  // 個人発注者なら従来どおり本人の案件のみ（owner_id 軸）。
+  let jobsQuery = supabase
     .from("jobs")
     .select(
       `id, title, trade_types, reward_lower, reward_upper,
        is_urgent, recruit_end_date,
        job_images(image_url, sort_order)`,
     )
-    .eq("owner_id", id)
     .eq("status", "open")
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(10);
+  jobsQuery = targetOrgId
+    ? jobsQuery.eq("organization_id", targetOrgId)
+    : jobsQuery.eq("owner_id", id);
+  const { data: jobs } = await jobsQuery;
 
   // Get job favorites for these jobs
   const jobIds = (jobs ?? []).map((j) => j.id);
@@ -164,16 +176,13 @@ export default async function ClientDetailPage({ params }: PageProps) {
   // 「求人へのお問い合わせ」ボタンの表示判定。
   // Server Action(submitJobInquiryAction) のガードと同一の純粋関数 canSendJobInquiry を
   // 呼ぶことで UI と許可範囲を一致させる（self / deleted / same_org / admin で非表示）。
-  const adminClient = createAdminClient();
   const { data: viewerRow } = await supabase
     .from("users")
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  const [viewerOrgId, targetOrgId] = await Promise.all([
-    resolveViewerOrganizationId(adminClient, user.id),
-    resolveTargetOrganizationId(adminClient, id),
-  ]);
+  // targetOrgId / adminClient は掲載案件取得の前で解決済み（上部参照）。
+  const viewerOrgId = await resolveViewerOrganizationId(adminClient, user.id);
   const canInquire = canSendJobInquiry({
     viewer: {
       id: user.id,

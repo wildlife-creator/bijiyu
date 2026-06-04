@@ -308,6 +308,7 @@ export type Database = {
           created_at: string
           id: string
           operating_status: string | null
+          organization_id: string | null
           rating_again: string | null
           reviewee_id: string
           reviewer_id: string
@@ -319,6 +320,7 @@ export type Database = {
           created_at?: string
           id?: string
           operating_status?: string | null
+          organization_id?: string | null
           rating_again?: string | null
           reviewee_id: string
           reviewer_id: string
@@ -330,6 +332,7 @@ export type Database = {
           created_at?: string
           id?: string
           operating_status?: string | null
+          organization_id?: string | null
           rating_again?: string | null
           reviewee_id?: string
           reviewer_id?: string
@@ -341,6 +344,13 @@ export type Database = {
             columns: ["application_id"]
             isOneToOne: true
             referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_reviews_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {

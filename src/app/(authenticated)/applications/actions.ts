@@ -179,6 +179,9 @@ export async function submitContractorReportAction(
         application_id: input.applicationId,
         reviewer_id: user.id,
         reviewee_id: jobOwner?.owner_id ?? "",
+        // 会社単位集計の鍵（案C）。法人案件は jobs.organization_id、個人発注者案件は NULL。
+        // reviewee_id（案件作成者）は従来どおり保持し、作成者別の内訳を残す。
+        organization_id: jobOwner?.organization_id ?? null,
         operating_status: input.operatingStatus,
         status_supplement: input.statusSupplement ?? null,
         rating_again: input.ratingAgain,

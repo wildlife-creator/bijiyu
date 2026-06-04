@@ -40,7 +40,7 @@ export default async function OrderDetailPage({ params }: Props) {
        ),
        jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper,
                   work_start_date, work_end_date,
-                  recruit_start_date, recruit_end_date, work_hours, owner_id),
+                  recruit_start_date, recruit_end_date, work_hours, owner_id, organization_id),
        user_reviews(id),
        client_reviews(id)`,
     )
@@ -65,10 +65,24 @@ export default async function OrderDetailPage({ params }: Props) {
     recruit_end_date: string | null;
     work_hours: string | null;
     owner_id: string;
+    organization_id: string | null;
   };
 
+  // 認可: Owner または同一組織メンバーのみ詳細を表示（姉妹画面 CLI-008
+  // applications/received/[id] と同一ロジック）。それ以外は 404。
   if (job.owner_id !== user.id) {
-    notFound();
+    if (!job.organization_id) {
+      notFound();
+    }
+    const { data: orgMember } = await supabase
+      .from("organization_members")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("organization_id", job.organization_id)
+      .maybeSingle();
+    if (!orgMember) {
+      notFound();
+    }
   }
 
   const applicant = application.applicant as {
