@@ -141,6 +141,7 @@ export function AreaRow({
                 checked={value.whole}
                 onCheckedChange={(c) => handleWholeToggle(c === true)}
                 disabled={disabled}
+                className="bg-background"
               />
               <span>全域</span>
             </label>
@@ -167,6 +168,7 @@ export function AreaRow({
                       handleMunicipalityToggle(label, c === true)
                     }
                     disabled={disabled || value.whole}
+                    className="bg-background"
                   />
                   <span>
                     {label}

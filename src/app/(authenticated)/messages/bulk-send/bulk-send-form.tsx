@@ -30,6 +30,19 @@ export function BulkSendForm({ recipients }: BulkSendFormProps) {
     );
   }
 
+  const allSelected =
+    recipients.length > 0 && selectedIds.length === recipients.length;
+  const someSelected = selectedIds.length > 0 && !allSelected;
+  const selectAllState: boolean | "indeterminate" = allSelected
+    ? true
+    : someSelected
+      ? "indeterminate"
+      : false;
+
+  function toggleAll() {
+    setSelectedIds(allSelected ? [] : recipients.map((r) => r.id));
+  }
+
   function handleSubmit() {
     if (!body.trim()) {
       toast.error("メッセージを入力してください");
@@ -76,44 +89,38 @@ export function BulkSendForm({ recipients }: BulkSendFormProps) {
 
         {/* Recipient selection */}
         <div className="mb-8">
-          <div className="mb-2 flex items-center justify-between">
-            <label className="text-sm font-medium">送信先選択</label>
-            {recipients.length > 0 && (
-              <button
-                type="button"
-                className="text-sm text-primary hover:underline"
-                onClick={() =>
-                  setSelectedIds((prev) =>
-                    prev.length === recipients.length
-                      ? []
-                      : recipients.map((r) => r.id),
-                  )
-                }
-              >
-                {selectedIds.length === recipients.length
-                  ? "全解除"
-                  : "全選択"}
-              </button>
-            )}
-          </div>
+          <label className="mb-2 block text-sm font-medium">送信先選択</label>
           {recipients.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               送信先がありません。メッセージをやりとりしたユーザーが表示されます。
             </p>
           ) : (
-            <div className="space-y-3">
-              {recipients.map((r) => (
-                <label
-                  key={r.id}
-                  className="flex cursor-pointer items-center gap-3"
-                >
-                  <Checkbox
-                    checked={selectedIds.includes(r.id)}
-                    onCheckedChange={() => toggleRecipient(r.id)}
-                  />
-                  <span className="text-sm">{r.name}</span>
-                </label>
-              ))}
+            <div>
+              {/* Select all */}
+              <label className="mb-4 flex cursor-pointer items-center gap-3">
+                <Checkbox
+                  checked={selectAllState}
+                  onCheckedChange={toggleAll}
+                  className="bg-background"
+                />
+                <span className="text-sm font-medium">すべて選択</span>
+              </label>
+              {/* Recipients */}
+              <div className="space-y-3">
+                {recipients.map((r) => (
+                  <label
+                    key={r.id}
+                    className="flex cursor-pointer items-center gap-3"
+                  >
+                    <Checkbox
+                      checked={selectedIds.includes(r.id)}
+                      onCheckedChange={() => toggleRecipient(r.id)}
+                      className="bg-background"
+                    />
+                    <span className="text-sm">{r.name}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
         </div>
