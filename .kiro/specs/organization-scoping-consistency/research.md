@@ -103,7 +103,7 @@
 
 ## 「会社共有が自然だが個人設計」候補の網羅監査（2026-06-03）
 全テーブル（約25）棚卸し。本spec の6穴（既に org 共有のデータを個人で読む＝整合バグ）とは別クラス＝「個人設計だが発注者業務として会社共有が自然な機能」を抽出:
-- **favorites『見込みユーザー』(target_type='user', 発注者がお気に入りした職人)** = 明確な候補（会社の採用候補リスト）。favorites は user_id 単位・org_id 無し。CON-007 は `.eq("user_id", self)`。**決定: B（別機能として後日・本spec対象外）**。理由=個人設計のため整合バグでなく新機能＋UX判断（誰のお気に入りか/担当者が外せるか/ハート色）が要る。受注者側のお気に入り（案件・発注者）は個人維持。
+- **favorites『見込みユーザー』(target_type='user', 発注者がお気に入りした職人)** = 明確な候補（会社の採用候補リスト）。favorites は user_id 単位・org_id 無し。CON-007 は `.eq("user_id", self)`。**決定: B（個人のまま据え置き・本spec対象外。会社共有の要望が出た場合のみ別機能として再検討。ロードマップ確定の予定機能ではない。2026-06-04 再確認）**。理由=個人設計のため整合バグでなく新機能＋UX判断（誰のお気に入りか/担当者が外せるか/ハート色）が要る。受注者側のお気に入り（案件・発注者）は個人維持。
 - favorites 案件/発注者（発注者側）= 弱い候補（個人の下調べ寄り）。
 - 通知（メール配信先）= 近いが別枠（notifications テーブル無し＝保存リストでなく配信の話）。
 - それ以外は非該当: jobs/job_images/job_areas/message_threads/messages/scout_templates/job_inquiries/client_reviews=既に会社共有（本spec/backfill）、client_profiles/client_recruit_areas=会社情報、applications.client_notes=応募行に付き会社可視、subscriptions/option_subscriptions=課金owner単位、available_schedules/user_skills/user_qualifications/user_available_areas/identity_verifications=受注者個人、contacts/trouble_reports/withdrawal_surveys=個人サポート、master_*/audit_logs/stripe_webhook_events=システム。
