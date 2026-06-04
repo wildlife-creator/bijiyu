@@ -34,13 +34,20 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
   const from = (currentPage - 1) * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
 
-  // Build query: get applications for jobs owned by this user.
+  // Build query: get applications for jobs owned by this user (or the whole company).
   // REQ-MT-004: この画面は未対応の応募（status = 'applied'）のみを表示する
   // インボックス。判断済みの応募は CLI-010（発注履歴一覧）側の役割。
+  // 会社単位スコープ（jobs/manage の正準パターン）: 組織所属なら会社全体の案件への応募、
+  // 個人発注者なら従来どおり本人の案件への応募。
+  const { data: orgMember } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   let countQuery = supabase
     .from("applications")
-    .select("*, jobs!inner(owner_id)", { count: "exact", head: true })
-    .eq("jobs.owner_id", user.id)
+    .select("*, jobs!inner(owner_id, organization_id)", { count: "exact", head: true })
     .eq("status", "applied");
 
   let dataQuery = supabase
@@ -48,12 +55,20 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
     .select(
       `id, status, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified),
-       jobs!inner(id, title, owner_id, trade_types, recruit_end_date, headcount)`,
+       jobs!inner(id, title, owner_id, organization_id, trade_types, recruit_end_date, headcount)`,
     )
-    .eq("jobs.owner_id", user.id)
     .eq("status", "applied")
     .order("created_at", { ascending: sortAsc })
     .range(from, to);
+
+  // 件数クエリと一覧クエリに同一スコープを適用（件数・ページネーションを表示と一致＝Req 1.4 / 3.3）
+  if (orgMember) {
+    countQuery = countQuery.eq("jobs.organization_id", orgMember.organization_id);
+    dataQuery = dataQuery.eq("jobs.organization_id", orgMember.organization_id);
+  } else {
+    countQuery = countQuery.eq("jobs.owner_id", user.id);
+    dataQuery = dataQuery.eq("jobs.owner_id", user.id);
+  }
 
   // Optional job filter
   if (params.jobId) {

@@ -64,7 +64,7 @@ describe("summarizeReputation（純粋関数）", () => {
 });
 
 describe("fetchClientReputation（取得関数）", () => {
-  it("正常時: 取得行を集計して返す", async () => {
+  it("組織スコープ: 取得行を集計して返す", async () => {
     const { client } = mockEqClient({
       data: [
         { rating_again: "good" },
@@ -73,36 +73,72 @@ describe("fetchClientReputation（取得関数）", () => {
       ],
       error: null,
     });
-    expect(await fetchClientReputation(client, "client1")).toEqual({
-      goodCount: 2,
-      total: 3,
+    expect(
+      await fetchClientReputation(client, {
+        kind: "organization",
+        organizationId: "org1",
+      }),
+    ).toEqual({ goodCount: 2, total: 3 });
+  });
+
+  it("個人スコープ: 取得行を集計して返す", async () => {
+    const { client } = mockEqClient({
+      data: [{ rating_again: "good" }, { rating_again: "bad" }],
+      error: null,
     });
+    expect(
+      await fetchClientReputation(client, {
+        kind: "individual",
+        clientUserId: "client1",
+      }),
+    ).toEqual({ goodCount: 1, total: 2 });
   });
 
   it("0件: {0,0} を返す", async () => {
     const { client } = mockEqClient({ data: [], error: null });
-    expect(await fetchClientReputation(client, "client1")).toEqual({
-      goodCount: 0,
-      total: 0,
-    });
+    expect(
+      await fetchClientReputation(client, {
+        kind: "individual",
+        clientUserId: "client1",
+      }),
+    ).toEqual({ goodCount: 0, total: 0 });
   });
 
   it("error 時: fail-safe で {0,0} を返す（例外を投げない）", async () => {
     const { client } = mockEqClient({ data: null, error: { message: "boom" } });
-    expect(await fetchClientReputation(client, "client1")).toEqual({
-      goodCount: 0,
-      total: 0,
-    });
+    expect(
+      await fetchClientReputation(client, {
+        kind: "organization",
+        organizationId: "org1",
+      }),
+    ).toEqual({ goodCount: 0, total: 0 });
   });
 
-  it("reviewee_id で client_reviews を引く", async () => {
+  it("個人スコープ: reviewee_id で client_reviews を引く", async () => {
     const { client, from, select, eq } = mockEqClient({
       data: [{ rating_again: "good" }],
       error: null,
     });
-    await fetchClientReputation(client, "client-xyz");
+    await fetchClientReputation(client, {
+      kind: "individual",
+      clientUserId: "client-xyz",
+    });
     expect(from).toHaveBeenCalledWith("client_reviews");
     expect(select).toHaveBeenCalledWith("rating_again");
     expect(eq).toHaveBeenCalledWith("reviewee_id", "client-xyz");
+  });
+
+  it("組織スコープ: organization_id で client_reviews を引く", async () => {
+    const { client, from, select, eq } = mockEqClient({
+      data: [{ rating_again: "good" }],
+      error: null,
+    });
+    await fetchClientReputation(client, {
+      kind: "organization",
+      organizationId: "org-abc",
+    });
+    expect(from).toHaveBeenCalledWith("client_reviews");
+    expect(select).toHaveBeenCalledWith("rating_again");
+    expect(eq).toHaveBeenCalledWith("organization_id", "org-abc");
   });
 });

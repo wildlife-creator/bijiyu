@@ -10,6 +10,7 @@ import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { fetchClientReputation } from "@/lib/client-review/aggregate";
 
@@ -129,11 +130,19 @@ export default async function ClientProfilePage() {
     deletedAt: ownerUser?.deleted_at ?? null,
   });
 
-  // 評判集計: また受けたい（good／合計）。集計の正準定義は fetchClientReputation に一本化
-  const { goodCount, total } = await fetchClientReputation(
-    supabase,
-    profileUserId,
-  );
+  // 評判集計: また受けたい（good／合計）。集計の正準定義は fetchClientReputation に一本化。
+  // 組織所属なら会社全体（organization_id 軸）、個人発注者なら被評価者ID軸で合算する。
+  // 組織スコープは admin client を使う（既存 RLS can_view_client_review は被評価者の現在所属で
+  // 判定し、CLI-023 で削除済みの担当者ぶんの評価をセッションクライアントでは弾くため。Req 8.3）。
+  const { goodCount, total } = organizationId
+    ? await fetchClientReputation(createAdminClient(), {
+        kind: "organization",
+        organizationId,
+      })
+    : await fetchClientReputation(supabase, {
+        kind: "individual",
+        clientUserId: profileUserId,
+      });
 
   const isStaff = orgRole === "staff";
   const canEdit = orgRole === "owner" || orgRole === "admin" || orgRole === null;

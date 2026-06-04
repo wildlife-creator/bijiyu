@@ -36,20 +36,36 @@ export function summarizeReputation(
 }
 
 /**
- * 取得関数: 特定の被評価者（発注者）の評判を集計して返す。
+ * 評判集計のスコープ（判別ユニオン）。誤用を型で防ぐ。
+ * - organization: 会社単位。`client_reviews.organization_id` 軸で会社全体を合算する。
+ *   案件作成者（reviewee_id）が誰でも・担当者が辞めても固定のため、会社の評判として安定する。
+ * - individual: 個人発注者。従来どおり `reviewee_id`（被評価者本人）軸で合算する。
+ */
+export type ReputationScope =
+  | { kind: "organization"; organizationId: string }
+  | { kind: "individual"; clientUserId: string };
+
+/**
+ * 取得関数: 発注者の評判を集計して返す。
  *
- * RLS（被評価者本人・同一組織・投稿者本人のみ SELECT 可）の下で動作する。
+ * スコープに応じて集計軸を切り替える:
+ * - kind="organization": `organization_id` 軸で会社全体を合算（CLI-023 で削除済みの担当者ぶんも残る）。
+ *   ⚠️ 既存 RLS `can_view_client_review` は被評価者の【現在の】組織所属で判定するため、
+ *   削除済み担当者の評価行はセッションクライアントでは弾かれる。組織スコープの読み取りには
+ *   admin（service-role）クライアントを渡すこと（用途は自組織評判の閲覧に限定。RLS は変更しない）。
+ * - kind="individual": `reviewee_id` 軸で本人の評判を合算（被評価者本人＝自分のためセッションクライアントで可）。
+ *
  * 取得失敗・0件のときは {goodCount:0, total:0} を返し例外を投げない（fail-safe）。
- * 引数は被評価者 ID のみ（将来「閲覧者≠被評価者」拡張の余地を残す）。
  */
 export async function fetchClientReputation(
   supabase: SupabaseClient<Database>,
-  clientUserId: string,
+  scope: ReputationScope,
 ): Promise<ClientReputationSummary> {
-  const { data, error } = await supabase
-    .from("client_reviews")
-    .select("rating_again")
-    .eq("reviewee_id", clientUserId);
+  const query = supabase.from("client_reviews").select("rating_again");
+  const { data, error } =
+    scope.kind === "organization"
+      ? await query.eq("organization_id", scope.organizationId)
+      : await query.eq("reviewee_id", scope.clientUserId);
 
   if (error || !data) return { goodCount: 0, total: 0 };
   return summarizeReputation(data);

@@ -815,11 +815,40 @@ INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, operating_st
 -- 注意: CON-013 提出 E2E が使う未評価応募（aaaa...aaab / 受注者→job2、aaaa...aaac / 発注者作業報告用）
 --       には紐付けないこと（UNIQUE 衝突・既評価化を避ける）。
 -- status_supplement / comment は保存するが本 spec ではどの画面にも表示しない（保留）。
-INSERT INTO client_reviews (application_id, reviewer_id, reviewee_id, operating_status, status_supplement, rating_again, comment) VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '問題なく稼働完了', NULL, 'good', '指示が明確で働きやすい現場でした。'),
-  ('cccccccc-cccc-cccc-cccc-cccccccccc01', 'cc111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '問題なく稼働完了', NULL, 'good', 'また機会があればお願いしたいです。'),
-  ('cccccccc-cccc-cccc-cccc-cccccccccc02', 'cc111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '問題なく稼働完了', NULL, 'good', NULL),
-  ('cccccccc-cccc-cccc-cccc-cccccccccc04', 'cc111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '一部欠席したものの概ね問題なく稼働完了', '初日に到着が遅れました。', 'bad', NULL);
+-- organization-scoping-consistency Req 10.6: 各行に対応案件の会社IDを明示設定する。
+--   昇格時の組織ID自動付与は live の昇格経路でのみ走り、seed の会社（既に法人設定済み）には
+--   走らないため、seed 行は org_id を明示しないと CLI-020 の組織スコープ集計に現れない。
+--   4行とも owner 22222222（鈴木工務店）の案件への評価＝org 55555555。
+INSERT INTO client_reviews (application_id, reviewer_id, reviewee_id, organization_id, operating_status, status_supplement, rating_again, comment) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', '問題なく稼働完了', NULL, 'good', '指示が明確で働きやすい現場でした。'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc01', 'cc111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', '問題なく稼働完了', NULL, 'good', 'また機会があればお願いしたいです。'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc02', 'cc111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', '問題なく稼働完了', NULL, 'good', NULL),
+  ('cccccccc-cccc-cccc-cccc-cccccccccc04', 'cc111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', '一部欠席したものの概ね問題なく稼働完了', '初日に到着が遅れました。', 'bad', NULL);
+
+-- ============================================================
+-- 12.7 organization-scoping-consistency Req 10.1 / 10.7 検証データ
+-- ============================================================
+-- (A) Req 10.1: 担当者(staff 33333333)が作成した案件(885)への発注成立 + 評価。
+--     reviewee=staff(33333333) / organization_id=55555555。
+--     会社(鈴木工務店)の評判集計に担当者案件ぶんが乗ることを検証する
+--     （CLI-020 で Owner 視点の会社合計が good 3→4 / total 4→5 = 「4／5件」）。
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa85', '88888888-8888-8888-8888-888888888885', 'cc333333-3333-3333-3333-333333333333', 1, '常勤', CURRENT_DATE + interval '10 days', 'accepted', CURRENT_DATE + interval '12 days');
+
+INSERT INTO client_reviews (application_id, reviewer_id, reviewee_id, organization_id, operating_status, status_supplement, rating_again, comment) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa85', 'cc333333-3333-3333-3333-333333333333', '33333333-3333-3333-3333-333333333333', '55555555-5555-5555-5555-555555555555', '問題なく稼働完了', NULL, 'good', '担当者が立てた現場も問題なく完了しました。');
+
+-- (B) Req 10.7: 個人発注者(dd111111 / 中村リフォーム)の評価(organization_id=NULL)。
+--     個人発注者は会社単位化されず reviewee_id 軸で集計される非回帰(Req 10.5)を検証する
+--     （CLI-020 で dd111111 視点が「1／1件」）。案件は status='closed' にして公開案件一覧を汚染しない。
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
+VALUES ('dd111111-0000-0000-0000-0000000d0091', 'dd111111-1111-2222-3333-444455556666', NULL, '個人発注 キッチンリフォーム（完了）', '個人発注者の発注者評価 非回帰検証用の完了案件', ARRAY['建築/内装｜木工']::text[], 1, 'closed', 18000, 22000, CURRENT_DATE - 40, CURRENT_DATE - 30, CURRENT_DATE - 50, CURRENT_DATE - 25);
+
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
+  ('dd111111-0000-0000-0000-0000000a0091', 'dd111111-0000-0000-0000-0000000d0091', 'cc333333-3333-3333-3333-333333333333', 1, '常勤', CURRENT_DATE - 40, 'accepted', CURRENT_DATE - 38);
+
+INSERT INTO client_reviews (application_id, reviewer_id, reviewee_id, organization_id, operating_status, status_supplement, rating_again, comment) VALUES
+  ('dd111111-0000-0000-0000-0000000a0091', 'cc333333-3333-3333-3333-333333333333', 'dd111111-1111-2222-3333-444455556666', NULL, '問題なく稼働完了', NULL, 'good', '個人の発注者さんですが、やり取りが丁寧でした。');
 
 -- ============================================================
 -- 14. スカウト経由応募テスト用データ（E2E: scout → application flow）

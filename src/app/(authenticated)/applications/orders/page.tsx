@@ -42,6 +42,14 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
   const filterCategory = params.status || "";
   const sortOrder = params.sort === "asc" ? true : false;
 
+  // 会社単位スコープ（jobs/manage の正準パターン）: 組織所属なら会社全体の発注履歴、
+  // 個人発注者なら従来どおり本人の案件のみ。
+  const { data: orgMember } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   // Build query — fetch ordered applications with applicant details
   let query = supabase
     .from("applications")
@@ -53,12 +61,15 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
          user_skills(trade_type, experience_years),
          user_available_areas(prefecture)
        ),
-       jobs!inner(id, title, owner_id, trade_types, headcount, recruit_end_date),
+       jobs!inner(id, title, owner_id, organization_id, trade_types, headcount, recruit_end_date),
        user_reviews(id),
        client_reviews(id)`,
     )
-    .eq("jobs.owner_id", user.id)
     .order("updated_at", { ascending: sortOrder });
+
+  query = orgMember
+    ? query.eq("jobs.organization_id", orgMember.organization_id)
+    : query.eq("jobs.owner_id", user.id);
 
   // Apply DB-level status filter.
   // REQ-MT-007: CLI-010 は発注可否決定以降（status ≠ 'applied'）のみ扱う。

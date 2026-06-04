@@ -38,6 +38,24 @@ export default async function JobEditPage({ params }: PageProps) {
     notFound();
   }
 
+  // 認可: Owner または同一組織メンバーのみ編集フォームを開ける（CLI-002 / CLI-007B と同一）。
+  // 公開中(open)案件を無関係ユーザーが SELECT RLS 任せで開けてしまう穴を塞ぐ（保存は UPDATE RLS で不可だが
+  // フォーム自体を開かせない）。
+  if (job.owner_id !== user.id) {
+    if (!job.organization_id) {
+      notFound();
+    }
+    const { data: orgMember } = await supabase
+      .from("organization_members")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("organization_id", job.organization_id)
+      .maybeSingle();
+    if (!orgMember) {
+      notFound();
+    }
+  }
+
   // Fetch existing images + job_areas + masters in parallel
   const [
     { data: images },
