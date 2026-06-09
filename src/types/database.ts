@@ -1491,6 +1491,7 @@ export type Database = {
           identity_verified: boolean
           is_active: boolean
           last_name: string | null
+          municipality: string | null
           password_set_at: string | null
           prefecture: string | null
           role: Database["public"]["Enums"]["user_role"]
@@ -1515,6 +1516,7 @@ export type Database = {
           identity_verified?: boolean
           is_active?: boolean
           last_name?: string | null
+          municipality?: string | null
           password_set_at?: string | null
           prefecture?: string | null
           role: Database["public"]["Enums"]["user_role"]
@@ -1539,6 +1541,7 @@ export type Database = {
           identity_verified?: boolean
           is_active?: boolean
           last_name?: string | null
+          municipality?: string | null
           password_set_at?: string | null
           prefecture?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -1607,6 +1610,7 @@ export type Database = {
           p_first_name: string
           p_gender: string
           p_last_name: string
+          p_municipality?: string
           p_prefecture: string
           p_skills?: Json
           p_user_id: string

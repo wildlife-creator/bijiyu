@@ -66,14 +66,17 @@ test.describe("AUTH-006 プロフィール入力フォーム通し (master-area-
     await page.locator("#lastName").fill("テスト姓");
     await page.locator("#firstName").fill("テスト名");
 
-    // 4. 性別 (native <select>)
-    await page.locator("#gender").selectOption("男性");
+    // 4. 性別 (shadcn Select。selectOption() は使えないので 2 段クリック)
+    await page.getByLabel("性別").click();
+    await page.getByRole("option", { name: "男性", exact: true }).click();
 
     // 5. 生年月日
     await page.locator("#birthDate").fill("1990-04-01");
 
-    // 6. お住まい (native <select>)
-    await page.locator("#prefecture").selectOption("東京都");
+    // 6. お住まい (ResidencePicker: 都道府県 + 市区町村。市区町村は任意なので
+    //    ここでは都道府県のみ選択する)
+    await page.getByLabel("お住まい").click();
+    await page.getByRole("option", { name: "東京都", exact: true }).click();
 
     // 7. 対応できる職種 (MasterCombobox)
     await page.getByRole("button", { name: "職種を選択" }).first().click();

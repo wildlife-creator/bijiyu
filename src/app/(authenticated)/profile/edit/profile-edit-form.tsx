@@ -26,13 +26,14 @@ import { BackButton } from "@/components/shared/back-button";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { RelatedSuggestions } from "@/components/master/related-suggestions";
 import { AreaListEditor } from "@/components/area/area-list-editor";
+import { ResidencePicker } from "@/components/area/residence-picker";
 import type { AreaRow } from "@/components/area/types";
 import { collapseAreasFromDb } from "@/lib/master/area-conversion";
 import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
 } from "@/lib/master/deprecated";
-import { PREFECTURES, GENDERS } from "@/lib/constants/options";
+import { GENDERS } from "@/lib/constants/options";
 import {
   profileEditSchema,
   type ProfileEditInput,
@@ -143,6 +144,7 @@ export function ProfileEditForm({
       birthDate: "",
       email: "",
       prefecture: "",
+      municipality: "",
       companyName: "",
       bio: "",
       skills: [{ tradeType: "", experienceYears: 0 }],
@@ -163,6 +165,17 @@ export function ProfileEditForm({
   const watchedSkills = watch("skills");
   const watchedGender = watch("gender");
   const watchedPrefecture = watch("prefecture");
+  const watchedMunicipality = watch("municipality");
+
+  const handleResidenceChange = useCallback(
+    (next: { prefecture: string; municipality: string | null }) => {
+      setValue("prefecture", next.prefecture, { shouldValidate: true });
+      setValue("municipality", next.municipality ?? "", {
+        shouldValidate: true,
+      });
+    },
+    [setValue],
+  );
 
   const handleAreaChange = useCallback(
     (next: AreaRow[]) => {
@@ -197,7 +210,7 @@ export function ProfileEditForm({
       const { data: profile } = await supabase
         .from("users")
         .select(
-          "last_name, first_name, gender, birth_date, prefecture, company_name, bio, avatar_url, skill_tags",
+          "last_name, first_name, gender, birth_date, prefecture, municipality, company_name, bio, avatar_url, skill_tags",
         )
         .eq("id", user.id)
         .single();
@@ -246,9 +259,12 @@ export function ProfileEditForm({
           lastName: profile.last_name ?? "",
           firstName: profile.first_name ?? "",
           gender: profile.gender ?? "",
-          birthDate: profile.birth_date ?? "",
+          // DB はハイフン(YYYY-MM-DD)だが、入力 UI は半角スラッシュ表示で統一する
+          // （登録時のスラッシュ入力と見た目を合わせる。保存時に再度ハイフンへ正規化）
+          birthDate: (profile.birth_date ?? "").replaceAll("-", "/"),
           email: user.email ?? "",
           prefecture: profile.prefecture ?? "",
+          municipality: profile.municipality ?? "",
           companyName: profile.company_name ?? "",
           bio: profile.bio ?? "",
           skills,
@@ -353,6 +369,7 @@ export function ProfileEditForm({
     formData.append("birthDate", parsed.data.birthDate);
     formData.append("email", parsed.data.email ?? "");
     formData.append("prefecture", parsed.data.prefecture);
+    formData.append("municipality", parsed.data.municipality ?? "");
     formData.append("companyName", parsed.data.companyName ?? "");
     formData.append("bio", parsed.data.bio ?? "");
     formData.append("skills", JSON.stringify(parsed.data.skills));
@@ -521,7 +538,9 @@ export function ProfileEditForm({
               </FieldLabel>
               <Input
                 id="birthDate"
-                type="date"
+                type="text"
+                inputMode="numeric"
+                placeholder="例: 1990/01/15"
                 className="bg-background"
                 {...register("birthDate")}
               />
@@ -558,37 +577,26 @@ export function ProfileEditForm({
                 className="bg-background"
                 {...register("companyName")}
               />
-              <p className="text-body-xs text-muted-foreground">
-                ※ ない場合は「なし」と入力をお願いします
-              </p>
             </FieldGroup>
 
-            {/* お住まい（都道府県） */}
+            {/* お住まい（都道府県 + 市区町村1つ。市区町村は任意） */}
             <FieldGroup>
-              <FieldLabel htmlFor="prefecture">
-                お住まい（都道府県）
+              <FieldLabel htmlFor="residencePrefecture">
+                お住まい
                 <RequiredBadge />
               </FieldLabel>
-              <Select
-                value={watchedPrefecture ?? ""}
-                onValueChange={(v) =>
-                  setValue("prefecture", v, { shouldValidate: true })
+              <ResidencePicker
+                prefectureId="residencePrefecture"
+                value={{
+                  prefecture: watchedPrefecture ?? "",
+                  municipality: watchedMunicipality || null,
+                }}
+                onChange={handleResidenceChange}
+                candidateMunicipalitiesByPrefecture={
+                  candidateMunicipalitiesByPrefecture
                 }
-              >
-                <SelectTrigger
-                  id="prefecture"
-                  className="w-full bg-background text-body-sm"
-                >
-                  <SelectValue placeholder="お選びください" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PREFECTURES.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                disabled={isPending}
+              />
               <FieldError message={validationErrors["prefecture"]} />
             </FieldGroup>
 

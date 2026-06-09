@@ -444,7 +444,8 @@ function completeRegistrationAction(
 **Implementation Notes**
 - **一時パスワード方式の設計判断**: Supabase Auth の `signUp` は email + password の両方を必須とするが、ビジ友の登録フローでは AUTH-005（メールアドレス入力）と AUTH-006（プロフィール入力 + パスワード設定）が分離されている。このため `signUp` 時にサーバー側で暗号学的に安全なランダム文字列（`crypto.randomUUID()` 等、最低32文字）を一時パスワードとして生成し、メール確認完了後の AUTH-006 でユーザーが入力した本パスワードに `updateUser({ password })` で上書きする。一時パスワードはクライアントに送信せず、ログにも記録しない。一時パスワード状態のままプロフィール入力を完了しなかったアカウントは、ユーザーが本パスワードを知らないためログイン不可となり、事実上の不活性アカウントとなる（将来的にクリーンアップジョブで対応を検討）
 - トランザクション失敗時: ユーザーに再試行を促す。auth.users は削除しない
-- 選択肢（職種、都道府県、性別）は TypeScript 定数から取得（OptionSets 方針に準拠）
+- 選択肢（職種、都道府県、性別）は TypeScript 定数から取得（OptionSets 方針に準拠）。お住まいの市区町村は `master_municipalities`（都道府県連動）から取得（residence-municipality 2026-06-05）
+- **フォームの選択 UI は shadcn Select（`text-sm`）に統一**（性別・お住まい・対応可能エリアで文字サイズを揃える。residence-municipality 2026-06-05）。お住まいは `<ResidencePicker>`（都道府県 Select → 市区町村 Select の2段、市区町村は任意）
 
 #### ResetPasswordAction
 
@@ -674,8 +675,9 @@ export const registerProfileSchema = z.object({
   lastName: z.string().min(1, '姓を入力してください'),
   firstName: z.string().min(1, '名を入力してください'),
   gender: z.string().min(1, '性別を選択してください'),
-  birthDate: z.string().min(1, '生年月日を入力してください'),
+  birthDate: birthDateSchema, // 半角テキスト入力。形式・実在日付を検証し YYYY-MM-DD へ正規化（2026-06-09）
   prefecture: z.string().min(1, '都道府県を選択してください'),
+  municipality: z.string().optional(), // お住まいの市区町村（residence-municipality 2026-06-05）
   companyName: z.string().optional(),
   skills: z.array(z.object({
     tradeType: z.string().min(1),

@@ -11,6 +11,7 @@ import { hasActiveOption } from "@/lib/billing/options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
+import { formatResidence } from "@/lib/utils/format-residence";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -52,7 +53,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
     .from("users")
     .select(
       `id, avatar_url, last_name, first_name, birth_date, deleted_at,
-       identity_verified, ccus_verified, bio, prefecture, gender,
+       identity_verified, ccus_verified, bio, prefecture, municipality, gender,
        skill_tags, video_url,
        user_skills(trade_type, experience_years),
        user_qualifications(qualification_name),
@@ -165,7 +166,10 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">基本情報</h2>
         <div className="mt-2 overflow-hidden rounded-[8px] border border-border/10 bg-background">
-          <InfoRow label="居住地" value={u.prefecture} />
+          <InfoRow
+            label="居住地"
+            value={formatResidence(u.prefecture, u.municipality)}
+          />
           <InfoRow label="性別" value={u.gender} />
           <InfoRow
             label="対応可能エリア"

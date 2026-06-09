@@ -9,23 +9,28 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { RelatedSuggestions } from "@/components/master/related-suggestions";
 import { AreaListEditor } from "@/components/area/area-list-editor";
+import { ResidencePicker } from "@/components/area/residence-picker";
 import type { AreaRow } from "@/components/area/types";
 import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
 } from "@/lib/master/deprecated";
-import { PREFECTURES, GENDERS } from "@/lib/constants/options";
+import { GENDERS } from "@/lib/constants/options";
 import {
   registerProfileFormSchema,
   type RegisterProfileFormInput,
 } from "@/lib/validations/auth";
 import { completeRegistrationAction } from "@/app/(auth)/register/profile/actions";
-
-const SELECT_CLASS =
-  "flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-body-md";
 
 function RequiredBadge() {
   return <span className="text-destructive text-body-sm ml-1">必須</span>;
@@ -62,6 +67,7 @@ export function RegisterProfileForm({
       gender: "",
       birthDate: "",
       prefecture: "",
+      municipality: "",
       companyName: "",
       skills: [{ tradeType: "", experienceYears: 0 }],
       availableAreas: [],
@@ -77,6 +83,9 @@ export function RegisterProfileForm({
 
   const watchedAreas = watch("availableAreas");
   const watchedSkills = watch("skills");
+  const watchedGender = watch("gender");
+  const watchedPrefecture = watch("prefecture");
+  const watchedMunicipality = watch("municipality");
 
   const selectedTradeTypes = useMemo(
     () =>
@@ -96,6 +105,14 @@ export function RegisterProfileForm({
 
   function handleAreaListChange(next: AreaRow[]) {
     setValue("availableAreas", next, { shouldValidate: true });
+  }
+
+  function handleResidenceChange(next: {
+    prefecture: string;
+    municipality: string | null;
+  }) {
+    setValue("prefecture", next.prefecture, { shouldValidate: true });
+    setValue("municipality", next.municipality ?? "", { shouldValidate: true });
   }
 
   async function onSubmit(rawData: RegisterProfileFormInput) {
@@ -175,14 +192,24 @@ export function RegisterProfileForm({
             性別
             <RequiredBadge />
           </Label>
-          <select id="gender" className={SELECT_CLASS} {...register("gender")}>
-            <option value="">選択してください</option>
-            {GENDERS.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={watchedGender ?? ""}
+            onValueChange={(v) => setValue("gender", v, { shouldValidate: true })}
+          >
+            <SelectTrigger
+              id="gender"
+              className="min-h-10 w-full bg-background text-sm"
+            >
+              <SelectValue placeholder="選択してください" />
+            </SelectTrigger>
+            <SelectContent>
+              {GENDERS.map((g) => (
+                <SelectItem key={g} value={g}>
+                  {g}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.gender && (
             <p className="text-destructive text-body-sm">
               {errors.gender.message}
@@ -196,7 +223,13 @@ export function RegisterProfileForm({
             生年月日
             <RequiredBadge />
           </Label>
-          <Input id="birthDate" type="date" {...register("birthDate")} />
+          <Input
+            id="birthDate"
+            type="text"
+            inputMode="numeric"
+            placeholder="例: 1990/01/15"
+            {...register("birthDate")}
+          />
           {errors.birthDate && (
             <p className="text-destructive text-body-sm">
               {errors.birthDate.message}
@@ -212,29 +245,25 @@ export function RegisterProfileForm({
             placeholder="株式会社〇〇"
             {...register("companyName")}
           />
-          <p className="text-muted-foreground text-body-sm">
-            ※ ない場合は「なし」と入力をお願いします
-          </p>
         </div>
 
-        {/* お住まい */}
+        {/* お住まい（都道府県 + 市区町村1つ。市区町村は任意） */}
         <div className="space-y-1.5">
-          <Label htmlFor="prefecture">
+          <Label htmlFor="residencePrefecture">
             お住まい
             <RequiredBadge />
           </Label>
-          <select
-            id="prefecture"
-            className={SELECT_CLASS}
-            {...register("prefecture")}
-          >
-            <option value="">選択してください</option>
-            {PREFECTURES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+          <ResidencePicker
+            prefectureId="residencePrefecture"
+            value={{
+              prefecture: watchedPrefecture ?? "",
+              municipality: watchedMunicipality || null,
+            }}
+            onChange={handleResidenceChange}
+            candidateMunicipalitiesByPrefecture={
+              candidateMunicipalitiesByPrefecture
+            }
+          />
           {errors.prefecture && (
             <p className="text-destructive text-body-sm">
               {errors.prefecture.message}
@@ -248,6 +277,14 @@ export function RegisterProfileForm({
             対応できる職種
             <RequiredBadge />
           </Label>
+          {/* カラム見出し（職種 / 経験年数）。経験年数の枠が何の数値か分かるよう明示する */}
+          <div className="flex items-center gap-2 text-body-xs font-medium text-muted-foreground">
+            <span className="flex-1">職種</span>
+            <span className="w-24 shrink-0">経験年数（年）</span>
+            {fields.length > 1 && (
+              <span className="w-9 shrink-0" aria-hidden />
+            )}
+          </div>
           {fields.map((field, index) => {
             const rowValue = watch(`skills.${index}.tradeType`) ?? "";
             const valueArr = rowValue ? [rowValue] : [];
@@ -285,6 +322,7 @@ export function RegisterProfileForm({
                     type="number"
                     min={0}
                     placeholder="年数"
+                    aria-label={`経験年数 ${index + 1}（年）`}
                     {...register(`skills.${index}.experienceYears`, {
                       valueAsNumber: true,
                     })}

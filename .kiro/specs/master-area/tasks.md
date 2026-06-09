@@ -169,8 +169,8 @@
   - `useFieldArray` で `availableAreas: AreaDraft[]` を管理し、Zod スキーマは `z.array(z.object({prefecture: z.string().min(1, "都道府県を選択してください"), municipality: z.string().nullable()})).min(1)` で空行を弾く
   - Server Component 側で `getActiveMunicipalitiesByPrefecture` を都道府県ごとに取得して `municipalitiesByPrefecture` を構築し props で渡す
   - 「東京都全域」と「東京都港区」の同時登録を許可する（Req 2.9、UNIQUE NULLS NOT DISTINCT 制約と整合）
-  - **AUTH-006 / COM-002 の「お住まい」フィールドは単一プルダウン（都道府県のみ）のまま維持する**（個人住所、Req 9）
-  - `users.prefecture` を変更しないこと（Req 9.1、コード変更ゼロ）
+  - ~~**AUTH-006 / COM-002 の「お住まい」フィールドは単一プルダウン（都道府県のみ）のまま維持する**（個人住所、Req 9）~~ → **【residence-municipality 2026-06-05 で変更】お住まいは `<ResidencePicker>`（都道府県＋市区町村1つ）に拡張、`users.municipality` 新設。Req 9 撤回**
+  - ~~`users.prefecture` を変更しないこと（Req 9.1、コード変更ゼロ）~~ → `users.prefecture` は保持しつつ `users.municipality` を追加（residence-municipality migration）
   - soft cap = 30 件を超えた場合の警告表示を有効化する
   - _Requirements: 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 9.1, 9.2, 9.3, 10.5_
 
@@ -249,7 +249,7 @@
 - [x] 6. Migration 4（旧カラム DROP）+ supabase gen types
   - Migration 4 ファイルを新規追加: `jobs.prefecture` / `client_profiles.recruit_area` の `DROP COLUMN`、旧 `idx_jobs_search (status, prefecture)` を DROP して `(status)` のみで再作成
   - ~~**`jobs.address text(200)` は DROP しないこと**（CLI-004 番地以下の詳細住所用、Req 4.8）~~ → **【廃止 work-location-address-fix 2026-06-02】後続で DROP 済。詳細住所は applications.work_location へ移管**
-  - **`users.prefecture` は DROP しないこと**（個人住所、Req 9.1）
+  - **`users.prefecture` は DROP しないこと**（お住まいの都道府県）。なお後続 residence-municipality（2026-06-05）で **`users.municipality` を追加**（市区町村まで対応、Req 9 撤回）
   - `supabase db reset` で全 migrations を流し、Phase 5 の seed.sql が新スキーマで通ることを確認する
   - `supabase gen types typescript --local > src/types/database.ts` を再実行し、旧カラム参照のコードが残っていれば **TypeScript ビルドエラー** で即検知する
   - `npm run build` が通ることを Phase 4 の書き換え完全性の証明とする
@@ -316,7 +316,7 @@
 - [x] 8.1 CLAUDE.md「実装時の必須チェック項目」に追記
   - マッチング判定は都道府県のまま。`src/lib/matching.ts` を市区町村レベルに引き上げてはならない（Req 7.4）
   - 検索クエリは上位包含ルールに従う（市区町村絞り込みでも同県全域指定を含める）
-  - 個人住所 `users.prefecture` は市区町村化しない（プライバシー）
+  - ~~個人住所 `users.prefecture` は市区町村化しない（プライバシー）~~ → **【residence-municipality 2026-06-05 で撤回】お住まいは `users.municipality` を新設し市区町村まで対応**
   - 新規エリア入力 UI は `AreaPicker` / `AreaListEditor` 共通コンポーネントを利用すること
   - エリア表示は `<AreaList />` / `<AreaSummary />` 経由で行い、手書きで `slice(0, 3).join('、')` を散らさない
   - ~~`jobs.address`（番地以下の詳細住所）は `job_areas`（エリア）と別管理。DROP しないこと~~ → **【廃止 work-location-address-fix 2026-06-02】jobs.address は DROP 済。詳細住所は applications.work_location（応募レベル）へ移管**
