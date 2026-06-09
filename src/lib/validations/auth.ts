@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { areaRowsSchema } from "@/lib/validations/area";
+import { birthDateSchema } from "@/lib/validations/birth-date";
 
 // ---------------------------------------------------------------------------
 // Login
@@ -69,8 +70,9 @@ const registerProfileBaseSchema = z.object({
   lastName: z.string().min(1, "姓を入力してください"),
   firstName: z.string().min(1, "名を入力してください"),
   gender: z.string().min(1, "性別を選択してください"),
-  birthDate: z.string().min(1, "生年月日を入力してください"),
+  birthDate: birthDateSchema,
   prefecture: z.string().min(1, "都道府県を選択してください"),
+  municipality: z.string().optional(),
   companyName: z.string().optional(),
   skills: z
     .array(skillSchema)

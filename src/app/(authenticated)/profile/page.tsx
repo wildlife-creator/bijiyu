@@ -11,6 +11,7 @@ import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { hasActiveOption } from "@/lib/billing/options";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
+import { formatResidence } from "@/lib/utils/format-residence";
 
 /**
  * COM-001: ユーザープロフィール（受注者向け自己プロフィール閲覧）
@@ -261,7 +262,10 @@ export default async function ProfilePage() {
         <div className="mt-2 overflow-hidden rounded-[8px] border border-border/10 bg-background">
           <DetailRow label="メールアドレス" value={profile.email} />
           <DetailRow label="会社名/屋号" value={profile.company_name} />
-          <DetailRow label="お住まい" value={profile.prefecture} />
+          <DetailRow
+            label="お住まい"
+            value={formatResidence(profile.prefecture, profile.municipality)}
+          />
           <DetailRow
             label="対応可能エリア"
             value={areas.length > 0 ? <AreaList areas={areas} /> : null}

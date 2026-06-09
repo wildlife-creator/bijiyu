@@ -51,10 +51,10 @@
   - 姓（必須）
   - 名（必須）
   - 性別（必須、shadcn Select）
-  - 生年月日（必須、Input type=date）
+  - 生年月日（必須、**半角テキスト入力** `type=text` + `inputmode=numeric`、placeholder「例: 1990/01/15」。`birthDateSchema` で形式（YYYY/MM/DD・YYYY-MM-DD）と実在日付を検証し YYYY-MM-DD に正規化。※カレンダーピッカー `type=date` は誕生日の遡りが煩雑なため廃止、2026-06-09）
   - メールアドレス（変更時は認証メール送信 → Supabase Auth の `updateUser` でメール変更）— 注意文「※ 変更時は新しいメールアドレス宛に認証用メールが送られるため認証の対応をお願いします」
-  - 会社名/屋号（任意）— 注意文「※ ない場合は「なし」と入力をお願いします」
-  - お住まい — 都道府県（必須、shadcn Select）
+  - 会社名/屋号（任意・空欄可。「なし」等の文字は入力させない。※注意文「ない場合は『なし』と入力」は residence-municipality 2026-06-05 で削除済み — 空欄なら表示名が自動で姓名にフォールバックするため）
+  - お住まい — 都道府県（必須）＋ 市区町村（任意・1つ）。`<ResidencePicker>`（都道府県 Select → 市区町村 Select の2段）。※residence-municipality 2026-06-05 で市区町村まで拡張（旧: 都道府県のみ）
   - 対応可能エリア（必須、`AreaListEditor` で都道府県 + 市区町村を行ごとに追加。master-area Phase 4 以降。市区町村未指定 = 「県全域」）
   - 自己紹介（任意、Textarea）
   - 職種（必須、最大3つ、shadcn Select × 最大 3 行、「職種を追加」ボタンで行追加）
