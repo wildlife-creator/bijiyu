@@ -146,15 +146,15 @@ test.describe("発注者: 一斉送信（CLI-014）", () => {
     await expect(page.getByText("送信先選択")).toBeVisible();
   });
 
-  test("全選択ボタンで全受注者を選択できる", async ({ page }) => {
+  test("すべて選択で全受注者を選択できる", async ({ page }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/messages/bulk-send");
     await expect(page.getByText("送信先選択")).toBeVisible({ timeout: 10000 });
 
-    // 「全選択」をクリック
-    await page.getByRole("button", { name: "全選択" }).click();
+    // 「すべて選択」をクリック
+    await page.getByText("すべて選択").click();
 
-    // 全チェックボックスが checked になる
+    // 全チェックボックス（先頭の「すべて選択」含む）が checked になる
     const checkboxes = page.getByRole("checkbox");
     const count = await checkboxes.count();
     expect(count).toBeGreaterThan(0);
@@ -162,8 +162,9 @@ test.describe("発注者: 一斉送信（CLI-014）", () => {
       await expect(checkboxes.nth(i)).toBeChecked();
     }
 
-    // 「全解除」に切り替わる
-    await expect(page.getByRole("button", { name: "全解除" })).toBeVisible();
+    // もう一度クリックすると全解除（受注者チェックが外れる）
+    await page.getByText("すべて選択").click();
+    await expect(checkboxes.nth(1)).not.toBeChecked();
   });
 
   test("一斉送信を実行できる", async ({ page }) => {
@@ -171,8 +172,8 @@ test.describe("発注者: 一斉送信（CLI-014）", () => {
     await page.goto("/messages/bulk-send");
     await expect(page.getByText("送信先選択")).toBeVisible({ timeout: 10000 });
 
-    // 全選択
-    await page.getByRole("button", { name: "全選択" }).click();
+    // すべて選択
+    await page.getByText("すべて選択").click();
 
     // 本文を入力
     await page

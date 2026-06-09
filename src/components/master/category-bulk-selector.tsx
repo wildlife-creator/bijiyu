@@ -144,6 +144,7 @@ export function CategoryBulkSelector({
                           <Checkbox
                             checked={checked}
                             onCheckedChange={() => toggleMid(big, mid)}
+                            className="bg-background"
                           />
                           <span>{mid}</span>
                         </label>

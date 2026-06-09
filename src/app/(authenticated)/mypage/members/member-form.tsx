@@ -301,6 +301,7 @@ export function MemberForm({
             checked={values.isProxyAccount}
             onCheckedChange={(v) => setValue("isProxyAccount", v === true)}
             disabled={isPending}
+            className="bg-background"
           />
           <span className="text-body-md text-foreground">代理アカウント</span>
         </label>
