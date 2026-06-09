@@ -198,6 +198,19 @@ describe("registerProfileSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("allows optional municipality (お住まいの市区町村)", () => {
+    // 未指定でも通る
+    const result = registerProfileSchema.safeParse(validInput);
+    expect(result.success).toBe(true);
+
+    // 指定しても通る
+    const withMuni = registerProfileSchema.safeParse({
+      ...validInput,
+      municipality: "千代田区",
+    });
+    expect(withMuni.success).toBe(true);
+  });
+
   it("rejects empty lastName", () => {
     const result = registerProfileSchema.safeParse({
       ...validInput,

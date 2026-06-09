@@ -116,16 +116,53 @@ export interface MunicipalityRow {
   deprecated_at: string | null;
 }
 
+/**
+ * PostgREST の max_rows（1 クエリで返せる最大行数。ローカル・本番ホスティング
+ * とも既定値 1000）を回避するためのページネーション。
+ *
+ * master_municipalities は約 1,900 件あり、`.range()` で全ページを順に取得して
+ * 結合しないと 1000 件で打ち切られ、sort_order 後半（静岡県以降）が欠落する。
+ * 1 ページが PAGE_SIZE 未満になったら最終ページとみなして打ち切る。
+ *
+ * いずれかのページで error が出た場合は throw し、呼び出し元の try/catch で
+ * 空配列にフォールバックさせる（部分取得した不完全データは返さない）。
+ *
+ * 並び順キー（sort_order）は master_municipalities で一意のため、ページ境界で
+ * 行の重複・取りこぼしは発生しない。
+ */
+const MUNICIPALITY_PAGE_SIZE = 1000;
+
+async function fetchAllPages<T>(
+  buildPageQuery: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += MUNICIPALITY_PAGE_SIZE) {
+    const to = from + MUNICIPALITY_PAGE_SIZE - 1;
+    const { data, error } = await buildPageQuery(from, to);
+    if (error || !data) {
+      throw new Error("master_municipalities のページ取得に失敗しました");
+    }
+    rows.push(...data);
+    if (data.length < MUNICIPALITY_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 async function fetchActiveMunicipalities(): Promise<MunicipalityPair[]> {
   try {
     const client = createAnonClient();
-    const { data, error } = await client
-      .from("master_municipalities")
-      .select("prefecture, municipality")
-      .is("deprecated_at", null)
-      .order("sort_order", { ascending: true });
-    if (error || !data) return [];
-    return data.map((row) => ({
+    const rows = await fetchAllPages<MunicipalityPair>((from, to) =>
+      client
+        .from("master_municipalities")
+        .select("prefecture, municipality")
+        .is("deprecated_at", null)
+        .order("sort_order", { ascending: true })
+        .range(from, to),
+    );
+    return rows.map((row) => ({
       prefecture: row.prefecture,
       municipality: row.municipality,
     }));
@@ -137,12 +174,13 @@ async function fetchActiveMunicipalities(): Promise<MunicipalityPair[]> {
 async function fetchAllMunicipalityRows(): Promise<MunicipalityRow[]> {
   try {
     const client = createAnonClient();
-    const { data, error } = await client
-      .from("master_municipalities")
-      .select("prefecture, municipality, deprecated_at")
-      .order("sort_order", { ascending: true });
-    if (error || !data) return [];
-    return data;
+    return await fetchAllPages<MunicipalityRow>((from, to) =>
+      client
+        .from("master_municipalities")
+        .select("prefecture, municipality, deprecated_at")
+        .order("sort_order", { ascending: true })
+        .range(from, to),
+    );
   } catch {
     return [];
   }
@@ -152,9 +190,12 @@ async function fetchAllMunicipalityRows(): Promise<MunicipalityRow[]> {
  * active な (prefecture, municipality) ペアを sort_order 昇順で全件返す。
  * 戻り値は 1,897 件で 60 KB 程度 (gzip 数 KB)、1 時間キャッシュで負荷無視可能。
  */
+// キャッシュキーに "v2" を付与し、ページネーション未対応だった旧実装が
+// 1000 件で打ち切ったまま永続化しているキャッシュ（本番 Data Cache 含む）を
+// 確実に無視して取り直す。tag は据え置きで admin 一括無効化を維持。
 export const getActiveMunicipalities = unstable_cache(
   () => fetchActiveMunicipalities(),
-  ["master-area", "municipalities", "active"],
+  ["master-area", "municipalities", "active", "v2"],
   { revalidate: 3600, tags: ["master-area"] },
 );
 
@@ -178,7 +219,7 @@ export async function getActiveMunicipalitiesByPrefecture(
  */
 export const getAllMunicipalityRows = unstable_cache(
   () => fetchAllMunicipalityRows(),
-  ["master-area", "municipalities", "all"],
+  ["master-area", "municipalities", "all", "v2"],
   { revalidate: 3600, tags: ["master-area"] },
 );
 

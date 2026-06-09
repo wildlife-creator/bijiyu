@@ -292,7 +292,8 @@ interface ProfileEditInput {
   firstName: string;
   gender: string;
   email?: string;
-  prefecture: string;          // 個人住所(users.prefecture)、市区町村化しない
+  prefecture: string;          // お住まいの都道府県(users.prefecture)
+  municipality?: string;       // お住まいの市区町村(users.municipality, 任意) ※residence-municipality 2026-06-05
   companyName?: string;
   bio?: string;
   skills: Array<{ tradeType: string; experienceYears: number }>;
@@ -527,6 +528,7 @@ CREATE OR REPLACE FUNCTION update_profile(
   p_first_name text,
   p_gender text,
   p_prefecture text,
+  p_municipality text DEFAULT NULL, -- お住まいの市区町村（residence-municipality 2026-06-05）
   p_company_name text DEFAULT NULL,
   p_bio text DEFAULT NULL,
   p_skills jsonb DEFAULT '[]'::jsonb,
@@ -546,6 +548,7 @@ BEGIN
     first_name = p_first_name,
     gender = p_gender,
     prefecture = p_prefecture,
+    municipality = NULLIF(p_municipality, ''),
     company_name = p_company_name,
     bio = p_bio,
     skill_tags = p_skill_tags  -- 保有スキル（自由入力タグ）

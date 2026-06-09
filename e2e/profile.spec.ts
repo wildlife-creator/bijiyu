@@ -32,17 +32,25 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
     await expect(page.getByText("テスト姓 テスト名")).toBeVisible();
   });
 
-  test("都道府県を変更して保存できる", async ({ page }) => {
+  test("お住まい（都道府県＋市区町村）を変更して保存できる", async ({ page }) => {
     await page.goto("/profile/edit");
 
     // shadcn/ui の Select（Radix UI ベース）は <button role="combobox"> として描画されるため
     // Playwright の selectOption() は使えない。トリガーをクリック → option をクリックする
-    await page.getByLabel("お住まい（都道府県）").click();
-    await page.getByRole("option", { name: "大阪府" }).click();
+    // お住まいは ResidencePicker（都道府県 Select → 市区町村 Select の 2 段）
+    await page.getByLabel("お住まい").click();
+    await page.getByRole("option", { name: "神奈川県", exact: true }).click();
+
+    // 市区町村（任意）を 1 つ選ぶ
+    await page
+      .locator('[data-slot="select-trigger"]:has-text("市区町村を選択")')
+      .click();
+    await page.getByRole("option", { name: "横浜市鶴見区", exact: true }).click();
 
     await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 10000 });
-    await expect(page.getByText("大阪府")).toBeVisible();
+    // formatResidence で都道府県+市区町村がスペース無し結合で表示される
+    await expect(page.getByText("神奈川県横浜市鶴見区")).toBeVisible();
   });
 
   test("自己紹介を変更して保存できる", async ({ page }) => {

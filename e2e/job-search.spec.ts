@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { login, TEST_CONTRACTOR, TEST_CLIENT } from "./helpers";
+import {
+  login,
+  TEST_CONTRACTOR,
+  TEST_CONTRACTOR2,
+  TEST_CLIENT,
+  TEST_CLIENT2,
+} from "./helpers";
 
 test.describe("案件検索機能（CON-002〜007）", () => {
   test.beforeEach(async ({ page }) => {
@@ -199,5 +205,79 @@ test.describe("お気に入り機能", () => {
 
     // Optimistic UI: button label changes to "マイリスト解除"
     await expect(page.getByRole("button", { name: "マイリスト解除" }).first()).toBeVisible();
+  });
+
+  test("マイリストの発注者カードは会社所在地ではなく募集エリアを表示する", async ({
+    page,
+  }) => {
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+
+    // client@test.local (22222222) を発注者詳細からマイリスト登録。
+    // この発注者の募集エリアは seed で「東京都港区 + 大阪府大阪市北区」。
+    // 個人の居住地 (users.prefecture) は都道府県のみなので、市区町村「大阪市北区」が
+    // 出れば募集エリア (client_recruit_areas) を表示できている証拠になる。
+    await page.goto("/clients/22222222-2222-2222-2222-222222222222");
+    const favBtn = page.getByRole("button", { name: "マイリスト登録" }).first();
+    await favBtn.click();
+    // 楽観的更新でラベルは即「解除」になるが、server action のコミットを待つため
+    // ボタンが再活性化（isPending=false）するまで待ってから遷移する
+    const unfavBtn = page.getByRole("button", { name: "マイリスト解除" }).first();
+    await expect(unfavBtn).toBeVisible();
+    await expect(unfavBtn).toBeEnabled();
+    await page.waitForLoadState("networkidle");
+
+    await page.goto("/favorites?type=client");
+    await expect(page.getByText("大阪市北区")).toBeVisible();
+  });
+
+  test("マイリストの見込みユーザー（職人）カードは職人一覧（CLI-005）と同じ項目を表示する", async ({
+    page,
+  }) => {
+    // 見込みユーザータブは発注者(client)のみ。他テストと干渉しない client2 でログインし、
+    // データが揃った特定の職人（contractor@test.local=11111111、職種+経験年数あり）を
+    // CLI-006 詳細から確定的にマイリスト登録する（"先頭の職人"は seed の created_at が
+    // 同時刻で並び順が不定のため避ける）。
+    await login(page, TEST_CLIENT2.email, TEST_CLIENT2.password);
+
+    await page.goto("/users/contractors/11111111-1111-1111-1111-111111111111");
+    await page.getByRole("button", { name: "マイリスト登録" }).first().click();
+    const unfavBtn = page.getByRole("button", { name: "マイリスト解除" }).first();
+    await expect(unfavBtn).toBeVisible();
+    await expect(unfavBtn).toBeEnabled();
+    await page.waitForLoadState("networkidle");
+
+    // マイリストの「見込みユーザー」タブで CLI-005 と同じラベルが表示される
+    await page.goto("/favorites?type=user");
+    await expect(page.getByText("対応エリア").first()).toBeVisible();
+    await expect(page.getByText("経験年数").first()).toBeVisible();
+  });
+
+  test("マイリスト案件タブ: 種類プルダウン + 締切並べ替えが動作する（CON-007）", async ({
+    page,
+  }) => {
+    // 別の受注者アカウントで案件を1件マイリスト登録（他テストと干渉しないため）
+    await login(page, TEST_CONTRACTOR2.email, TEST_CONTRACTOR2.password);
+
+    await page.goto("/jobs/search");
+    const favBtn = page.getByRole("button", { name: "マイリスト登録" }).first();
+    await favBtn.click();
+    await expect(
+      page.getByRole("button", { name: "マイリスト解除" }).first(),
+    ).toBeVisible();
+    await page.waitForLoadState("networkidle");
+
+    await page.goto("/favorites?type=job");
+    // 種類プルダウンに「案件」が表示される
+    await expect(page.getByRole("combobox")).toContainText("案件");
+    // 案件カードが表示される
+    await expect(page.locator("a[href^='/jobs/']").first()).toBeVisible();
+    // 並べ替えボタン（既定: 締切が近い順）→ クリックで遠い順に切り替わる
+    await expect(
+      page.getByRole("button", { name: /締切が近い順/ }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: /締切が近い順/ }).click();
+    await expect(
+      page.getByRole("button", { name: /締切が遠い順/ }),
+    ).toBeVisible();
   });
 });

@@ -26,8 +26,8 @@
 .DS_Store
 *.pem
 
-# Claude Code runtime state (lock file from scheduled task feature)
-.claude/scheduled_tasks.lock
+# Claude Code local config & runtime state (personal tooling, not project code)
+.claude/
 
 # debug
 npm-debug.log*

@@ -247,6 +247,14 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - `!inner` join + `.in("nested.col", ...)` パターンは nested data が絞られた結果しか返らず、カード表示で「保有スキルの一部しか出ない」バグを生むため**使わない**
 - 実装基準: `src/app/(authenticated)/users/contractors/page.tsx`（CLI-005）。2026-05-18 に post-filter 起因の件数バグから書き換え
 
+### Supabase（PostgREST）クエリの件数上限とページネーション（必ず守ること）
+- Supabase（PostgREST）は 1 クエリで返す行数に上限がある。ローカル（`supabase/config.toml` の `max_rows`）も本番ホスティングも**既定 1000 件**。`.range()` / `.limit()` を付けないクエリは 1000 件で**静かに打ち切られる**（エラーも警告も出ないため発見が遅れる）
+- **1000 件を超えうるテーブル・マスタを全件取得する場合は必ず `.range(from, to)` でページネーション**し、全ページを取得して結合すること。1 ページが PAGE_SIZE 未満になったら最終ページとみなして打ち切る。途中ページで error が出たら部分データを返さず空配列にフォールバックする
+- ページネーションの**並び順キーは一意なカラム**にすること。重複があるとページ境界で取りこぼし・重複が起きる
+- 打ち切り結果が `unstable_cache`（ファイル / 本番 Data Cache）に永続化されると修正後も古い切り捨てデータが残る。修正時はキャッシュキーを変える（例: キー配列末尾に `"v2"` を足す）か `revalidateTag` で**確実に無効化**すること
+- `max_rows` の引き上げ（config.toml / ダッシュボード設定）は環境依存で再発しやすいため根治にならない。**コード側のページネーションで対処**すること
+- 2026-06-05 実例: `master_municipalities`（約 1,897 件）がページネーション未対応で 1000 件で打ち切られ、`sort_order` 後半の静岡県以降の市区町村が入力系 5・検索系 3 画面のエリア選択で表示されないバグが発生。基準実装は `src/lib/master/fetch.ts` の `fetchAllPages`
+
 ### 段階的フォーム表示（条件レンダリング）
 - プルダウンや選択肢に応じてフォームの表示内容が変わる場合は、別ページ遷移ではなく `useState` による同一ページ内の条件レンダリングで実装すること（例: CLI-009 の「発注を依頼する」/「お断りする」選択）
 - プルダウンの `onValueChange` では state 更新のみ行い、Server Action の呼び出しは行わない。送信はフォームの「送信する」ボタン押下時に行う
@@ -442,7 +450,11 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   - 発注者の募集エリア: `client_recruit_areas (client_id, prefecture, municipality)`、件数制限なし
 - **マスタ参照**: `master_municipalities (prefecture, municipality, sort_order, deprecated_at)` 1,897 件(政令市 20 件は本体除外、行政区のみ。北海道泊村 dedupe 済)。`getAllMunicipalityRows()` / `getActiveMunicipalities()` で取得し、`'master-area'` タグで `unstable_cache`
 - **書き込みは RPC**: `replace_user_areas(p_user_id, p_areas jsonb)` / `replace_job_areas(p_job_id, p_areas jsonb)` / `replace_client_recruit_areas(p_client_id, p_areas jsonb)`(SECURITY INVOKER + RLS 経由)。Server Action 側で `validateAreaChanges(newAreas, previousAreas)` を呼んでから RPC を実行
-- **`users.prefecture` は個人住所として据え置く**(プライバシー観点、市区町村化しない)。受注者の対応エリアとは別概念
+- **お住まい（個人居住地）は `users.prefecture` + `users.municipality`（市区町村 1 つ・任意）**（residence-municipality、2026-06-05 で都道府県のみ→市区町村まで拡張）。市区町村は NULL 許容で、未指定なら都道府県のみ表示。受注者の対応エリア（複数県・複数市区町村）とは別概念で、こちらは 1 県 + 任意 1 市区町村。受注者詳細（CLI-006）にも市区町村まで公開する方針（ユーザー承認済）
+  - 入力 UI は `<ResidencePicker>`（`src/components/area/residence-picker.tsx`、都道府県 Select → 市区町村 Select の 2 段。`AreaRow` と同じ shadcn Select / `text-sm` で統一）。登録（AUTH-006）・プロフィール編集（COM-002）の両フォームで使用
+  - 表示は `formatResidence(prefecture, municipality)`（`src/lib/utils/format-residence.ts`、スペース無し結合）。お住まい/居住地を出す画面（COM-001・CLI-006・admin）で使う
+  - 保存: 登録は `complete_registration` RPC の `p_municipality`、編集は `users` 直接 UPDATE。`municipality` は master 整合チェック対象外（`users.prefecture` と同じく軽い扱い。フォームの選択肢が active muni に限定される）
+  - **旧仕様（廃止）**: かつては「プライバシー配慮で都道府県まで、市区町村化しない」としていた。本変更で市区町村まで登録・公開する方針に更新
 - **詳細住所（番地以下）は `applications.work_location` に一本化**（work-location-address-fix、2026-06-02）。CLI-009（発注可否）で発注者が承認する受注者ごとに入力し、**マッチング成立した受注者にのみ表示**する（応募レベルの情報）。CON-012（応募詳細）の【勤務地】・CLI-010（発注履歴）で表示。エリア（`job_areas`、誰でも閲覧可）とは別概念
   - **旧 `jobs.address` は廃止（DROP 済）**。案件レベルの番地詳細住所を意図していたが CLI-004 に入力欄が無く常に空で、成立前の受注者にも漏れうる構造だった。案件（1案件1値）と応募（職人ごと）で単位が合わないため流用せず削除。**新たに jobs に住所カラムを足したり CON-003（募集案件詳細・公開）に番地を出してはならない**（公開画面はエリアまで）
 - **旧カラム廃止済**: `jobs.prefecture` / `client_profiles.recruit_area` は master-area Migration 4 で DROP。`client_profiles` 系の引き継ぎは `client_recruit_areas` 別テーブルに変更
@@ -476,6 +488,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 名前解決ルールの詳細は `.kiro/steering/database-schema.md` の「発注者表示名のルール」セクションを参照
 - 表示ロジックを変更すると、**データは変わらなくても画面の表示が変わる**ため、既存テストの期待値更新が必要になる。表示ロジック変更時は関連する E2E テストを必ず確認・更新すること
 - メール通知の sender/recipient 名はハードコードしない。`resolveParticipantName()` で動的に解決すること
+- **会社名/屋号（`users.company_name`）は任意・空欄可。「なし」等の文字を入れさせてはならない**（registration / COM-002 とも「ない場合は『なし』と入力」の案内は削除済み、2026-06-05）。`getUserDisplayName(user, 'prefer-company')`（受注者の屋号表示。メッセージ UI・応募通知で使用）は company_name があればそれを優先するため、「なし」と入力すると相手名が「なし」と表示される。空欄なら自動で姓名にフォールバックする（`.trim()` で空判定済み）。新たに company_name 入力欄を作る際も空欄前提にすること
 
 ### 発注者プロフィールのデータ管理（必ず守ること）
 - 受注者に見える発注者情報は **`client_profiles` テーブルに一元化**されている。CLI-021（発注者情報編集）が唯一の編集画面

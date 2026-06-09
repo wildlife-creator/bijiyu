@@ -2,7 +2,7 @@
 -- Run with: supabase test db
 
 BEGIN;
-SELECT plan(8);
+SELECT plan(9);
 
 -- ============================================================
 -- Setup: create test users in auth.users (triggers public.users)
@@ -94,6 +94,8 @@ SELECT public.complete_registration(
   '1990-01-15'::date,
   '東京都',
   'テスト建設',
+  -- residence-municipality: p_municipality（お住まいの市区町村）
+  '千代田区',
   '[{"trade_type":"大工","experience_years":5},{"trade_type":"電気工事士","experience_years":3}]'::jsonb,
   -- master-area Phase 4.5: p_areas は text[] → jsonb に変更
   '[{"prefecture":"東京都","municipality":null},{"prefecture":"神奈川県","municipality":null}]'::jsonb
@@ -124,6 +126,15 @@ SELECT is(
 );
 
 -- ============================================================
+-- Test 7.5: お住まいの市区町村（residence-municipality）が保存される
+-- ============================================================
+SELECT is(
+  (SELECT municipality FROM public.users WHERE id = 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1'),
+  '千代田区',
+  'complete_registration saves residence municipality'
+);
+
+-- ============================================================
 -- Test 8: Skills limited to 3 max
 -- ============================================================
 -- Clean up previous skills
@@ -136,6 +147,8 @@ SELECT public.complete_registration(
   '女性',
   '1985-06-20'::date,
   '大阪府',
+  NULL,
+  -- residence-municipality: p_municipality（未指定 = NULL）
   NULL,
   '[{"trade_type":"大工","experience_years":1},{"trade_type":"鳶職","experience_years":2},{"trade_type":"左官","experience_years":3},{"trade_type":"配管工","experience_years":4}]'::jsonb,
   -- master-area Phase 4.5: p_areas は text[] → jsonb に変更

@@ -6,7 +6,7 @@
 
 **Purpose**: 既存「都道府県」粒度の住所運用を「都道府県 + 市区町村」粒度へ拡張する。総務省「市町村コード・特別区コード」(令和6年1月1日版) 由来の **1,898 件**を `master_municipalities` マスタに収め、案件・受注者対応エリア・発注者募集エリア・検索フィルタを統一的にこの粒度で扱う。マッチング判定（無料受注者の応募制限）は互換性維持のため都道府県のままとし、市区町村は表示・検索専用とする。
 
-**Users**: 受注者（市区町村単位で対応エリアを宣言）/ 発注者（市区町村単位で募集エリア・案件現場を宣言）/ 検索者（全ロール、上位包含で取りこぼしなく絞り込み）。個人住所 `users.prefecture` はプライバシー観点で都道府県のまま据え置く。
+**Users**: 受注者（市区町村単位で対応エリアを宣言）/ 発注者（市区町村単位で募集エリア・案件現場を宣言）/ 検索者（全ロール、上位包含で取りこぼしなく絞り込み）。~~個人住所 `users.prefecture` はプライバシー観点で都道府県のまま据え置く。~~ → **【residence-municipality 2026-06-05 で変更】お住まい（個人居住地）も `users.municipality` を新設し市区町村まで対応**（Req 9 撤回）。
 
 **Impact**: マイグレーション 4 本 + 約 20 ファイル（`grep -rln 'job\.prefecture\|jobPrefecture\|recruit_area'` 実測 19 ファイル + テスト関連） / 7 画面の入力 UI 改修 / 19 箇所の表示更新 / 検索クエリの post-filter → server-filter 移行。既存スキーマからの旧カラム（`jobs.prefecture` / `client_profiles.recruit_area`）削除と新テーブル（`master_municipalities` / `job_areas` / `client_recruit_areas`）追加を伴う一気移行。`user_available_areas.municipality` カラム追加で受注者側も対称化。後方互換コードは持ち込まない。
 
@@ -59,7 +59,8 @@
 
 - ~~`jobs.address text(200)` カラム — エリアフィールド（`job_areas`）とは別管理で、CLI-004 の「勤務地」自由入力欄（番地以下の詳細住所）として現状維持する（Req 4-8）。Migration 4 の `DROP COLUMN` 対象は `jobs.prefecture` のみ~~
   - **【廃止 / superseded by work-location-address-fix, 2026-06-02】** `jobs.address` は DROP 済。詳細住所は `applications.work_location`（応募レベル、CLI-009 入力・成立した受注者にのみ表示）に一本化。
-- `users.prefecture text` カラム — 個人住所（プライバシー観点で都道府県のまま据え置き、Req 9）。AUTH-006 / COM-002 の「お住まい」フィールドは単一プルダウンのまま
+- ~~`users.prefecture text` カラム — 個人住所（プライバシー観点で都道府県のまま据え置き、Req 9）。AUTH-006 / COM-002 の「お住まい」フィールドは単一プルダウンのまま~~
+  - **【変更 / residence-municipality, 2026-06-05】** Req 9 撤回。`users.municipality`（nullable）を新設。AUTH-006 / COM-002 の「お住まい」は `<ResidencePicker>`（都道府県 Select → 市区町村 Select の2段、市区町村は任意）に変更。表示は `formatResidence(prefecture, municipality)`
 
 **新規依存**: なし。cmdk・shadcn・Radix UI は master-skills で導入済み。
 

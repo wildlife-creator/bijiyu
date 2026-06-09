@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
+import { formatResidence } from "@/lib/utils/format-residence";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -71,7 +72,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       `
       id, avatar_url, last_name, first_name, birth_date,
       deleted_at, role, identity_verified, ccus_verified, bio,
-      prefecture, gender, skill_tags, video_url
+      prefecture, municipality, gender, skill_tags, video_url
     `,
     )
     .eq("id", id)
@@ -248,7 +249,10 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       <section className="mx-5 mt-6">
         <h3 className="text-[15px] font-bold tracking-wider mb-2">基本情報</h3>
         <div className="rounded-[8px] border border-border/10 bg-background overflow-hidden">
-          <InfoRow label="居住地" value={contractor.prefecture} />
+          <InfoRow
+            label="居住地"
+            value={formatResidence(contractor.prefecture, contractor.municipality)}
+          />
           <InfoRow label="性別" value={contractor.gender} />
           <InfoRow
             label="対応可能エリア"

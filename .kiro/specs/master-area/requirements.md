@@ -6,7 +6,9 @@
 
 ビジ友(建設業マッチングサービス)の住所粒度を「都道府県のみ」から「市区町村レベル」に拡張する。既存の `jobs.prefecture` / `user_available_areas.prefecture` / `client_profiles.recruit_area` は都道府県粒度で運用されており、「港区の現場」と「練馬区の現場」を判別できない。本機能により、受注者の対応エリア、発注者の募集エリア、案件の現場住所、検索フィルタすべてを市区町村粒度で扱えるようにし、マッチング精度と検索体験を向上させる。
 
-無料受注者の応募制限ロジックは互換性維持のため都道府県マッチのままとし、市区町村は表示・検索専用とする。個人住所(`users.prefecture`)はプライバシー観点で据え置く。マスタデータは総務省「市町村コード・特別区コード」(令和6年1月1日更新)由来の **1,898 件** を初期値とし、master-skills と同じ `deprecated_at` パターンで廃止管理する。
+無料受注者の応募制限ロジックは互換性維持のため都道府県マッチのままとし、市区町村は表示・検索専用とする。~~個人住所(`users.prefecture`)はプライバシー観点で据え置く。~~ マスタデータは総務省「市町村コード・特別区コード」(令和6年1月1日更新)由来の **1,898 件** を初期値とし、master-skills と同じ `deprecated_at` パターンで廃止管理する。
+
+> **【更新 2026-06-05 / residence-municipality】** 本 spec の「個人住所(`users.prefecture`)は市区町村化しない」という方針（Req 9）は**撤回された**。お住まい（個人居住地）も `users.municipality`（任意・1つ、master_municipalities 参照）を新設し、市区町村まで登録・公開する。詳細は CLAUDE.md「お住まい（個人居住地）」節を参照。以下 Req 9 関連の記述は歴史的経緯として残すが、現行仕様ではない。
 
 実装方針(別テーブル正規化、上位包含検索、複数登録対応、最大10件制約 等)は事前合意済み。詳細は本ドキュメント中の各要件を参照。
 
@@ -16,7 +18,7 @@
 
 - 適用範囲: 案件・受注者対応エリア・発注者募集エリア・検索フィルタすべて
 - 制限判定: 都道府県マッチを維持(`src/lib/matching.ts` は変更しない)
-- 個人住所 `users.prefecture`: 据え置き
+- ~~個人住所 `users.prefecture`: 据え置き~~ → **【residence-municipality 2026-06-05 で変更】お住まいは `users.municipality` を新設し市区町村まで対応（Req 9 撤回）**
 - 案件エリア: 複数登録 + 県跨ぎOK + 別テーブル `job_areas` で正規化
 - マスタ: `master_municipalities (prefecture, municipality, deprecated_at)` 2 カラム
 - 政令市の区: 「札幌市中央区」「横浜市港北区」のような結合表記
@@ -144,14 +146,16 @@
 8. The master-area system shall 既存 `idx_jobs_search (status, prefecture)` を `(status)` ベースに再構築し、`job_areas (prefecture, municipality)` 複合インデックスを追加する
 9. The master-area system shall `client_recruit_areas (prefecture, municipality)` および `user_available_areas (prefecture, municipality)` に検索用複合インデックスを追加する
 
-### Requirement 9: 個人住所のスコープ外維持
+### Requirement 9: 個人住所のスコープ外維持 ※【撤回・residence-municipality 2026-06-05】
+
+> **この Requirement 9 は撤回されました。** お住まい（個人居住地）は `users.municipality` を新設し、市区町村まで登録・公開する方針に変更（AUTH-006/COM-002 で市区町村プルダウンを追加、CLI-006/COM-001/admin で市区町村まで表示）。以下は歴史的経緯として残す。現行仕様は CLAUDE.md「お住まい（個人居住地）」節を参照。
 
 **Objective:** As a 受注者, I want 個人住所(`users.prefecture`)はプライバシー観点で都道府県のままにする, so that プロフィール表示で過度に詳細な住所が公開されない
 
-#### Acceptance Criteria
+#### Acceptance Criteria（※すべて撤回済み — residence-municipality 2026-06-05。お住まいは市区町村まで対応）
 
-1. The master-area system shall `users.prefecture` カラムを変更せず、市区町村レベルへの拡張を行わない
-2. The master-area system shall AUTH-006 / COM-002 の「お住まい」フィールドを単一プルダウン(都道府県のみ)のまま維持する
+1. ~~The master-area system shall `users.prefecture` カラムを変更せず、市区町村レベルへの拡張を行わない~~（撤回: `users.municipality` 新設）
+2. ~~The master-area system shall AUTH-006 / COM-002 の「お住まい」フィールドを単一プルダウン(都道府県のみ)のまま維持する~~（撤回: `<ResidencePicker>` 2段プルダウンに変更）
 3. The master-area system shall COM-001(プロフィール詳細)/ CLI-006(ユーザー詳細)等の表示で「お住まい: {都道府県}」のフォーマットを維持する
 
 ### Requirement 10: マスタ取得・キャッシュ・UI コンポーネント
@@ -206,7 +210,7 @@
 1. The master-area system shall CLAUDE.md の「実装時の必須チェック項目」セクションに以下のルールを追加する:
    - マッチング判定は都道府県のまま。`src/lib/matching.ts` を市区町村レベルに引き上げてはならない
    - 検索クエリは上位包含ルールに従う(市区町村絞り込みでも同県全域指定を含める)
-   - 個人住所 `users.prefecture` は市区町村化しない
+   - ~~個人住所 `users.prefecture` は市区町村化しない~~（※撤回 residence-municipality 2026-06-05。`users.municipality` 新設で市区町村まで対応）
    - 新規エリア入力 UI は `AreaPicker` 等の共通コンポーネントを利用すること
 2. The master-area system shall `.kiro/steering/database-schema.md` を新スキーマ(`master_municipalities` / `job_areas` / `client_recruit_areas`、`users.prefecture` 据え置き、`client_profiles.recruit_area` 削除)に合わせて更新する
 3. The master-area system shall `.kiro/steering/design-system.md` または `.kiro/steering/design-rule.md` に階層プルダウン UI コンポーネントの使用ルールを追記する
