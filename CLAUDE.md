@@ -21,7 +21,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 | product.md | サービス概要、プラン、ビジネスモデル |
 | tech.md | 技術スタック、メール、テスト、Realtime戦略 |
 | structure.md | ディレクトリ構成、命名規則、ルーティング |
-| screen-map.md | 全78画面一覧、画面ID |
+| screen-map.md | 全87画面一覧、画面ID |
 | screen-navigation.md | 画面遷移フロー |
 | roles-and-permissions.md | ロール、権限、プラン制限 |
 | security.md | セキュリティ方針、入力検証 |
@@ -41,7 +41,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 5. `spec-impl` → 実装
 
 ### 開発の進め方
-- 全78画面を機能グループごとに実装する
+- 全87画面を機能グループごとに実装する
 - 各グループの実装完了ごとに動作確認を行う
 - テストはリスクベース: 書き込み+権限系はフルテスト、読み取り系はミニマル
 - spec-impl 開始時に `reference/png-mapping.md` で対象画面の PNG ファイルを特定し、デザインカンプを確認してから実装に入ること

@@ -363,8 +363,9 @@
   - applied → cancelled（受注者が自分でキャンセル、またはユーザー退会時の自動キャンセル）
   - accepted → completed（受注者・発注者の両方が評価を登録した時点で、発注者の operatingStatus が 'completed' の場合に遷移）
   - accepted → lost（受注者・発注者の両方が評価を登録した時点で、発注者の operatingStatus が 'lost' の場合に遷移）
-  - accepted → cancelled（管理者による発注取り消し — ADM-014。受注者自身はキャンセル不可）
+  - accepted → cancelled（受注者キャンセル〔下記制約内〕、または管理者による発注取り消し — ADM-014）
   - **受注者キャンセルの制約**: status = 'accepted' かつ first_work_date（発注者が設定した初回稼働日）- 5日 > NOW() の場合のみ可能。applied 状態でのキャンセル（応募取り消し）については別途確認が必要
+  - **キャンセル実行者の記録（admin spec で新設・前方参照）**: `applications.cancelled_by`（'contractor' / 'admin'）に誰がキャンセルしたかを記録する。受注者のキャンセル Server Action・退会時の自動キャンセルは 'contractor'、ADM-014 の発注取り消しは 'admin' を記録。admin の応募履歴一覧（ADM-013）の8分類絞り込み「ユーザー側からのキャンセル／運営によるキャンセル」で使用（2026-06-11 決定。詳細は `.kiro/specs/admin/requirements.md` REQ-ADM-013）
   - **再応募の制約**: rejected 後の同一案件への再応募は不可。DB の UNIQUE 制約 `(job_id, applicant_id) WHERE status NOT IN ('cancelled')` により、rejected レコードが存在する場合は DB レベルで重複 INSERT がブロックされる（cancelled のみ除外 = rejected は制約に含まれるため再応募不可）。cancelled 後の再応募は可能（UNIQUE 制約から除外されているため）
 
 ## 画面遷移

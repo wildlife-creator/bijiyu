@@ -47,7 +47,7 @@ spec名: support（問い合わせ・トラブル報告）
 - **選択式は全て単一選択**（shadcn Select）。トラブル種類も単一
 - **選択肢はラベル文字列で保存**。後から選択肢を増減・改名・削除しても過去データは壊れない。当面はコード定数（`contact-options.ts` 等）で管理し、将来「運営が管理画面から編集」が必要なら master テーブル方式に格上げ可能（admin 一括実装時に検討）
 - **添付ファイル**: 非公開バケット `support-attachments` を新規作成。画像/PDF・最大5枚・各5MB。anon も INSERT 可（お問い合わせが非ログインのため）、authenticated も INSERT 可、**SELECT は admin のみ**。ファイルパスを text[] で保存し、表示（admin画面・後日）は署名付きURL。Server Action 内で file.size/file.type を直接検証（z.instanceof(File) は使わない）
-- **管理画面は本 spec の対象外**。データの器（contacts 組み替え・trouble_reports 新規・両方に admin 読み取り可 RLS・admin 読み取り可バケット）だけ用意し、「お問い合わせ／トラブル報告の admin 一覧・詳細画面は admin spec で別途実装する」と spec に明記する（将来の admin 一括実装が器の存在を把握できるように）
+- **管理画面は本 spec の対象外**。データの器（contacts 組み替え・trouble_reports 新規・両方に admin 読み取り可 RLS・admin 読み取り可バケット）だけ用意し、「お問い合わせ／トラブル報告の admin 一覧・詳細画面は admin spec で別途実装する（ADM-016/017 お問い合わせ、ADM-018/019 トラブル報告として 2026-06-09 に admin spec で定義済み）」と spec に明記する（将来の admin 一括実装が器の存在を把握できるように）
 
 ### 注意・既存資産
 - COM-008 の現行実装は contactSchema が `src/lib/validations/profile.ts`、CONTACT_TYPES が `src/lib/constants/profile-options.ts` にあり profile spec 配下に紛れている。spec-requirements/design 時に正確な所在を確認し、問い合わせ系として整理する
