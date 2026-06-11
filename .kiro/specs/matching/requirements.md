@@ -97,7 +97,7 @@
      - applications.status = 'accepted' の場合のみ表示
      - **キャンセル可否の判定基準**: 発注者が設定した初回稼働日（applications.first_work_date）の5日前まではキャンセル可能
      - 初回稼働日の5日前を過ぎた場合: ボタンを非活性にし、注意文言を表示:「初回稼働日の5日前を過ぎたため、システムからはキャンセルできません。」
-     - キャンセル実行時: 確認ポップアップ → applications.status を 'cancelled' に更新 → CON-011 へ遷移
+     - キャンセル実行時: 確認ポップアップ → applications.status を 'cancelled' に更新（あわせてキャンセル実行者 `applications.cancelled_by = 'contractor'` を記録する。カラムは admin spec で新設・2026-06-11。ADM-013 の8分類で「ユーザー側からのキャンセル」と「運営によるキャンセル」を区別するため）→ CON-011 へ遷移
   8. **「評価を入力する」ピル型ボタン（塗りつぶし）**: CON-013 へ遷移
      - applications.status = 'accepted' の場合のみ表示
      - 既に client_reviews が登録済みの場合は非表示 or 非活性

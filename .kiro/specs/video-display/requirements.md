@@ -32,6 +32,7 @@
 #### Acceptance Criteria
 
 1. When 管理者が ADM-009 (ユーザーアカウント詳細) を表示したとき、the admin user detail screen shall 対象ユーザーの `option_subscriptions` を参照し、active な `'video'` があれば「受注者PR動画を投稿する」ボタンを、active な `'video_workplace'` があれば「職場紹介動画を投稿する」ボタンを、それぞれ動的に表示する
+   - **【2026-06-10 更新（admin spec）】**: 職場紹介動画（`video_workplace`）の投稿入口は ADM-004（発注者アカウント詳細）へ移設が決定。ADM-009 に表示するのは「受注者PR動画を投稿する」ボタンのみとなり、本 AC の video_workplace ボタンの記述は旧仕様（ADM-009 からの導線撤去と E2E 書き換えは admin spec で実装。`.kiro/specs/admin/requirements.md` REQ-ADM-010B 参照）
 2. If 対象ユーザーがどちらの動画オプションも購入していない場合、the admin user detail screen shall 動画投稿ボタンを 1 つも表示しない
 3. When 管理者が ADM-010 (受注者PR動画投稿) で URL を入力し「更新」ボタンを押下したとき、the system shall `parseVideoUrl` で URL を検証し、validation を通過した場合のみ `users.video_url` を更新する
 4. When 管理者が ADM-010B (職場紹介動画投稿) で URL を入力し「更新」ボタンを押下したとき、the system shall `parseVideoUrl` で URL を検証し、validation を通過した場合のみ `client_profiles.workplace_video_url` を更新する

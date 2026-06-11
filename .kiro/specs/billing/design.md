@@ -12,7 +12,7 @@
 - Stripe Billing による安全な決済と署名検証付き Webhook 処理
 - 二重課金防止と Webhook 冪等性の担保
 - 全プラン変更マトリクス（アップグレード・ダウングレード・解約のすべての組み合わせ）を矛盾なく処理
-- プラン購入直後の発注者情報設定導線（全プラン CLI-021?setup=true へ遷移。法人プランは社名必須・スキップ不可、個人・小規模プランは任意でスキップ可）。法人プランは追加で組織（organizations）の自動作成も行う。Phase 1 暫定の `/mypage/organization-setup` 経由は organization spec Task 6 で廃止済み
+- プラン購入直後の発注者情報設定導線（全プラン CLI-021?setup=true へ遷移。法人プランは社名のみ必須＝募集職種・エリアは後回し可〔**2026-06-10 仕様変更⑤**・Task 17〕、個人・小規模プランは任意でスキップ可）。法人プランは追加で組織（organizations）の自動作成も行う。Phase 1 暫定の `/mypage/organization-setup` 経由は organization spec Task 6 で廃止済み
 - past_due の7日猶予と自動解約（pg_cron + Edge Function）
 - 担当者（staff）の書き込み操作を三重防御（Middleware + UI + Server Action）でブロック
 - fee=free（初回事務手数料免除）ルートを暗号化 Cookie で実装
@@ -974,6 +974,7 @@ interface IdempotencyGuard {
   2. `users.stripe_customer_id` を Session.customer から保存（未設定の場合）
   3. `users.role` が `'contractor'` の場合のみ `'client'` に更新（`'staff'` は変更しない）
   4. `client_profiles` を **`INSERT INTO client_profiles (user_id, display_name) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING`**（既存値があれば display_name は維持。再アップグレード時にユーザーが CLI-021 で設定した法人名「株式会社XXX」を `users.last_name + first_name` で上書きしないため）。新規作成時の display_name = `users.last_name + first_name`
+     - **【2026-06-11 追記（admin spec）】招待発注者の会社名反映**: admin の招待フロー（ADM-006/007）経由のユーザーは、本ステップ（RPC 呼び出し）の**前に** `user_metadata.invited_company_name` を読み、存在すれば `client_profiles` に `{ user_id, display_name: 会社名 }` を ignoreDuplicates upsert する処理が handleCheckoutCompleted に追加される。先に会社名で行を作っておくことで、本ステップの ON CONFLICT DO NOTHING が会社名を維持する（実装・テストは admin spec タスク6.2 で管理。冪等のため本設計と両立）
   5. 法人プランの場合: `ensureOrganizationExists(userId)` を実行（既存組織があれば再利用、なければ新規作成）
   6. `audit_logs` に `role_changed` / `subscription_created` を記録
   7. **fee=free Cookie のクリーンアップ**: Webhook はサーバー間通信のため Cookie に直接アクセスできない。実際の削除は Middleware が `/billing` リクエストごとに「`subscriptions` に active/past_due あり + `bijiyu_fee` Cookie あり → 削除」を判定して実行する（feeFreeMiddleware セクション参照）
