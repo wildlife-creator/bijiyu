@@ -436,7 +436,7 @@
     - 本 tasks.md の Task 5.2（success_url の振り分け記述）・Task 15.5（E2E シナリオ）は organization spec 完了時に CLI-021 ベースに書き換え
   - **CLI-021 での `?setup=true` 挙動（全プラン共通）**:
     - 画面上部にセットアップバナーを表示:
-      - 法人プラン（corporate / corporate_premium）: 「社名の入力が必須です（後からいつでも編集できます）」。`display_name` 必須、スキップボタン非表示
+      - 法人プラン（corporate / corporate_premium）: 「社名の入力が必須です（後からいつでも編集できます）」。`display_name` 必須、スキップボタン非表示 ※文言は Task 17（2026-06-11）で「プラン登録が完了しました。社名を入力してください。その他の項目は後からいつでも編集できます」に変更済み
       - 個人・小規模プラン（`individual` / `small`）: 「発注者として利用する場合は社名または氏名を入力してください。受注者機能のみ利用する方はスキップ可（後からいつでも編集できます）」。`display_name` 任意、「スキップして後で設定する」ボタン表示 → 押下で DB 操作せず CON-001 へ遷移
     - 入力欄プリフィル: `client_profiles.display_name` の現在値を表示（Webhook がデフォルト格納した `users.last_name + first_name`、またはユーザーが以前編集した値）
     - Webhook 未着時のアクセスは `users.role` / `subscriptions.plan_type` を待たず許可（ガード緩和）。保存 Server Action は Webhook 完了を前提とし未完了時はエラー返却
