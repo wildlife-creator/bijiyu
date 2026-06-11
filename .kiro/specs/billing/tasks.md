@@ -791,3 +791,12 @@
     - 補償オプション購入 → option_subscriptions に `option_type='compensation_5000' or 'compensation_9800'` のレコードが status='active' で挿入されることを確認（`client_profiles.is_compensation_*` カラムは廃止のため確認不要）
   - すべての手動テストが成功した後、`npm run test` / `supabase test db` / `npm run test:e2e` を再実行してデグレなしを確認する
   - _Requirements: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3, 6.1, 7.1, 8.1, 8.2, 9.1_
+
+- [ ] 17. CLI-021 setup の法人プラン緩和（2026-06-10 仕様変更⑤・admin spec 招待フロー対応）
+  - 法人プランの `?setup=true` 保存を「社名のみ必須」に緩和する（募集職種・募集エリアは後回し可。社名は法人で姓名フォールバックできないため必須維持。個人・小規模の全体スキップは従来どおり）
+  - `src/lib/validations/client-profile.ts` のバリデーション（募集職種・募集エリアの min(1) 必須）と CLI-021 フォームの必須マーク表示を変更する。後回しにしたユーザーが他項目を編集保存できるよう、通常編集時も非必須とする（緩和方向のため既存データ・既存ユーザーは非破壊）
+  - 募集職種・エリア未入力の発注者にはマイページ等で「プロフィールを充実させると職人に見つけてもらいやすくなります」のナッジを表示し、後からの入力を促す
+  - 関連テスト更新: client-profile の Vitest / `e2e/client-profile.spec.ts`（法人 setup の必須エラー期待値）
+  - 実施タイミング: admin spec（招待フロー）とは実装ファイルが重ならず独立して実施可能。admin 実装前の先行実施を推奨（admin の招待フロー通し検証を最終形の UX で行えるため）。遅くとも招待フローの本番運用開始までに完了させる
+  - 経緯: `.kiro/specs/admin/requirements.md`「関連する仕様変更⑤（admin 範囲外 / CLI-021 緩和）」参照（2026-06-10 ユーザー承認済み）
+  - _Requirements: 2.1_

@@ -187,7 +187,7 @@ double_confirm_changes = true
 
 使用される画面:
 - CLI-024（Owner / Admin が他メンバーを編集）
-- ADM-008 系（システム管理者がユーザーを編集）
+- ADM-008 系（システム管理者がユーザーを編集）※将来実装する場合の規定。admin spec（2026-06-11 確定）では管理者によるユーザー情報の編集は管理者メモ（ADM-005）のみで、メール強制変更の UI はスコープ外（現時点でパターンB を使うのは CLI-024 のみ）
 
 1. Server Action で権限検証（対象ユーザーに対する編集権限があるか）
 2. admin client で `supabase.auth.admin.updateUserById(targetUserId, { email: newEmail, email_confirm: true })` を呼ぶ（即時反映）

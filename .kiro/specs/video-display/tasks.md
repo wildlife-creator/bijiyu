@@ -93,6 +93,7 @@
 
 - [x] 5.3 (P) ADM-009 ユーザーアカウント詳細 + 動的投稿ボタン + PR動画表示
   - 対象ユーザーの active オプションに応じ、`'video'` あれば「受注者PR動画を投稿する」（ADM-010 へ）、`'video_workplace'` あれば「職場紹介動画を投稿する」（ADM-010B へ）を動的表示（0/1/2 個）。どちらも無ければボタンを出さない
+  - **【2026-06-10 更新（admin spec）】**: 職場紹介動画ボタンは ADM-004（発注者アカウント詳細）へ移設が決定（本タスクの video_workplace ボタンは実装当時の仕様。撤去は admin spec タスク8.3 で実施）
   - `users.video_url` 設定済みかつ active な `'video'` がある場合のみ PR動画を `VideoEmbed` で描画する
   - デザインカンプ: `design-assets/screens/ADM-009.png`
   - 依存: 5.1 / 3.2 / 3.4 完了後

@@ -406,6 +406,7 @@ export async function adminLoginAction(formData: FormData): Promise<ActionResult
 
 **Implementation Notes**:
 - Integration: 既存 `loginAction` の構造（Zod → signInWithPassword → role 取得 → audit）を流用し、role 判定を `!== 'admin'` 拒否に反転。一般 `/login` の「admin → /admin/dashboard」分岐は現状維持（回帰リスク回避）
+- **ルート構成（2026-06-11 レビューで追記）**: 既存 `src/app/admin/layout.tsx` の認可ガード（未認証・非 admin を redirect）の配下に `/admin/login` を置くとログイン画面が表示できない。ガード付きレイアウトは route group `src/app/admin/(protected)/` へ移して既存ページをその配下に移動し（URL 不変）、`/admin/login` はガードの外に置く。ガードの redirect 先は `/login` → `/admin/login` に変更する
 - パスワード再設定の実動作の注意: 既存リセットフローの完了時は `/login` へ遷移するが、その時点で recovery セッション（再設定用の一時ログイン状態）が生きているため、admin は middleware により `/admin/dashboard` へ流れる。要件の「/admin/login からログインし直す」と画面上の見え方が異なるが実害はなく、フロー改変はしない（E2E の期待値はこの実動作に合わせる）
 - Validation: フォームは email/password 必須の最小 Zod。ボタン `type="submit"` 明示
 - Risks: なし（追加のみ）
