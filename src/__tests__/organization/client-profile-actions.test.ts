@@ -211,6 +211,71 @@ describe("saveClientProfileAction", () => {
     expect(r.success).toBe(false);
   });
 
+  it("Task 17: edit モードでは募集職種・エリア空はバリデーションエラー（必須維持）", async () => {
+    mockAuth(OWNER_ID);
+    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { plan_type: "individual", status: "active" },
+          error: null,
+        },
+      }),
+    );
+    const r = await saveClientProfileAction(
+      { ...basePersonalInput, recruitJobTypes: [], recruitArea: [] },
+      { mode: "edit" },
+    );
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toBe("募集職種を選択してください");
+  });
+
+  it("Task 17: 法人プラン + setup モードで社名のみ（募集職種・エリア空）でも保存成功する", async () => {
+    mockAuth(OWNER_ID);
+    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { plan_type: "corporate", status: "active" },
+          error: null,
+        },
+      }),
+    );
+    // previousLabels SELECT + previousAreas SELECT
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: { recruit_job_types: [] }, error: null } }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
+    const upsertChain = createQueryMock({ thenable: { data: null, error: null } });
+    mockFrom.mockReturnValueOnce(upsertChain);
+
+    const r = await saveClientProfileAction(
+      {
+        ...basePersonalInput,
+        displayName: "鈴木工務店株式会社",
+        recruitJobTypes: [],
+        recruitArea: [],
+      },
+      { mode: "setup" },
+    );
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data?.redirectTo).toBe("/mypage");
+    expect(upsertChain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: OWNER_ID,
+        display_name: "鈴木工務店株式会社",
+        recruit_job_types: [],
+      }),
+      expect.objectContaining({ onConflict: "user_id" }),
+    );
+    expect(mockRpc).toHaveBeenCalledWith("replace_client_recruit_areas", {
+      p_client_id: OWNER_ID,
+      p_areas: [],
+    });
+  });
+
   it("正常系: upsert が呼ばれ redirectTo が返る（edit モード）", async () => {
     mockAuth(OWNER_ID);
     mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
