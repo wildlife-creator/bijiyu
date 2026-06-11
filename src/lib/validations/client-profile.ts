@@ -10,6 +10,11 @@ import { areaRowsSchema } from "@/lib/validations/area";
  * - clientProfileSchema:        法人プラン用。display_name 必須
  * - clientProfilePersonalSchema: 非法人プラン用。display_name 任意
  * Server Action は Owner の plan_type に応じて使い分ける。
+ *
+ * billing Task 17（2026-06-10 仕様変更⑤・2026-06-11 改訂）:
+ * 募集職種・募集エリアは mode でも切り替える。
+ * - setup（課金直後の初回設定）: 未入力可（招待法人が社名だけで即スタートできるように）
+ * - edit（通常編集）: 従来どおり必須（最終的には全発注者に登録してもらう方針）
  */
 
 const DISPLAY_NAME_MAX = 100;
@@ -48,19 +53,12 @@ function optionalInt(min: number, max: number) {
   );
 }
 
-// 共通フィールド定義（法人/非法人で display_name のみ差し替え）
+// 共通フィールド定義（法人/非法人で display_name、setup/edit で募集職種・エリアを差し替え）
 const sharedFields = {
   address: optionalString(
     ADDRESS_MAX,
     `住所は${ADDRESS_MAX}文字以内で入力してください`,
   ),
-  recruitJobTypes: z
-    .array(z.string().trim().min(1))
-    .min(1, "募集職種を選択してください")
-    .transform((arr) => Array.from(new Set(arr))),
-  recruitArea: areaRowsSchema.refine((arr) => arr.length >= 1, {
-    message: "募集エリアを選択してください",
-  }),
   employeeScale: optionalInt(EMPLOYEE_SCALE_MIN, EMPLOYEE_SCALE_MAX),
   workingWay: z
     .array(z.enum(WORKING_WAYS))
@@ -80,26 +78,67 @@ const sharedFields = {
   snsFacebook: z.boolean().default(false),
 };
 
+// 募集職種・募集エリア: edit = 必須 / setup = 未入力可
+function recruitFields(mode: ClientProfileMode) {
+  const recruitJobTypesBase = z
+    .array(z.string().trim().min(1))
+    .transform((arr) => Array.from(new Set(arr)));
+  if (mode === "setup") {
+    return {
+      recruitJobTypes: recruitJobTypesBase,
+      recruitArea: areaRowsSchema,
+    };
+  }
+  return {
+    recruitJobTypes: z
+      .array(z.string().trim().min(1))
+      .min(1, "募集職種を選択してください")
+      .transform((arr) => Array.from(new Set(arr))),
+    recruitArea: areaRowsSchema.refine((arr) => arr.length >= 1, {
+      message: "募集エリアを選択してください",
+    }),
+  };
+}
+
+export type ClientProfileMode = "edit" | "setup";
+
 // 法人プラン: display_name 必須
-export const clientProfileSchema = z.object({
-  displayName: z
-    .string()
-    .trim()
-    .min(1, "社名を入力してください")
-    .max(
-      DISPLAY_NAME_MAX,
-      `社名は${DISPLAY_NAME_MAX}文字以内で入力してください`,
-    ),
-  ...sharedFields,
-});
+const corporateDisplayName = z
+  .string()
+  .trim()
+  .min(1, "社名を入力してください")
+  .max(DISPLAY_NAME_MAX, `社名は${DISPLAY_NAME_MAX}文字以内で入力してください`);
 
 // 非法人プラン: display_name 任意（空も許可）
-export const clientProfilePersonalSchema = z.object({
-  displayName: optionalString(
-    DISPLAY_NAME_MAX,
-    `社名は${DISPLAY_NAME_MAX}文字以内で入力してください`,
-  ),
+const personalDisplayName = optionalString(
+  DISPLAY_NAME_MAX,
+  `社名は${DISPLAY_NAME_MAX}文字以内で入力してください`,
+);
+
+// 通常編集（edit）: 募集職種・募集エリア必須
+export const clientProfileSchema = z.object({
+  displayName: corporateDisplayName,
   ...sharedFields,
+  ...recruitFields("edit"),
+});
+
+export const clientProfilePersonalSchema = z.object({
+  displayName: personalDisplayName,
+  ...sharedFields,
+  ...recruitFields("edit"),
+});
+
+// 課金直後の初回設定（setup）: 募集職種・募集エリア未入力可
+export const clientProfileSetupSchema = z.object({
+  displayName: corporateDisplayName,
+  ...sharedFields,
+  ...recruitFields("setup"),
+});
+
+export const clientProfilePersonalSetupSchema = z.object({
+  displayName: personalDisplayName,
+  ...sharedFields,
+  ...recruitFields("setup"),
 });
 
 export type ClientProfileInput = z.infer<typeof clientProfileSchema>;
@@ -113,13 +152,21 @@ export type ClientProfileFormInput = Omit<ClientProfileInput, "displayName"> & {
 };
 
 /**
- * プラン種別に応じてスキーマを選択する。
+ * プラン種別と画面モードに応じてスキーマを選択する。
+ * - 法人（corporate / corporate_premium）: 社名必須
+ * - setup: 募集職種・募集エリア未入力可 / edit: 必須
  */
 export function selectClientProfileSchema(
   planType: string | null | undefined,
+  mode: ClientProfileMode = "edit",
 ) {
   const isCorporate =
     planType === "corporate" || planType === "corporate_premium";
+  if (mode === "setup") {
+    return isCorporate
+      ? clientProfileSetupSchema
+      : clientProfilePersonalSetupSchema;
+  }
   return isCorporate ? clientProfileSchema : clientProfilePersonalSchema;
 }
 

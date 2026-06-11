@@ -131,7 +131,9 @@ export async function saveClientProfileAction(
     return { success: true, data: { redirectTo: "/mypage" } };
   }
 
-  const schema = selectClientProfileSchema(planType);
+  // setup（課金直後の初回設定）は募集職種・募集エリア未入力可、edit は必須
+  // （billing Task 17・2026-06-11 改訂）
+  const schema = selectClientProfileSchema(planType, opts.mode);
   const parsed = schema.safeParse(input);
   if (!parsed.success) {
     return {

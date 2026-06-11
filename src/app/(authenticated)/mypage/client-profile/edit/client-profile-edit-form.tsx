@@ -26,8 +26,7 @@ import {
   WORKING_WAYS,
 } from "@/lib/constants/options";
 import {
-  clientProfilePersonalSchema,
-  clientProfileSchema,
+  selectClientProfileSchema,
   type ClientProfileFormInput,
 } from "@/lib/validations/client-profile";
 
@@ -81,8 +80,9 @@ export function ClientProfileEditForm({
 
   const isCorporate =
     planType === "corporate" || planType === "corporate_premium";
-  const schema = isCorporate ? clientProfileSchema : clientProfilePersonalSchema;
   const isSetup = mode === "setup";
+  // setup は募集職種・募集エリア未入力可、edit は必須（billing Task 17）
+  const schema = selectClientProfileSchema(planType, mode);
 
   const {
     register,
@@ -100,7 +100,7 @@ export function ClientProfileEditForm({
   const setupBannerText = useMemo(() => {
     if (!isSetup) return null;
     if (isCorporate) {
-      return "プラン登録が完了しました。社名の入力が必須です（後からいつでも編集できます）";
+      return "プラン登録が完了しました。社名を入力してください。その他の項目は後からいつでも編集できます";
     }
     return "プラン登録が完了しました。発注者として利用する場合は社名または氏名を入力してください。受注者機能のみ利用する方はスキップ可（後からいつでも編集できます）";
   }, [isSetup, isCorporate]);
@@ -235,9 +235,10 @@ export function ClientProfileEditForm({
 
       {/* 募集職種 — MasterCombobox(multi) + カテゴリ一括選択 */}
       <FieldGroup>
+        {/* billing Task 17: setup（課金直後）のみ後回し可、通常編集では必須 */}
         <FieldLabel htmlFor="recruitJobTypes">
           募集職種
-          <RequiredBadge />
+          {!isSetup && <RequiredBadge />}
         </FieldLabel>
         <Controller
           control={control}
@@ -277,7 +278,7 @@ export function ClientProfileEditForm({
       <FieldGroup>
         <FieldLabel htmlFor="recruitArea">
           募集エリア
-          <RequiredBadge />
+          {!isSetup && <RequiredBadge />}
         </FieldLabel>
         <Controller
           control={control}

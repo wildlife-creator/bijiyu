@@ -12,7 +12,7 @@
 - Stripe Billing による安全な決済と署名検証付き Webhook 処理
 - 二重課金防止と Webhook 冪等性の担保
 - 全プラン変更マトリクス（アップグレード・ダウングレード・解約のすべての組み合わせ）を矛盾なく処理
-- プラン購入直後の発注者情報設定導線（全プラン CLI-021?setup=true へ遷移。法人プランは社名のみ必須＝募集職種・エリアは後回し可〔**2026-06-10 仕様変更⑤**・Task 17〕、個人・小規模プランは任意でスキップ可）。法人プランは追加で組織（organizations）の自動作成も行う。Phase 1 暫定の `/mypage/organization-setup` 経由は organization spec Task 6 で廃止済み
+- プラン購入直後の発注者情報設定導線（全プラン CLI-021?setup=true へ遷移。法人プランは社名のみ必須＝募集職種・エリアは setup 時のみ未入力可、通常編集では必須〔**2026-06-10 仕様変更⑤・2026-06-11 改訂**・Task 17〕、個人・小規模プランは任意でスキップ可）。法人プランは追加で組織（organizations）の自動作成も行う。Phase 1 暫定の `/mypage/organization-setup` 経由は organization spec Task 6 で廃止済み
 - past_due の7日猶予と自動解約（pg_cron + Edge Function）
 - 担当者（staff）の書き込み操作を三重防御（Middleware + UI + Server Action）でブロック
 - fee=free（初回事務手数料免除）ルートを暗号化 Cookie で実装
