@@ -197,6 +197,11 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 
 ## 実装時の必須チェック項目（過去のバグから学んだルール）
 
+### DB トリガーとカラムの整合（必ず守ること）
+- `CREATE TRIGGER set_updated_at ... EXECUTE FUNCTION update_updated_at()` を貼るテーブルには **`updated_at` カラムが必須**。カラムが無いと全 UPDATE が `record "new" has no field "updated_at"` で実行時エラーになる
+- このバグは**そのテーブルを UPDATE する機能が実装されるまで潜在化する**（INSERT / SELECT では発火しない）ため、テーブル作成時のレビューでしか防げない。新テーブルは「updated_at カラム＋ set_updated_at トリガー」をセットで確認すること
+- 2026-06-12 実例: identity_verifications がテーブル定義に updated_at の無いままトリガーだけ貼られており、ADM-012（承認/否認＝初の UPDATE 機能）の実装で顕在化。migration `20260612100200` でカラム追加・pgTAP `identity_verifications_updated_at.test.sql` で回帰防止
+
 ### Supabase Storage 関連
 - 画像表示に next/image を使う場合、next.config の remotePatterns に
   Supabase Storage のホストを追加すること（ローカル: localhost:54321、本番: xxxx.supabase.co）

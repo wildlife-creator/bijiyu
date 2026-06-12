@@ -194,20 +194,20 @@
   - 依存: タスク3.4（executeWithdrawal）・タスク8.2（共有部品）・タスク5.3（ADM-004 の動画導線）完了後に着手
   - _Requirements: 009, 010_
 
-- [ ] 9. 本人確認承認（ADM-011 / 012）
-- [ ] 9.1 (P) ADM-011 本人確認承認申請一覧を実装する
+- [x] 9. 本人確認承認（ADM-011 / 012）
+- [x] 9.1 (P) ADM-011 本人確認承認申請一覧を実装する
   - デザインカンプ: `design-assets/screens/ADM-011.png`
   - `/admin/verifications` に `status='pending'` のみを `created_at ASC`（古い順）で20件ページング表示する
   - 各行: 氏名・年齢（calculateAge）・メール・種別ラベル（document_type: identity →「本人確認」/ ccus →「CCUS」）＋「全○○件」表示
   - 行クリック → `/admin/verifications/[id]`
   - _Requirements: 011_
 
-- [ ] 9.2 (P) 本人確認の通知メールテンプレート2本を新設する
+- [x] 9.2 (P) 本人確認の通知メールテンプレート2本を新設する
   - `src/lib/email/templates/verification-approved.ts` / `verification-rejected.ts` を新設する（document_type で「本人確認」/「CCUS」を差し込む共用テンプレ。scout-notification の HTML 構成踏襲）
   - 否認テンプレは再提出依頼の文面＋否認理由を含める
   - _Requirements: 012_
 
-- [ ] 9.3 ADM-012 本人確認承認可否を実装する
+- [x] 9.3 ADM-012 本人確認承認可否を実装する
   - デザインカンプ: `design-assets/screens/ADM-012.png`
   - RSC が getSignedDocumentUrls（1時間・audit 付き）で書類URLを生成して表示する（**画面を開いた時点で audit_logs に identity_access が記録される**）
   - 両セクションの状態は自動決定: identity 審査中 → CCUS 側「未申請」グレーアウト／ccus 審査中 → 本人確認側は画像＋「承認済み」（ボタン非表示）
