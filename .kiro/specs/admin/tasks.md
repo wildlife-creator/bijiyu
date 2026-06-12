@@ -265,8 +265,8 @@
   - 添付なし（job-inquiry は添付非対応）。閲覧のみ
   - _Requirements: 020, 021_
 
-- [ ] 12. 代理メッセージ閲覧（ADM-023 / 024）
-- [ ] 12.1 (P) ADM-023 メッセージ一覧（代理スレッド）を実装する
+- [x] 12. 代理メッセージ閲覧（ADM-023 / 024）
+- [x] 12.1 (P) ADM-023 メッセージ一覧（代理スレッド）を実装する
   - デザインカンプなし（admin 共通スタイルに合わせる）
   - `/admin/messages` に admin_proxy_threads ビューを `last_message_at DESC, thread_id DESC`（タイブレーク付き）で20件ページング表示する
   - 各行: 会社名（display_name）／相手の職人名／最終メッセージ日時（formatDateTime）／代理バッジ
@@ -275,7 +275,7 @@
   - 依存: タスク2.2（ビュー）完了後に着手
   - _Requirements: 023_
 
-- [ ] 12.2 (P) ADM-024 メッセージ詳細（閲覧専用）を実装する
+- [x] 12.2 (P) ADM-024 メッセージ詳細（閲覧専用）を実装する
   - デザインカンプなし（admin 共通スタイルに合わせる）
   - `/admin/messages/[threadId]` に対象スレッドの messages を時系列昇順に全取得（1000件超に備え fetchAllPages パターン）し、発注者側/受注者側の吹き出しで表示する
   - `is_proxy=true` の行に「代理」バッジ。日時は formatDateTime（生 ISO を出さない）。画像添付は getSignedDocumentUrls（message-attachments）で表示
