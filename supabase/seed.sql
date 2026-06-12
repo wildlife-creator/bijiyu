@@ -786,8 +786,10 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
   ('cccccccc-cccc-cccc-cccc-cccccccccc02', '88888888-8888-8888-8888-888888888883', 'cc111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE - interval '20 days', 'completed', CURRENT_DATE - interval '15 days');
 
 -- キャンセル・お断り: contractor3 (cc222222) の cancelled 応募
-INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status) VALUES
-  ('cccccccc-cccc-cccc-cccc-cccccccccc03', '77777777-7777-7777-7777-777777777777', 'cc222222-2222-2222-2222-222222222222', 1, 'スポット', CURRENT_DATE + interval '14 days', 'cancelled');
+-- cancelled_by はマイグレーションのバックフィルでは埋まらない（バックフィルは
+-- マイグレーション適用時点の既存行のみ・seed は後から投入される）ため明示する。
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, cancelled_by) VALUES
+  ('cccccccc-cccc-cccc-cccc-cccccccccc03', '77777777-7777-7777-7777-777777777777', 'cc222222-2222-2222-2222-222222222222', 1, 'スポット', CURRENT_DATE + interval '14 days', 'cancelled', 'contractor');
 
 -- user_reviews: contractor2 (cc111111) への評価（CLI-028 テスト用、同一 reviewee に2件）
 -- 2件のみ = CLI-005 高評価バッジの「件数3未満 → 非表示」検証用。★平均 (5+4)/2 = 4.5
@@ -1381,3 +1383,195 @@ SELECT
   ARRAY['その他']::text[],
   ''
 FROM generate_series(1, 5);
+
+-- ============================================================
+-- admin spec テストデータ (Task 13)
+-- ============================================================
+-- 固定 UUID（prefix ad / 既存 prefix と非衝突）:
+--   adm-pending-identity@test.local: ad111111-1111-1111-1111-111111111111（本人確認 pending）
+--   adm-pending-ccus@test.local:     ad222222-2222-2222-2222-222222222222（identity approved + CCUS pending）
+--   adm-small-client@test.local:     ad333333-3333-3333-3333-333333333333（小規模プラン・組織なし）
+--   代理メッセージスレッド:           adee0000-0000-4000-8000-000000000001
+--   8分類検証用 closed 案件（山田建設）: ad660000-0000-4000-8000-000000000001 / -002
+--   8分類検証用応募:                  ada00000-0000-4000-8000-000000000001〜004
+--
+-- 設計メモ（既存 E2E への影響を避ける）:
+-- - 8分類の不足分（lost / rejected / cancelled_by=admin / 管理画面取消用 accepted）は
+--   山田建設の「closed 案件」+ 新規ユーザーの応募で構成する。closed のため CON-002 に
+--   出ず、鈴木工務店視点の CLI-007/010 E2E にも影響しない
+-- - 新規ユーザー 3 名は正規登録ルート整合（skills / areas / password_set_at）を守る
+
+-- ---------- 1. 新規テストユーザー 3 名 ----------
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('ad111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-pending-identity@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ad222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-pending-ccus@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ad333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-small-client@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES
+  ('ad111111-1111-1111-1111-111111111111', 'ad111111-1111-1111-1111-111111111111', 'adm-pending-identity@test.local', '{"sub":"ad111111-1111-1111-1111-111111111111","email":"adm-pending-identity@test.local"}', 'email', now(), now(), now()),
+  ('ad222222-2222-2222-2222-222222222222', 'ad222222-2222-2222-2222-222222222222', 'adm-pending-ccus@test.local', '{"sub":"ad222222-2222-2222-2222-222222222222","email":"adm-pending-ccus@test.local"}', 'email', now(), now(), now()),
+  ('ad333333-3333-3333-3333-333333333333', 'ad333333-3333-3333-3333-333333333333', 'adm-small-client@test.local', '{"sub":"ad333333-3333-3333-3333-333333333333","email":"adm-small-client@test.local"}', 'email', now(), now(), now());
+
+-- 受注者（本人確認 pending・ADM-012 承認/否認 E2E の使い捨て対象）
+UPDATE public.users SET
+  role = 'contractor',
+  last_name = '山本',
+  first_name = '健',
+  gender = '男性',
+  birth_date = '1993-04-18',
+  prefecture = '東京都',
+  bio = '躯体工事を中心に活動しています。',
+  skill_tags = ARRAY['木造軸組構法'],
+  password_set_at = now()
+WHERE id = 'ad111111-1111-1111-1111-111111111111';
+
+-- 受注者（identity approved 済み + CCUS pending・ADM-012 CCUS 審査 E2E 用）
+UPDATE public.users SET
+  role = 'contractor',
+  last_name = '井上',
+  first_name = '翔',
+  gender = '男性',
+  birth_date = '1996-09-05',
+  prefecture = '神奈川県',
+  bio = '左官・タイル工事に対応できます。',
+  identity_verified = true,
+  skill_tags = ARRAY['壁装（クロス）工'],
+  password_set_at = now()
+WHERE id = 'ad222222-2222-2222-2222-222222222222';
+
+-- 発注者（小規模プラン・組織なし。ADM-003 区分フィルタ「小規模発注者」検証用）
+UPDATE public.users SET
+  role = 'client',
+  last_name = '木村',
+  first_name = '洋一',
+  gender = '男性',
+  birth_date = '1975-02-10',
+  prefecture = '静岡県',
+  company_name = '木村工務店',
+  bio = '静岡県内で小規模工務店を営んでいます。',
+  identity_verified = true,
+  password_set_at = now()
+WHERE id = 'ad333333-3333-3333-3333-333333333333';
+
+-- 正規登録ルート整合: skills / areas は必須
+INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
+  ('ad111111-1111-1111-1111-111111111111', '建築/躯体｜大工', 7),
+  ('ad222222-2222-2222-2222-222222222222', '建築/仕上げ｜左官工', 5),
+  ('ad333333-3333-3333-3333-333333333333', '建築/躯体｜大工', 20);
+
+INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
+  ('ad111111-1111-1111-1111-111111111111', '東京都', NULL),
+  ('ad222222-2222-2222-2222-222222222222', '神奈川県', NULL),
+  ('ad333333-3333-3333-3333-333333333333', '静岡県', NULL);
+
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end) VALUES
+  ('ad333333-3333-3333-3333-333333333333', 'small', 'active', now(), now() + interval '30 days');
+
+INSERT INTO client_profiles (user_id, display_name) VALUES
+  ('ad333333-3333-3333-3333-333333333333', '木村工務店');
+
+-- ---------- 2. 本人確認・CCUS の pending 申請（ADM-011/012） ----------
+-- ADM-011 は created_at ASC（古い順）表示のため、日時をずらして投入する。
+-- 書類パスは Storage RLS 整合の「{user_id}/ファイル名」形式（実ファイルなし →
+-- ADM-012 ではフォールバック表示になるが、審査フローの E2E には影響しない）。
+INSERT INTO identity_verifications (user_id, document_type, document_url_1, document_url_2, status, created_at) VALUES
+  ('ad111111-1111-1111-1111-111111111111', 'identity', 'ad111111-1111-1111-1111-111111111111/identity-front.png', 'ad111111-1111-1111-1111-111111111111/identity-back.png', 'pending', now() - interval '2 days');
+
+-- CCUS pending（identity approved 済みの整合を守る: approved レコード + users フラグ）
+INSERT INTO identity_verifications (user_id, document_type, document_url_1, status, reviewed_at, created_at) VALUES
+  ('ad222222-2222-2222-2222-222222222222', 'identity', 'ad222222-2222-2222-2222-222222222222/identity-front.png', 'approved', now() - interval '10 days', now() - interval '12 days');
+INSERT INTO identity_verifications (user_id, document_type, document_url_1, status, created_at) VALUES
+  ('ad222222-2222-2222-2222-222222222222', 'ccus', 'ad222222-2222-2222-2222-222222222222/ccus-card.png', 'pending', now() - interval '1 day');
+
+-- 小規模発注者の identity approved（identity_verified = true の整合）
+INSERT INTO identity_verifications (user_id, document_type, document_url_1, status, reviewed_at) VALUES
+  ('ad333333-3333-3333-3333-333333333333', 'identity', 'dummy/identity-doc.png', 'approved', now());
+
+-- ---------- 3. contacts（ADM-016/017: user_id あり/なし × 添付あり/なし） ----------
+INSERT INTO contacts (user_id, company_name, name, phone, email, address, inquiry_type, purpose, industry, project_description, project_area, video_consultation, detail, attachments, created_at) VALUES
+  -- 登録ユーザーから（user_id あり・添付なし）→「登録ユーザー」バッジ + ADM-009 導線
+  ('11111111-1111-1111-1111-111111111111', '田中建設', '田中一郎', '03-1234-5678', 'contractor@test.local', '東京都台東区雷門2-3-4', '仕事掲載', '職人として仕事を探したい', '大工', NULL, NULL, NULL, '掲載中の案件について操作方法を教えてください。', NULL, now() - interval '3 days'),
+  -- 非ログイン（user_id なし・添付あり: 画像 + PDF の表示分岐検証用）
+  (NULL, '株式会社青空電工', '青木次郎', '045-987-6543', 'aoki@example.com', '神奈川県横浜市西区みなとみらい1-1', '協力会社募集', '協力会社を探したい', '電気', '商業ビルの電気設備更新工事を予定しています。', '神奈川県横浜市', '会社紹介動画を作りたい', '協力会社の募集と動画掲載について相談したいです。', ARRAY['contact-anon/site-photo.jpg', 'contact-anon/project-summary.pdf'], now() - interval '2 days'),
+  -- 非ログイン（任意項目すべて未入力 →「—」表示の検証用）
+  (NULL, '個人', '佐々木三郎', '090-1111-2222', 'sasaki@example.com', NULL, 'その他', 'サービスを詳しく知りたい', 'その他', NULL, NULL, NULL, 'サービスの利用料金について教えてください。', NULL, now() - interval '1 day');
+
+-- ---------- 4. trouble_reports（ADM-018/019: 添付あり/なし） ----------
+INSERT INTO trouble_reports (user_id, reporter_name, counterparty_name, email, category, content, attachments, created_at) VALUES
+  ('cc111111-1111-1111-1111-111111111111', '高橋美咲', '山田太郎', 'contractor2@test.local', '支払いトラブル', '完了した工事の支払いが期日を過ぎても行われていません。証拠の画像を添付します。', ARRAY['cc111111-1111-1111-1111-111111111111/trouble-evidence.png'], now() - interval '2 days'),
+  ('cc222222-2222-2222-2222-222222222222', '渡辺大輔', '鈴木花子', 'contractor3@test.local', '連絡が取れない', '現場の詳細について連絡しましたが、1週間以上返信がありません。', NULL, now() - interval '1 day');
+
+-- ---------- 5. 代理メッセージスレッド（ADM-023/024） ----------
+-- 鈴木工務店（法人 org 55555555）× 山本健（ad111111）。代理アカウント staff(33333333)
+-- が送信した is_proxy=true メッセージを含む（ビューに現れる唯一の seed スレッド）。
+-- 既存スレッド eeee02〜05 は is_proxy を含まないため「ビューに現れない通常スレッド」の
+-- 検証用としてそのまま機能する。
+-- 注意: UNIQUE (organization_id, participant_2_id) のため org 55555555 既存スレッドの
+-- 相手（11111111 / cc111111 / cc222222 / cc333333）とは別の受注者を使うこと。
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, thread_type, organization_id) VALUES
+  ('adee0000-0000-4000-8000-000000000001', '22222222-2222-2222-2222-222222222222', 'ad111111-1111-1111-1111-111111111111', 'message', '55555555-5555-5555-5555-555555555555');
+
+INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
+  ('adee0000-0000-4000-8000-000000000001', '33333333-3333-3333-3333-333333333333', '鈴木工務店の担当です。山本さんの対応エリアに合う現場のご案内です。', false, true, now() - interval '2 days'),
+  ('adee0000-0000-4000-8000-000000000001', 'ad111111-1111-1111-1111-111111111111', 'ご案内ありがとうございます。詳細を教えてください。', false, false, now() - interval '2 days' + interval '1 hour'),
+  ('adee0000-0000-4000-8000-000000000001', '33333333-3333-3333-3333-333333333333', '工期は来月上旬から2週間、場所は江東区です。ご都合いかがでしょうか。', false, true, now() - interval '1 day');
+
+UPDATE message_threads SET updated_at = now() - interval '1 day' WHERE id = 'adee0000-0000-4000-8000-000000000001';
+
+-- ---------- 6. 8分類検証用の応募データ（ADM-013/014） ----------
+-- 既存 seed のカバレッジ: applied（bbbb...bbbc 等）/ accepted 稼働日前（aaaa...aaaa 等）/
+-- accepted 稼働日経過 = 評価未入力（dd111111-...a0091）/ completed（cccc01 等）/
+-- cancelled_by=contractor（cccc03）。不足分（lost / rejected / cancelled_by=admin /
+-- 管理画面の発注取消 E2E 用 accepted）をここで追加する。
+-- 山田建設の closed 案件に集約し、公開案件一覧（CON-002）と鈴木工務店視点の
+-- CLI-007/010 E2E に影響を与えない。
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
+  (
+    'ad660000-0000-4000-8000-000000000001',
+    'aabbccdd-1111-2222-3333-444455556666',
+    'aabbccdd-5555-5555-5555-555555555555',
+    '管理画面検証用 改修工事（募集終了）',
+    'admin 応募履歴 8分類の検証用案件です。',
+    ARRAY['建築/躯体｜大工']::text[],
+    3, 26000, 20000,
+    CURRENT_DATE - interval '30 days', CURRENT_DATE - interval '10 days',
+    CURRENT_DATE - interval '60 days', CURRENT_DATE - interval '35 days',
+    'closed'
+  ),
+  (
+    'ad660000-0000-4000-8000-000000000002',
+    'aabbccdd-1111-2222-3333-444455556666',
+    'aabbccdd-5555-5555-5555-555555555555',
+    '管理画面検証用 内装工事（発注済み）',
+    'admin 発注取消（ADM-014）の検証用案件です。',
+    ARRAY['建築/仕上げ｜左官工']::text[],
+    1, 24000, 20000,
+    CURRENT_DATE + interval '10 days', CURRENT_DATE + interval '24 days',
+    CURRENT_DATE - interval '20 days', CURRENT_DATE - interval '1 day',
+    'closed'
+  );
+
+INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
+  ('ad660000-0000-4000-8000-000000000001', '東京都', NULL),
+  ('ad660000-0000-4000-8000-000000000002', '東京都', '江東区');
+
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date, cancelled_by) VALUES
+  -- 取引不成立（lost: 稼働日経過後に不成立確定）
+  ('ada00000-0000-4000-8000-000000000001', 'ad660000-0000-4000-8000-000000000001', 'ad111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE - interval '25 days', 'lost', CURRENT_DATE - interval '20 days', NULL),
+  -- 発注側からのお断り（rejected: 稼働日なし）
+  ('ada00000-0000-4000-8000-000000000002', 'ad660000-0000-4000-8000-000000000001', 'ad222222-2222-2222-2222-222222222222', 1, 'スポット', CURRENT_DATE - interval '25 days', 'rejected', NULL, NULL),
+  -- 運営によるキャンセル（cancelled_by = admin）
+  -- 同一 (job, applicant) でも cancelled は applications_unique_active の対象外のため共存可
+  ('ada00000-0000-4000-8000-000000000003', 'ad660000-0000-4000-8000-000000000001', 'ad111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE - interval '28 days', 'cancelled', NULL, 'admin'),
+  -- 発注済み・初回稼働日前（ADM-014 発注取消 E2E の使い捨て対象。db reset で復活）
+  ('ada00000-0000-4000-8000-000000000004', 'ad660000-0000-4000-8000-000000000002', 'ad222222-2222-2222-2222-222222222222', 1, '常勤', CURRENT_DATE + interval '8 days', 'accepted', CURRENT_DATE + interval '10 days', NULL);
+
+-- ---------- 7. 急募オプション active（ADM-003 オプションフィルタ検証用） ----------
+-- 山田建設（aabbccdd）が自社 closed 案件に急募を購入済みの状態。
+-- 案件が closed のため CON-002 の急募表示には影響しない（ADM-003 バッジのみ検証）。
+INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, job_id, end_date)
+VALUES ('aabbccdd-1111-2222-3333-444455556666', 'one_time', 'pi_seed_urgent_yamada', 'urgent', 'active', 'ad660000-0000-4000-8000-000000000001', now() + interval '7 days');
+
+UPDATE jobs SET is_urgent = true WHERE id = 'ad660000-0000-4000-8000-000000000001';

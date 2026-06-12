@@ -284,7 +284,7 @@
   - 依存: タスク2.2（ビュー）完了後に着手
   - _Requirements: 024_
 
-- [ ] 13. seed テストデータを追加する
+- [x] 13. seed テストデータを追加する
   - pending の本人確認申請・CCUS 申請（別ユーザーで各1件以上。CCUS 申請者は identity approved 済みの整合を守る）
   - contacts（user_id あり/なし・添付あり/なし）、trouble_reports（添付あり）、job_inquiries を各数件
   - is_proxy=true のメッセージを含むスレッド（法人発注者×受注者）と、含まない通常スレッド（ビューに現れないことの検証用）

@@ -54,14 +54,17 @@ SELECT cmp_ok(
 );
 
 -- ============================================================
--- Test 6: backfill — every cancelled row has cancelled_by = 'contractor'
+-- Test 6: backfill — no cancelled row is left with cancelled_by = NULL
 -- ============================================================
+-- 当初は「全行 contractor」を検証していたが、admin spec Task 13 で
+-- 運営キャンセル（cancelled_by = 'admin'）の seed 行を意図的に追加したため、
+-- 検証意図（バックフィル/記録漏れ = NULL が存在しないこと）に合わせて更新。
 SELECT is(
   (SELECT count(*)::int FROM applications
    WHERE status = 'cancelled'
-   AND cancelled_by IS DISTINCT FROM 'contractor'),
+   AND cancelled_by IS NULL),
   0,
-  'all existing cancelled rows are backfilled with contractor'
+  'no cancelled row is left with cancelled_by = NULL'
 );
 
 SELECT * FROM finish();
