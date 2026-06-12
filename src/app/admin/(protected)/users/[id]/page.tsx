@@ -6,15 +6,23 @@ import { Button } from "@/components/ui/button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
 import { VideoEmbed } from "@/components/video-embed/video-embed";
+import { RatingSummaryCard } from "@/components/reviews/rating-summary-card";
+import { CommentListCard } from "@/components/reviews/comment-list-card";
+import { CommentsPagination } from "@/components/reviews/comments-pagination";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { hasActiveOption } from "@/lib/billing/options";
+import { fetchPerItemSummary } from "@/lib/rating/aggregate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatResidence } from "@/lib/utils/format-residence";
+import { DeleteUserButton } from "./delete-user-button";
+
+const COMMENTS_PER_PAGE = 20;
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ commentsPage?: string }>;
 }
 
 function InfoRow({
@@ -39,20 +47,27 @@ function InfoRow({
 }
 
 /**
- * ADM-009: ユーザーアカウント詳細（video-display Task 5.3）。
- *
- * 本 spec のスコープは「動画運用に必要な最小サーフェス」:
- * 購入オプションに応じた投稿ボタンの動的表示（0/1/2 個）+ PR動画表示 +
- * ユーザー特定に必要な基本情報。評価系は将来の admin spec で拡張する。
+ * ADM-009: ユーザーアカウント詳細。
+ * デザインカンプ: design-assets/screens/ADM-009.png
+ * （カンプの発注者評価 Good/Bad 6項目は旧仕様のため ★×5 7項目サマリーで実装。
+ *   職場紹介動画の投稿入口は ADM-004 へ移設済みのため本画面には置かない）
  */
-export default async function AdminUserDetailPage({ params }: PageProps) {
+export default async function AdminUserDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params;
+  const sp = await searchParams;
+  const commentsPage = Math.max(
+    1,
+    Number.parseInt(sp.commentsPage ?? "1", 10) || 1,
+  );
   const admin = createAdminClient();
 
   const { data: u } = await admin
     .from("users")
     .select(
-      `id, avatar_url, last_name, first_name, birth_date, deleted_at,
+      `id, role, avatar_url, last_name, first_name, birth_date, deleted_at,
        identity_verified, ccus_verified, bio, prefecture, municipality, gender,
        skill_tags, video_url,
        user_skills(trade_type, experience_years),
@@ -65,10 +80,26 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   if (!u) notFound();
 
   // active オプション判定（admin 画面のため admin client で一貫して判定）
-  const [hasVideo, hasWorkplaceVideo] = await Promise.all([
-    hasActiveOption(admin, id, "video"),
-    hasActiveOption(admin, id, "video_workplace"),
-  ]);
+  const hasVideo = await hasActiveOption(admin, id, "video");
+
+  // 発注者からの評価（★×5 7項目サマリー + 評価の補足コメント）
+  const perItem = await fetchPerItemSummary(admin, id);
+  const { data: reviews } = await admin
+    .from("user_reviews")
+    .select("id, comment, created_at")
+    .eq("reviewee_id", id)
+    .order("created_at", { ascending: false });
+  const reviewsWithComments = (reviews ?? []).filter((r) => r.comment);
+  const totalCommentPages = Math.max(
+    1,
+    Math.ceil(reviewsWithComments.length / COMMENTS_PER_PAGE),
+  );
+  const safeCommentsPage = Math.min(commentsPage, totalCommentPages);
+  const commentStartIndex = (safeCommentsPage - 1) * COMMENTS_PER_PAGE;
+  const paginatedComments = reviewsWithComments.slice(
+    commentStartIndex,
+    commentStartIndex + COMMENTS_PER_PAGE,
+  );
 
   const displayName = getUserDisplayName({
     lastName: u.last_name,
@@ -92,6 +123,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   const skillTags = (u.skill_tags ?? []) as string[];
 
   const showVideo = !!u.video_url && hasVideo;
+  const isDeleted = !!u.deleted_at;
 
   return (
     <div className="px-5 py-8">
@@ -99,30 +131,21 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         ユーザーアカウント詳細
       </h1>
 
-      {/* 動画投稿ボタン（active オプションに応じ 0/1/2 個を動的表示） */}
-      {(hasVideo || hasWorkplaceVideo) && (
+      {/* 受注者PR動画の投稿ボタン（active 'video' の場合のみ。職場紹介動画の入口は ADM-004） */}
+      {hasVideo && (
         <div className="mt-4 flex flex-col items-end gap-2">
-          {hasVideo && (
-            <Button asChild variant="outline" className="rounded-full">
-              <Link href={`/admin/users/${id}/video`}>
-                受注者PR動画を投稿する
-              </Link>
-            </Button>
-          )}
-          {hasWorkplaceVideo && (
-            <Button asChild variant="outline" className="rounded-full">
-              <Link href={`/admin/users/${id}/workplace-video`}>
-                職場紹介動画を投稿する
-              </Link>
-            </Button>
-          )}
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href={`/admin/users/${id}/video`}>
+              受注者PR動画を投稿する
+            </Link>
+          </Button>
         </div>
       )}
 
       {/* ヘッダー（アバター + 氏名 + バッジ） */}
       <div className="mt-6 flex items-center gap-4">
         <div className="size-16 shrink-0 overflow-hidden rounded-full bg-background border border-border/30">
-          {u.avatar_url && !u.deleted_at ? (
+          {u.avatar_url && !isDeleted ? (
             <img
               src={u.avatar_url}
               alt={displayName}
@@ -143,6 +166,11 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
             {displayName}
             {age !== null && (
               <span className="text-body-md font-normal">（{age}歳）</span>
+            )}
+            {isDeleted && (
+              <span className="ml-2 text-body-sm font-bold text-muted-foreground">
+                ※退会済み
+              </span>
             )}
           </p>
           <div className="mt-1 flex flex-wrap gap-3 text-body-sm">
@@ -196,15 +224,26 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
           <h2 className="text-body-lg font-bold text-foreground">能力</h2>
           <div className="mt-2 overflow-hidden rounded-[8px] border border-border/10 bg-background">
             {skills.length > 0 && (
-              <InfoRow
-                label="対応できる職種"
-                value={
-                  <CollapsibleList
-                    items={skills.map((s) => s.trade_type)}
-                    initialLimit={5}
-                  />
-                }
-              />
+              <>
+                <InfoRow
+                  label="対応できる職種"
+                  value={
+                    <CollapsibleList
+                      items={skills.map((s) => s.trade_type)}
+                      initialLimit={5}
+                    />
+                  }
+                />
+                <InfoRow
+                  label="経験年数"
+                  value={
+                    skills
+                      .filter((s) => s.experience_years)
+                      .map((s) => `${s.trade_type} ${s.experience_years}年`)
+                      .join("、") || null
+                  }
+                />
+              </>
             )}
             {skillTags.length > 0 && (
               <InfoRow
@@ -227,6 +266,31 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         </section>
       )}
 
+      {/* 発注者評価（★×5 7項目サマリー。評価詳細ページと同じ共有部品） */}
+      <section className="mt-6">
+        <h2 className="text-body-lg font-bold text-foreground">発注者評価</h2>
+        <div className="mt-2">
+          <RatingSummaryCard perItem={perItem} />
+        </div>
+      </section>
+
+      {/* 評価の補足コメント一覧（20件ページング） */}
+      <section className="mt-4">
+        <CommentListCard
+          title="評価の補足"
+          items={paginatedComments.map((r) => ({
+            id: r.id,
+            text: r.comment!,
+          }))}
+        />
+        <CommentsPagination
+          currentPage={safeCommentsPage}
+          totalPages={totalCommentPages}
+          pageSize={COMMENTS_PER_PAGE}
+          hrefForPage={(p) => `/admin/users/${id}?commentsPage=${p}`}
+        />
+      </section>
+
       <div className="mt-10 flex flex-col items-center gap-3">
         <Button
           asChild
@@ -235,6 +299,20 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         >
           <Link href="/admin/users">もどる</Link>
         </Button>
+
+        {/* 削除は contractor のみ。client は ADM-004（Stripe 解約＋配下スタッフ連動削除）に一本化 */}
+        {u.role === "contractor" && !isDeleted && (
+          <DeleteUserButton userId={id} />
+        )}
+        {u.role === "client" && (
+          <Button
+            asChild
+            variant="outline"
+            className="w-full max-w-xs rounded-full border-secondary text-secondary"
+          >
+            <Link href={`/admin/clients/${id}`}>発注者詳細</Link>
+          </Button>
+        )}
       </div>
     </div>
   );

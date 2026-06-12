@@ -1,28 +1,16 @@
 import { notFound, redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
-import { StarRatingDisplay } from "@/components/shared/star-rating-display";
+import { RatingSummaryCard } from "@/components/reviews/rating-summary-card";
+import { CommentListCard } from "@/components/reviews/comment-list-card";
+import { CommentsPagination } from "@/components/reviews/comments-pagination";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
-import { RATING_ITEMS } from "@/lib/constants/rating";
-import {
-  fetchPerItemSummary,
-  type OverallSummary,
-  type PerItemSummary,
-} from "@/lib/rating/aggregate";
-import Link from "next/link";
+import { fetchPerItemSummary } from "@/lib/rating/aggregate";
 
 const COMMENTS_PER_PAGE = 20;
-
-// RATING_ITEMS の snake_case key → PerItemSummary の camelCase プロパティ名
-function summaryKeyOf(key: string): keyof PerItemSummary {
-  return key
-    .replace(/^rating_/, "")
-    .replace(/_([a-z])/g, (_, c: string) => c.toUpperCase()) as keyof PerItemSummary;
-}
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -189,152 +177,45 @@ export default async function ContractorReviewsPage({
         )}
 
       {/* 7-item rating summary（★平均 + 件数。任意項目0件は「未評価」） */}
-      <Card className="mt-6 rounded-[8px]">
-        <CardContent className="p-4">
-          <div className="space-y-0">
-            {RATING_ITEMS.map((item) => {
-              const summary: OverallSummary = perItem[summaryKeyOf(item.key)];
-              return (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0"
-                >
-                  <span className="text-body-md text-foreground">
-                    {item.label}
-                  </span>
-                  {summary.count === 0 ? (
-                    <span className="text-body-sm text-muted-foreground">
-                      未評価
-                    </span>
-                  ) : (
-                    <StarRatingDisplay
-                      avg={summary.avg}
-                      count={summary.count}
-                      size="sm"
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mt-6">
+        <RatingSummaryCard perItem={perItem} />
+      </div>
 
       {/* Status supplement comments */}
-      <Card className="mt-4 gap-0 rounded-[8px] py-0">
-        <CardContent className="p-0">
-          <div className="border-b border-border bg-primary/10 px-4 py-3">
-            <h2 className="text-body-md font-bold text-foreground">
-              稼働状況の補足
-            </h2>
-          </div>
+      <div className="mt-4">
+        <CommentListCard
+          title="稼働状況の補足"
+          items={paginatedStatus.map((r) => ({
+            id: r.id,
+            text: r.status_supplement!,
+          }))}
+        />
+      </div>
 
-          {totalStatusItems === 0 ? (
-            <div className="px-4 py-3">
-              <p className="text-body-md text-muted-foreground">
-                コメントはありません
-              </p>
-            </div>
-          ) : (
-            paginatedStatus.map((review) => (
-              <div
-                key={review.id}
-                className="border-b border-border px-4 py-3 last:border-b-0"
-              >
-                <p className="text-body-md text-foreground">
-                  {review.status_supplement}
-                </p>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      {totalStatusPages > 1 && (
-        <div className="mt-4 flex items-center justify-center gap-3">
-          {safeStatusPage > 1 ? (
-            <Link
-              href={`/users/${id}/reviews?sp=${safeStatusPage - 1}&cp=${safeCommentPage}`}
-              className="rounded-pill border border-border px-5 py-2 text-body-sm text-foreground"
-            >
-              ＜前の{COMMENTS_PER_PAGE}件
-            </Link>
-          ) : (
-            <span className="rounded-pill border border-border px-5 py-2 text-body-sm text-muted-foreground opacity-50">
-              ＜前の{COMMENTS_PER_PAGE}件
-            </span>
-          )}
-          {safeStatusPage < totalStatusPages ? (
-            <Link
-              href={`/users/${id}/reviews?sp=${safeStatusPage + 1}&cp=${safeCommentPage}`}
-              className="rounded-pill border border-border px-5 py-2 text-body-sm text-foreground"
-            >
-              次の{COMMENTS_PER_PAGE}件＞
-            </Link>
-          ) : (
-            <span className="rounded-pill border border-border px-5 py-2 text-body-sm text-muted-foreground opacity-50">
-              次の{COMMENTS_PER_PAGE}件＞
-            </span>
-          )}
-        </div>
-      )}
+      <CommentsPagination
+        currentPage={safeStatusPage}
+        totalPages={totalStatusPages}
+        pageSize={COMMENTS_PER_PAGE}
+        hrefForPage={(p) => `/users/${id}/reviews?sp=${p}&cp=${safeCommentPage}`}
+      />
 
       {/* Review comments */}
-      <Card className="mt-4 gap-0 rounded-[8px] py-0">
-        <CardContent className="p-0">
-          <div className="border-b border-border bg-primary/10 px-4 py-3">
-            <h2 className="text-body-md font-bold text-foreground">
-              評価の補足
-            </h2>
-          </div>
+      <div className="mt-4">
+        <CommentListCard
+          title="評価の補足"
+          items={paginatedComments.map((r) => ({
+            id: r.id,
+            text: r.comment!,
+          }))}
+        />
+      </div>
 
-          {totalComments === 0 ? (
-            <div className="px-4 py-3">
-              <p className="text-body-md text-muted-foreground">
-                コメントはありません
-              </p>
-            </div>
-          ) : (
-            paginatedComments.map((review) => (
-              <div
-                key={review.id}
-                className="border-b border-border px-4 py-3 last:border-b-0"
-              >
-                <p className="text-body-md text-foreground">{review.comment}</p>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      {totalCommentPages > 1 && (
-        <div className="mt-4 flex items-center justify-center gap-3">
-          {safeCommentPage > 1 ? (
-            <Link
-              href={`/users/${id}/reviews?sp=${safeStatusPage}&cp=${safeCommentPage - 1}`}
-              className="rounded-pill border border-border px-5 py-2 text-body-sm text-foreground"
-            >
-              ＜前の{COMMENTS_PER_PAGE}件
-            </Link>
-          ) : (
-            <span className="rounded-pill border border-border px-5 py-2 text-body-sm text-muted-foreground opacity-50">
-              ＜前の{COMMENTS_PER_PAGE}件
-            </span>
-          )}
-          {safeCommentPage < totalCommentPages ? (
-            <Link
-              href={`/users/${id}/reviews?sp=${safeStatusPage}&cp=${safeCommentPage + 1}`}
-              className="rounded-pill border border-border px-5 py-2 text-body-sm text-foreground"
-            >
-              次の{COMMENTS_PER_PAGE}件＞
-            </Link>
-          ) : (
-            <span className="rounded-pill border border-border px-5 py-2 text-body-sm text-muted-foreground opacity-50">
-              次の{COMMENTS_PER_PAGE}件＞
-            </span>
-          )}
-        </div>
-      )}
+      <CommentsPagination
+        currentPage={safeCommentPage}
+        totalPages={totalCommentPages}
+        pageSize={COMMENTS_PER_PAGE}
+        hrefForPage={(p) => `/users/${id}/reviews?sp=${safeStatusPage}&cp=${p}`}
+      />
 
       <div className="mt-6 flex justify-center">
         <BackButton className="max-w-xs" />

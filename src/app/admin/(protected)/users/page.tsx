@@ -7,9 +7,9 @@ import { getUserDisplayName } from "@/lib/utils/display-name";
 import { AdminUserFilters } from "./filters";
 
 const PAGE_SIZE = 20;
+// 受注者向けオプションのみ（職場紹介動画は発注者向けのため ADM-003 側のフィルタに置く）
 const VALID_OPTIONS = [
   "video",
-  "video_workplace",
   "compensation_5000",
   "compensation_9800",
 ] as const;
@@ -19,9 +19,12 @@ interface PageProps {
 }
 
 /**
- * ADM-008: ユーザーアカウント一覧（video-display Task 5.2）。
+ * ADM-008: ユーザーアカウント一覧。
+ * デザインカンプ: design-assets/screens/ADM-008.png
  *
- * - キーワード検索（氏名・メールアドレス）+ オプションプラン加入者フィルタ（4 単一選択）。
+ * - 対象は「受注者機能を使える人」= role IN ('contractor', 'client')
+ *   （staff は発注者一覧 ADM-003 側・admin は運営のため除外）。退会済みは表示する
+ * - キーワード検索（氏名・メールアドレス）+ オプションプラン加入者フィルタ（3 単一選択）。
  * - 絞り込みはサーバー側で適用。option フィルタは対象 option_type の active な
  *   user_id 集合を取り、メインクエリに `.in("id", ids)` で渡す。
  * - 20 件ページネーション。フィルタ状態は URL searchParams を SSOT とする。
@@ -54,7 +57,8 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
     .from("users")
     .select("id, last_name, first_name, email, birth_date, deleted_at", {
       count: "exact",
-    });
+    })
+    .in("role", ["contractor", "client"]);
 
   if (keyword) {
     // 氏名（姓・名）・メールアドレスの部分一致

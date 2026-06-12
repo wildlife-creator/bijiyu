@@ -15,14 +15,14 @@ import {
 
 interface AdminUserFiltersProps {
   initialKeyword: string;
-  /** "all" | "video" | "video_workplace" | "compensation_5000" | "compensation_9800" */
+  /** "all" | "video" | "compensation_5000" | "compensation_9800" */
   initialOption: string;
 }
 
+// 受注者向けオプションのみ3択（職場紹介動画は発注者向けのため ADM-003 側に置く）
 const OPTION_ITEMS: { value: string; label: string }[] = [
   { value: "all", label: "すべて" },
   { value: "video", label: "動画掲載(受注者PR)" },
-  { value: "video_workplace", label: "職場紹介動画掲載" },
   { value: "compensation_5000", label: "補償¥5,000" },
   { value: "compensation_9800", label: "補償¥9,800" },
 ];

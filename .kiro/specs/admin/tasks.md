@@ -169,8 +169,8 @@
   - 導線: 「応募一覧」→ `/admin/applications?jobId={id}`、「発注者詳細」→ ADM-004、もどる → router.back()
   - _Requirements: 022_
 
-- [ ] 8. ユーザーアカウント管理（ADM-008 / 009 / 010）
-- [ ] 8.1 (P) ADM-008 ユーザーアカウント一覧を改修する
+- [x] 8. ユーザーアカウント管理（ADM-008 / 009 / 010）
+- [x] 8.1 (P) ADM-008 ユーザーアカウント一覧を改修する
   - デザインカンプ: `design-assets/screens/ADM-008.png`
   - 対象を `role IN ('contractor', 'client')` に絞る（staff / admin 除外。現実装の role 無絞りを修正）
   - オプションフィルタを3択（受注者PR動画 / 補償¥5,000 / 補償¥9,800）に変更し、video_workplace を選択肢から削除する（職場紹介動画は ADM-003 側へ）
@@ -178,12 +178,12 @@
   - 既存 E2E（`e2e/video-display.spec.ts`）が「キーワード」検索欄と email の行リンクで対象ユーザーに辿り着くため、これらの UI を維持する（変える場合は E2E も同時更新）
   - _Requirements: 008_
 
-- [ ] 8.2 (P) 評価表示の共有部品を抽出する
+- [x] 8.2 (P) 評価表示の共有部品を抽出する
   - `/users/[id]/reviews/page.tsx` のインライン実装（項目ごとの★平均＋評価件数のサマリー、補足コメント一覧）を `src/components/reviews/` の共有部品に抽出する（コピーしない）
   - 既存の評価詳細ページが抽出後も同一表示で動作することを確認する（既存 E2E 確認）
   - _Requirements: 009_
 
-- [ ] 8.3 ADM-009 ユーザーアカウント詳細を改修する
+- [x] 8.3 ADM-009 ユーザーアカウント詳細を改修する
   - デザインカンプ: `design-assets/screens/ADM-009.png`
   - 追加表示: ①発注者からの評価＝fetchPerItemSummary＋StarRatingDisplay（★×5 7項目平均＋件数。評価詳細ページと同表示） ②評価の補足コメント一覧（20件ページング・searchParams commentsPage） ③経験年数＝CLI-006 と同じ「{職種} {N}年」表記（年数未入力の職種は年数を出さない）
   - 職場紹介動画ボタンを撤去する（入口は ADM-004 へ移設済み）。受注者PR動画ボタン（active video のみ表示）→ ADM-010 は現状維持
