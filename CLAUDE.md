@@ -401,7 +401,8 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   - `id === user.id` なら `notFound()`（自分の詳細ページは無意味）
   - 対象ユーザーの `role` が `'contractor'`/`'client'` 以外（staff/admin）なら `notFound()`
 - **`user_skills` 1 件以上のチェックは入れないこと**: 正規ルート（`/register/profile`）の `registerProfileSchema` が `skills.min(1)` を必須化しているため、自分で会員登録した全ユーザーは必ず skills を持つ。DB レベルで追加チェックを入れるのは「ありえないシナリオに備えた過剰防御」（YAGNI）。同じ理由で `user_available_areas` のチェックも不要
-- **seed.sql は正規ルートを経たデータと整合させること**: 直接 INSERT で「skills や available_areas が空の client/contractor」を作ってはならない。これを seed に入れると「ありえない状態」を本物のデータと誤認し、不要な防御コードを書く動機になる（2026-04-22 に実例: B案として `user_skills!inner` フィルタを追加→ユーザー指摘で A案に巻き戻し）
+- **例外（admin 招待フロー由来）**: 管理者の発注者招待（ADM-006/007）で作られたユーザーは受注者オンボ（/register/profile）をスキップするため、**スキル・対応エリア未登録の contractor / client が正当に存在する**。CLI-005 等にスキル欄が空のまま表示されうるが、表示が壊れることはなく許容する（防御コードを足さない）
+- **seed.sql は正規ルートを経たデータと整合させること**: 直接 INSERT で「skills や available_areas が空の client/contractor」を作ってはならない。これを seed に入れると「ありえない状態」を本物のデータと誤認し、不要な防御コードを書く動機になる（2026-04-22 に実例: B案として `user_skills!inner` フィルタを追加→ユーザー指摘で A案に巻き戻し）。**ただし admin 招待フロー（ADM-006/007）由来のユーザーは例外**: 受注者オンボをスキップするため skills / areas 未登録が正当な状態。招待フローの seed を作る場合のみ空で良い（`email_confirmed_at = NULL` ルールと併用）
 - 実装基準: `src/app/(authenticated)/users/contractors/page.tsx`（CLI-005）、`src/app/(authenticated)/users/contractors/[id]/page.tsx`（CLI-006）
 - E2E 検証: `e2e/job-search.spec.ts` の「CLI-005 表示対象」「CLI-006 アクセス制御」describe ブロック
 - Middleware は変更しない（`/users/contractors` は `client`/`staff` のみアクセス可、無料 contractor からは見られない現状維持）

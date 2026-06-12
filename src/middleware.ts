@@ -42,21 +42,24 @@ const STATIC_FILE_EXTENSIONS = [
 
 // Auth page paths accessible only to unauthenticated users
 // These are under (auth) route group so URL has no /auth/ prefix
-const AUTH_PAGE_PATHS = [
+// /admin/login は admin 専用ログイン（ADM-001）。auth ページ扱いで未認証アクセスを許可する
+// NOTE: 定数・判定ヘルパーは export してテストから import する（テスト内コピー禁止ルール）
+export const AUTH_PAGE_PATHS = [
   "/login",
   "/register",
   "/reset-password",
   "/accept-invite",
+  "/admin/login",
 ] as const;
 
 // Public pages accessible without authentication (static/marketing pages)
-const PUBLIC_PAGES = ["/", "/about", "/terms", "/privacy", "/contact", "/faq", "/legal"] as const;
+export const PUBLIC_PAGES = ["/", "/about", "/terms", "/privacy", "/contact", "/faq", "/legal"] as const;
 
 // Paths that contractors (free users) can access under /billing
 const BILLING_PATH_PREFIX = "/billing";
 
 // Client-only path prefixes (CLI screens except billing)
-const CLIENT_ONLY_PREFIXES = [
+export const CLIENT_ONLY_PREFIXES = [
   "/jobs/create",
   "/jobs/edit",
   "/users/search", // CLI-005~006: contractor search for clients
@@ -94,7 +97,7 @@ function isPublicRoute(pathname: string): boolean {
 /**
  * Check if the path is an auth page (login, register, reset-password, etc.)
  */
-function isAuthPage(pathname: string): boolean {
+export function isAuthPage(pathname: string): boolean {
   return AUTH_PAGE_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
@@ -103,21 +106,21 @@ function isAuthPage(pathname: string): boolean {
 /**
  * Check if the path is a public page accessible without authentication
  */
-function isPublicPage(pathname: string): boolean {
+export function isPublicPage(pathname: string): boolean {
   return PUBLIC_PAGES.includes(pathname as (typeof PUBLIC_PAGES)[number]);
 }
 
 /**
  * Check if the path is an admin route
  */
-function isAdminRoute(pathname: string): boolean {
+export function isAdminRoute(pathname: string): boolean {
   return pathname.startsWith("/admin");
 }
 
 /**
  * Check if the path is a client-only route (excluding billing)
  */
-function isClientOnlyRoute(pathname: string): boolean {
+export function isClientOnlyRoute(pathname: string): boolean {
   return CLIENT_ONLY_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
@@ -275,9 +278,13 @@ export async function middleware(request: NextRequest) {
 
   // --- Unauthenticated user routing ---
   if (!user) {
-    // Allow access to auth pages and public pages
+    // Allow access to auth pages (including /admin/login) and public pages
     if (isAuthPage(pathname) || isPublicPage(pathname)) {
       return finalize(supabaseResponse);
+    }
+    // 未認証の /admin/*（/admin/login 以外）は admin 専用ログインへ（admin spec Task 4.2）
+    if (isAdminRoute(pathname)) {
+      return finalize(redirectTo(request, "/admin/login"));
     }
     // Redirect all other routes to login
     return finalize(redirectTo(request, "/login"));

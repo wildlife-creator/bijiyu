@@ -36,6 +36,7 @@ export default async function AdminWorkplaceVideoPostPage({
       userId={id}
       currentUrl={profile?.workplace_video_url ?? null}
       variant="workplace"
+      backHref={`/admin/clients/${id}`}
     />
   );
 }

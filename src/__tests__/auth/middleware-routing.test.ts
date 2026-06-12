@@ -1,52 +1,22 @@
 import { describe, expect, it } from "vitest";
 
+// 本体定数・ヘルパーを import する（テスト内コピー禁止ルール。
+// コピーすると本体更新とテストの同期が取れず、古い実装に対して
+// テストが通り続ける事故が起きる — 2026-04-21 実例）
+import {
+  PUBLIC_PAGES,
+  isAuthPage,
+  isPublicPage,
+  isAdminRoute,
+  isClientOnlyRoute,
+} from "@/middleware";
+
 /**
  * Unit tests for middleware routing logic.
- * These test the routing rule functions extracted from middleware.ts
- * without requiring the full Next.js middleware runtime.
+ * ルーティング判定（getRoutingResult）は middleware.ts の決定木を
+ * 本体ヘルパーの上に再現したもの。期待値は admin spec Task 4.2 の
+ * 新ルーティング（未認証 /admin/* → /admin/login）に準拠する。
  */
-
-// Replicate the routing helper functions from middleware for isolated testing
-const AUTH_PAGE_PATHS = ["/login", "/register", "/reset-password"] as const;
-const PUBLIC_PAGES = [
-  "/",
-  "/about",
-  "/terms",
-  "/privacy",
-  "/contact",
-  "/faq",
-] as const;
-const CLIENT_ONLY_PREFIXES = [
-  "/jobs/create",
-  "/jobs/edit",
-  "/users/search",
-  "/users/contractors",
-  "/applications/received",
-  "/applications/orders",
-  "/messages/bulk-send",
-  "/messages/scout-send",
-  "/messages/templates",
-  "/mypage/client-profile",
-  "/mypage/members",
-] as const;
-
-function isAuthPage(pathname: string): boolean {
-  return AUTH_PAGE_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
-}
-
-function isPublicPage(pathname: string): boolean {
-  return PUBLIC_PAGES.includes(pathname as (typeof PUBLIC_PAGES)[number]);
-}
-
-function isAdminRoute(pathname: string): boolean {
-  return pathname.startsWith("/admin");
-}
-
-function isClientOnlyRoute(pathname: string): boolean {
-  return CLIENT_ONLY_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-}
 
 type Role = "contractor" | "client" | "staff" | "admin";
 
@@ -56,7 +26,8 @@ interface RoutingResult {
 }
 
 /**
- * Determine routing result for an authenticated user based on role and path
+ * Determine routing result for a user based on role and path
+ * (mirrors the decision tree in src/middleware.ts using the real helpers)
  */
 function getRoutingResult(
   role: Role,
@@ -67,6 +38,10 @@ function getRoutingResult(
   if (!isAuthenticated) {
     if (isAuthPage(pathname) || isPublicPage(pathname)) {
       return { allowed: true };
+    }
+    // 未認証の /admin/*（/admin/login 以外）は /admin/login へ
+    if (isAdminRoute(pathname)) {
+      return { allowed: false, redirectTo: "/admin/login" };
     }
     return { allowed: false, redirectTo: "/login" };
   }
@@ -129,6 +104,11 @@ describe("unauthenticated user routing", () => {
     expect(result.allowed).toBe(true);
   });
 
+  it("allows access to /admin/login (admin auth page)", () => {
+    const result = getRoutingResult("contractor", "/admin/login", false);
+    expect(result.allowed).toBe(true);
+  });
+
   it("allows access to landing page /", () => {
     const result = getRoutingResult("contractor", "/", false);
     expect(result.allowed).toBe(true);
@@ -147,10 +127,16 @@ describe("unauthenticated user routing", () => {
     expect(result.redirectTo).toBe("/login");
   });
 
-  it("redirects to /login for /admin/dashboard", () => {
+  it("redirects to /admin/login for /admin/dashboard (admin spec Task 4.2)", () => {
     const result = getRoutingResult("contractor", "/admin/dashboard", false);
     expect(result.allowed).toBe(false);
-    expect(result.redirectTo).toBe("/login");
+    expect(result.redirectTo).toBe("/admin/login");
+  });
+
+  it("redirects to /admin/login for /admin/users", () => {
+    const result = getRoutingResult("contractor", "/admin/users", false);
+    expect(result.allowed).toBe(false);
+    expect(result.redirectTo).toBe("/admin/login");
   });
 });
 
@@ -162,6 +148,12 @@ describe("authenticated contractor routing", () => {
 
   it("redirects /login to /mypage", () => {
     const result = getRoutingResult(role, "/login", true);
+    expect(result.allowed).toBe(false);
+    expect(result.redirectTo).toBe("/mypage");
+  });
+
+  it("redirects /admin/login to /mypage (authenticated non-admin)", () => {
+    const result = getRoutingResult(role, "/admin/login", true);
     expect(result.allowed).toBe(false);
     expect(result.redirectTo).toBe("/mypage");
   });
@@ -270,6 +262,12 @@ describe("authenticated admin routing", () => {
 
   it("redirects /login to /admin/dashboard", () => {
     const result = getRoutingResult(role, "/login", true);
+    expect(result.allowed).toBe(false);
+    expect(result.redirectTo).toBe("/admin/dashboard");
+  });
+
+  it("redirects /admin/login to /admin/dashboard (already authenticated)", () => {
+    const result = getRoutingResult(role, "/admin/login", true);
     expect(result.allowed).toBe(false);
     expect(result.redirectTo).toBe("/admin/dashboard");
   });

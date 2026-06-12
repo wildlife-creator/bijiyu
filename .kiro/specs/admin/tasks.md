@@ -5,13 +5,13 @@
 > デザインカンプが存在する画面は `design-assets/screens/ADM-XXX.png` を実装前に必ず確認する（カンプなし: ADM-007 / 015 / 016〜024 → 同機能グループの他画面スタイルに合わせる）。
 > 仕様変更⑤（CLI-021 法人 setup の「社名のみ必須」緩和）は billing spec 側で別管理のため本タスクには含まない（requirements の前方参照どおり）。
 
-- [ ] 1. 着手前デグレ防止ゲート（既存テスト全実行）
+- [x] 1. 着手前デグレ防止ゲート（既存テスト全実行）
   - `npm run test`（Vitest）/ `supabase test db`（pgTAP）/ `npm run test:e2e`（Playwright）を順に実行し、全てパスすることを確認する
   - 失敗がある場合は原因を調査・修正してから以降の実装に着手する。修正した場合は原因と対策を CLAUDE.md の「実装時の必須チェック項目」に追記する
   - _Requirements: 001, 002, 003, 004, 005, 006, 007, 008, 009, 010, 010B, 011, 012, 013, 014, 015, 016, 017, 018, 019, 020, 021, 022, 023, 024_
 
-- [ ] 2. DB 変更（マイグレーション2点＋pgTAP）
-- [ ] 2.1 (P) applications にキャンセル実行者カラムを新設する
+- [x] 2. DB 変更（マイグレーション2点＋pgTAP）
+- [x] 2.1 (P) applications にキャンセル実行者カラムを新設する
   - `applications.cancelled_by`（text、CHECK で 'contractor' / 'admin' のみ）を追加するマイグレーションを作成する。NULL 許容・インデックス不要
   - 既存の cancelled 行を 'contractor' でバックフィルする（現状キャンセルは受注者のみ可能なため矛盾なし）
   - 受注者の自力キャンセル Server Action（cancelApplicationAction）の UPDATE に `cancelled_by: 'contractor'` の記録を追加する
@@ -19,15 +19,15 @@
   - `supabase gen types` で型を再生成する
   - _Requirements: 013, 014_
 
-- [ ] 2.2 (P) 代理メッセージ監督用の admin_proxy_threads ビューを新設する
+- [x] 2.2 (P) 代理メッセージ監督用の admin_proxy_threads ビューを新設する
   - `is_proxy = true` のメッセージを1件以上含むスレッドのみを集約するビュー（thread_id / organization_id / contractor_id / last_message_at / proxy_count、`HAVING bool_or(is_proxy)`）を作成する
   - anon / authenticated からのアクセスを REVOKE し、service_role（admin client）専用にする
   - pgTAP: anon / authenticated から SELECT 不可であること・is_proxy を含まないスレッドがビューに現れないことを検証する
   - 集約コスト増大時は materialized view 化を検討する旨をモジュールコメントに記載する
   - _Requirements: 023, 024_
 
-- [ ] 3. 共有ユーティリティ（横断部品）
-- [ ] 3.1 (P) 日時表示の統一フォーマット関数を追加する
+- [x] 3. 共有ユーティリティ（横断部品）
+- [x] 3.1 (P) 日時表示の統一フォーマット関数を追加する
   - ISO 文字列を「2026/06/10 14:30」形式に変換する `formatDateTime` を `src/lib/utils/format-date.ts` に追記する
   - **タイムゾーンは Asia/Tokyo を明示**して変換する（本番サーバーは UTC のため、明示しないと全画面の日時が9時間ズレる）
   - null / 不正入力は fallback（既定「—」）を返す
@@ -35,7 +35,7 @@
   - 全 admin 画面の日時表示はこの関数を必ず使用する（生 ISO 表示禁止の共通ルール）
   - _Requirements: 016, 017, 018, 019, 020, 021, 023, 024_
 
-- [ ] 3.2 (P) 監査ログの共有化と既存バグ修正・動画 Action への監査追記
+- [x] 3.2 (P) 監査ログの共有化と既存バグ修正・動画 Action への監査追記
   - login/actions.ts の writeAuditLog を `src/lib/audit/log.ts` に抽出し、AuditAction 型（identity_access / identity_approve / identity_reject / account_delete / admin_client_invite / application_cancel_admin / admin_password_change / admin_memo_update / video_url_update ＋既存の auth.login.success / failure）を単一情報源として定義する
   - **INSERT を createAdminClient()（service_role）に変更する**: audit_logs は INSERT ポリシーが無くセッションクライアントからの INSERT は全件サイレント失敗する既存バグを本抽出で同時修正する
   - writeAuditLog 自体の失敗は throw しない（監査の失敗で業務を止めない。ログには残す）
@@ -44,12 +44,12 @@
   - pgTAP: authenticated からの audit_logs INSERT が拒否されること（service_role のみ書ける現行設計の固定）を検証する
   - _Requirements: 001, 004, 005, 007, 009, 010, 010B, 012, 013, 014, 015_
 
-- [ ] 3.3 (P) 署名付きURL生成と監査記録の一体化ヘルパーを新設する
+- [x] 3.3 (P) 署名付きURL生成と監査記録の一体化ヘルパーを新設する
   - 非公開バケット（identity-documents / ccus-documents / support-attachments / message-attachments）のパス群から署名付きURL（有効期限1時間）を一括生成する `getSignedDocumentUrls` を `src/lib/admin/signed-urls.ts` に新設する
   - audit オプション指定時は audit_logs に identity_access（metadata に document_type）を INSERT する（書類アクセスの記録漏れを構造的に防止）
   - _Requirements: 012, 017, 019, 024_
 
-- [ ] 3.4 退会カスケードの共有関数抽出と Stripe 解約の新規実装
+- [x] 3.4 退会カスケードの共有関数抽出と Stripe 解約の新規実装
   - withdrawAction から C案カスケード退会（対象のソフトデリート＋auth ban＋Owner の場合の配下メンバー連動凍結・org ソフトデリート・members 削除＋Stripe 解約）を `executeWithdrawal` として抽出する（recordSurvey / cancelledBy パラメータ付き）
   - 退会前ガード（applied / accepted 応募あり・受注者作業中の案件あり → 拒否）は本人退会・admin 削除の両方で適用する（エラー文言は admin 画面にそのまま表示）
   - DB 書き込みはすべて createAdminClient()（service_role）に書き換える（現実装はセッションクライアント＝本人前提）
@@ -61,7 +61,7 @@
   - 依存: タスク2.1（cancelled_by カラム）・タスク3.2（writeAuditLog）完了後に着手
   - _Requirements: 004, 009_
 
-- [ ] 3.5 admin 専用8分類モジュールを新設する
+- [x] 3.5 admin 専用8分類モジュールを新設する
   - `src/lib/admin/application-status.ts` に、status＋初回稼働日＋cancelled_by から導出する8分類（応募中／発注済み・初回稼働日前／評価未入力／取引完了／取引不成立／ユーザー側からのキャンセル／運営によるキャンセル／発注側からのお断り）の判定とラベルを実装する
   - 行バッジ用の純粋関数 `classifyAdminApplication`（today は呼び出し側から注入）、フィルタ用の WHERE 変換 `applyCategoryFilter`、発注取消可否 `canAdminCancel` を同一モジュールに置き、判定のズレを構造的に防ぐ
   - `first_work_date IS NULL` の accepted は「発注済み・初回稼働日前」に含める。当日判定は JST 日付文字列比較で統一する
@@ -70,8 +70,8 @@
   - 依存: タスク2.1（cancelled_by カラム・型再生成）完了後に着手
   - _Requirements: 013, 014_
 
-- [ ] 4. 管理者認証・シェル（ADM-001 / 002 / 015＋Middleware）
-- [ ] 4.1 (P) ADM-001 管理者専用ログイン画面を新規実装する
+- [x] 4. 管理者認証・シェル（ADM-001 / 002 / 015＋Middleware）
+- [x] 4.1 (P) ADM-001 管理者専用ログイン画面を新規実装する
   - デザインカンプ: `design-assets/screens/ADM-001.png`
   - `/admin/login` にメール＋パスワードのログイン画面と adminLoginAction を実装する。成功時は `/admin/dashboard` へ
   - **ルート構成の罠（必ず守ること）**: 既存 `src/app/admin/layout.tsx` は未認証・非 admin を redirect する認可ガードを持つため、`/admin/login` をこのレイアウト配下に置くと**ログイン画面自体が表示できない**（開いた瞬間にリダイレクトされる）。ガード付きレイアウトを route group（例: `src/app/admin/(protected)/layout.tsx`）へ移し、既存ページ（dashboard / users 配下）をその中に移動して、`/admin/login` はガードの外に置くこと（route group は URL に影響しないため既存 URL・既存 E2E はすべて不変）。あわせてガードの redirect 先を `/login` → `/admin/login` に変更する
@@ -81,7 +81,7 @@
   - Vitest: 非 admin 拒否が資格情報エラーと同一文言であること・signOut されること・audit log 記録を検証する
   - _Requirements: 001_
 
-- [ ] 4.2 Middleware を変更する（4点のみ・他のルーティング不変更）
+- [x] 4.2 Middleware を変更する（4点のみ・他のルーティング不変更）
   - `/admin/login` を未認証許可パスに追加（auth ページ扱い）
   - 未認証の `/admin/*`（login 以外）→ `/admin/login` へ redirect（現状の `/login` 行きから変更）
   - 認証済み admin の `/admin/login` → `/admin/dashboard` へ redirect。認証済み非 admin の `/admin/*` ブロック（→ /mypage）は現状維持
@@ -89,7 +89,7 @@
   - 依存: タスク4.1（/admin/login ページ）完了後に着手（redirect 先が 404 にならないように）
   - _Requirements: 001_
 
-- [ ] 4.3 (P) AdminShell のログアウト導線と ADM-002 ダッシュボードを実装する
+- [x] 4.3 (P) AdminShell のログアウト導線と ADM-002 ダッシュボードを実装する
   - デザインカンプ: `design-assets/screens/ADM-002.png`
   - `src/app/admin/layout.tsx` のヘッダーバーに ①ダッシュボードへ戻るリンク ②ログアウトボタン（`<form action={adminLogoutAction}>`、`type="submit"` 明示）を追加し、全 admin 画面からログアウト導線に到達できるようにする
   - adminLogoutAction（signOut → `/admin/login` へ redirect）を admin 専用に新設する（既存の `src/app/admin/actions.ts`〔動画 Action あり〕に追記。一般ユーザー用 logoutAction は流用しない）
@@ -97,14 +97,14 @@
   - 既存 E2E（`e2e/video-display.spec.ts`）がダッシュボードの「ユーザーアカウント一覧」リンクをクリックで辿るため、このリンク文言は変えない（変える場合は E2E も同時更新）
   - _Requirements: 002_
 
-- [ ] 4.4 (P) ADM-015 管理者パスワード変更を実装する
+- [x] 4.4 (P) ADM-015 管理者パスワード変更を実装する
   - デザインカンプなし（同機能グループのスタイルに合わせる）
   - `/admin/password` に 現在のパスワード（必須）／新パスワード（8文字以上）／確認（一致）の3項目フォームを実装する
   - Server Action: admin role 再チェック → signInWithPassword で現在値照合 → updateUser で更新 → audit log（admin_password_change）→ 成功メッセージをインライン表示（遷移しない）
   - _Requirements: 015_
 
-- [ ] 5. 発注者アカウント管理（ADM-003 / 004 / 005）
-- [ ] 5.1 (P) 発注者一覧のクエリロジックと区分・プラン導出を実装する
+- [x] 5. 発注者アカウント管理（ADM-003 / 004 / 005）
+- [x] 5.1 (P) 発注者一覧のクエリロジックと区分・プラン導出を実装する
   - `src/lib/admin/clients-list.ts` に一覧取得（fetchClientListPage）を新設し、page から分離して Vitest 可能にする
   - 対象: `role IN ('client','staff')` を人単位1行で表示。退会済みも含める（「退会済み」表示）。代理アカウントも担当者行として含める
   - 契約主体の解決: client → 本人、staff → organization_members → organizations.owner_id。行クリック遷移先は常に契約主体の userId
@@ -114,7 +114,7 @@
   - Vitest: 区分／プラン導出関数を role × org_role × plan の組合せで網羅する
   - _Requirements: 003_
 
-- [ ] 5.2 ADM-003 発注者アカウント一覧画面を実装する
+- [x] 5.2 ADM-003 発注者アカウント一覧画面を実装する
   - デザインカンプ: `design-assets/screens/ADM-003.png`
   - `/admin/clients` に一覧（氏名・会社名・メール・区分・プラン・オプションバッジ・退会済み表示）＋キーワード検索＋2枠フィルタ（区分／オプション・各単一選択）＋20件ページングを実装する（searchParams を Single Source of Truth に）
   - 並び順は登録日時の新しい順。「管理責任者 新規登録」ボタン → `/admin/clients/new`
@@ -122,7 +122,7 @@
   - 依存: タスク5.1 完了後に着手
   - _Requirements: 003_
 
-- [ ] 5.3 ADM-004 発注者アカウント詳細（会社単位1ページ）と削除を実装する
+- [x] 5.3 ADM-004 発注者アカウント詳細（会社単位1ページ）と削除を実装する
   - デザインカンプ: `design-assets/screens/ADM-004.png`（ヘッダーは admin 共通レイアウトを使用。カンプの LOGO／ハンバーガー／＜ は使わない）
   - `/admin/clients/[id]` に requirements の13セクション（編集ボタン／管理者メモ／オプション加入状況／発注者情報＋プラン／職場紹介動画＋投稿ボタン→ADM-010B／基本情報／メッセージ閲覧／評判／担当者一覧／募集現場一覧＋集計／代理メッセージを見る／アカウント削除／もどる）を順に実装する
   - `role='client'` 以外は notFound()。退会済みの契約主体も表示する（「退会済み」表示＋削除・編集・動画投稿ボタンは非表示）
@@ -136,15 +136,15 @@
   - 依存: タスク3.2 / 3.3 / 3.4 / 5.1 完了後に着手
   - _Requirements: 004, 010B, 022, 023_
 
-- [ ] 5.4 (P) ADM-005 発注者アカウント編集（管理者メモ）を実装する
+- [x] 5.4 (P) ADM-005 発注者アカウント編集（管理者メモ）を実装する
   - デザインカンプ: `design-assets/screens/ADM-005.png`
   - `/admin/clients/[id]/edit` に admin_memo テキストエリア1項目のみの編集フォームと updateAdminMemoAction を実装する（max 2000 文字程度の上限のみ）
   - 保存成功で ADM-004 へ遷移＋audit log（admin_memo_update）を記録する
   - 急募オプションの編集は持たない（加入状態の確認は ADM-004 の閲覧表示で行う）
   - _Requirements: 005_
 
-- [ ] 6. 管理責任者 招待フロー（ADM-006 / 007＋横断変更）
-- [ ] 6.1 (P) ADM-006/007 招待フォームと作成 Server Action を実装する
+- [x] 6. 管理責任者 招待フロー（ADM-006 / 007＋横断変更）
+- [x] 6.1 (P) ADM-006/007 招待フォームと作成 Server Action を実装する
   - デザインカンプ: `design-assets/screens/ADM-006.png`（ADM-007 はカンプなし・確認画面）
   - `/admin/clients/new` の1ルート内で「入力（会社名・姓・名・メール、全て必須）→ 確認」を useState の段階的表示で実装する。「作成する」`type="submit"`、「修正する」「もどる」は `type="button"`
   - createClientInviteAction: admin role 再チェック → Zod → public.users で email 重複事前チェック（重複時「このメールアドレスは既に登録されています」）→ `inviteUserByEmail(email, { data: { invited_last_name, invited_first_name, invited_company_name }, redirectTo })` → audit log（admin_client_invite）→ ADM-003 へ redirect
@@ -154,7 +154,7 @@
   - Vitest: 重複メール拒否／invite 失敗時の deleteUser クリーンアップ／metadata に invited_role が**含まれない**ことを検証する
   - _Requirements: 006, 007_
 
-- [ ] 6.2 (P) 招待後の遷移分岐と決済 Webhook の会社名反映を実装する
+- [x] 6.2 (P) 招待後の遷移分岐と決済 Webhook の会社名反映を実装する
   - acceptInviteAction 拡張: パスワード保存成功後、`user_metadata.invited_company_name` が存在する場合は遷移先を `/billing/plans`（CLI-026）にする（受注者オンボのスキップ。スタッフ招待は従来どおり）
   - checkout Webhook（plan 分岐）拡張: **RPC 呼び出しの「前」に** getUserById で metadata を読み、invited_company_name があれば client_profiles に `{ user_id, display_name: 会社名 }` を **ignoreDuplicates upsert** してから RPC を呼ぶ（RPC が display_name を姓名で必ず埋めるため「後から未設定なら反映」では成立しない。冪等: Webhook 再実行・本人編集済みでも上書きしない）
   - Vitest: invited_company_name あり → RPC より先に会社名で upsert されること／本人編集済み display_name を上書きしないことを検証する

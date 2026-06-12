@@ -68,6 +68,42 @@ async function handlePlanCheckout(
     );
   }
 
+  // 管理者招待フロー（ADM-006/007）: user_metadata に invited_company_name が
+  // ある場合、RPC 呼び出しの「前」に client_profiles へ会社名を upsert する。
+  // RPC `handle_checkout_completed_plan` は display_name を担当者の姓名で
+  // 必ず埋める（INSERT ... ON CONFLICT DO NOTHING）ため、「RPC 後に未設定なら
+  // 反映」では成立しない。先に会社名で行を作っておけば RPC の
+  // ON CONFLICT DO NOTHING が会社名を維持する。
+  // ignoreDuplicates のため Webhook 再実行・本人が CLI-021 で編集済みでも
+  // 上書きしない（冪等）。失敗しても通常の決済処理はブロックしない。
+  try {
+    const { data: invitedUser } = await admin.auth.admin.getUserById(userId);
+    const invitedCompanyName =
+      invitedUser?.user?.user_metadata?.invited_company_name;
+    if (
+      typeof invitedCompanyName === "string" &&
+      invitedCompanyName.trim() !== ""
+    ) {
+      const { error: upsertError } = await admin
+        .from("client_profiles")
+        .upsert(
+          { user_id: userId, display_name: invitedCompanyName },
+          { onConflict: "user_id", ignoreDuplicates: true },
+        );
+      if (upsertError) {
+        console.error(
+          "[handlePlanCheckout] invited company name upsert failed (non-blocking)",
+          upsertError,
+        );
+      }
+    }
+  } catch (err) {
+    console.error(
+      "[handlePlanCheckout] invited company name reflection failed (non-blocking)",
+      err,
+    );
+  }
+
   // The current_period_* values may not be present on the Checkout Session
   // itself. Caller (route handler) is responsible for fetching the
   // subscription if it needs them; for plan checkout the RPC will accept

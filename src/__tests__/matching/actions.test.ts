@@ -193,6 +193,11 @@ describe("cancelApplicationAction", () => {
 
     const result = await cancelApplicationAction(APP_ID);
     expect(result.success).toBe(true);
+    // 受注者の自力キャンセルは cancelled_by: 'contractor' を記録する（admin spec Task 2.1）
+    expect(updateMock.update).toHaveBeenCalledWith({
+      status: "cancelled",
+      cancelled_by: "contractor",
+    });
   });
 });
 

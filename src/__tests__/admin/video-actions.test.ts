@@ -23,6 +23,7 @@ interface AdminUpdateLog {
 const adminState = {
   updates: [] as AdminUpdateLog[],
   updateError: null as null | { message: string },
+  inserts: [] as Array<{ table: string; payload: Record<string, unknown> }>,
 };
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -55,6 +56,10 @@ vi.mock("@/lib/supabase/admin", () => ({
           });
         },
       }),
+      insert: (payload: Record<string, unknown>) => {
+        adminState.inserts.push({ table, payload });
+        return Promise.resolve({ data: null, error: null });
+      },
     }),
   }),
 }));
@@ -79,7 +84,13 @@ beforeEach(() => {
   authState.actorRole = "admin";
   adminState.updates = [];
   adminState.updateError = null;
+  adminState.inserts = [];
 });
+
+/** audit_logs への INSERT のみを抽出する */
+function auditInserts() {
+  return adminState.inserts.filter((i) => i.table === "audit_logs");
+}
 
 describe("updateVideoUrlAction (ADM-010, users.video_url)", () => {
   it("有効な TikTok URL で users.video_url を更新する", async () => {
@@ -142,6 +153,46 @@ describe("updateWorkplaceVideoUrlAction (ADM-010B, client_profiles.workplace_vid
     expect(adminState.updates[0]?.payload).toEqual({
       workplace_video_url: null,
     });
+  });
+});
+
+describe("監査ログ（video_url_update・admin spec Task 3.2）", () => {
+  it("PR動画の更新成功時に audit log を記録する", async () => {
+    const result = await updateVideoUrlAction(
+      fd("user-9", "https://www.tiktok.com/@u/video/123"),
+    );
+    expect(result.success).toBe(true);
+    expect(auditInserts()).toHaveLength(1);
+    expect(auditInserts()[0].payload).toMatchObject({
+      action: "video_url_update",
+      actor_id: "admin-1",
+      target_id: "user-9",
+    });
+  });
+
+  it("職場紹介動画の更新成功時に audit log を記録する", async () => {
+    const result = await updateWorkplaceVideoUrlAction(
+      fd("user-7", "https://www.tiktok.com/@c/video/999"),
+    );
+    expect(result.success).toBe(true);
+    expect(auditInserts()).toHaveLength(1);
+    expect(auditInserts()[0].payload).toMatchObject({
+      action: "video_url_update",
+      target_id: "user-7",
+    });
+  });
+
+  it("バリデーション失敗時は audit log を記録しない", async () => {
+    await updateVideoUrlAction(fd("user-9", "https://vt.tiktok.com/ZSabc/"));
+    expect(auditInserts()).toHaveLength(0);
+  });
+
+  it("DB 更新失敗時は audit log を記録しない", async () => {
+    adminState.updateError = { message: "boom" };
+    await updateVideoUrlAction(
+      fd("user-9", "https://www.tiktok.com/@u/video/123"),
+    );
+    expect(auditInserts()).toHaveLength(0);
   });
 });
 

@@ -17,6 +17,12 @@ interface VideoPostFormProps {
   currentUrl: string | null;
   /** "pr" = 受注者PR動画 (ADM-010) / "workplace" = 職場紹介動画 (ADM-010B) */
   variant: "pr" | "workplace";
+  /**
+   * もどるの遷移先。ADM-010B は入口が ADM-004（発注者詳細）のため
+   * `/admin/clients/[id]` を明示する（admin spec Task 5.3）。
+   * 未指定は従来どおり router.back()
+   */
+  backHref?: string;
 }
 
 /**
@@ -25,7 +31,7 @@ interface VideoPostFormProps {
  * URL 入力 +「更新」(固定ラベル) + 現在の登録 URL 表示 + もどる。
  * 差分は variant に応じて呼び出す Server Action のみ。
  */
-export function VideoPostForm({ userId, currentUrl, variant }: VideoPostFormProps) {
+export function VideoPostForm({ userId, currentUrl, variant, backHref }: VideoPostFormProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [pending, startTransition] = useTransition();
@@ -105,7 +111,9 @@ export function VideoPostForm({ userId, currentUrl, variant }: VideoPostFormProp
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.back()}
+          onClick={() =>
+            backHref ? router.push(backHref) : router.back()
+          }
           className="w-full max-w-xs rounded-full"
         >
           もどる

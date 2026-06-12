@@ -1,11 +1,21 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+/**
+ * withdrawAction（本人退会）のテスト。
+ * admin spec Task 3.4 でカスケード本体は executeWithdrawal
+ * （src/lib/withdrawal/execute.ts）に抽出された。ガード・カスケードの詳細は
+ * execute-withdrawal.test.ts が担い、ここではラッパーの責務
+ * （認証・バリデーション・survey 受け渡し・メール・signOut）を検証する。
+ * executeWithdrawal はモックせず実体を通す（DB 書き込みは admin client 経由）。
+ */
+
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
 const mockAdminFrom = vi.fn();
 const mockAdminAuthUpdate = vi.fn();
 const mockSignOut = vi.fn().mockResolvedValue({ error: null });
 const mockSendEmail = vi.fn().mockResolvedValue({ success: true });
+const mockStripeCancel = vi.fn().mockResolvedValue({});
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -32,10 +42,15 @@ vi.mock("@/lib/email/send-email", () => ({
   sendEmail: (...args: unknown[]) => mockSendEmail(...args),
 }));
 
+vi.mock("@/lib/billing/stripe", () => ({
+  getStripeClient: () => ({
+    subscriptions: { cancel: (...args: unknown[]) => mockStripeCancel(...args) },
+  }),
+}));
+
 import { withdrawAction } from "@/app/(authenticated)/profile/withdrawal/actions";
 
 const OWNER_ID = "11111111-1111-1111-1111-111111111111";
-const ORG_ID = "55555555-5555-5555-5555-555555555555";
 
 interface ChainConfig {
   count?: number;
@@ -43,70 +58,92 @@ interface ChainConfig {
   thenable?: { data: unknown; error: unknown };
 }
 
-/**
- * .from() の戻り値となるチェイン Mock。
- * 末端 .maybeSingle() / `await` (thenable) / `{ count, head: true }` の戻り値を
- * 引数経由で差し替えできるようにし、各 spy を保持して呼び出しを観察可能にする。
- */
+/** .from() の戻り値チェイン Mock（select の head 有無で then を切替） */
 function makeChain(config: ChainConfig = {}) {
-  const eqCalls: Array<[string, unknown]> = [];
-  const inCalls: Array<[string, unknown[]]> = [];
+  const inserts: Array<Record<string, unknown>> = [];
+
+  const defineThen = (resolver: () => unknown) => {
+    Object.defineProperty(chain, "then", {
+      configurable: true,
+      value: (resolve: (v: unknown) => void) => resolve(resolver()),
+    });
+  };
+
   const chain: Record<string, unknown> = {
-    select: vi.fn(function (this: unknown, _cols: string, _opts?: unknown) {
-      // SELECT with { count: 'exact', head: true } resolves directly to a Promise-like
-      if (
-        typeof _opts === "object" &&
-        _opts !== null &&
-        (_opts as { head?: boolean }).head
-      ) {
-        // Make this chain a thenable that returns count
-        Object.defineProperty(chain, "then", {
-          configurable: true,
-          value: (resolve: (v: unknown) => void) =>
-            resolve({ count: config.count ?? 0, error: null }),
-        });
+    select: vi.fn((_cols: string, opts?: { head?: boolean }) => {
+      if (opts?.head) {
+        defineThen(() => ({ count: config.count ?? 0, error: null }));
+      } else if (config.thenable) {
+        defineThen(() => ({
+          data: config.thenable!.data,
+          error: config.thenable!.error,
+        }));
       }
       return chain;
     }),
-    eq: vi.fn(function (this: unknown, col: string, val: unknown) {
-      eqCalls.push([col, val]);
-      return chain;
-    }),
+    eq: vi.fn().mockReturnThis(),
     neq: vi.fn().mockReturnThis(),
-    is: vi.fn().mockReturnThis(),
-    gt: vi.fn().mockReturnThis(),
-    lt: vi.fn().mockReturnThis(),
-    in: vi.fn(function (this: unknown, col: string, vals: unknown[]) {
-      inCalls.push([col, vals]);
-      return chain;
-    }),
+    in: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
     delete: vi.fn().mockReturnThis(),
-    insert: vi.fn().mockReturnThis(),
+    insert: vi.fn((payload: Record<string, unknown>) => {
+      inserts.push(payload);
+      return chain;
+    }),
     maybeSingle: vi
       .fn()
       .mockResolvedValue({ data: config.data ?? null, error: null }),
   };
   if (config.thenable) {
-    Object.defineProperty(chain, "then", {
-      configurable: true,
-      value: (resolve: (v: unknown) => void) =>
-        resolve({
-          data: config.thenable!.data,
-          error: config.thenable!.error,
-        }),
-    });
+    defineThen(() => ({
+      data: config.thenable!.data,
+      error: config.thenable!.error,
+    }));
+  } else {
+    defineThen(() => ({ data: null, error: null }));
   }
-  return Object.assign(chain, { _eqCalls: eqCalls, _inCalls: inCalls });
+  return Object.assign(chain, { _inserts: inserts });
+}
+
+type Chain = ReturnType<typeof makeChain>;
+
+/** admin client をテーブル名ルーティングで設定（テーブルごとに同一チェイン再利用） */
+function setupAdminTables(configs: Record<string, ChainConfig>) {
+  const chains = new Map<string, Chain>();
+  mockAdminFrom.mockImplementation((table: string) => {
+    if (!chains.has(table)) {
+      chains.set(table, makeChain(configs[table] ?? {}));
+    }
+    return chains.get(table)!;
+  });
+  return chains;
+}
+
+/** 退会が成功する標準シナリオ（組織なし個人ユーザー） */
+function setupHappyPath() {
+  return setupAdminTables({
+    applications: { count: 0, thenable: { data: [], error: null } },
+    organization_members: { data: null },
+    users: {
+      data: {
+        role: "contractor",
+        email: "owner@test.local",
+        last_name: "山田",
+        first_name: "太郎",
+      },
+      thenable: { data: null, error: null },
+    },
+  });
 }
 
 beforeEach(() => {
   mockGetUser.mockReset();
   mockFrom.mockReset();
   mockAdminFrom.mockReset();
-  mockAdminAuthUpdate.mockReset().mockResolvedValue({ error: null });
+  mockAdminAuthUpdate.mockReset().mockResolvedValue({ data: null, error: null });
   mockSignOut.mockReset().mockResolvedValue({ error: null });
   mockSendEmail.mockReset().mockResolvedValue({ success: true });
+  mockStripeCancel.mockReset().mockResolvedValue({});
 
   mockGetUser.mockResolvedValue({
     data: { user: { id: OWNER_ID, email: "owner@test.local" } },
@@ -123,85 +160,9 @@ function buildFormData(): FormData {
   return fd;
 }
 
-describe("withdrawAction の発注中案件チェックスコープ (REQ-PF-006)", () => {
-  it("法人 Owner: jobs.organization_id でチェックされる（広義）", async () => {
-    // Check 1: applicant 側 active applications → 0 件
-    const check1Chain = makeChain({ count: 0 });
-    // Check Org membership: 法人 Owner
-    const orgChain = makeChain({
-      data: { org_role: "owner", organization_id: ORG_ID },
-    });
-    // Check 2: organization_id 経由でクエリされる
-    const ownedJobChain = makeChain({ thenable: { data: [], error: null } });
-
-    mockFrom
-      .mockReturnValueOnce(check1Chain) // applications (Check 1)
-      .mockReturnValueOnce(orgChain) // organization_members
-      .mockReturnValueOnce(ownedJobChain); // applications (Check 2)
-    // 後続の cascade 用 from は適当に空チェイン
-    mockFrom.mockReturnValue(makeChain({ thenable: { data: null, error: null } }));
-    mockAdminFrom.mockReturnValue(
-      makeChain({ thenable: { data: null, error: null }, data: null }),
-    );
-
-    await withdrawAction({ success: false, error: "" }, buildFormData());
-
-    // Check 2 のチェイン上で `.eq("jobs.organization_id", ORG_ID)` が呼ばれている
-    const orgFilterCalled = ownedJobChain._eqCalls.some(
-      ([col, val]) => col === "jobs.organization_id" && val === ORG_ID,
-    );
-    const ownerFilterCalled = ownedJobChain._eqCalls.some(
-      ([col, val]) => col === "jobs.owner_id" && val === OWNER_ID,
-    );
-    expect(orgFilterCalled).toBe(true);
-    expect(ownerFilterCalled).toBe(false);
-  });
-
-  it("組織なし（個人発注者プラン Owner 等）: jobs.owner_id でチェックされる（狭義）", async () => {
-    const check1Chain = makeChain({ count: 0 });
-    // 組織メンバーシップ無し → owner_id 経由
-    const orgChain = makeChain({ data: null });
-    const ownedJobChain = makeChain({ thenable: { data: [], error: null } });
-
-    mockFrom
-      .mockReturnValueOnce(check1Chain)
-      .mockReturnValueOnce(orgChain)
-      .mockReturnValueOnce(ownedJobChain);
-    mockFrom.mockReturnValue(makeChain({ thenable: { data: null, error: null } }));
-    mockAdminFrom.mockReturnValue(
-      makeChain({ thenable: { data: null, error: null }, data: null }),
-    );
-
-    await withdrawAction({ success: false, error: "" }, buildFormData());
-
-    const ownerFilterCalled = ownedJobChain._eqCalls.some(
-      ([col, val]) => col === "jobs.owner_id" && val === OWNER_ID,
-    );
-    const orgFilterCalled = ownedJobChain._eqCalls.some(
-      ([col]) => col === "jobs.organization_id",
-    );
-    expect(ownerFilterCalled).toBe(true);
-    expect(orgFilterCalled).toBe(false);
-  });
-
-  it("法人 Owner: 組織内の進行中案件が見つかったら退会不可エラー", async () => {
-    const check1Chain = makeChain({ count: 0 });
-    const orgChain = makeChain({
-      data: { org_role: "owner", organization_id: ORG_ID },
-    });
-    // Check 2 で 1 件返す → 退会不可
-    const ownedJobChain = makeChain({
-      thenable: {
-        data: [
-          { id: "app-1", jobs: { owner_id: "other-staff", organization_id: ORG_ID } },
-        ],
-        error: null,
-      },
-    });
-    mockFrom
-      .mockReturnValueOnce(check1Chain)
-      .mockReturnValueOnce(orgChain)
-      .mockReturnValueOnce(ownedJobChain);
+describe("withdrawAction: 認証・バリデーション", () => {
+  it("未認証ユーザーはエラーを返す", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
     const result = await withdrawAction(
       { success: false, error: "" },
@@ -210,16 +171,93 @@ describe("withdrawAction の発注中案件チェックスコープ (REQ-PF-006)
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toContain("受注者が作業中の案件があるため退会できません");
+      expect(result.error).toContain("認証されていません");
     }
   });
 
-  it("Owner 以外（Staff/Admin）は退会不可エラー", async () => {
-    const check1Chain = makeChain({ count: 0 });
-    const orgChain = makeChain({
-      data: { org_role: "staff", organization_id: ORG_ID },
+  it("確認チェックなしはバリデーションエラーを返す", async () => {
+    const fd = new FormData();
+    fd.set("reason", "other");
+    fd.set("details", "テスト");
+    // confirmed なし
+
+    const result = await withdrawAction({ success: false, error: "" }, fd);
+
+    expect(result.success).toBe(false);
+    expect(mockAdminFrom).not.toHaveBeenCalled();
+  });
+});
+
+describe("withdrawAction: 成功フロー（executeWithdrawal 実体経由）", () => {
+  it("退会成功で signOut と退会完了メールが実行される", async () => {
+    setupHappyPath();
+
+    const result = await withdrawAction(
+      { success: false, error: "" },
+      buildFormData(),
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "owner@test.local" }),
+    );
+    // 対象本人の auth ban（executeWithdrawal 内）
+    expect(mockAdminAuthUpdate).toHaveBeenCalledWith(OWNER_ID, {
+      ban_duration: "876600h",
     });
-    mockFrom.mockReturnValueOnce(check1Chain).mockReturnValueOnce(orgChain);
+  });
+
+  it("退会理由 survey が recordSurvey 経由で保存される", async () => {
+    const chains = setupHappyPath();
+
+    const fd = new FormData();
+    fd.set("reason", "price_high");
+    fd.set("details", "高い");
+    fd.set("confirmed", "on");
+
+    const result = await withdrawAction({ success: false, error: "" }, fd);
+
+    expect(result.success).toBe(true);
+    const surveyChain = chains.get("withdrawal_surveys");
+    expect(surveyChain).toBeDefined();
+    expect(surveyChain!._inserts[0]).toMatchObject({
+      user_id: OWNER_ID,
+      reason_code: "price_high",
+      reason_label: "料金が高い",
+      details: "高い",
+      role: "contractor",
+    });
+  });
+});
+
+describe("withdrawAction: ガード拒否時", () => {
+  it("進行中応募があれば退会できず、signOut もメールも実行されない", async () => {
+    setupAdminTables({
+      applications: { count: 1, thenable: { data: [], error: null } },
+    });
+
+    const result = await withdrawAction(
+      { success: false, error: "" },
+      buildFormData(),
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("応募中または進行中の案件があるため退会できません");
+    }
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("法人の担当者（org_role=staff）は退会できない", async () => {
+    setupAdminTables({
+      applications: { count: 0, thenable: { data: [], error: null } },
+      organization_members: {
+        data: { org_role: "staff", organization_id: "org-1" },
+      },
+    });
 
     const result = await withdrawAction(
       { success: false, error: "" },
@@ -230,65 +268,5 @@ describe("withdrawAction の発注中案件チェックスコープ (REQ-PF-006)
     if (!result.success) {
       expect(result.error).toContain("管理責任者");
     }
-  });
-});
-
-describe("withdrawAction の退会理由保存 (withdrawal_surveys)", () => {
-  it("reason_code / reason_label / role / plan_type を付けて保存する", async () => {
-    let insertedPayload: Record<string, unknown> | null = null;
-
-    // テーブル名でチェインを振り分け（insert payload を捕捉するため）
-    mockFrom.mockImplementation((table: string) => {
-      if (table === "applications") {
-        // Check1（count=0）/ Check2（owned jobs 空）/ cascade update を兼ねる
-        return makeChain({ count: 0, thenable: { data: [], error: null } });
-      }
-      if (table === "organization_members") {
-        return makeChain({ data: null }); // 個人ユーザー（組織なし）
-      }
-      if (table === "users") {
-        // snapshot 用 select(role) と cascade の soft-delete update を兼ねる
-        return makeChain({
-          data: { role: "contractor" },
-          thenable: { data: null, error: null },
-        });
-      }
-      if (table === "subscriptions") {
-        return makeChain({
-          data: { plan_type: "corporate" },
-          thenable: { data: null, error: null },
-        });
-      }
-      if (table === "withdrawal_surveys") {
-        const chain = makeChain({ thenable: { data: null, error: null } });
-        chain.insert = vi.fn((payload: Record<string, unknown>) => {
-          insertedPayload = payload;
-          return chain;
-        });
-        return chain;
-      }
-      return makeChain({ thenable: { data: null, error: null } });
-    });
-    mockAdminFrom.mockReturnValue(
-      makeChain({ thenable: { data: null, error: null }, data: null }),
-    );
-
-    const fd = new FormData();
-    fd.set("reason", "price_high"); // code
-    fd.set("details", "高い");
-    fd.set("confirmed", "on");
-
-    const result = await withdrawAction({ success: false, error: "" }, fd);
-
-    expect(result.success).toBe(true);
-    expect(insertedPayload).not.toBeNull();
-    expect(insertedPayload).toMatchObject({
-      user_id: OWNER_ID,
-      reason_code: "price_high",
-      reason_label: "料金が高い", // code から解決された表示文
-      details: "高い",
-      role: "contractor",
-      plan_type: "corporate",
-    });
   });
 });

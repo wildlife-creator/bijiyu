@@ -10,15 +10,20 @@ import type { ActionResult } from "@/lib/types/action-result";
 /** audit_logs.target_id は uuid 型のため、対象ユーザー不明（ログイン失敗）時に使う */
 const UNKNOWN_TARGET_ID = "00000000-0000-0000-0000-000000000000";
 
-export async function loginAction(
+/**
+ * エラー文言はこの1種類のみ（アカウントの存在・権限の推測を防止する。
+ * 非 admin が正しい資格情報でログインした場合も同一文言を返す）
+ */
+const GENERIC_ERROR = "メールアドレスまたはパスワードが正しくありません";
+
+/** ADM-001: 管理者専用ログイン。成功時は /admin/dashboard へ redirect する */
+export async function adminLoginAction(
   formData: FormData,
-): Promise<ActionResult<{ redirectTo: string }>> {
-  const raw = {
+): Promise<ActionResult> {
+  const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
-  };
-
-  const parsed = loginSchema.safeParse(raw);
+  });
   if (!parsed.success) {
     return { success: false, error: "入力内容を確認してください" };
   }
@@ -35,37 +40,41 @@ export async function loginAction(
       actorId: null,
       targetId: UNKNOWN_TARGET_ID,
       targetType: "auth",
-      metadata: { email: maskEmail(email) },
+      metadata: { email: maskEmail(email), context: "admin_login" },
     });
-    return {
-      success: false,
-      error: "メールアドレスまたはパスワードが正しくありません",
-    };
+    return { success: false, error: GENERIC_ERROR };
   }
 
-  // Determine redirect based on user role
   const { data: userRow } = await supabase
     .from("users")
     .select("role")
     .eq("id", authData.user.id)
     .single();
 
-  const role = userRow?.role;
-  const redirectTo = role === "admin" ? "/admin/dashboard" : "/mypage";
+  if (userRow?.role !== "admin") {
+    // 非 admin はセッションを残さず、資格情報エラーと同一文言で拒否する
+    await supabase.auth.signOut();
+    await writeAuditLog({
+      action: "auth.login.failure",
+      actorId: null,
+      targetId: authData.user.id,
+      targetType: "auth",
+      metadata: {
+        email: maskEmail(email),
+        context: "admin_login",
+        reason: "not_admin",
+      },
+    });
+    return { success: false, error: GENERIC_ERROR };
+  }
 
   await writeAuditLog({
     action: "auth.login.success",
     actorId: authData.user.id,
     targetId: authData.user.id,
     targetType: "auth",
-    metadata: { email: maskEmail(email) },
+    metadata: { email: maskEmail(email), context: "admin_login" },
   });
 
-  redirect(redirectTo);
-}
-
-export async function logoutAction() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect("/login");
+  redirect("/admin/dashboard");
 }

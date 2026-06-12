@@ -54,6 +54,25 @@ export const updatePasswordSchema = z
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
 
 // ---------------------------------------------------------------------------
+// Admin password change (ADM-015: current + new + confirm)
+// ---------------------------------------------------------------------------
+export const adminPasswordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, "現在のパスワードを入力してください"),
+    newPassword: z
+      .string()
+      .min(8, "パスワードは8文字以上で入力してください"),
+    confirmPassword: z.string().min(1, "確認用パスワードを入力してください"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "パスワードが一致しません",
+    path: ["confirmPassword"],
+  });
+export type AdminPasswordChangeInput = z.infer<
+  typeof adminPasswordChangeSchema
+>;
+
+// ---------------------------------------------------------------------------
 // Skill entry (nested in registerProfileSchema)
 // ---------------------------------------------------------------------------
 const skillSchema = z.object({
