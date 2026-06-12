@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { DocumentView } from "@/components/admin/document-view";
 import { getSignedDocumentUrls } from "@/lib/admin/signed-urls";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -12,46 +13,6 @@ import { ReviewForm } from "./review-form";
 
 interface PageProps {
   params: Promise<{ id: string }>;
-}
-
-function isPdf(path: string): boolean {
-  return path.toLowerCase().endsWith(".pdf");
-}
-
-/** 署名付きURLの書類表示（画像はインライン・PDF はリンク・生成失敗はフォールバック） */
-function DocumentView({
-  doc,
-  alt,
-}: {
-  doc: { path: string; url: string | null };
-  alt: string;
-}) {
-  if (!doc.url) {
-    return (
-      <div className="flex aspect-video w-full items-center justify-center rounded-[8px] border border-border bg-muted/30">
-        <span className="text-body-sm text-muted-foreground">
-          書類を表示できません
-        </span>
-      </div>
-    );
-  }
-  if (isPdf(doc.path)) {
-    return (
-      <a
-        href={doc.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex aspect-video w-full items-center justify-center rounded-[8px] border border-border bg-muted/30 text-body-md font-medium text-secondary underline underline-offset-2"
-      >
-        PDF を開く
-      </a>
-    );
-  }
-  return (
-    <div className="overflow-hidden rounded-[8px] border border-border bg-background">
-      <img src={doc.url} alt={alt} className="w-full object-contain" />
-    </div>
-  );
 }
 
 /**
