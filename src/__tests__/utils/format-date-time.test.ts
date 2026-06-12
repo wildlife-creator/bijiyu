@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDateTime } from "@/lib/utils/format-date";
+import { formatDateTime, getJstToday } from "@/lib/utils/format-date";
 
 describe("formatDateTime", () => {
   it("UTC 入力を Asia/Tokyo に変換して YYYY/MM/DD HH:mm 形式で返す（9時間ズレない）", () => {
@@ -35,5 +35,23 @@ describe("formatDateTime", () => {
 
   it("カスタム fallback を指定できる", () => {
     expect(formatDateTime(null, "未設定")).toBe("未設定");
+  });
+});
+
+describe("getJstToday", () => {
+  it("UTC 深夜（JST では翌日）でも JST の日付を返す（9時間ズレない）", () => {
+    // UTC 2026-06-12 20:00 = JST 2026-06-13 05:00
+    expect(getJstToday(new Date("2026-06-12T20:00:00Z"))).toBe("2026-06-13");
+  });
+
+  it("JST 日付境界（UTC 15:00 = JST 0:00）で日付が切り替わる", () => {
+    expect(getJstToday(new Date("2026-06-12T14:59:59Z"))).toBe("2026-06-12");
+    expect(getJstToday(new Date("2026-06-12T15:00:00Z"))).toBe("2026-06-13");
+  });
+
+  it("YYYY-MM-DD 形式で返す（first_work_date と直接比較可能）", () => {
+    expect(getJstToday(new Date("2026-06-12T00:00:00Z"))).toMatch(
+      /^\d{4}-\d{2}-\d{2}$/,
+    );
   });
 });
