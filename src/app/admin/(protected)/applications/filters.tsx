@@ -69,14 +69,21 @@ export function AdminApplicationFilters({
         <label htmlFor="admin-app-keyword" className="text-body-sm font-bold">
           キーワード
         </label>
-        <Input
-          id="admin-app-keyword"
-          type="text"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder="氏名・メール・案件タイトル・発注者名"
-          className="mt-1 bg-background"
-        />
+        <div className="relative mt-1">
+          <img
+            src="/images/icons/icon-search.png"
+            alt=""
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-60"
+          />
+          <Input
+            id="admin-app-keyword"
+            type="text"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="氏名・メール・案件タイトル・発注者名"
+            className="bg-background pl-9"
+          />
+        </div>
       </div>
 
       <div>

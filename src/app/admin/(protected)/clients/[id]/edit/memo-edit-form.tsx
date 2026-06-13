@@ -48,7 +48,7 @@ export function MemoEditForm({ userId, initialMemo }: MemoEditFormProps) {
         onChange={(e) => setMemo(e.target.value)}
         rows={10}
         maxLength={MAX_LENGTH}
-        className="mt-2 bg-background"
+        className="mt-2 min-h-60 bg-background"
         placeholder="社内向けのメモを入力してください"
       />
       <p className="mt-1 text-right text-body-xs text-muted-foreground">

@@ -174,8 +174,26 @@ export default async function AdminUserDetailPage({
             )}
           </p>
           <div className="mt-1 flex flex-wrap gap-3 text-body-sm">
-            {u.identity_verified && <span>本人確認済み</span>}
-            {u.ccus_verified && <span>CCUS登録済み</span>}
+            {u.identity_verified && (
+              <span className="flex items-center gap-1">
+                <img
+                  src="/images/icons/icon-tag.png"
+                  alt=""
+                  className="size-3.5"
+                />
+                本人確認済み
+              </span>
+            )}
+            {u.ccus_verified && (
+              <span className="flex items-center gap-1">
+                <img
+                  src="/images/icons/icon-tag.png"
+                  alt=""
+                  className="size-3.5"
+                />
+                CCUS登録済み
+              </span>
+            )}
           </div>
         </div>
       </div>

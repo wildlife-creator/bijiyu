@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Star } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AreaList } from "@/components/area/area-list";
 import { CollapsibleList } from "@/components/master/collapsible-list";
@@ -153,11 +152,11 @@ export default async function AdminApplicationDetailPage({
         応募履歴詳細
       </h1>
 
-      {/* ステータスバッジ（8分類表記）＋発注取消 */}
+      {/* ステータスバッジ（8分類表記・ADM-013 の行バッジと同スタイル）＋発注取消 */}
       <div className="mt-4 flex items-center gap-3">
-        <Badge className="rounded-sm bg-muted text-muted-foreground">
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-body-sm font-medium text-primary">
           {ADMIN_APPLICATION_CATEGORY_LABELS[category]}
-        </Badge>
+        </span>
         {showCancelButton && <CancelButton applicationId={id} />}
       </div>
 
@@ -176,7 +175,7 @@ export default async function AdminApplicationDetailPage({
               <span className="shrink-0 text-muted-foreground">
                 募集職種・人数：
               </span>
-              <span>
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 {(app.job?.trade_types ?? []).length > 0 ? (
                   <CollapsibleList
                     items={app.job!.trade_types}
@@ -185,7 +184,9 @@ export default async function AdminApplicationDetailPage({
                 ) : (
                   "—"
                 )}
-                {app.job?.headcount ? `　${app.job.headcount}人` : ""}
+                {app.job?.headcount ? (
+                  <span className="shrink-0">{app.job.headcount}人</span>
+                ) : null}
               </span>
             </div>
             <p>
