@@ -1575,3 +1575,96 @@ INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_i
 VALUES ('aabbccdd-1111-2222-3333-444455556666', 'one_time', 'pi_seed_urgent_yamada', 'urgent', 'active', 'ad660000-0000-4000-8000-000000000001', now() + interval '7 days');
 
 UPDATE jobs SET is_urgent = true WHERE id = 'ad660000-0000-4000-8000-000000000001';
+
+-- ============================================================
+-- admin 手動テスト用アカウント（網羅的な手動 QA 用・db reset で復活）
+-- ============================================================
+-- 目的: 「一度実行すると戻せない操作」を、本番フィクスチャ（鈴木工務店 等）を
+-- 壊さずに何度でも確認できるようにする。すべて固有名・案件/応募なしで、
+-- 既存テストの件数・並び順アサーションに影響しない設計。
+-- 固定 UUID:
+--   adm-reject-identity@test.local : ad411111-...（本人確認 pending #2＝否認テスト専用。
+--     created_at=now() で ADM-011 古い順の末尾に来るため既存 E2E の並びを崩さない）
+--   adm-del-individual@test.local  : ade11111-...（個人発注者・案件なし＝単純削除の成功パス）
+--   adm-del-corp-owner@test.local  : ade22222-...（法人 Owner・案件なし＝カスケード削除の確認）
+--   adm-del-corp-staff@test.local  : ade23333-...（上記法人の担当者＝連動凍結の確認）
+--   削除テスト用 org              : ade25555-...
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('ad411111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-reject-identity@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ade11111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-del-individual@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ade22222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-del-corp-owner@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ade23333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-del-corp-staff@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES
+  ('ad411111-1111-1111-1111-111111111111', 'ad411111-1111-1111-1111-111111111111', 'adm-reject-identity@test.local', '{"sub":"ad411111-1111-1111-1111-111111111111","email":"adm-reject-identity@test.local"}', 'email', now(), now(), now()),
+  ('ade11111-1111-1111-1111-111111111111', 'ade11111-1111-1111-1111-111111111111', 'adm-del-individual@test.local', '{"sub":"ade11111-1111-1111-1111-111111111111","email":"adm-del-individual@test.local"}', 'email', now(), now(), now()),
+  ('ade22222-2222-2222-2222-222222222222', 'ade22222-2222-2222-2222-222222222222', 'adm-del-corp-owner@test.local', '{"sub":"ade22222-2222-2222-2222-222222222222","email":"adm-del-corp-owner@test.local"}', 'email', now(), now(), now()),
+  ('ade23333-3333-3333-3333-333333333333', 'ade23333-3333-3333-3333-333333333333', 'adm-del-corp-staff@test.local', '{"sub":"ade23333-3333-3333-3333-333333333333","email":"adm-del-corp-staff@test.local"}', 'email', now(), now(), now());
+
+-- 本人確認 pending #2（否認テスト専用の受注者）
+UPDATE public.users SET
+  role = 'contractor', last_name = '森', first_name = '大地', gender = '男性',
+  birth_date = '1991-03-08', prefecture = '東京都',
+  bio = '解体工事を専門にしています。', skill_tags = ARRAY['内装解体工'],
+  password_set_at = now()
+WHERE id = 'ad411111-1111-1111-1111-111111111111';
+
+-- 個人発注者（案件なし＝単純削除の成功パス）
+UPDATE public.users SET
+  role = 'client', last_name = '削除', first_name = '個人', gender = '男性',
+  birth_date = '1980-06-15', prefecture = '東京都', company_name = '削除テスト個人',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'ade11111-1111-1111-1111-111111111111';
+
+-- 法人 Owner（案件なし＝カスケード削除の確認）
+UPDATE public.users SET
+  role = 'client', last_name = '削除', first_name = '法人', gender = '男性',
+  birth_date = '1976-09-20', prefecture = '東京都', company_name = '削除テスト法人',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'ade22222-2222-2222-2222-222222222222';
+
+-- 法人の担当者（連動凍結の確認用）
+UPDATE public.users SET
+  role = 'staff', last_name = '削除', first_name = '担当', gender = '女性',
+  birth_date = '1994-11-02', prefecture = '東京都',
+  password_set_at = now()
+WHERE id = 'ade23333-3333-3333-3333-333333333333';
+
+-- skills / areas（client/contractor は正規ルート整合で必須）
+INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
+  ('ad411111-1111-1111-1111-111111111111', '建築/解体｜解体工', 6),
+  ('ade11111-1111-1111-1111-111111111111', '建築/内装｜木工', 3),
+  ('ade22222-2222-2222-2222-222222222222', '建築/躯体｜大工', 10);
+INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
+  ('ad411111-1111-1111-1111-111111111111', '東京都', NULL),
+  ('ade11111-1111-1111-1111-111111111111', '東京都', NULL),
+  ('ade22222-2222-2222-2222-222222222222', '東京都', NULL);
+
+-- 本人確認 pending #2（created_at=now() で ADM-011 の古い順では末尾）
+INSERT INTO identity_verifications (user_id, document_type, document_url_1, status, created_at) VALUES
+  ('ad411111-1111-1111-1111-111111111111', 'identity', 'ad411111-1111-1111-1111-111111111111/identity-front.png', 'pending', now());
+
+-- 削除テスト用発注者の identity approved（identity_verified=true の整合）
+INSERT INTO identity_verifications (user_id, document_type, document_url_1, status, reviewed_at) VALUES
+  ('ade11111-1111-1111-1111-111111111111', 'identity', 'dummy/identity-doc.png', 'approved', now()),
+  ('ade22222-2222-2222-2222-222222222222', 'identity', 'dummy/identity-doc.png', 'approved', now());
+
+-- サブスクリプション（個人＝individual / 法人＝corporate。stripe id なし＝解約は安全にスキップ）
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end) VALUES
+  ('ade11111-1111-1111-1111-111111111111', 'individual', 'active', now(), now() + interval '30 days'),
+  ('ade22222-2222-2222-2222-222222222222', 'corporate', 'active', now(), now() + interval '30 days');
+
+-- client_profiles（発注者表示名）
+INSERT INTO client_profiles (user_id, display_name) VALUES
+  ('ade11111-1111-1111-1111-111111111111', '削除テスト個人'),
+  ('ade22222-2222-2222-2222-222222222222', '削除テスト法人');
+
+-- 削除テスト法人の組織＋メンバー（Owner＋担当者）
+INSERT INTO organizations (id, owner_id) VALUES
+  ('ade25555-5555-5555-5555-555555555555', 'ade22222-2222-2222-2222-222222222222');
+INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account) VALUES
+  ('ade25555-5555-5555-5555-555555555555', 'ade22222-2222-2222-2222-222222222222', 'owner', false),
+  ('ade25555-5555-5555-5555-555555555555', 'ade23333-3333-3333-3333-333333333333', 'staff', false);
