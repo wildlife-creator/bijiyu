@@ -1588,6 +1588,7 @@ UPDATE jobs SET is_urgent = true WHERE id = 'ad660000-0000-4000-8000-00000000000
 --   adm-del-individual@test.local  : ade11111-...（個人発注者・案件なし＝単純削除の成功パス）
 --   adm-del-corp-owner@test.local  : ade22222-...（法人 Owner・案件なし＝カスケード削除の確認）
 --   adm-del-corp-staff@test.local  : ade23333-...（上記法人の担当者＝連動凍結の確認）
+--   adm-del-contractor@test.local  : ade44444-...（受注者・応募なし＝受注者アカウント削除の成功パス）
 --   削除テスト用 org              : ade25555-...
 
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
@@ -1595,14 +1596,16 @@ VALUES
   ('ad411111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-reject-identity@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
   ('ade11111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-del-individual@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
   ('ade22222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-del-corp-owner@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
-  ('ade23333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-del-corp-staff@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+  ('ade23333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-del-corp-staff@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ade44444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-del-contractor@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
 
 INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
 VALUES
   ('ad411111-1111-1111-1111-111111111111', 'ad411111-1111-1111-1111-111111111111', 'adm-reject-identity@test.local', '{"sub":"ad411111-1111-1111-1111-111111111111","email":"adm-reject-identity@test.local"}', 'email', now(), now(), now()),
   ('ade11111-1111-1111-1111-111111111111', 'ade11111-1111-1111-1111-111111111111', 'adm-del-individual@test.local', '{"sub":"ade11111-1111-1111-1111-111111111111","email":"adm-del-individual@test.local"}', 'email', now(), now(), now()),
   ('ade22222-2222-2222-2222-222222222222', 'ade22222-2222-2222-2222-222222222222', 'adm-del-corp-owner@test.local', '{"sub":"ade22222-2222-2222-2222-222222222222","email":"adm-del-corp-owner@test.local"}', 'email', now(), now(), now()),
-  ('ade23333-3333-3333-3333-333333333333', 'ade23333-3333-3333-3333-333333333333', 'adm-del-corp-staff@test.local', '{"sub":"ade23333-3333-3333-3333-333333333333","email":"adm-del-corp-staff@test.local"}', 'email', now(), now(), now());
+  ('ade23333-3333-3333-3333-333333333333', 'ade23333-3333-3333-3333-333333333333', 'adm-del-corp-staff@test.local', '{"sub":"ade23333-3333-3333-3333-333333333333","email":"adm-del-corp-staff@test.local"}', 'email', now(), now(), now()),
+  ('ade44444-4444-4444-4444-444444444444', 'ade44444-4444-4444-4444-444444444444', 'adm-del-contractor@test.local', '{"sub":"ade44444-4444-4444-4444-444444444444","email":"adm-del-contractor@test.local"}', 'email', now(), now(), now());
 
 -- 本人確認 pending #2（否認テスト専用の受注者）
 UPDATE public.users SET
@@ -1633,15 +1636,26 @@ UPDATE public.users SET
   password_set_at = now()
 WHERE id = 'ade23333-3333-3333-3333-333333333333';
 
+-- 受注者（応募なし＝受注者アカウント削除の成功パス。ADM-009 削除実行の使い捨て対象。
+-- 進行中取引がないため削除ガードを通過する。identity 未確認のため ADM-011 にも現れない）
+UPDATE public.users SET
+  role = 'contractor', last_name = '削除', first_name = '受注', gender = '男性',
+  birth_date = '1990-07-25', prefecture = '東京都',
+  bio = '受注者アカウント削除の検証用です。', skill_tags = ARRAY['木造軸組構法'],
+  password_set_at = now()
+WHERE id = 'ade44444-4444-4444-4444-444444444444';
+
 -- skills / areas（client/contractor は正規ルート整合で必須）
 INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
   ('ad411111-1111-1111-1111-111111111111', '建築/解体｜解体工', 6),
   ('ade11111-1111-1111-1111-111111111111', '建築/内装｜木工', 3),
-  ('ade22222-2222-2222-2222-222222222222', '建築/躯体｜大工', 10);
+  ('ade22222-2222-2222-2222-222222222222', '建築/躯体｜大工', 10),
+  ('ade44444-4444-4444-4444-444444444444', '建築/躯体｜大工', 4);
 INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
   ('ad411111-1111-1111-1111-111111111111', '東京都', NULL),
   ('ade11111-1111-1111-1111-111111111111', '東京都', NULL),
-  ('ade22222-2222-2222-2222-222222222222', '東京都', NULL);
+  ('ade22222-2222-2222-2222-222222222222', '東京都', NULL),
+  ('ade44444-4444-4444-4444-444444444444', '東京都', NULL);
 
 -- 本人確認 pending #2（created_at=now() で ADM-011 の古い順では末尾）
 INSERT INTO identity_verifications (user_id, document_type, document_url_1, status, created_at) VALUES
