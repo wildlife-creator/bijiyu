@@ -27,6 +27,13 @@ async function adminLogin(page: Page) {
   await page.waitForURL(/\/admin\/dashboard/);
 }
 
+/** ヘッダー右上のハンバーガーメニューを開いてログアウトする。 */
+async function adminLogout(page: Page) {
+  await page.getByRole("button", { name: "メニュー" }).click();
+  await page.getByRole("button", { name: "ログアウト" }).click();
+  await page.waitForURL(/\/admin\/login/);
+}
+
 // ============================================================
 // 14.1 admin 導線スモーク
 // ============================================================
@@ -38,7 +45,7 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
     await adminLogin(page);
 
     // ダッシュボードの8メニュー＋パスワード変更（計9メニュー）をクリックで巡回。
-    // 各画面から共通ヘッダーの「ビジ友 管理画面」リンクでダッシュボードへ戻る
+    // 各画面から共通ヘッダーのロゴ（accessible name「ビジ友 管理画面」）でダッシュボードへ戻る
     const menus: Array<[string, RegExp, string]> = [
       ["発注者アカウント一覧", /\/admin\/clients/, "発注者 アカウント一覧"],
       ["ユーザーアカウント一覧", /\/admin\/users/, "ユーザーアカウント一覧"],
@@ -47,7 +54,7 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
       ["お問い合わせ一覧", /\/admin\/contacts/, "お問い合わせ一覧"],
       ["トラブル報告一覧", /\/admin\/trouble-reports/, "トラブル報告一覧"],
       ["求人問い合わせ一覧", /\/admin\/job-inquiries/, "求人問い合わせ一覧"],
-      ["メッセージ一覧", /\/admin\/messages/, "メッセージ一覧"],
+      ["代理メッセージ一覧", /\/admin\/messages/, "代理メッセージ一覧"],
       ["パスワード変更", /\/admin\/password/, "パスワード変更"],
     ];
 
@@ -61,12 +68,8 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
       await page.waitForURL(/\/admin\/dashboard/);
     }
 
-    // ヘッダーのログアウト → /admin/login へ戻る
-    await page
-      .locator("header")
-      .getByRole("button", { name: "ログアウト" })
-      .click();
-    await page.waitForURL(/\/admin\/login/);
+    // ヘッダー右上のハンバーガーメニューからログアウト → /admin/login へ戻る
+    await adminLogout(page);
 
     // セッションが無効化されている（/admin/* へ直行しても login へ戻される）
     await page.goto("/admin/dashboard");
@@ -263,7 +266,7 @@ test.describe("ADM-013/014: 応募履歴の8分類と発注取消", () => {
 // ============================================================
 
 test.describe("ADM-006/007: 管理責任者 招待フロー", () => {
-  test("作成 → 招待メール → パスワード設定 → /billing/plans に着地する", async ({
+  test("作成 → 招待メール → パスワード設定 → /billing（CLI-026）に着地する", async ({
     page,
   }) => {
     const inviteEmail = `adm-invite-${Date.now()}@test.local`;
@@ -318,11 +321,7 @@ test.describe("ADM-006/007: 管理責任者 招待フロー", () => {
     // 招待リンクは「招待された本人のブラウザ」で開く（実運用と同じ）。
     // admin セッションのまま踏むと middleware（admin は /admin/* 専用）が
     // /admin/dashboard へ跳ね返してトークンだけが消費されるため、先にログアウトする
-    await page
-      .locator("header")
-      .getByRole("button", { name: "ログアウト" })
-      .click();
-    await page.waitForURL(/\/admin\/login/);
+    await adminLogout(page);
 
     // 招待リンクを踏む → implicit flow で /accept-invite/confirm に着地
     await page.goto(verifyUrl as string);
@@ -334,8 +333,10 @@ test.describe("ADM-006/007: 管理責任者 招待フロー", () => {
     await page.getByLabel("パスワード（確認）").fill("invitepass123");
     await page.getByRole("button", { name: "パスワードを設定する" }).click();
 
-    // invited_company_name 持ちの招待は受注者オンボをスキップして CLI-026 へ
-    await page.waitForURL(/\/billing\/plans/, { timeout: 15000 });
+    // invited_company_name 持ちの招待は受注者オンボをスキップして CLI-026（/billing）へ。
+    // /billing は「申し込む」ボタン（Stripe Checkout）があり、ここから発注者化できる。
+    // 末尾の /plans を誤検出しないよう $ で /billing で終わる URL に限定する。
+    await page.waitForURL(/\/billing(\?.*)?$/, { timeout: 15000 });
   });
 });
 
@@ -440,7 +441,7 @@ test.describe("ADM-023/024: 代理メッセージ閲覧", () => {
   }) => {
     await page.goto("/admin/messages");
     await expect(
-      page.getByRole("heading", { name: "メッセージ一覧" }),
+      page.getByRole("heading", { name: "代理メッセージ一覧" }),
     ).toBeVisible();
 
     await page.locator("a[href^='/admin/messages/']").first().click();

@@ -118,7 +118,7 @@ export function AdminClientFilters({
         <Button
           type="button"
           onClick={handleSearch}
-          className="rounded-full bg-secondary text-white hover:bg-secondary/90"
+          className="h-9 rounded-full bg-primary px-10 text-body-md text-white hover:bg-primary/90"
         >
           検索
         </Button>

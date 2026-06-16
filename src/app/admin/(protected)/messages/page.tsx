@@ -19,7 +19,7 @@ interface PageProps {
 }
 
 /**
- * ADM-023: メッセージ一覧（代理メッセージ閲覧・デザインカンプなし・admin 共通スタイル）。
+ * ADM-023: 代理メッセージ一覧（代理メッセージ閲覧・デザインカンプなし・admin 共通スタイル）。
  * admin_proxy_threads ビュー（is_proxy を含むスレッドのみ）を
  * last_message_at DESC, thread_id DESC（タイブレーク付き）で20件ページング表示する。
  * 会社絞込ドロップダウンの選択肢はビュー全件（fetchAllRows）から導出する
@@ -133,7 +133,7 @@ export default async function AdminProxyMessagesPage({
   return (
     <div className="px-5 py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
-        メッセージ一覧
+        代理メッセージ一覧
       </h1>
       <p className="mt-2 text-center text-body-sm text-muted-foreground">
         代理メッセージを含むスレッドのみ表示しています（閲覧専用）

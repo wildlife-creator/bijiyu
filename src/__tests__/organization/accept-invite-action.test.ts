@@ -108,7 +108,7 @@ describe("acceptInviteAction", () => {
     expect(updateChain.eq).toHaveBeenCalledWith("id", "u1");
   });
 
-  it("管理者招待（invited_company_name あり）: /billing/plans へ直行（受注者オンボをスキップ）", async () => {
+  it("管理者招待（invited_company_name あり）: /billing（CLI-026・申し込みボタンあり）へ直行（受注者オンボをスキップ）", async () => {
     mockGetUser.mockResolvedValue({
       data: {
         user: {
@@ -127,7 +127,7 @@ describe("acceptInviteAction", () => {
       confirmPassword: "abcd1234",
     });
     expect(r.success).toBe(true);
-    if (r.success) expect(r.data?.redirectTo).toBe("/billing/plans");
+    if (r.success) expect(r.data?.redirectTo).toBe("/billing");
   });
 
   it("user_metadata なしでも従来どおり /mypage", async () => {

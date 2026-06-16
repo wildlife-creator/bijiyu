@@ -2,8 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { adminLogoutAction } from "@/app/admin/actions";
-import { Button } from "@/components/ui/button";
+import { AdminHeaderMenu } from "@/components/admin/admin-header-menu";
 import { Toaster } from "@/components/ui/sonner";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,8 +14,8 @@ import { createClient } from "@/lib/supabase/server";
  * ミドルウェアの `/admin/*` admin role 制限に加え、ここでも `role='admin'` を
  * 再チェックする（二重防御）。admin 以外は /admin/login に飛ばす。
  *
- * ヘッダー: ①ダッシュボードへ戻るリンク ②ログアウトボタン
- * （全 admin 画面からログアウト導線に到達できるようにする。REQ-ADM-002）
+ * ヘッダー: ①左上にロゴ（クリックで管理者トップへ） ②右上にハンバーガーメニュー
+ * （トップと同じメニュー＋パスワード変更・ログアウト。全 admin 画面から到達可能。REQ-ADM-002）
  */
 export default async function AdminLayout({
   children,
@@ -41,21 +40,25 @@ export default async function AdminLayout({
   return (
     <div className="min-h-dvh bg-muted">
       <header className="flex items-center justify-between border-b border-border bg-background px-5 py-3">
-        <Link href="/admin/dashboard" className="text-body-lg font-bold text-secondary">
-          ビジ友 管理画面
+        <Link href="/admin/dashboard" className="flex items-center">
+          {/* 静的ロゴのため next/image ではなく site-header と同じ <img> を使う */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/logo-horizontal.png"
+            alt="ビジ友 管理画面"
+            width={100}
+            height={32}
+          />
         </Link>
-        <form action={adminLogoutAction}>
-          <Button
-            type="submit"
-            variant="outline"
-            size="sm"
-            className="rounded-pill text-body-sm"
-          >
-            ログアウト
-          </Button>
-        </form>
+        <AdminHeaderMenu />
       </header>
-      <main>{children}</main>
+      {/*
+        全 admin ページ共通の幅上限（中央寄せ）。
+        ウィンドウを広げても中身が画面端まで間延びしないようにする。
+        個別ページがさらに狭い max-w（dashboard 等の max-w-md）を持つ場合はそちらが優先される。
+        既存の詳細画面が max-w-2xl のため、それに合わせて全体を統一する。
+      */}
+      <main className="mx-auto w-full max-w-2xl">{children}</main>
       <Toaster position="top-center" />
     </div>
   );

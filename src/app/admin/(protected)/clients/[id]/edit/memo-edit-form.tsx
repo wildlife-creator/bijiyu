@@ -49,7 +49,7 @@ export function MemoEditForm({ userId, initialMemo }: MemoEditFormProps) {
         rows={10}
         maxLength={MAX_LENGTH}
         className="mt-2 min-h-60 bg-background"
-        placeholder="社内向けのメモを入力してください"
+        placeholder="管理者向けのメモを入力してください"
       />
       <p className="mt-1 text-right text-body-xs text-muted-foreground">
         {memo.length} / {MAX_LENGTH}
@@ -59,7 +59,7 @@ export function MemoEditForm({ userId, initialMemo }: MemoEditFormProps) {
         <Button
           type="submit"
           disabled={isPending}
-          className="h-12 w-full max-w-xs rounded-full bg-primary font-bold text-white hover:bg-primary/90"
+          className="w-full max-w-xs rounded-full bg-primary font-bold text-white hover:bg-primary/90"
         >
           {isPending ? "保存中..." : "保存する"}
         </Button>

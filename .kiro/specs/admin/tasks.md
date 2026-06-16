@@ -93,7 +93,7 @@
   - デザインカンプ: `design-assets/screens/ADM-002.png`
   - `src/app/admin/layout.tsx` のヘッダーバーに ①ダッシュボードへ戻るリンク ②ログアウトボタン（`<form action={adminLogoutAction}>`、`type="submit"` 明示）を追加し、全 admin 画面からログアウト導線に到達できるようにする
   - adminLogoutAction（signOut → `/admin/login` へ redirect）を admin 専用に新設する（既存の `src/app/admin/actions.ts`〔動画 Action あり〕に追記。一般ユーザー用 logoutAction は流用しない）
-  - ADM-002（`/admin/dashboard`）は video-display spec の最小実装（「ユーザーアカウント一覧」1メニューのみ）が**既に存在する**ため、既存ページを9メニュー（発注者一覧／ユーザー一覧／本人確認／応募履歴／お問い合わせ／トラブル報告／求人問い合わせ／メッセージ一覧＝全社／パスワード変更）＋ログアウトの縦並びリンク構成に置き換える。件数表示・ダッシュボード数値は付けない
+  - ADM-002（`/admin/dashboard`）は video-display spec の最小実装（「ユーザーアカウント一覧」1メニューのみ）が**既に存在する**ため、既存ページを9メニュー（発注者一覧／ユーザー一覧／本人確認／応募履歴／お問い合わせ／トラブル報告／求人問い合わせ／代理メッセージ一覧＝全社／パスワード変更）＋ログアウトの縦並びリンク構成に置き換える。件数表示・ダッシュボード数値は付けない
   - 既存 E2E（`e2e/video-display.spec.ts`）がダッシュボードの「ユーザーアカウント一覧」リンクをクリックで辿るため、このリンク文言は変えない（変える場合は E2E も同時更新）
   - _Requirements: 002_
 
@@ -266,7 +266,7 @@
   - _Requirements: 020, 021_
 
 - [x] 12. 代理メッセージ閲覧（ADM-023 / 024）
-- [x] 12.1 (P) ADM-023 メッセージ一覧（代理スレッド）を実装する
+- [x] 12.1 (P) ADM-023 代理メッセージ一覧（代理スレッド）を実装する
   - デザインカンプなし（admin 共通スタイルに合わせる）
   - `/admin/messages` に admin_proxy_threads ビューを `last_message_at DESC, thread_id DESC`（タイブレーク付き）で20件ページング表示する
   - 各行: 会社名（display_name）／相手の職人名／最終メッセージ日時（formatDateTime）／代理バッジ

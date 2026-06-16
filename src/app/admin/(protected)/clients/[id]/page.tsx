@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ThumbsUp } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ import { formatDateTime } from "@/lib/utils/format-date";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { DeleteAccountButton } from "./delete-account-button";
+import { JobSiteList } from "./job-site-list";
+import { MemberList } from "./member-list";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -49,7 +52,7 @@ function DetailRow({
   const isString = typeof value === "string";
   return (
     <div className="border-b border-border/20 last:border-b-0">
-      <p className="bg-muted px-4 py-2 text-body-sm font-medium text-muted-foreground">
+      <p className="bg-primary/[0.08] px-4 py-2 text-body-sm font-medium text-foreground">
         {label}
       </p>
       <div className="px-4 py-3 text-body-md text-foreground">
@@ -246,26 +249,14 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
 
       {isDeleted && (
         <div className="mt-4 rounded-[8px] bg-muted p-4">
-          <p className="text-body-md font-bold text-muted-foreground">
+          <p className="text-center text-body-md font-bold text-muted-foreground">
             このアカウントは退会済みです
           </p>
         </div>
       )}
 
-      {/* 1. 編集する（退会済みは非表示） */}
-      {!isDeleted && (
-        <div className="mt-4 flex justify-end">
-          <Button
-            asChild
-            className="rounded-full bg-secondary text-white hover:bg-secondary/90"
-          >
-            <Link href={`/admin/clients/${id}/edit`}>編集する</Link>
-          </Button>
-        </div>
-      )}
-
-      {/* 2. 内部管理者のメモ */}
-      <section className="mt-4">
+      {/* 1. 内部管理者のメモ（編集ボタンはメモ欄の直下に置き、メモ専用の編集だと分かるようにする） */}
+      <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">
           内部管理者のメモ
         </h2>
@@ -274,6 +265,16 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
             <span className="text-muted-foreground">メモはありません</span>
           )}
         </div>
+        {!isDeleted && (
+          <div className="mt-2 flex justify-end">
+            <Button
+              asChild
+              className="rounded-full bg-primary text-white hover:bg-primary/90"
+            >
+              <Link href={`/admin/clients/${id}/edit`}>メモを編集する</Link>
+            </Button>
+          </div>
+        )}
       </section>
 
       {/* 3. オプション加入状況 */}
@@ -320,8 +321,8 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* 4. 発注者情報 */}
-      <section className="mt-8">
+      {/* 4. 発注者情報（ここから受注者に見える発注者情報。運営の管理情報＝メモ／オプションと間隔を空ける） */}
+      <section className="mt-16">
         <h2 className="text-body-lg font-bold text-foreground">発注者情報</h2>
         <div className="mt-3 flex items-center gap-4">
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
@@ -373,7 +374,10 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
       )}
       {hasWorkplaceVideoOption && !isDeleted && (
         <div className="mt-3 flex justify-end">
-          <Button asChild variant="outline" className="rounded-full">
+          <Button
+            asChild
+            className="rounded-full bg-primary text-white hover:bg-primary/90"
+          >
             <Link href={`/admin/users/${id}/workplace-video`}>
               職場紹介動画を投稿/編集する
             </Link>
@@ -435,8 +439,8 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
           <p className="flex items-center gap-3 text-body-md text-foreground">
             ・また仕事を受けたい
             <span className="flex items-center gap-1 font-bold">
-              <span aria-hidden>👍</span>
-              {reputation.goodCount}
+              <ThumbsUp className="h-4 w-4 text-primary/70" aria-hidden />
+              {reputation.goodCount}／{reputation.total}件
             </span>
           </p>
         </div>
@@ -446,39 +450,8 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
       {orgId && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">担当者情報</h2>
-          <div className="mt-2 overflow-hidden rounded-[8px] border border-border/20 bg-background">
-            {memberRows.length === 0 ? (
-              <p className="px-4 py-4 text-body-sm text-muted-foreground">
-                担当者はいません
-              </p>
-            ) : (
-              memberRows.map((m) => (
-                <div
-                  key={m.userId}
-                  className="border-b border-border/20 px-4 py-3 last:border-b-0"
-                >
-                  <p className="flex items-center gap-2 text-body-md font-medium text-foreground">
-                    {m.name}
-                    {m.isPending && (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-body-xs font-normal text-primary">
-                        招待中
-                      </span>
-                    )}
-                    {m.isProxy && (
-                      <span className="rounded-full bg-secondary/10 px-2 py-0.5 text-body-xs font-normal text-secondary">
-                        代理
-                      </span>
-                    )}
-                  </p>
-                  <p className="truncate text-body-sm text-muted-foreground">
-                    {m.email}
-                  </p>
-                  <p className="text-body-sm text-muted-foreground">
-                    権限: {m.orgRoleLabel}
-                  </p>
-                </div>
-              ))
-            )}
+          <div className="mt-2">
+            <MemberList members={memberRows} />
           </div>
         </section>
       )}
@@ -487,46 +460,28 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">募集現場一覧</h2>
         <p className="mt-1 text-body-sm text-muted-foreground">
-          案件数 {jobIds.length}件 ／ 応募数 {totalApplications}件
+          案件数 {jobIds.length}件・応募数 {totalApplications}件
         </p>
-        <div className="mt-2 overflow-hidden rounded-[8px] border border-border/20 bg-background">
-          {(jobs ?? []).length === 0 ? (
-            <p className="px-4 py-4 text-body-sm text-muted-foreground">
-              掲載案件はありません
-            </p>
-          ) : (
-            (jobs ?? []).map((job) => (
-              <div
-                key={job.id}
-                className="flex items-center gap-3 border-b border-border/20 px-4 py-3 last:border-b-0"
-              >
-                <Link
-                  href={`/admin/jobs/${job.id}`}
-                  className="min-w-0 flex-1 hover:underline"
-                >
-                  <p className="truncate text-body-md font-medium text-foreground">
-                    {job.title}
-                  </p>
-                  <span className="text-body-xs text-muted-foreground">
-                    {JOB_STATUS_LABELS[job.status] ?? job.status}
-                  </span>
-                </Link>
-                <Link
-                  href={`/admin/applications?jobId=${job.id}`}
-                  className="shrink-0 text-body-sm text-secondary underline underline-offset-2"
-                >
-                  応募 {applicationCountByJob.get(job.id) ?? 0}件
-                </Link>
-              </div>
-            ))
-          )}
+        <div className="mt-2">
+          <JobSiteList
+            jobs={(jobs ?? []).map((job) => ({
+              id: job.id,
+              title: job.title,
+              statusLabel: JOB_STATUS_LABELS[job.status] ?? job.status,
+              applicationCount: applicationCountByJob.get(job.id) ?? 0,
+            }))}
+          />
         </div>
       </section>
 
       {/* 11. 代理メッセージを見る（法人かつ代理スレッドあり） */}
       {orgId && hasProxyThreads && (
         <div className="mt-6">
-          <Button asChild variant="outline" className="rounded-full">
+          <Button
+            asChild
+            variant="outline"
+            className="rounded-full border-primary text-primary hover:bg-primary/5 hover:text-primary"
+          >
             <Link href={`/admin/messages?organizationId=${orgId}`}>
               代理メッセージを見る
             </Link>
