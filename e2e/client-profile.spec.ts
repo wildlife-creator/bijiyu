@@ -206,7 +206,7 @@ test.describe("CLI-021 setup モード（課金直後フロー）", () => {
       page.getByRole("heading", { name: "発注者情報編集" }),
     ).toBeVisible();
     // 非法人プラン用セットアップバナー
-    await expect(page.getByText(/受注者機能のみ利用する方はスキップ可/)).toBeVisible();
+    await expect(page.getByText(/後から設定することもできます/)).toBeVisible();
     // スキップボタンが表示される
     await expect(
       page.getByRole("button", { name: "スキップして後で設定する" }),
