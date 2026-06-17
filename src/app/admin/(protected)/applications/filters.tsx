@@ -21,24 +21,22 @@ interface AdminApplicationFiltersProps {
   initialKeyword: string;
   /** "all" | AdminApplicationCategory */
   initialCategory: string;
-  /** "applied_desc" | "applied_asc" | "fwd_asc" | "fwd_desc" */
+  /**
+   * "applied_desc" | "applied_asc" | "fwd_asc" | "fwd_desc"
+   * 並び替えは結果右上の ⇅ ボタン（AdminApplicationSortButton）で操作する。
+   * このフィルタには UI を出さず、検索時に現在の並び順を維持するために passthrough する。
+   */
   initialSort: string;
   /** ドリルダウン絞り込み（検索時に保持する） */
   jobId?: string;
   clientId?: string;
 }
 
-const SORT_ITEMS: { value: string; label: string }[] = [
-  { value: "applied_desc", label: "応募日が新しい順" },
-  { value: "applied_asc", label: "応募日が古い順" },
-  { value: "fwd_asc", label: "初回稼働日が早い順" },
-  { value: "fwd_desc", label: "初回稼働日が遅い順" },
-];
-
 /**
- * ADM-013 のキーワード検索＋8分類ステータス絞込＋並び替え。
+ * ADM-013 のキーワード検索＋8分類ステータス絞込。
  * フィルタ状態は URL searchParams を SSOT とし、検索ボタンで router.push する。
- * ドリルダウン（jobId / clientId）は検索しても維持する。
+ * 並び替え（sort）は結果右上の ⇅ ボタンが即時反映するため、ここでは現在値を
+ * 引き継いで検索時に維持するだけ。ドリルダウン（jobId / clientId）も維持する。
  */
 export function AdminApplicationFilters({
   initialKeyword,
@@ -50,13 +48,15 @@ export function AdminApplicationFilters({
   const router = useRouter();
   const [keyword, setKeyword] = useState(initialKeyword);
   const [category, setCategory] = useState(initialCategory || "all");
-  const [sort, setSort] = useState(initialSort || "applied_desc");
 
   function handleSearch() {
     const params = new URLSearchParams();
     if (keyword.trim()) params.set("q", keyword.trim());
     if (category && category !== "all") params.set("category", category);
-    if (sort && sort !== "applied_desc") params.set("sort", sort);
+    // 並び替えは ⇅ ボタンが管理する。検索時は現在の並び順を維持する。
+    if (initialSort && initialSort !== "applied_desc") {
+      params.set("sort", initialSort);
+    }
     if (jobId) params.set("jobId", jobId);
     if (clientId) params.set("clientId", clientId);
     // 新規検索時はページを 1 に戻す（page は付けない = 既定 1）
@@ -101,22 +101,6 @@ export function AdminApplicationFilters({
             ).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <label className="text-body-sm font-bold">並び替え</label>
-        <Select value={sort} onValueChange={setSort}>
-          <SelectTrigger className="mt-1 w-full bg-background">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_ITEMS.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
               </SelectItem>
             ))}
           </SelectContent>

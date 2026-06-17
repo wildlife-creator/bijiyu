@@ -85,7 +85,7 @@ export function ReviewForm({ verificationId, enabled }: ReviewFormProps) {
           type="button"
           disabled={!canApprove}
           onClick={handleApprove}
-          className="w-36 rounded-full bg-secondary text-white hover:bg-secondary/90"
+          className="w-36 rounded-full bg-primary text-white hover:bg-primary/90"
         >
           {isPending ? "処理中..." : "承認"}
         </Button>

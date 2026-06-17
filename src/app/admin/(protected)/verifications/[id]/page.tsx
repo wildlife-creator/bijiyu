@@ -245,7 +245,7 @@ export default async function AdminVerificationDetailPage({
               <Button
                 type="button"
                 disabled
-                className="w-36 rounded-full bg-secondary text-white"
+                className="w-36 rounded-full bg-primary text-white"
               >
                 承認
               </Button>
