@@ -258,6 +258,7 @@ UPDATE public.users SET
   gender = '男性',
   birth_date = '1990-05-15',
   prefecture = '東京都',
+  municipality = '港区',
   company_name = '田中建設',
   bio = '大工歴10年。木造住宅を得意としています。',
   identity_verified = true,
@@ -335,6 +336,7 @@ UPDATE public.users SET
   gender = '女性',
   birth_date = '1992-07-22',
   prefecture = '神奈川県',
+  municipality = '横浜市西区',
   company_name = NULL,
   bio = '塗装工歴8年。外壁・内壁の塗装を専門にしています。左官工事も対応可能です。',
   identity_verified = true,
@@ -350,6 +352,7 @@ UPDATE public.users SET
   gender = '男性',
   birth_date = '1988-02-14',
   prefecture = '東京都',
+  municipality = '渋谷区',
   company_name = '渡辺電設',
   bio = '電気工事士として15年の経験があります。商業施設・住宅問わず対応可能です。',
   identity_verified = true,
@@ -1682,3 +1685,56 @@ INSERT INTO organizations (id, owner_id) VALUES
 INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account) VALUES
   ('ade25555-5555-5555-5555-555555555555', 'ade22222-2222-2222-2222-222222222222', 'owner', false),
   ('ade25555-5555-5555-5555-555555555555', 'ade23333-3333-3333-3333-333333333333', 'staff', false);
+
+-- ============================================================
+-- admin QA: ADM-013 応募履歴一覧 ページング確認用パディング
+-- ============================================================
+-- 目的: 既定（無絞り込み）の一覧が 20 件を超え「次の20件」ボタンが出る状態を再現する。
+-- 設計: ページング専用の使い捨て受注者「ページング太郎」を 1 人だけ作り、12 件の
+--   open 案件へ status='applied'（8分類=応募中）で応募させる。新規ユーザーなので
+--   既存テスト・画面の件数前提から完全に独立する。
+--   ・applications_unique_active（同一 job×applicant で非キャンセル 1 件）を満たすため
+--     12 件はすべて別案件。cancelled を作らないので cancelled_by 系テストに不干渉
+--   ・id 帯 adf1.... は既存 application/user id と衝突しない
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('adf11111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'adm-paging@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES
+  ('adf11111-1111-1111-1111-111111111111', 'adf11111-1111-1111-1111-111111111111', 'adm-paging@test.local', '{"sub":"adf11111-1111-1111-1111-111111111111","email":"adm-paging@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET
+  role = 'contractor', last_name = 'ページング', first_name = '太郎', gender = '男性',
+  birth_date = '1992-05-05', prefecture = '東京都',
+  bio = 'ページング確認用のダミー受注者です。', skill_tags = ARRAY['木造軸組構法'],
+  password_set_at = now()
+WHERE id = 'adf11111-1111-1111-1111-111111111111';
+
+INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
+  ('adf11111-1111-1111-1111-111111111111', '建築/躯体｜大工', 3);
+INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
+  ('adf11111-1111-1111-1111-111111111111', '東京都', NULL);
+
+-- 12 件の open 案件へ「応募中」を投入（19 件 + 12 件 = 31 件 → 1 ページ目 20 件 + 2 ページ目 11 件）
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, status, created_at)
+SELECT
+  ('adf10000-0000-4000-8000-0000000000' || lpad(g::text, 2, '0'))::uuid,
+  (ARRAY[
+    '66666666-6666-6666-6666-666666666666',
+    '77777777-7777-7777-7777-777777777777',
+    '88888888-8888-8888-8888-888888888881',
+    '88888888-8888-8888-8888-888888888882',
+    '88888888-8888-8888-8888-888888888883',
+    '88888888-8888-8888-8888-888888888884',
+    '88888888-8888-8888-8888-888888888885',
+    '88888888-8888-8888-8888-888888888886',
+    '88888888-8888-8888-8888-888888888898',
+    '99999999-9999-9999-9999-999999999990',
+    'aabbccdd-6666-6666-6666-666666666661',
+    'b1116666-0000-1000-8000-000000000001'
+  ])[g]::uuid,
+  'adf11111-1111-1111-1111-111111111111',
+  1, '常勤', 'applied',
+  now() - (g || ' minutes')::interval
+FROM generate_series(1, 12) AS g;
