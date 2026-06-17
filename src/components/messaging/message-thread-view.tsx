@@ -10,6 +10,12 @@ import type { Message } from "./message-list";
 interface MessageThreadViewProps {
   threadId: string;
   currentUserId: string;
+  /** 受注者の user id（participant_2_id）。
+   *  代理メッセージは法人スタッフの id で送信されるため、isMine 判定を
+   *  「currentUserId と一致するか」だけで行うと、オーナーが自社スタッフの
+   *  代理メッセージを「相手側」と誤認する（左側＋相手アバター表示）。
+   *  side ベースで判定するために受注者 id を渡す。 */
+  contractorId: string;
   initialMessages: Message[];
   participantAvatarUrl?: string | null;
   participantName?: string;
@@ -18,9 +24,21 @@ interface MessageThreadViewProps {
   isProxyAccount: boolean;
 }
 
+/**
+ * 送信者がどちら側の発信か（受注者 1 人 vs 発注者側オーナー+スタッフ複数）。
+ * 受注者の id と一致すれば受注者側、それ以外（オーナー、組織スタッフ、代理スタッフ）は発注者側。
+ */
+function isMessageOnContractorSide(
+  senderId: string,
+  contractorId: string,
+): boolean {
+  return senderId === contractorId;
+}
+
 export function MessageThreadView({
   threadId,
   currentUserId,
+  contractorId,
   initialMessages,
   participantAvatarUrl,
   participantName,
@@ -44,8 +62,13 @@ export function MessageThreadView({
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
     debounceTimerRef.current = setTimeout(() => {
+      // 相手側のメッセージだけ既読化（自分側=自社の代理含む はスキップ）
       const unreadIds = messages
-        .filter((m) => m.sender_id !== currentUserId && !m.read_at)
+        .filter(
+          (m) =>
+            isMessageOnContractorSide(m.sender_id, contractorId) !==
+              isContractorSide && !m.read_at,
+        )
         .map((m) => m.id);
 
       if (unreadIds.length > 0) {
@@ -62,7 +85,7 @@ export function MessageThreadView({
         });
       }
     }, 4000);
-  }, [messages, currentUserId]);
+  }, [messages, contractorId, isContractorSide]);
 
   useEffect(() => {
     markUnreadAsRead();
@@ -180,31 +203,31 @@ export function MessageThreadView({
   return (
     <>
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            messageId={message.id}
-            body={message.body}
-            signedImageUrl={message.signed_image_url}
-            createdAt={message.created_at}
-            isMine={message.sender_id === currentUserId}
-            isScout={message.is_scout}
-            isProxy={message.is_proxy}
-            isRead={message.read_at !== null}
-            scoutStatus={message.scout_status}
-            scoutJob={message.scout_job}
-            showScoutActions={showScoutActions}
-            showProxyBadge={!isContractorSide}
-            senderAvatarUrl={
-              message.sender_id !== currentUserId
-                ? participantAvatarUrl
-                : undefined
-            }
-            senderName={
-              message.sender_id !== currentUserId ? participantName : undefined
-            }
-          />
-        ))}
+        {messages.map((message) => {
+          // side ベースで自分側判定（代理メッセージも自社=自分側として扱う）
+          const messageIsMine =
+            isMessageOnContractorSide(message.sender_id, contractorId) ===
+            isContractorSide;
+          return (
+            <MessageBubble
+              key={message.id}
+              messageId={message.id}
+              body={message.body}
+              signedImageUrl={message.signed_image_url}
+              createdAt={message.created_at}
+              isMine={messageIsMine}
+              isScout={message.is_scout}
+              isProxy={message.is_proxy}
+              isRead={message.read_at !== null}
+              scoutStatus={message.scout_status}
+              scoutJob={message.scout_job}
+              showScoutActions={showScoutActions}
+              showProxyBadge={!isContractorSide}
+              senderAvatarUrl={!messageIsMine ? participantAvatarUrl : undefined}
+              senderName={!messageIsMine ? participantName : undefined}
+            />
+          );
+        })}
       </div>
       <MessageInput
         threadId={threadId}
