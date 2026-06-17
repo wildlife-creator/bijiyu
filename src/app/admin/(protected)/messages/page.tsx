@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import {
   buildProxyOrgOptions,
   dedupeOrganizationIds,
@@ -15,7 +16,11 @@ import { ProxyThreadFilters } from "./filters";
 const PAGE_SIZE = 20;
 
 interface PageProps {
-  searchParams: Promise<{ organizationId?: string; page?: string }>;
+  searchParams: Promise<{
+    organizationId?: string;
+    page?: string;
+    backTo?: string;
+  }>;
 }
 
 /**
@@ -32,6 +37,7 @@ export default async function AdminProxyMessagesPage({
   const organizationId = (sp.organizationId ?? "").trim();
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
+  const backTo = resolveBackTo(sp.backTo);
 
   const admin = createAdminClient();
 
@@ -127,8 +133,13 @@ export default async function AdminProxyMessagesPage({
     const params = new URLSearchParams();
     if (organizationId) params.set("organizationId", organizationId);
     if (targetPage > 1) params.set("page", String(targetPage));
+    if (backTo) params.set("backTo", backTo);
     return `/admin/messages${params.toString() ? `?${params}` : ""}`;
   }
+
+  // 行クリックで詳細に行く際の backTo 値（自分の URL + 上位 backTo を継承）
+  const currentListPath = pageHref(page);
+  const rowBackToValue = buildBackToValue(currentListPath, backTo);
 
   return (
     <div className="px-5 py-8">
@@ -155,7 +166,7 @@ export default async function AdminProxyMessagesPage({
           (threads ?? []).map((thread) => (
             <Link
               key={thread.thread_id}
-              href={`/admin/messages/${thread.thread_id}`}
+              href={`/admin/messages/${thread.thread_id}?backTo=${encodeURIComponent(rowBackToValue)}`}
               className="flex items-center gap-3 border-b border-border/20 px-4 py-3 last:border-b-0 hover:bg-muted/50"
             >
               <div className="min-w-0 flex-1">
@@ -172,7 +183,7 @@ export default async function AdminProxyMessagesPage({
                     : null) ?? "—"}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-white">
+              <span className="shrink-0 rounded-full border border-secondary bg-background px-2 py-0.5 text-xs font-bold text-secondary">
                 代理
               </span>
               <span className="text-muted-foreground">›</span>
@@ -202,7 +213,7 @@ export default async function AdminProxyMessagesPage({
           variant="outline"
           className="w-full max-w-xs rounded-full"
         >
-          <Link href="/admin/dashboard">もどる</Link>
+          <Link href={backTo ?? "/admin/dashboard"}>もどる</Link>
         </Button>
       </div>
     </div>

@@ -48,7 +48,7 @@ export function ProxyMessageList({
               {m.isContractorSide ? contractorName : clientName}
             </span>
             {m.isProxy && (
-              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-white">
+              <span className="rounded-full border border-secondary bg-background px-2 py-0.5 text-xs font-bold text-secondary">
                 代理
               </span>
             )}
@@ -57,7 +57,7 @@ export function ProxyMessageList({
             className={`mt-1 max-w-[75%] rounded-[8px] px-3 py-2 ${
               m.isContractorSide
                 ? "border border-border/20 bg-background"
-                : "bg-secondary/10"
+                : "bg-[#F0E2EF]"
             }`}
           >
             {m.body && (

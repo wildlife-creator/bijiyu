@@ -22,7 +22,7 @@ const COMMENTS_PER_PAGE = 20;
 
 interface PageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ commentsPage?: string }>;
+  searchParams: Promise<{ commentsPage?: string; backTo?: string }>;
 }
 
 function InfoRow({
@@ -62,6 +62,12 @@ export default async function AdminUserDetailPage({
     1,
     Number.parseInt(sp.commentsPage ?? "1", 10) || 1,
   );
+  // backTo は admin 配下の遷移元（応募詳細など）からの一時的な戻り先指定。
+  // 公開リダイレクター悪用を避けるため /admin/ 始まりのみ受け入れる。
+  const backTo =
+    typeof sp.backTo === "string" && sp.backTo.startsWith("/admin/")
+      ? sp.backTo
+      : "/admin/users";
   const admin = createAdminClient();
 
   const { data: u } = await admin
@@ -131,17 +137,6 @@ export default async function AdminUserDetailPage({
         ユーザーアカウント詳細
       </h1>
 
-      {/* 受注者PR動画の投稿ボタン（active 'video' の場合のみ。職場紹介動画の入口は ADM-004） */}
-      {hasVideo && (
-        <div className="mt-4 flex flex-col items-end gap-2">
-          <Button asChild variant="outline" className="rounded-full">
-            <Link href={`/admin/users/${id}/video`}>
-              受注者PR動画を投稿する
-            </Link>
-          </Button>
-        </div>
-      )}
-
       {/* ヘッダー（アバター + 氏名 + バッジ） */}
       <div className="mt-6 flex items-center gap-4">
         <div className="size-16 shrink-0 overflow-hidden rounded-full bg-background border border-border/30">
@@ -206,6 +201,21 @@ export default async function AdminUserDetailPage({
             <VideoEmbed url={u.video_url!} label="PR動画" />
           </div>
         </section>
+      )}
+
+      {/* 受注者PR動画の投稿ボタン（active 'video' のみ・退会済みは出さない。
+          発注者詳細 ADM-004 の職場紹介動画ボタンと色・配置をそろえる） */}
+      {hasVideo && !isDeleted && (
+        <div className="mt-3 flex justify-end">
+          <Button
+            asChild
+            className="rounded-full bg-primary text-white hover:bg-primary/90"
+          >
+            <Link href={`/admin/users/${id}/video`}>
+              受注者PR動画を投稿/編集する
+            </Link>
+          </Button>
+        </div>
       )}
 
       {/* 基本情報 */}
@@ -315,7 +325,7 @@ export default async function AdminUserDetailPage({
           variant="outline"
           className="w-full max-w-xs rounded-full"
         >
-          <Link href="/admin/users">もどる</Link>
+          <Link href={backTo}>もどる</Link>
         </Button>
 
         {/* 削除は contractor のみ。client は ADM-004（Stripe 解約＋配下スタッフ連動削除）に一本化 */}

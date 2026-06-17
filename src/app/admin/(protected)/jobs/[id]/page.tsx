@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AreaList } from "@/components/area/area-list";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { SafeImage } from "@/components/job-search/safe-image";
-import { BackButton } from "@/components/shared/back-button";
+import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   resolveClientProfileForRow,
@@ -19,6 +19,7 @@ import { formatRewardRange } from "@/lib/utils/format-reward";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ backTo?: string }>;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -58,7 +59,7 @@ function DetailRow({
   const isString = typeof value === "string";
   return (
     <div className="border-b border-border/20 last:border-b-0">
-      <p className="bg-muted px-4 py-2 text-body-sm font-medium text-muted-foreground">
+      <p className="bg-primary/[0.08] px-4 py-2 text-body-sm font-medium text-foreground">
         {label}
       </p>
       <div className="px-4 py-3 text-body-md text-foreground">
@@ -80,8 +81,15 @@ function formatDateRange(start: string | null, end: string | null): string | nul
  * データ取得は admin client で独立（既存の発注者画面 CLI-002 等に分岐を足さない＝案B）。
  * 発注者操作（編集・発注）は持たない。
  */
-export default async function AdminJobDetailPage({ params }: PageProps) {
+export default async function AdminJobDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params;
+  const sp = await searchParams;
+  const backTo = resolveBackTo(sp.backTo);
+  const currentPath = `/admin/jobs/${id}`;
+  const backToForChildren = buildBackToValue(currentPath, backTo);
   const admin = createAdminClient();
 
   const { data: job } = await admin
@@ -222,16 +230,30 @@ export default async function AdminJobDetailPage({ params }: PageProps) {
           asChild
           className="w-full max-w-xs rounded-full bg-primary text-white hover:bg-primary/90"
         >
-          <Link href={`/admin/applications?jobId=${id}`}>応募一覧</Link>
+          <Link
+            href={`/admin/applications?jobId=${id}&backTo=${encodeURIComponent(backToForChildren)}`}
+          >
+            応募一覧
+          </Link>
         </Button>
         <Button
           asChild
           variant="outline"
           className="w-full max-w-xs rounded-full border-secondary text-secondary"
         >
-          <Link href={`/admin/clients/${clientSubjectId}`}>発注者詳細</Link>
+          <Link
+            href={`/admin/clients/${clientSubjectId}?backTo=${encodeURIComponent(backToForChildren)}`}
+          >
+            発注者詳細
+          </Link>
         </Button>
-        <BackButton className="max-w-xs" />
+        <Button
+          asChild
+          variant="outline"
+          className="w-full max-w-xs rounded-full"
+        >
+          <Link href={backTo ?? "/admin/dashboard"}>もどる</Link>
+        </Button>
       </div>
     </div>
   );

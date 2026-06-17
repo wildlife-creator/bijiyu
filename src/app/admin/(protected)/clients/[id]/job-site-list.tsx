@@ -20,9 +20,12 @@ export interface JobSiteItem {
 export function JobSiteList({
   jobs,
   initialLimit = 5,
+  backToValue,
 }: {
   jobs: JobSiteItem[];
   initialLimit?: number;
+  /** ADM-022 / ADM-013 へリンクする際に渡す backTo クエリの値（=ADM-004 自身の URL） */
+  backToValue: string;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -48,7 +51,7 @@ export function JobSiteList({
             className="flex items-center gap-3 border-b border-border/20 px-4 py-3 last:border-b-0"
           >
             <Link
-              href={`/admin/jobs/${job.id}`}
+              href={`/admin/jobs/${job.id}?backTo=${encodeURIComponent(backToValue)}`}
               className="min-w-0 flex-1 hover:underline"
             >
               <p className="truncate text-body-md font-medium text-foreground">
@@ -59,7 +62,7 @@ export function JobSiteList({
               </span>
             </Link>
             <Link
-              href={`/admin/applications?jobId=${job.id}`}
+              href={`/admin/applications?jobId=${job.id}&backTo=${encodeURIComponent(backToValue)}`}
               className="shrink-0 text-body-sm text-secondary underline underline-offset-2"
             >
               応募 {job.applicationCount}件

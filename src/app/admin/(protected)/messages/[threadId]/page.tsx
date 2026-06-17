@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
 
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
 import {
   ProxyMessageList,
   type ProxyMessageItem,
 } from "@/components/admin/proxy-message-list";
-import { BackButton } from "@/components/shared/back-button";
+import { resolveBackTo } from "@/lib/admin/back-to";
 import { getSignedDocumentUrls } from "@/lib/admin/signed-urls";
 import { fetchAllRows } from "@/lib/admin/proxy-threads";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,6 +19,7 @@ import { formatDateTime } from "@/lib/utils/format-date";
 
 interface PageProps {
   params: Promise<{ threadId: string }>;
+  searchParams: Promise<{ backTo?: string }>;
 }
 
 /**
@@ -26,8 +30,11 @@ interface PageProps {
  */
 export default async function AdminProxyMessageDetailPage({
   params,
+  searchParams,
 }: PageProps) {
   const { threadId } = await params;
+  const sp = await searchParams;
+  const backTo = resolveBackTo(sp.backTo);
   const admin = createAdminClient();
 
   // プライバシー境界: 代理メッセージを含むスレッドのみ閲覧可
@@ -138,7 +145,10 @@ export default async function AdminProxyMessageDetailPage({
         閲覧専用（送信はできません）
       </p>
 
-      <div className="mt-6 rounded-[8px] border border-border/20 bg-muted/30 p-4">
+      {/* メッセージ枠は画面高の最大 60% で固定、超過分は内部スクロール。
+          一般ユーザーの /messages/[threadId] と同じ「枠固定+内部スクロール」UX。
+          メッセージ数が少ないスレッドは自然な高さで縮む（max-h なので） */}
+      <div className="mt-6 max-h-[60vh] overflow-y-auto rounded-[8px] border border-border/20 bg-muted/30 p-4">
         <ProxyMessageList
           messages={messages}
           clientName={clientName}
@@ -147,7 +157,13 @@ export default async function AdminProxyMessageDetailPage({
       </div>
 
       <div className="mt-10 flex flex-col items-center gap-3">
-        <BackButton className="max-w-xs" />
+        <Button
+          asChild
+          variant="outline"
+          className="w-full max-w-xs rounded-full"
+        >
+          <Link href={backTo ?? "/admin/messages"}>もどる</Link>
+        </Button>
       </div>
     </div>
   );

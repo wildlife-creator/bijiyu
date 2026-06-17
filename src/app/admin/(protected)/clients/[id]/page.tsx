@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AreaList } from "@/components/area/area-list";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { VideoEmbed } from "@/components/video-embed/video-embed";
+import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { derivePlanLabel } from "@/lib/admin/clients-list";
 import { fetchClientReputation } from "@/lib/client-review/aggregate";
 import { hasActiveOption } from "@/lib/billing/options";
@@ -20,6 +21,7 @@ import { MemberList } from "./member-list";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ backTo?: string }>;
 }
 
 const ORG_ROLE_LABELS: Record<string, string> = {
@@ -70,8 +72,15 @@ function DetailRow({
  * 集計スコープは org-scoping 準拠:
  * 法人 = organization_id 単位、個人・小規模 = owner_id 単位。
  */
-export default async function AdminClientDetailPage({ params }: PageProps) {
+export default async function AdminClientDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params;
+  const sp = await searchParams;
+  const backTo = resolveBackTo(sp.backTo);
+  const currentPath = `/admin/clients/${id}`;
+  const backToForChildren = buildBackToValue(currentPath, backTo);
   const admin = createAdminClient();
 
   // 契約主体（role='client'）のみ表示。退会済みも閲覧可能
@@ -470,6 +479,7 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
               statusLabel: JOB_STATUS_LABELS[job.status] ?? job.status,
               applicationCount: applicationCountByJob.get(job.id) ?? 0,
             }))}
+            backToValue={backToForChildren}
           />
         </div>
       </section>
@@ -482,7 +492,9 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
             variant="outline"
             className="rounded-full border-primary text-primary hover:bg-primary/5 hover:text-primary"
           >
-            <Link href={`/admin/messages?organizationId=${orgId}`}>
+            <Link
+              href={`/admin/messages?organizationId=${orgId}&backTo=${encodeURIComponent(backToForChildren)}`}
+            >
               代理メッセージを見る
             </Link>
           </Button>
@@ -496,10 +508,12 @@ export default async function AdminClientDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* 13. もどる（一覧へ。ADM-005 保存 redirect 経由の履歴ループ防止のため明示） */}
+      {/* 13. もどる（backTo 優先。無ければ一覧へ。
+          ADM-005 保存 redirect 経由の履歴ループ防止のため hardcoded ではなく
+          明示的なフォールバックパスを使う） */}
       <div className="mt-8 flex flex-col items-center">
         <Button asChild variant="outline" className="w-full max-w-xs rounded-full">
-          <Link href="/admin/clients">もどる</Link>
+          <Link href={backTo ?? "/admin/clients"}>もどる</Link>
         </Button>
       </div>
     </div>

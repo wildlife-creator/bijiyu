@@ -44,8 +44,8 @@ export function CancelButton({ applicationId }: CancelButtonProps) {
       <AlertDialogTrigger asChild>
         <Button
           type="button"
-          variant="outline"
-          className="rounded-full border-destructive text-destructive hover:bg-destructive/10"
+          variant="ghost"
+          className="h-auto p-0 text-body-sm font-medium text-destructive hover:bg-transparent hover:text-destructive/80 hover:underline"
         >
           発注を取り消す
         </Button>

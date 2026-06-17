@@ -2,13 +2,14 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { KeywordSearchForm } from "@/components/admin/keyword-search-form";
+import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
 
 const PAGE_SIZE = 20;
 
 interface PageProps {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; backTo?: string }>;
 }
 
 /**
@@ -22,6 +23,7 @@ export default async function AdminTroubleReportsPage({
   const keyword = (sp.q ?? "").trim();
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
+  const backTo = resolveBackTo(sp.backTo);
 
   const admin = createAdminClient();
 
@@ -49,8 +51,13 @@ export default async function AdminTroubleReportsPage({
     const params = new URLSearchParams();
     if (keyword) params.set("q", keyword);
     if (targetPage > 1) params.set("page", String(targetPage));
+    if (backTo) params.set("backTo", backTo);
     return `/admin/trouble-reports${params.toString() ? `?${params}` : ""}`;
   }
+
+  // 行クリックで詳細に行く際の backTo 値（自分の URL + 上位 backTo を継承）
+  const currentListPath = pageHref(page);
+  const rowBackToValue = buildBackToValue(currentListPath, backTo);
 
   return (
     <div className="px-5 py-8">
@@ -75,7 +82,7 @@ export default async function AdminTroubleReportsPage({
           (reports ?? []).map((r) => (
             <Link
               key={r.id}
-              href={`/admin/trouble-reports/${r.id}`}
+              href={`/admin/trouble-reports/${r.id}?backTo=${encodeURIComponent(rowBackToValue)}`}
               className="flex items-center gap-3 border-b border-border/20 px-4 py-3 last:border-b-0 hover:bg-muted/50"
             >
               <div className="min-w-0 flex-1">
@@ -87,7 +94,7 @@ export default async function AdminTroubleReportsPage({
                   <span className="mx-2 text-muted-foreground">→</span>
                   {r.counterparty_name}
                 </p>
-                <p className="truncate text-body-sm text-foreground">
+                <p className="truncate text-body-sm text-primary">
                   {r.category || "—"}
                 </p>
               </div>
@@ -118,7 +125,7 @@ export default async function AdminTroubleReportsPage({
           variant="outline"
           className="w-full max-w-xs rounded-full"
         >
-          <Link href="/admin/dashboard">もどる</Link>
+          <Link href={backTo ?? "/admin/dashboard"}>もどる</Link>
         </Button>
       </div>
     </div>

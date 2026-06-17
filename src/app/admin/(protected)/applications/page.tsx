@@ -11,6 +11,7 @@ import {
   buildApplicationsKeywordOr,
   KEYWORD_ID_SET_LIMIT,
 } from "@/lib/admin/applications-list";
+import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatDate, getJstToday } from "@/lib/utils/format-date";
@@ -19,6 +20,7 @@ import {
   resolveParticipantName,
 } from "@/lib/utils/display-name";
 import { AdminApplicationFilters } from "./filters";
+import { AdminApplicationSortButton } from "./sort-button";
 
 const PAGE_SIZE = 20;
 
@@ -34,6 +36,7 @@ interface PageProps {
     page?: string;
     jobId?: string;
     clientId?: string;
+    backTo?: string;
   }>;
 }
 
@@ -65,6 +68,7 @@ export default async function AdminApplicationsPage({
   const offset = (page - 1) * PAGE_SIZE;
   const jobIdParam = sp.jobId ?? null;
   const clientIdParam = sp.clientId ?? null;
+  const backTo = resolveBackTo(sp.backTo);
   const today = getJstToday();
 
   const admin = createAdminClient();
@@ -74,10 +78,44 @@ export default async function AdminApplicationsPage({
   if (jobIdParam) {
     const { data: job } = await admin
       .from("jobs")
-      .select("title")
+      .select("title, owner_id, organization_id")
       .eq("id", jobIdParam)
       .maybeSingle();
-    drilldownLabel = job ? `案件: ${job.title}` : null;
+    if (job) {
+      // 案件の契約主体（法人=org Owner / 個人=owner_id）の表示名を併記する
+      let ownerSubjectId = job.owner_id;
+      if (job.organization_id) {
+        const { data: org } = await admin
+          .from("organizations")
+          .select("owner_id")
+          .eq("id", job.organization_id)
+          .maybeSingle();
+        if (org) ownerSubjectId = org.owner_id;
+      }
+      const [{ data: ownerUser }, { data: ownerProfile }] = await Promise.all([
+        admin
+          .from("users")
+          .select("last_name, first_name, deleted_at")
+          .eq("id", ownerSubjectId)
+          .maybeSingle(),
+        admin
+          .from("client_profiles")
+          .select("display_name")
+          .eq("user_id", ownerSubjectId)
+          .maybeSingle(),
+      ]);
+      const ownerName = ownerUser
+        ? resolveParticipantName({
+            displayName: ownerProfile?.display_name ?? null,
+            lastName: ownerUser.last_name,
+            firstName: ownerUser.first_name,
+            deletedAt: ownerUser.deleted_at,
+          })
+        : null;
+      drilldownLabel = ownerName
+        ? `案件: ${job.title}（発注者: ${ownerName}）`
+        : `案件: ${job.title}`;
+    }
   } else if (clientIdParam) {
     const [{ data: clientUser }, { data: profile }] = await Promise.all([
       admin
@@ -237,8 +275,14 @@ export default async function AdminApplicationsPage({
     if (jobIdParam) params.set("jobId", jobIdParam);
     if (clientIdParam) params.set("clientId", clientIdParam);
     if (targetPage > 1) params.set("page", String(targetPage));
+    if (backTo) params.set("backTo", backTo);
     return `/admin/applications${params.toString() ? `?${params}` : ""}`;
   }
+
+  // 行クリックで応募詳細に行く際、現在のリスト URL（フィルタ + 上位 backTo 込み）
+  // を子の backTo として渡す。
+  const currentListPath = pageHref(page);
+  const rowBackToValue = buildBackToValue(currentListPath, backTo);
 
   return (
     <div className="px-5 py-8">
@@ -260,7 +304,10 @@ export default async function AdminApplicationsPage({
         clientId={clientIdParam ?? undefined}
       />
 
-      <p className="mt-6 text-body-md font-bold">検索結果：{total}件</p>
+      <div className="mt-6 flex items-center justify-between gap-3">
+        <p className="text-body-md font-bold">検索結果：{total}件</p>
+        <AdminApplicationSortButton />
+      </div>
       {idSetTruncated && (
         <p className="mt-1 text-body-sm text-destructive">
           ヒット件数が多いため一部のみ検索対象になっています。より具体的なキーワードで検索してください
@@ -300,7 +347,7 @@ export default async function AdminApplicationsPage({
             return (
               <Link
                 key={app.id}
-                href={`/admin/applications/${app.id}`}
+                href={`/admin/applications/${app.id}?backTo=${encodeURIComponent(rowBackToValue)}`}
                 className="flex items-center gap-3 border-b border-border/20 px-4 py-3 last:border-b-0 hover:bg-muted/50"
               >
                 <div className="min-w-0 flex-1">
@@ -311,7 +358,7 @@ export default async function AdminApplicationsPage({
                   <p className="truncate text-body-sm text-muted-foreground">
                     {app.applicant?.email}
                   </p>
-                  <p className="mt-1 truncate text-body-md text-foreground">
+                  <p className="mt-2 truncate text-body-md text-foreground">
                     {app.job?.title ?? "—"}
                   </p>
                   <p className="text-body-sm text-muted-foreground">
@@ -349,7 +396,7 @@ export default async function AdminApplicationsPage({
           variant="outline"
           className="w-full max-w-xs rounded-full"
         >
-          <Link href="/admin/dashboard">もどる</Link>
+          <Link href={backTo ?? "/admin/dashboard"}>もどる</Link>
         </Button>
       </div>
     </div>
