@@ -220,11 +220,11 @@ export async function executeWithdrawal(params: {
         }
       }
 
-      await admin
-        .from("organization_members")
-        .delete()
-        .eq("organization_id", orgId);
-
+      // organization_members は **意図的に残す**（B 案・admin 監査表示用）。
+      // 組織自体は deleted_at で論理削除し、organizations.deleted_at を絞り込む
+      // 既存クエリで自然と除外される。残したメンバー行は退会済み user を
+      // 旧所属組織に紐づける履歴として admin の発注者一覧で会社名表示に使う。
+      // 個別退会（else 節）は従来通り削除する（プラン slot を解放するため）。
       await admin
         .from("organizations")
         .update({ deleted_at: new Date().toISOString() })
