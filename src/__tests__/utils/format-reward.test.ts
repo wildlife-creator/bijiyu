@@ -9,12 +9,12 @@ describe("formatRewardRange", () => {
     );
   });
 
-  it("下限のみの場合は「L円〜（人工）」を返す", () => {
+  it("下限のみの場合は「L円〜（人工）」を返す（公開済では稀）", () => {
     expect(formatRewardRange(26000, null)).toBe("26,000円〜（人工）");
   });
 
-  it("上限のみの場合は「〜U円（人工）」を返す", () => {
-    expect(formatRewardRange(null, 32000)).toBe("〜32,000円（人工）");
+  it("上限のみの場合は「U円（人工）」を返す（上限を代表値として単体表示）", () => {
+    expect(formatRewardRange(null, 32000)).toBe("32,000円（人工）");
   });
 
   it("両方とも null の場合は emptyLabel (デフォルト null) を返す", () => {

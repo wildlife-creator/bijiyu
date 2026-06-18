@@ -12,6 +12,7 @@ import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
+import { formatRewardRange } from "@/lib/utils/format-reward";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -163,10 +164,9 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
   const qualificationLabels =
     qualifications?.map((q) => q.qualification_name) ?? [];
 
-  const rewardText =
-    job.reward_lower
-      ? `${job.reward_lower.toLocaleString()}円（人工）`
-      : "未定";
+  const rewardText = formatRewardRange(job.reward_lower, job.reward_upper, {
+    emptyLabel: "未定",
+  });
 
   const recruitPeriod =
     job.recruit_start_date && job.recruit_end_date

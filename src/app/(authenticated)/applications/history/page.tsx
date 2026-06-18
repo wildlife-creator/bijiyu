@@ -16,6 +16,7 @@ import { PaginationControls } from "@/components/job-search/pagination-controls"
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { formatRewardRange } from "@/lib/utils/format-reward";
 import { BackButton } from "./back-button";
 import { StatusFilter } from "./status-filter";
 import { SortButton } from "./sort-button";
@@ -212,10 +213,11 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
               })
             : "不明";
 
-          const rewardText =
-            job?.reward_lower
-              ? `${job.reward_lower.toLocaleString()}円（人工）`
-              : "未定";
+          const rewardText = formatRewardRange(
+            job?.reward_lower,
+            job?.reward_upper,
+            { emptyLabel: "未定" },
+          );
 
           const recruitPeriod =
             job?.recruit_start_date && job?.recruit_end_date

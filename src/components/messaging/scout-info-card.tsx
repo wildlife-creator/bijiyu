@@ -4,6 +4,7 @@ import { formatDate } from "@/lib/utils/format-date";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { formatRewardRange } from "@/lib/utils/format-reward";
 import { ScoutActionButtons } from "./scout-action-buttons";
 
 interface ScoutInfoCardProps {
@@ -37,12 +38,9 @@ export function ScoutInfoCard({
   scoutStatus,
   messageId,
 }: ScoutInfoCardProps) {
-  const rewardText =
-    rewardLower && rewardUpper
-      ? `${rewardLower.toLocaleString()}〜${rewardUpper.toLocaleString()}円（人工）`
-      : rewardLower
-        ? `${rewardLower.toLocaleString()}円〜（人工）`
-        : "—";
+  const rewardText = formatRewardRange(rewardLower, rewardUpper, {
+    emptyLabel: "—",
+  });
 
   return (
     <div className="mx-4 my-3 rounded-[8px] border border-border bg-white p-4">

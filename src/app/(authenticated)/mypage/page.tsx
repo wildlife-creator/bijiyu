@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { formatRewardRange } from "@/lib/utils/format-reward";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import {
   resolveClientProfileForRow,
@@ -503,9 +504,11 @@ export default async function MyPage() {
               deletedAt: resolution.deletedAt,
             });
             const headcountText = job.headcount ? `${job.headcount}人` : null;
-            const rewardText = job.reward_lower
-              ? `${job.reward_lower.toLocaleString()}円（人工）`
-              : "要相談";
+            const rewardText = formatRewardRange(
+              job.reward_lower,
+              job.reward_upper,
+              { emptyLabel: "要相談" },
+            );
             const recruitPeriod = [job.recruit_start_date, job.recruit_end_date]
               .map((d) => (d ? d.replace(/-/g, "/") : ""))
               .join("〜");

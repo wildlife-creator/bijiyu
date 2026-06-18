@@ -7,6 +7,7 @@ import { JobThumbnail } from "@/components/job-search/job-thumbnail";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { formatRewardRange } from "@/lib/utils/format-reward";
 
 interface JobListCardProps {
   job: {
@@ -25,15 +26,6 @@ interface JobListCardProps {
   isFavorited: boolean;
   /** Use "text" for list pages, "icon" (default) for detail-like contexts */
   favoriteVariant?: "icon" | "text";
-}
-
-function formatReward(lower: number | null, upper: number | null): string {
-  if (lower && upper) {
-    return `${lower.toLocaleString()}円〜${upper.toLocaleString()}円（人工）`;
-  }
-  if (lower) return `${lower.toLocaleString()}円〜（人工）`;
-  if (upper) return `〜${upper.toLocaleString()}円（人工）`;
-  return "要相談";
 }
 
 export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobListCardProps) {
@@ -80,7 +72,11 @@ export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobL
               className="w-4 h-4 shrink-0"
             />
             <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">報酬</span>
-            <span>{formatReward(job.rewardLower, job.rewardUpper)}</span>
+            <span>
+              {formatRewardRange(job.rewardLower, job.rewardUpper, {
+                emptyLabel: "要相談",
+              })}
+            </span>
           </div>
           <div className="flex items-center">
             <img

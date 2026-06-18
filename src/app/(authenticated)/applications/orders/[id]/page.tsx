@@ -12,6 +12,7 @@ import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
+import { formatRewardRange } from "@/lib/utils/format-reward";
 import { calculateAge } from "@/lib/utils/calculate-age";
 
 interface Props {
@@ -156,9 +157,9 @@ export default async function OrderDetailPage({ params }: Props) {
     application.user_reviews != null &&
     (!Array.isArray(application.user_reviews) || application.user_reviews.length > 0);
 
-  const rewardText = job.reward_lower
-    ? `${job.reward_lower.toLocaleString()}円（人工）`
-    : "未定";
+  const rewardText = formatRewardRange(job.reward_lower, job.reward_upper, {
+    emptyLabel: "未定",
+  });
 
   const recruitPeriod =
     job.recruit_start_date && job.recruit_end_date

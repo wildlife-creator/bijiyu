@@ -7,6 +7,7 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatDate } from "@/lib/utils/format-date";
+import { formatRewardRange } from "@/lib/utils/format-reward";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,15 +77,6 @@ function StatusBadge({ status }: { status: string }) {
     );
   }
   return <Badge variant="outline">{label}</Badge>;
-}
-
-function formatReward(lower: number | null, upper: number | null): string {
-  if (lower && upper) {
-    return `${lower.toLocaleString()}〜${upper.toLocaleString()}円`;
-  }
-  if (lower) return `${lower.toLocaleString()}円〜`;
-  if (upper) return `〜${upper.toLocaleString()}円`;
-  return "—";
 }
 
 export function JobListClient({
@@ -191,7 +183,11 @@ export function JobListClient({
                   <div className="flex items-center">
                     <img src="/images/icons/icon-coin.png" alt="" className="w-4 h-4 shrink-0" />
                     <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">報酬</span>
-                    <span>{formatReward(job.reward_lower, job.reward_upper)}（人工）</span>
+                    <span>
+                      {formatRewardRange(job.reward_lower, job.reward_upper, {
+                        emptyLabel: "—",
+                      })}
+                    </span>
                   </div>
                   {job.areas.length > 0 && (
                     <div className="flex items-center">

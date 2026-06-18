@@ -8,6 +8,7 @@ import {
 } from "@/lib/utils/display-name";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { formatRewardRange } from "@/lib/utils/format-reward";
 import { ApplicationForm } from "./application-form";
 
 interface PageProps {
@@ -112,6 +113,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     firstName: resolution.firstName,
     deletedAt: resolution.deletedAt,
   });
+  const rewardText = formatRewardRange(job.reward_lower, job.reward_upper);
 
   return (
     <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
@@ -124,12 +126,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
           <p className="text-body-sm text-muted-foreground">{companyName}</p>
         )}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-body-sm text-muted-foreground">
-          {job.reward_lower && job.reward_upper && (
-            <span>
-              {job.reward_lower.toLocaleString()}〜
-              {job.reward_upper.toLocaleString()}円（人工）
-            </span>
-          )}
+          {rewardText && <span>{rewardText}</span>}
           {jobAreas.length > 0 && (
             <AreaSummary areas={jobAreas} maxVisible={2} />
           )}
