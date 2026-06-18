@@ -169,6 +169,21 @@ describe("jobSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts when rewardLower is omitted (上限のみ、フォーム UI と整合)", () => {
+    const { rewardLower: _omit, ...withoutLower } = validInput;
+    void _omit;
+    const result = jobSchema.safeParse(withoutLower);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts when rewardLower is NaN (フォーム空欄 + valueAsNumber)", () => {
+    const result = jobSchema.safeParse({
+      ...validInput,
+      rewardLower: Number.NaN,
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("rejects negative reward values", () => {
     const result = jobSchema.safeParse({
       ...validInput,

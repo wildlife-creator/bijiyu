@@ -296,6 +296,13 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 「公開する」ボタンは `handleSubmit(callback)()` を使い、バリデーション失敗時はトーストでエラーフィールドを通知すること
 
 
+### フォーム必須マークと Zod schema の整合（必ず守ること）
+- フォームの Label に「必須」マークが付いていない（= UI 上は任意扱い）フィールドは、対応する Zod schema 側でも `.optional()` で許容すること。両者が食い違うと「UI は任意なのに公開ボタンで弾かれる」謎エラーになる
+- 数値フィールドで `register("xxx", { valueAsNumber: true })` を使う場合、空欄入力時は **NaN** になるため、`.optional().or(z.nan())` の両方を付ける必要がある（`.optional()` だけでは NaN を弾く）
+- 比較系の refine（例: `data.rewardUpper >= data.rewardLower`）を入れる場合、片方が undefined / NaN なら比較を skip するロジック（`if (X === undefined || Number.isNaN(X)) return true;`）を入れること。これを忘れると、任意フィールド未入力時に比較が `NaN >= 数値 = false` となり弾かれる
+- 下書きスキーマ（`jobDraftSchema`）は全項目任意で問題は起きにくいが、公開スキーマ（`jobSchema` 等）で UI と不整合になりやすい
+- 2026-06-18 実例: `src/lib/validations/job.ts` の `jobSchema.rewardLower` が必須扱いになっていて、UI では「報酬下限」が任意（「必須」マークなし）なのに公開ボタンで「報酬下限は数値で入力してください」エラーになった。`.optional().or(z.nan())` に変更し、上限>=下限 refine も skip ロジック追加で修正
+
 ### 外部サービス連携
 - billing 機能の実装時は Stripe CLI でローカル Webhook 転送を設定し、
   テスト決済後に users.role が 'client' に変わることを手動で確認すること

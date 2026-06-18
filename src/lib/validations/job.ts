@@ -23,10 +23,13 @@ export const jobSchema = z
       .array(z.string().trim().min(1))
       .min(1, "職種を1つ以上選択してください")
       .transform((arr) => Array.from(new Set(arr))),
+    // 報酬下限は任意。空欄 (register valueAsNumber → NaN) と undefined の両方を許容
     rewardLower: z
       .number({ message: "報酬下限は数値で入力してください" })
       .int()
-      .positive("報酬下限は正の数で入力してください"),
+      .positive("報酬下限は正の数で入力してください")
+      .optional()
+      .or(z.nan()),
     rewardUpper: z
       .number({ message: "報酬上限は数値で入力してください" })
       .int()
@@ -54,10 +57,19 @@ export const jobSchema = z
     ownerMessage: z.string().max(2000).optional().or(z.literal("")),
     status: z.enum(["draft", "open", "closed"]),
   })
-  .refine((data) => data.rewardUpper >= data.rewardLower, {
-    message: "報酬上限は下限以上の値を入力してください",
-    path: ["rewardUpper"],
-  })
+  .refine(
+    (data) => {
+      // 下限未指定 (undefined / NaN) なら比較しない
+      if (data.rewardLower === undefined || Number.isNaN(data.rewardLower)) {
+        return true;
+      }
+      return data.rewardUpper >= data.rewardLower;
+    },
+    {
+      message: "報酬上限は下限以上の値を入力してください",
+      path: ["rewardUpper"],
+    },
+  )
   .refine(
     (data) => new Date(data.workEndDate) >= new Date(data.workStartDate),
     {
