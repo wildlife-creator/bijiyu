@@ -7,8 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { createBrowserClient } from "@supabase/ssr";
 import {
   updatePasswordSchema,
@@ -145,9 +145,8 @@ export default function AcceptInviteConfirmPage() {
         >
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">パスワード</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               aria-invalid={!!errors.password}
               {...register("password")}
             />
@@ -163,9 +162,8 @@ export default function AcceptInviteConfirmPage() {
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="confirmPassword">パスワード（確認）</Label>
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               aria-invalid={!!errors.confirmPassword}
               {...register("confirmPassword")}
             />

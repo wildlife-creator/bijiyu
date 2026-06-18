@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { BackChevron } from "@/components/shared/back-chevron";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { loginAction } from "@/app/(auth)/login/actions";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -88,9 +89,8 @@ export default function LoginPage() {
             パスワード
             <span className="text-body-sm text-destructive">必須</span>
           </Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="current-password"
             aria-invalid={!!errors.password}
             {...register("password")}

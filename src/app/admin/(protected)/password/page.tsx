@@ -5,8 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   adminPasswordChangeSchema,
   type AdminPasswordChangeInput,
@@ -71,9 +71,8 @@ export default function AdminPasswordPage() {
       >
         <div className="space-y-2">
           <Label htmlFor="currentPassword">現在のパスワード</Label>
-          <Input
+          <PasswordInput
             id="currentPassword"
-            type="password"
             autoComplete="current-password"
             aria-invalid={!!errors.currentPassword}
             {...register("currentPassword")}
@@ -87,9 +86,8 @@ export default function AdminPasswordPage() {
 
         <div className="space-y-2">
           <Label htmlFor="newPassword">新しいパスワード（8文字以上）</Label>
-          <Input
+          <PasswordInput
             id="newPassword"
-            type="password"
             autoComplete="new-password"
             aria-invalid={!!errors.newPassword}
             {...register("newPassword")}
@@ -103,9 +101,8 @@ export default function AdminPasswordPage() {
 
         <div className="space-y-2">
           <Label htmlFor="confirmPassword">新しいパスワード（確認）</Label>
-          <Input
+          <PasswordInput
             id="confirmPassword"
-            type="password"
             autoComplete="new-password"
             aria-invalid={!!errors.confirmPassword}
             {...register("confirmPassword")}
