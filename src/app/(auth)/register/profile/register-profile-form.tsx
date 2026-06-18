@@ -8,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -399,7 +400,7 @@ export function RegisterProfileForm({
             パスワード
             <RequiredBadge />
           </Label>
-          <Input id="password" type="password" {...register("password")} />
+          <PasswordInput id="password" {...register("password")} />
           <p className="text-muted-foreground text-body-sm">
             ※ 半角英数字の組み合わせ、8〜16文字
           </p>
@@ -416,9 +417,8 @@ export function RegisterProfileForm({
             パスワード（確認）
             <RequiredBadge />
           </Label>
-          <Input
+          <PasswordInput
             id="confirmPassword"
-            type="password"
             {...register("confirmPassword")}
           />
           <p className="text-muted-foreground text-body-sm">
