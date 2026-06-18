@@ -27,16 +27,10 @@ const compensationOptionInputSchema = z.object({
   optionType: z.enum(["compensation_5000", "compensation_9800"]),
 });
 
-// TODO(restore-strict-uuid): seed.sql の UUID（66666666-... 等）は RFC 4122
-//   非準拠のため Zod v4 の .uuid() を通らない。手動テスト用に一時的に寛容な
-//   フォーマットチェックに変更している。本番投入前に z.string().uuid() に戻すか、
-//   seed データを RFC 準拠に書き換えること。
-const UUID_LIKE_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-
 const urgentOptionInputSchema = z.object({
   type: z.literal("option"),
   optionType: z.literal("urgent"),
-  jobId: z.string().regex(UUID_LIKE_REGEX, "Invalid UUID"),
+  jobId: z.string().uuid(),
 });
 
 const videoOptionInputSchema = z.object({
