@@ -8,7 +8,9 @@ import { Card } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
+import { VideoEmbed } from "@/components/video-embed/video-embed";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { hasActiveOption } from "@/lib/billing/options";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveParticipantName } from "@/lib/utils/display-name";
@@ -101,7 +103,7 @@ export default async function ClientProfilePage() {
   const { data: profile } = await supabase
     .from("client_profiles")
     .select(
-      `display_name, address, image_url, recruit_job_types,
+      `display_name, address, image_url, workplace_video_url, recruit_job_types,
        employee_scale, working_way, language, message`,
     )
     .eq("user_id", profileUserId)
@@ -147,6 +149,17 @@ export default async function ClientProfilePage() {
   const isStaff = orgRole === "staff";
   const canEdit = orgRole === "owner" || orgRole === "admin" || orgRole === null;
   const isCorporate = organizationId !== null;
+
+  // 職場紹介動画: workplace_video_url 設定済み かつ active な 'video_workplace'
+  // オプションが Owner にある場合のみ表示。Admin/Staff が他人（Owner）の
+  // option を引くケースを含むため admin client 経由（hasActiveOption の注意書き準拠）。
+  const showWorkplaceVideo =
+    !!profile?.workplace_video_url &&
+    (await hasActiveOption(
+      createAdminClient(),
+      profileUserId,
+      "video_workplace",
+    ));
 
   return (
     <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
@@ -194,6 +207,23 @@ export default async function ClientProfilePage() {
           )}
         </div>
       </div>
+
+      {/* 職場紹介動画（active 'video_workplace' のみ）
+          CON-006 と同じ「他人から見るのと同じレイアウト」で自社動画を確認可能にする。
+          URL の編集自体は admin 専有（ADM-010B）で、ここは表示のみ */}
+      {showWorkplaceVideo && (
+        <section className="mt-6">
+          <h2 className="text-body-lg font-bold text-foreground">
+            職場紹介動画
+          </h2>
+          <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
+            <VideoEmbed
+              url={profile!.workplace_video_url!}
+              label="職場紹介動画"
+            />
+          </div>
+        </section>
+      )}
 
       {/* 基本情報 — CLI-006 と同じく plain div で rows を密着させる（Card の gap-4 を避ける） */}
       <section className="mt-6">
