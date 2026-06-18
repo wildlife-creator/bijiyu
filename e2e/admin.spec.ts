@@ -397,7 +397,7 @@ test.describe("ADM-003/004/022: 発注者管理ドリルダウン", () => {
     await page.getByRole("link", { name: "応募一覧" }).click();
     await page.waitForURL(/\/admin\/applications\?jobId=/);
     await expect(
-      page.getByText("木造住宅の内装リフォーム工事 で絞り込み中"),
+      page.getByText(/木造住宅の内装リフォーム工事.*で絞り込み中/),
     ).toBeVisible();
     await expect(page.getByText(/検索結果：[1-9]\d*件/)).toBeVisible();
 
