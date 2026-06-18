@@ -94,7 +94,7 @@ export function MessageBubble({
                 {isProxy && showProxyBadge && (
                   <Badge
                     variant="secondary"
-                    className="rounded-full bg-muted px-2 py-0 text-[10px] text-muted-foreground"
+                    className="rounded-full border border-secondary bg-background px-2 py-0 text-[10px] font-bold text-secondary"
                   >
                     代理
                   </Badge>

@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
+import { writeAuditLog } from "@/lib/audit/log";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -77,8 +79,28 @@ async function updateVideoColumn(
     };
   }
 
+  // 監査ログ（管理者の全操作を記録する要件。失敗しても本体処理は止めない）
+  await writeAuditLog({
+    actorId: user.id,
+    action: "video_url_update",
+    targetType: config.table,
+    targetId: userId,
+    metadata: { column: config.column, cleared: value === null },
+  });
+
   revalidatePath(`/admin/users/${userId}`);
   return { success: true };
+}
+
+/**
+ * 管理者ログアウト（AdminShell のヘッダーから呼ばれる）。
+ * 一般ユーザー用 logoutAction（/login へ redirect）は流用せず、
+ * admin 専用に /admin/login へ戻す。
+ */
+export async function adminLogoutAction(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/admin/login");
 }
 
 /** ADM-010: 受注者PR動画（users.video_url）を更新する。 */

@@ -2,44 +2,13 @@
 
 import { redirect } from "next/navigation";
 
+import { maskEmail, writeAuditLog } from "@/lib/audit/log";
 import { createClient } from "@/lib/supabase/server";
 import { loginSchema } from "@/lib/validations/auth";
 import type { ActionResult } from "@/lib/types/action-result";
-import type { Json } from "@/types/database";
 
-/**
- * Mask email for audit logs: first char + *** + @domain
- */
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!local || !domain) return "***";
-  return `${local[0]}***@${domain}`;
-}
-
-/**
- * Write an audit log entry. Failures are silently caught so they never
- * block the login flow.
- */
-async function writeAuditLog(params: {
-  action: string;
-  actorId?: string;
-  targetId: string;
-  targetType: string;
-  metadata?: { [key: string]: Json | undefined };
-}): Promise<void> {
-  try {
-    const supabase = await createClient();
-    await supabase.from("audit_logs").insert({
-      action: params.action,
-      actor_id: params.actorId ?? null,
-      target_id: params.targetId,
-      target_type: params.targetType,
-      metadata: params.metadata ?? null,
-    });
-  } catch {
-    // Audit log failure must not block auth flow
-  }
-}
+/** audit_logs.target_id は uuid 型のため、対象ユーザー不明（ログイン失敗）時に使う */
+const UNKNOWN_TARGET_ID = "00000000-0000-0000-0000-000000000000";
 
 export async function loginAction(
   formData: FormData,
@@ -63,7 +32,8 @@ export async function loginAction(
   if (authError || !authData.user) {
     await writeAuditLog({
       action: "auth.login.failure",
-      targetId: email,
+      actorId: null,
+      targetId: UNKNOWN_TARGET_ID,
       targetType: "auth",
       metadata: { email: maskEmail(email) },
     });

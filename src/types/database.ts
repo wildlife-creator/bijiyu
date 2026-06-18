@@ -37,6 +37,7 @@ export type Database = {
       applications: {
         Row: {
           applicant_id: string
+          cancelled_by: string | null
           client_notes: string | null
           created_at: string
           document_urls: string[] | null
@@ -55,6 +56,7 @@ export type Database = {
         }
         Insert: {
           applicant_id: string
+          cancelled_by?: string | null
           client_notes?: string | null
           created_at?: string
           document_urls?: string[] | null
@@ -73,6 +75,7 @@ export type Database = {
         }
         Update: {
           applicant_id?: string
+          cancelled_by?: string | null
           client_notes?: string | null
           created_at?: string
           document_urls?: string[] | null
@@ -478,6 +481,7 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["verification_status"]
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -491,6 +495,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["verification_status"]
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -504,6 +509,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["verification_status"]
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -964,6 +970,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "admin_proxy_threads"
+            referencedColumns: ["thread_id"]
           },
           {
             foreignKeyName: "messages_thread_id_fkey"
@@ -1595,7 +1608,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      admin_proxy_threads: {
+        Row: {
+          contractor_id: string | null
+          last_message_at: string | null
+          organization_id: string | null
+          proxy_count: number | null
+          thread_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_threads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_threads_participant_2_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_view_client_review: {

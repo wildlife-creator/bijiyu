@@ -188,6 +188,7 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
       <MessageThreadView
         threadId={threadId}
         currentUserId={user.id}
+        contractorId={thread.participant_2_id}
         initialMessages={messages}
         participantAvatarUrl={otherAvatarUrl}
         participantName={otherName}

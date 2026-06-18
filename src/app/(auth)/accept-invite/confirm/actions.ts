@@ -70,5 +70,16 @@ export async function acceptInviteAction(
     console.error("[acceptInviteAction] password_set_at update failed", updateError);
   }
 
-  return { success: true, data: { redirectTo: "/mypage" } };
+  // 管理者による発注者招待（ADM-006/007）: invited_company_name が
+  // metadata にある場合は受注者オンボをスキップし、プラン案内（CLI-026 = /billing）へ
+  // 直行する。/billing には「申し込む」ボタン（Stripe Checkout）があり、ここから発注者化できる。
+  // （/billing/plans は申し込みボタンの無いプラン比較表なので遷移先にしない）
+  // スタッフ招待・通常招待は従来どおり /mypage
+  const invitedCompanyName = user.user_metadata?.invited_company_name;
+  const redirectTo =
+    typeof invitedCompanyName === "string" && invitedCompanyName.trim() !== ""
+      ? "/billing"
+      : "/mypage";
+
+  return { success: true, data: { redirectTo } };
 }

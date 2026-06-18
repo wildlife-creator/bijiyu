@@ -102,7 +102,7 @@ export function ClientProfileEditForm({
     if (isCorporate) {
       return "プラン登録が完了しました。社名を入力してください。その他の項目は後からいつでも編集できます";
     }
-    return "プラン登録が完了しました。発注者として利用する場合は社名または氏名を入力してください。受注者機能のみ利用する方はスキップ可（後からいつでも編集できます）";
+    return "プラン登録が完了しました。発注者として表示される社名（または氏名）をご入力ください。後から設定することもできます。";
   }, [isSetup, isCorporate]);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {

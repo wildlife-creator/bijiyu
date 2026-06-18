@@ -24,15 +24,20 @@ interface FakeAdminConfig {
   insertByTable?: Record<string, FakeOpResult>;
   /** Update result per table. */
   updateByTable?: Record<string, FakeOpResult>;
+  /** Upsert result per table. */
+  upsertByTable?: Record<string, FakeOpResult>;
   /** RPC results keyed by function name. */
   rpcResults?: Record<string, FakeOpResult>;
+  /** auth.admin.getUserById が返す user_metadata（招待フローの会社名反映用） */
+  userMetadata?: Record<string, unknown>;
 }
 
 interface CallLog {
-  op: "from" | "insert" | "update" | "select" | "rpc";
+  op: "from" | "insert" | "update" | "select" | "rpc" | "upsert" | "getUserById";
   table?: string;
   fn?: string;
   payload?: unknown;
+  options?: unknown;
 }
 
 function makeAdmin(config: FakeAdminConfig) {
@@ -51,6 +56,17 @@ function makeAdmin(config: FakeAdminConfig) {
       in: vi.fn(function (this: typeof builder, col: string, vals: unknown[]) {
         this._filters[col] = vals;
         return this;
+      }),
+      is: vi.fn(function (this: typeof builder) {
+        return this;
+      }),
+      maybeSingle: vi.fn(function () {
+        const result = config.selectByTable?.[table] ?? { data: null, error: null };
+        calls.push({ op: "select", table });
+        return Promise.resolve({
+          data: result.data ?? null,
+          error: result.error ?? null,
+        });
       }),
       limit: vi.fn(function (this: typeof builder) {
         const result = config.selectByTable?.[table] ?? { data: [], error: null };
@@ -81,6 +97,14 @@ function makeAdmin(config: FakeAdminConfig) {
           ),
         };
       }),
+      upsert: vi.fn(function (payload: unknown, options?: unknown) {
+        calls.push({ op: "upsert", table, payload, options });
+        const result = config.upsertByTable?.[table] ?? { error: null };
+        return Promise.resolve({
+          data: result.data ?? null,
+          error: result.error ?? null,
+        });
+      }),
     };
     return builder;
   }
@@ -98,6 +122,19 @@ function makeAdmin(config: FakeAdminConfig) {
         error: result.error ?? null,
       });
     }),
+    auth: {
+      admin: {
+        getUserById: vi.fn((userId: string) => {
+          calls.push({ op: "getUserById", payload: userId });
+          return Promise.resolve({
+            data: {
+              user: { id: userId, user_metadata: config.userMetadata ?? {} },
+            },
+            error: null,
+          });
+        }),
+      },
+    },
   };
 
   return { admin: admin as never, calls };
@@ -170,6 +207,62 @@ describe("handleCheckoutCompleted (plan)", () => {
         stripe_customer_id: "cus_test_123",
       },
     });
+  });
+
+  it("招待フロー: invited_company_name があれば RPC より先に client_profiles へ会社名を upsert する", async () => {
+    const { admin, calls } = makeAdmin({
+      rpcResults: { handle_checkout_completed_plan: { data: {}, error: null } },
+      userMetadata: { invited_company_name: "テスト建設株式会社" },
+    });
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "plan",
+        plan_type: "corporate",
+        user_id: "invited-user-1",
+      }),
+    );
+
+    const upsertIndex = calls.findIndex(
+      (c) => c.op === "upsert" && c.table === "client_profiles",
+    );
+    const rpcIndex = calls.findIndex((c) => c.op === "rpc");
+
+    // RPC が display_name を姓名で必ず埋めるため、会社名 upsert は RPC より「前」
+    expect(upsertIndex).toBeGreaterThanOrEqual(0);
+    expect(rpcIndex).toBeGreaterThan(upsertIndex);
+
+    const upsertCall = calls[upsertIndex];
+    expect(upsertCall.payload).toMatchObject({
+      user_id: "invited-user-1",
+      display_name: "テスト建設株式会社",
+    });
+    // 冪等性: 既存行（本人編集済み display_name 含む）は上書きしない
+    expect(upsertCall.options).toMatchObject({
+      onConflict: "user_id",
+      ignoreDuplicates: true,
+    });
+  });
+
+  it("通常サインアップ（invited_company_name なし）では upsert しない", async () => {
+    const { admin, calls } = makeAdmin({
+      rpcResults: { handle_checkout_completed_plan: { data: {}, error: null } },
+      userMetadata: {},
+    });
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "plan",
+        plan_type: "individual",
+        user_id: "user-1",
+      }),
+    );
+
+    expect(
+      calls.some((c) => c.op === "upsert" && c.table === "client_profiles"),
+    ).toBe(false);
   });
 
   it("rethrows when the RPC returns an error", async () => {

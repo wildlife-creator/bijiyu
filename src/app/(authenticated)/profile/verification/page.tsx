@@ -75,7 +75,10 @@ export default async function VerificationPage() {
   const canSubmitIdentity =
     identityStatus === null || identityStatus === "rejected";
   const identityApproved = identityStatus === "approved";
-  const canSubmitCcus = identityApproved;
+  // 本人確認が承認済み かつ CCUS が未申請 or 否認 のときだけ登録に進める。
+  // （本人確認側と同じ作り。CCUS が申請中/承認済みのときは登録ボタンを出さない）
+  const canSubmitCcus =
+    identityApproved && (ccusStatus === null || ccusStatus === "rejected");
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8">

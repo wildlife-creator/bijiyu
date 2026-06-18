@@ -107,7 +107,7 @@ export async function cancelApplicationAction(
     const admin = createAdminClient();
     const { error: updateError } = await admin
       .from("applications")
-      .update({ status: "cancelled" })
+      .update({ status: "cancelled", cancelled_by: "contractor" })
       .eq("id", applicationId);
 
     if (updateError) {

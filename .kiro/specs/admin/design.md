@@ -372,7 +372,7 @@ export async function executeWithdrawal(params: {
 
 - **AdminShell（`src/app/admin/layout.tsx` 拡張）**: 既存の「ビジ友 管理画面」ヘッダーバーに ①ダッシュボード（ADM-002）へ戻るリンク ②ログアウトボタン（`<form action={adminLogoutAction}>`、`type="submit"` 明示）を追加する。これで「全 admin 画面からログアウト導線に到達できる」要件を満たす（role='admin' 再チェックの二重ガードは現状維持）
 - **adminLogoutAction（`src/app/admin/actions.ts` に新設）**: `supabase.auth.signOut()` → `redirect("/admin/login")`。既存 `logoutAction`（/login へ redirect）は一般ユーザー用のため流用せず、admin 専用に分離する
-- **DashboardPage（ADM-002・`/admin/dashboard`）**: requirements REQ-ADM-002 のメニュー項目列（発注者一覧／ユーザー一覧／本人確認／応募履歴／お問い合わせ／トラブル報告／求人問い合わせ／メッセージ一覧＝全社／パスワード変更）をそのまま縦並びリンクで実装＋ログアウト。件数表示・ダッシュボード数値は付けない（requirements 確定）
+- **DashboardPage（ADM-002・`/admin/dashboard`）**: requirements REQ-ADM-002 のメニュー項目列（発注者一覧／ユーザー一覧／本人確認／応募履歴／お問い合わせ／トラブル報告／求人問い合わせ／代理メッセージ一覧＝全社／パスワード変更）をそのまま縦並びリンクで実装＋ログアウト。件数表示・ダッシュボード数値は付けない（requirements 確定）
 
 ### 認証（ADM-001 / ADM-015 / Middleware）
 

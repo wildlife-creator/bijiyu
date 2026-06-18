@@ -87,9 +87,9 @@ describe("acceptInviteAction", () => {
     if (!r.success) expect(r.error).toContain("有効期限が切れています");
   });
 
-  it("正常系: password 更新 + password_set_at UPDATE + /mypage redirect", async () => {
+  it("正常系（スタッフ招待）: password 更新 + password_set_at UPDATE + /mypage redirect", async () => {
     mockGetUser.mockResolvedValue({
-      data: { user: { id: "u1" } },
+      data: { user: { id: "u1", user_metadata: { invited_role: "staff" } } },
       error: null,
     });
     mockAuthUpdateUser.mockResolvedValue({ error: null });
@@ -106,5 +106,44 @@ describe("acceptInviteAction", () => {
       expect.objectContaining({ password_set_at: expect.any(String) }),
     );
     expect(updateChain.eq).toHaveBeenCalledWith("id", "u1");
+  });
+
+  it("管理者招待（invited_company_name あり）: /billing（CLI-026・申し込みボタンあり）へ直行（受注者オンボをスキップ）", async () => {
+    mockGetUser.mockResolvedValue({
+      data: {
+        user: {
+          id: "u2",
+          user_metadata: { invited_company_name: "テスト建設株式会社" },
+        },
+      },
+      error: null,
+    });
+    mockAuthUpdateUser.mockResolvedValue({ error: null });
+    const updateChain = createQueryMock({ thenable: { data: null, error: null } });
+    mockAdminFrom.mockReturnValueOnce(updateChain);
+
+    const r = await acceptInviteAction({
+      password: "abcd1234",
+      confirmPassword: "abcd1234",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data?.redirectTo).toBe("/billing");
+  });
+
+  it("user_metadata なしでも従来どおり /mypage", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "u3" } },
+      error: null,
+    });
+    mockAuthUpdateUser.mockResolvedValue({ error: null });
+    const updateChain = createQueryMock({ thenable: { data: null, error: null } });
+    mockAdminFrom.mockReturnValueOnce(updateChain);
+
+    const r = await acceptInviteAction({
+      password: "abcd1234",
+      confirmPassword: "abcd1234",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data?.redirectTo).toBe("/mypage");
   });
 });
