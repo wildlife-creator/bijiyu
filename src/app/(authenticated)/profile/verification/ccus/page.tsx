@@ -147,7 +147,6 @@ export default function CcusUploadPage() {
         <Button
           type="button"
           variant="default"
-          size="lg"
           className="w-full max-w-xs rounded-full"
           disabled={isPending || !file || !ccusWorkerId.trim()}
           onClick={handleSubmit}

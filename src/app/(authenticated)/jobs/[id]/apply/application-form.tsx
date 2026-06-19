@@ -172,7 +172,6 @@ export function ApplicationForm({ jobId, scoutMessageId }: ApplicationFormProps)
         <Button
           type="button"
           variant="outline"
-          size="lg"
           onClick={() => router.back()}
           className="w-full rounded-[47px] border-foreground text-foreground"
         >

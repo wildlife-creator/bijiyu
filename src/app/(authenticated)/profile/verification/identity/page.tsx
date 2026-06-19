@@ -179,7 +179,6 @@ export default function IdentityUploadPage() {
         <Button
           type="button"
           variant="default"
-          size="lg"
           className="w-full max-w-xs rounded-full"
           disabled={isPending || !file1 || !file2}
           onClick={handleSubmit}
