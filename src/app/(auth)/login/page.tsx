@@ -128,6 +128,16 @@ export default function LoginPage() {
           こちら
         </Link>
       </p>
+
+      {/* Admin login link (discreet) */}
+      <p className="text-center">
+        <Link
+          href="/admin/login"
+          className="text-xs text-muted-foreground/60 hover:text-muted-foreground"
+        >
+          管理者ログイン
+        </Link>
+      </p>
     </div>
   );
 }

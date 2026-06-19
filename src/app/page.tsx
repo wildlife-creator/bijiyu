@@ -51,6 +51,14 @@ export default function LandingPage() {
             特定商取引法に基づく表記
           </Link>
         </nav>
+        <div className="mx-auto mt-4 flex max-w-lg justify-center">
+          <Link
+            href="/admin/login"
+            className="text-xs text-muted-foreground/60 hover:text-muted-foreground"
+          >
+            管理者ログイン
+          </Link>
+        </div>
       </footer>
     </div>
   );
