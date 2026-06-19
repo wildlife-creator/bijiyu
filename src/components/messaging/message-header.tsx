@@ -11,7 +11,7 @@ export function MessageHeader({ name }: MessageHeaderProps) {
   const router = useRouter();
 
   return (
-    <div className="flex items-center bg-background px-4 py-3 border-b border-border">
+    <div className="flex items-center px-4 py-3 border-b border-border">
       <button
         type="button"
         onClick={() => router.back()}

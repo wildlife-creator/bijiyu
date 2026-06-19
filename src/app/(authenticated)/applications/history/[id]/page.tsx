@@ -11,7 +11,7 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaList } from "@/components/area/area-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { CancelButton } from "./cancel-button";
-import { BackButton } from "../back-button";
+import { BackButton } from "@/components/shared/back-button";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils/format-date";
@@ -205,7 +205,8 @@ export default async function ApplicationDetailPage({ params }: Props) {
       : null;
 
   return (
-    <div className="min-h-dvh bg-muted px-6 py-6 md:px-12 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       {/* 1. Header */}
       <h1 className="text-center text-heading-lg font-bold text-secondary">応募詳細</h1>
 
@@ -401,6 +402,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
       {/* 9. Back button */}
       <div className="mt-4 flex justify-center">
         <BackButton className="w-full max-w-xs" />
+      </div>
       </div>
     </div>
   );

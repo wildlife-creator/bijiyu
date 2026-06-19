@@ -63,7 +63,8 @@ export default async function ScoutTemplatesListPage({ searchParams }: PageProps
   const totalCount = count ?? 0;
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         スカウトテンプレート一覧
       </h1>
@@ -136,6 +137,7 @@ export default async function ScoutTemplatesListPage({ searchParams }: PageProps
       {/* もどる ボタン */}
       <div className="mt-8 flex flex-col items-center gap-3">
         <BackButton className="w-full max-w-xs" />
+      </div>
       </div>
     </div>
   );

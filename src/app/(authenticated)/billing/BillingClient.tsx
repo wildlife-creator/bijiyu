@@ -348,8 +348,7 @@ export function BillingClient({
   }
 
   return (
-    <div className="min-h-screen bg-muted">
-      <div className="mx-auto max-w-lg px-4 py-6">
+    <>
       <h1 className="text-center text-heading-lg font-bold text-secondary">プラン変更</h1>
 
       {/* staff 制限メッセージ */}
@@ -690,7 +689,6 @@ export function BillingClient({
           もどる
         </Button>
       </div>
-      </div>
 
       {/* ===== Dialogs ===== */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -878,7 +876,7 @@ export function BillingClient({
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 

@@ -403,28 +403,24 @@ export function ProfileEditForm({
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
-        <p className="text-center text-muted-foreground">読み込み中...</p>
-      </div>
-    );
+    return <p className="text-center text-muted-foreground">読み込み中...</p>;
   }
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <>
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         ユーザープロフィール編集
       </h1>
 
       {serverError && (
-        <p className="mx-auto mt-4 max-w-2xl text-body-sm text-destructive">
+        <p className="mt-4 text-body-sm text-destructive">
           {serverError}
         </p>
       )}
 
       <form
         onSubmit={handleFormSubmit}
-        className="mx-auto mt-6 max-w-2xl space-y-6"
+        className="mt-6 space-y-6"
       >
         {/* ── 基本情報 ── */}
         <section>
@@ -810,6 +806,6 @@ export function ProfileEditForm({
           <BackButton className="w-full max-w-xs" />
         </div>
       </form>
-    </div>
+    </>
   );
 }

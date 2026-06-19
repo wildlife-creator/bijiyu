@@ -11,8 +11,7 @@ export function BackButton() {
       <Button
         type="button"
         variant="outline"
-        size="lg"
-        className="w-full rounded-[47px] border-foreground text-foreground"
+        className="mx-auto w-full max-w-xs rounded-pill text-body-md"
         onClick={() => router.back()}
       >
         もどる

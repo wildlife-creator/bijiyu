@@ -38,13 +38,15 @@ export default async function ClientReportPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">評価入力</h1>
       <p className="mt-2 text-center text-body-md text-muted-foreground">
         {job.title}
       </p>
 
       <ClientReportForm applicationId={application.id} />
+      </div>
     </div>
   );
 }

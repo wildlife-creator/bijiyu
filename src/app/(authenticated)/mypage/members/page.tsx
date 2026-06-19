@@ -125,7 +125,8 @@ export default async function MembersListPage({ searchParams }: PageProps) {
   const paginated = filtered.slice(offset, offset + ITEMS_PER_PAGE);
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         担当者一覧
       </h1>
@@ -247,6 +248,7 @@ export default async function MembersListPage({ searchParams }: PageProps) {
         )}
         {/* CLI-025 保存後の history 汚染回避のため /mypage に明示遷移 */}
         <BackButton className="w-full max-w-xs" href="/mypage" />
+      </div>
       </div>
     </div>
   );

@@ -34,7 +34,8 @@ export default async function SchedulePage() {
   const todayIso = todayLocalIso();
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         空き日程
       </h1>
@@ -81,7 +82,8 @@ export default async function SchedulePage() {
         >
           <Link href="/schedule/new">空き日程を追加する</Link>
         </Button>
-        <BackButton href="/mypage" size="lg" />
+        <BackButton href="/mypage" />
+      </div>
       </div>
     </div>
   );

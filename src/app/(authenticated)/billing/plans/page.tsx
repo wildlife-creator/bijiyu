@@ -88,7 +88,7 @@ export default function PlanListPage() {
 
   return (
     <div className="min-h-screen bg-muted">
-      <div className="mx-auto max-w-4xl px-4 py-6">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
         <h1 className="text-center text-heading-lg font-bold text-secondary">
           プラン一覧
         </h1>

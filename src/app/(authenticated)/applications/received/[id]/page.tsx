@@ -174,7 +174,8 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
       : "未定";
 
   return (
-    <div className="mx-auto min-h-dvh max-w-2xl bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">応募詳細</h1>
       <div className="mt-2 flex items-center justify-center gap-3">
         <ApplicationStatusBadge status={application.status} />
@@ -366,6 +367,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
 
       <div className="mt-4 flex justify-center">
         <BackButton className="w-full max-w-xs" />
+      </div>
       </div>
     </div>
   );

@@ -152,35 +152,39 @@ export default async function BillingPage({
   const sp = await searchParams;
 
   return (
-    <BillingClient
-      userId={user.id}
-      isStaff={isStaff}
-      isPastDue={isPastDue}
-      hasReservation={hasReservation}
-      currentPlan={currentPlan}
-      isFirstPurchase={isFirstPurchase}
-      subscription={subscription ? {
-        scheduleId: subscription.schedule_id,
-        scheduledPlanType: subscription.scheduled_plan_type,
-        scheduledAt: subscription.scheduled_at,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        currentPeriodEnd: subscription.current_period_end,
-        stripeSubscriptionId: subscription.stripe_subscription_id,
-      } : null}
-      planStates={planStates}
-      showInitialFee={showInitialFee}
-      activeOptions={activeOptions.map((o) => ({
-        id: o.id,
-        optionType: o.option_type,
-        jobId: o.job_id,
-        stripeSubscriptionId: o.stripe_subscription_id,
-        endDate: o.end_date,
-      }))}
-      clientProfile={{
-        isUrgentOption: clientProfile?.is_urgent_option ?? false,
-      }}
-      urgentEligibleJobs={urgentEligibleJobs.map((j) => ({ id: j.id, title: j.title }))}
-      checkoutSuccess={sp.checkout === "success" ? "plan" : sp.option_success as string | undefined}
-    />
+    <div className="min-h-screen bg-muted">
+      <div className="mx-auto w-full max-w-lg px-4 py-6 md:px-8 md:py-8">
+        <BillingClient
+          userId={user.id}
+          isStaff={isStaff}
+          isPastDue={isPastDue}
+          hasReservation={hasReservation}
+          currentPlan={currentPlan}
+          isFirstPurchase={isFirstPurchase}
+          subscription={subscription ? {
+            scheduleId: subscription.schedule_id,
+            scheduledPlanType: subscription.scheduled_plan_type,
+            scheduledAt: subscription.scheduled_at,
+            cancelAtPeriodEnd: subscription.cancel_at_period_end,
+            currentPeriodEnd: subscription.current_period_end,
+            stripeSubscriptionId: subscription.stripe_subscription_id,
+          } : null}
+          planStates={planStates}
+          showInitialFee={showInitialFee}
+          activeOptions={activeOptions.map((o) => ({
+            id: o.id,
+            optionType: o.option_type,
+            jobId: o.job_id,
+            stripeSubscriptionId: o.stripe_subscription_id,
+            endDate: o.end_date,
+          }))}
+          clientProfile={{
+            isUrgentOption: clientProfile?.is_urgent_option ?? false,
+          }}
+          urgentEligibleJobs={urgentEligibleJobs.map((j) => ({ id: j.id, title: j.title }))}
+          checkoutSuccess={sp.checkout === "success" ? "plan" : sp.option_success as string | undefined}
+        />
+      </div>
+    </div>
   );
 }

@@ -150,7 +150,8 @@ export default async function ClientProfileEditPage({
   };
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         発注者情報編集
       </h1>
@@ -168,6 +169,7 @@ export default async function ClientProfileEditPage({
             existingDeprecatedMunicipalitiesByPrefecture
           }
         />
+      </div>
       </div>
     </div>
   );

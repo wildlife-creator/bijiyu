@@ -29,10 +29,9 @@ interface BackButtonProps {
    * 指定して保存後ループを防ぐ。
    */
   href?: string;
-  size?: "default" | "lg";
 }
 
-export function BackButton({ className, href, size }: BackButtonProps) {
+export function BackButton({ className, href }: BackButtonProps) {
   const router = useRouter();
 
   const handleClick = () => {
@@ -47,8 +46,7 @@ export function BackButton({ className, href, size }: BackButtonProps) {
     <Button
       type="button"
       variant="outline"
-      size={size}
-      className={cn("w-full rounded-pill text-body-md", className)}
+      className={cn("flex mx-auto w-full max-w-xs rounded-pill text-body-md", className)}
       onClick={handleClick}
     >
       もどる

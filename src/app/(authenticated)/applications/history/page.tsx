@@ -17,7 +17,7 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatRewardRange } from "@/lib/utils/format-reward";
-import { BackButton } from "./back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { StatusFilter } from "./status-filter";
 import { SortButton } from "./sort-button";
 import { SuccessToast } from "./success-toast";
@@ -136,7 +136,8 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="min-h-dvh bg-muted px-6 py-6 md:px-12 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">応募履歴</h1>
 
       {/* Success toast (from CON-013 etc.) */}
@@ -318,6 +319,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
 
       <div className="mt-6">
         <BackButton className="w-full" />
+      </div>
       </div>
     </div>
   );

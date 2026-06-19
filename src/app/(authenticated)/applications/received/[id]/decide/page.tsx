@@ -103,7 +103,8 @@ export default async function DecisionPage({ params }: Props) {
   const defaultWorkLocation = jobAreasText;
 
   return (
-    <div className="mx-auto min-h-dvh max-w-2xl bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">発注可否</h1>
 
       {/* Application summary */}
@@ -189,6 +190,7 @@ export default async function DecisionPage({ params }: Props) {
         defaultWorkLocation={defaultWorkLocation}
         existingDocuments={jobDocuments ?? []}
       />
+      </div>
     </div>
   );
 }

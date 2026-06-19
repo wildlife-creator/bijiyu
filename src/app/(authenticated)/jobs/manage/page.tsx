@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/shared/back-button";
 import { createClient } from "@/lib/supabase/server";
 import {
   resolveClientProfileForRow,
@@ -128,7 +129,8 @@ export default async function JobListPage({ searchParams }: PageProps) {
   });
 
   return (
-    <div className="min-h-dvh bg-muted px-6 py-6 md:px-12 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         募集現場一覧
       </h1>
@@ -153,15 +155,9 @@ export default async function JobListPage({ searchParams }: PageProps) {
       />
 
       {/* Back button */}
-      <div className="mt-8 flex justify-center">
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full max-w-sm rounded-[47px] border-secondary text-secondary"
-          asChild
-        >
-          <Link href="/mypage">もどる</Link>
-        </Button>
+      <div className="mt-8">
+        <BackButton href="/mypage" />
+      </div>
       </div>
     </div>
   );

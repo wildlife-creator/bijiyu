@@ -196,7 +196,8 @@ export default async function ProfilePage() {
     (await hasActiveOption(supabase, user.id, "video"));
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       {/* タイトル */}
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         ユーザープロフィール
@@ -344,6 +345,7 @@ export default async function ProfilePage() {
         >
           退会希望の方はこちら
         </Link>
+      </div>
       </div>
     </div>
   );

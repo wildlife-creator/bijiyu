@@ -54,9 +54,13 @@ export default async function WithdrawalPage() {
   }
 
   return (
-    <WithdrawalForm
-      isCorporateOwner={isCorporateOwner}
-      displayName={displayName}
-    />
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-lg px-4 py-6 md:px-8 md:py-8">
+        <WithdrawalForm
+          isCorporateOwner={isCorporateOwner}
+          displayName={displayName}
+        />
+      </div>
+    </div>
   );
 }

@@ -151,13 +151,14 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
   const basePath = `/jobs/${id}/applicants`;
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         案件応募者一覧
       </h1>
 
       {/* Job info banner */}
-      <div className="mx-auto mt-4 max-w-2xl rounded-[8px] border border-border bg-background p-4">
+      <div className="mt-4 rounded-[8px] border border-border bg-background p-4">
         <p className="text-body-sm text-muted-foreground">対象案件</p>
         <p className="mt-1 text-body-md font-bold text-foreground">{job.title}</p>
         <div className="mt-1 text-body-xs text-muted-foreground">
@@ -373,6 +374,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
 
       <div className="mt-6">
         <BackButton href={`/jobs/${id}?manage=true`} />
+      </div>
       </div>
     </div>
   );

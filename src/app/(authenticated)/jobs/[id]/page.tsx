@@ -184,7 +184,8 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
       .maybeSingle();
 
     return (
-      <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
+      <div className="min-h-dvh">
+        <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
         {/* Header */}
         <h1 className="text-center text-heading-lg font-bold text-secondary">
           募集現場詳細
@@ -387,6 +388,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             <Link href="/jobs/manage">もどる</Link>
           </Button>
         </div>
+        </div>
       </div>
     );
   }
@@ -455,7 +457,8 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
   const hasApplied = !!existingApp;
 
   return (
-    <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">募集案件詳細</h1>
 
       {/* Title + Company */}
@@ -675,6 +678,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
       )}
 
       <BackButton />
+    </div>
     </div>
   );
 }

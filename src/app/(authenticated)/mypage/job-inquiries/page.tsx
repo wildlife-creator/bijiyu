@@ -42,7 +42,8 @@ export default async function JobInquiriesInboxPage({ searchParams }: Props) {
   ]);
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         求人へのお問い合わせ
       </h1>
@@ -57,7 +58,7 @@ export default async function JobInquiriesInboxPage({ searchParams }: Props) {
         </p>
       )}
 
-      <div className="mx-auto mt-4 max-w-3xl space-y-3">
+      <div className="mt-4 space-y-3">
         {inquiries?.map((row) => (
           <Link key={row.id} href={`/mypage/job-inquiries/${row.id}`}>
             <Card className="rounded-[8px] transition-colors hover:bg-muted">
@@ -81,8 +82,9 @@ export default async function JobInquiriesInboxPage({ searchParams }: Props) {
         <PaginationControls totalCount={totalCount} itemsPerPage={ITEMS_PER_PAGE} />
       )}
 
-      <div className="mx-auto mt-6 max-w-3xl">
+      <div className="mt-6">
         <BackButton href="/mypage" />
+      </div>
       </div>
     </div>
   );

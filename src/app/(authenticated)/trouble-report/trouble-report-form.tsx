@@ -272,15 +272,15 @@ export function TroubleReportForm({
           )}
         </div>
 
-        <div className="flex flex-col items-center gap-4 pt-4">
+        <div className="flex flex-col items-center gap-3 pt-4">
           <Button
             type="submit"
-            className="w-full rounded-full"
+            className="w-full max-w-xs rounded-full"
             disabled={isSubmitting}
           >
             {isSubmitting ? "送信中..." : "送信する"}
           </Button>
-          <BackButton href="/mypage" className="w-full rounded-full" />
+          <BackButton href="/mypage" className="rounded-full" />
         </div>
       </form>
     </div>

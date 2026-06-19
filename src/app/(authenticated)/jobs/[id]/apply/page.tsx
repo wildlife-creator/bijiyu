@@ -116,7 +116,8 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
   const rewardText = formatRewardRange(job.reward_lower, job.reward_upper);
 
   return (
-    <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">応募情報入力</h1>
 
       {/* Job summary */}
@@ -136,6 +137,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
 
       {/* Application form */}
       <ApplicationForm jobId={id} scoutMessageId={scoutMessageId} />
+      </div>
     </div>
   );
 }

@@ -112,12 +112,10 @@ export default async function FavoritesPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-dvh bg-muted">
-      {/* Header */}
-      <div className="bg-background px-6 py-4 md:px-12">
-        <h1 className="text-center text-heading-lg font-bold text-secondary">マイリスト</h1>
-      </div>
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
+      <h1 className="text-center text-heading-lg font-bold text-secondary">マイリスト</h1>
 
-      <div className="px-6 md:px-12">
+      <div>
         {/* フィルター行（CON-007）: 全N件は左、種類プルダウン + 並べ替え（案件のみ）は右にまとめる */}
         <div className="flex items-center justify-between gap-3 py-4">
           <p className="shrink-0 text-body-sm text-muted-foreground">
@@ -159,6 +157,7 @@ export default async function FavoritesPage({ searchParams }: PageProps) {
         />
 
         <BackButton />
+      </div>
       </div>
     </div>
   );

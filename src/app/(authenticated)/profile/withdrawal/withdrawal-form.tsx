@@ -86,8 +86,8 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
   }
 
   return (
-    <div className="px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-lg space-y-6">
+    <>
+      <div className="space-y-6">
         <h1 className="text-center text-heading-lg font-bold text-secondary">
           退会手続き
         </h1>
@@ -293,6 +293,6 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
           </AlertDialogContent>
         </AlertDialog>
       )}
-    </div>
+    </>
   );
 }

@@ -121,7 +121,8 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
   const sortHref = `?sort=${nextSort}${params.jobId ? `&jobId=${params.jobId}` : ""}`;
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">応募一覧</h1>
 
       <div className="mt-2 flex items-center justify-between">
@@ -139,7 +140,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
         </p>
       )}
 
-      <div className="mx-auto mt-4 max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {applications?.map((app) => {
           const applicant = app.applicant as {
             id: string;
@@ -290,6 +291,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
           逆戻りするため、親を明示してループを防ぐ（CLAUDE.md: 保存後ループ防止） */}
       <div className="mt-6">
         <BackButton href="/mypage" />
+      </div>
       </div>
     </div>
   );

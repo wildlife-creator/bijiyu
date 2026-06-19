@@ -59,7 +59,8 @@ export default async function ScoutTemplateDetailPage({ params }: PageProps) {
   const ownerName = isSharedByOrg ? resolveOwnerName(owner) : null;
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         スカウトテンプレート詳細
       </h1>
@@ -92,6 +93,7 @@ export default async function ScoutTemplateDetailPage({ params }: PageProps) {
           <Link href={`/messages/templates/${template.id}/edit`}>編集する</Link>
         </Button>
         <BackButton className="w-full max-w-xs" />
+      </div>
       </div>
     </div>
   );
