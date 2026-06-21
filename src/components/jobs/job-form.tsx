@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/shared/back-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -510,12 +511,12 @@ export function JobForm({
       </section>
 
       {/* Submit buttons */}
-      <div className="space-y-3">
+      <div className="mx-auto flex w-full max-w-xs flex-col gap-3">
         {mode === "create" && (
           <>
             <Button
               type="button"
-              className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full rounded-pill text-body-md border-primary bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={isPending}
               onClick={handlePublish}
             >
@@ -524,7 +525,7 @@ export function JobForm({
             <Button
               type="button"
               variant="outline"
-              className="w-full rounded-[47px] border-secondary text-secondary"
+              className="w-full rounded-pill text-body-md border-secondary text-secondary"
               disabled={isPending}
               onClick={handleSaveAsDraft}
             >
@@ -537,7 +538,7 @@ export function JobForm({
           <>
             <Button
               type="button"
-              className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full rounded-pill text-body-md border-primary bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={isPending}
               onClick={handlePublish}
             >
@@ -546,7 +547,7 @@ export function JobForm({
             <Button
               type="button"
               variant="outline"
-              className="w-full rounded-[47px] border-secondary text-secondary"
+              className="w-full rounded-pill text-body-md border-secondary text-secondary"
               disabled={isPending}
               onClick={handleSaveAsDraft}
             >
@@ -558,21 +559,14 @@ export function JobForm({
         {mode === "edit" && currentStatus !== "draft" && (
           <Button
             type="submit"
-            className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
+            className="w-full rounded-pill text-body-md border-primary bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={isPending}
           >
             {isPending ? "処理中..." : "更新する"}
           </Button>
         )}
 
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full rounded-[47px] border-secondary text-secondary"
-          onClick={() => router.back()}
-        >
-          もどる
-        </Button>
+        <BackButton />
       </div>
 
       <input type="hidden" {...register("status")} />

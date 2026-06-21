@@ -303,21 +303,23 @@ export function DecisionForm({
 
         {error && <p className="text-body-sm text-destructive">{error}</p>}
 
-        <Button
-          className="w-full rounded-pill"
-          disabled={!canSubmit || isLoading}
-          onClick={handleSubmit}
-        >
-          {isLoading ? "送信中..." : "送信する"}
-        </Button>
+        <div className="mx-auto flex w-full max-w-xs flex-col gap-3">
+          <Button
+            className="w-full rounded-pill text-body-md border-primary"
+            disabled={!canSubmit || isLoading}
+            onClick={handleSubmit}
+          >
+            {isLoading ? "送信中..." : "送信する"}
+          </Button>
 
-        <Button
-          variant="outline"
-          className="w-full rounded-pill"
-          onClick={() => router.back()}
-        >
-          もどる
-        </Button>
+          <Button
+            variant="outline"
+            className="w-full rounded-pill text-body-md"
+            onClick={() => router.back()}
+          >
+            もどる
+          </Button>
+        </div>
       </div>
 
       {/* Success dialog */}

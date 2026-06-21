@@ -176,22 +176,24 @@ export function ClientReportForm({ applicationId }: ClientReportFormProps) {
 
       {error && <p className="text-body-sm text-destructive">{error}</p>}
 
-      <Button
-        type="submit"
-        className="w-full rounded-pill"
-        disabled={isLoading || !canSubmit}
-      >
-        {isLoading ? "送信中..." : "評価を登録する"}
-      </Button>
+      <div className="mx-auto flex w-full max-w-xs flex-col gap-3">
+        <Button
+          type="submit"
+          className="w-full rounded-pill text-body-md border-primary"
+          disabled={isLoading || !canSubmit}
+        >
+          {isLoading ? "送信中..." : "評価を登録する"}
+        </Button>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full rounded-pill"
-        onClick={() => router.back()}
-      >
-        もどる
-      </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full rounded-pill text-body-md"
+          onClick={() => router.back()}
+        >
+          もどる
+        </Button>
+      </div>
     </form>
   );
 }

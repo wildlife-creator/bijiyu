@@ -72,7 +72,7 @@ export function BulkSendForm({ recipients }: BulkSendFormProps) {
 
   return (
     <>
-      <h1 className="py-4 text-center text-lg font-bold text-secondary">一斉送信</h1>
+      <h1 className="mb-6 text-center text-heading-lg font-bold text-secondary">一斉送信</h1>
 
         {/* Message body */}
         <div className="mb-6">

@@ -158,7 +158,7 @@ export default async function MessagesPage({ searchParams }: Props) {
   return (
     <div className="min-h-screen bg-muted/40">
       <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
-        <h1 className="py-4 text-center text-lg font-bold text-secondary">メッセージ</h1>
+        <h1 className="mb-6 text-center text-heading-lg font-bold text-secondary">メッセージ</h1>
 
         {isClientOrStaff && (
           <div className="mx-auto flex max-w-md items-center gap-3 px-4 pb-4">

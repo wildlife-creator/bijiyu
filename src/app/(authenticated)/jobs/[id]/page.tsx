@@ -12,6 +12,7 @@ import {
 import { canApplyJob } from "@/lib/matching";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
+import { BackButton as SharedBackButton } from "@/components/shared/back-button";
 import { SafeImage } from "@/components/job-search/safe-image";
 import { AreaList } from "@/components/area/area-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
@@ -380,13 +381,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
               コピーして新規作成する
             </Link>
           </Button>
-          <Button
-            variant="outline"
-            className="w-full max-w-xs rounded-[47px] border-secondary text-secondary"
-            asChild
-          >
-            <Link href="/jobs/manage">もどる</Link>
-          </Button>
+          <SharedBackButton href="/jobs/manage" />
         </div>
         </div>
       </div>
@@ -652,28 +647,30 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
       {/* Bottom fixed apply button */}
       {!hideApplyButton && (
         <div className="sticky bottom-0 bg-background py-4 mt-6 border-t border-border">
-          {hasApplied ? (
-            <Button
-              disabled
-              className="w-full rounded-[47px] bg-muted text-muted-foreground"
-            >
-              応募済み
-            </Button>
-          ) : applyCheck.canApply ? (
-            <Button
-              asChild
-              className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <Link href={`/jobs/${id}/apply`}>応募する</Link>
-            </Button>
-          ) : (
-            <Button
-              disabled
-              className="w-full rounded-[47px] bg-muted text-muted-foreground"
-            >
-              応募する
-            </Button>
-          )}
+          <div className="mx-auto w-full max-w-xs">
+            {hasApplied ? (
+              <Button
+                disabled
+                className="w-full rounded-pill text-body-md border-muted bg-muted text-muted-foreground"
+              >
+                応募済み
+              </Button>
+            ) : applyCheck.canApply ? (
+              <Button
+                asChild
+                className="w-full rounded-pill text-body-md border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Link href={`/jobs/${id}/apply`}>応募する</Link>
+              </Button>
+            ) : (
+              <Button
+                disabled
+                className="w-full rounded-pill text-body-md border-muted bg-muted text-muted-foreground"
+              >
+                応募する
+              </Button>
+            )}
+          </div>
         </div>
       )}
 

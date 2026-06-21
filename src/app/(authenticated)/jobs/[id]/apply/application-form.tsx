@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/shared/back-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -161,22 +162,17 @@ export function ApplicationForm({ jobId, scoutMessageId }: ApplicationFormProps)
           <p className="text-body-sm text-destructive">{errors.agreed}</p>
         )}
 
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          応募する
-        </Button>
+        <div className="mx-auto flex w-full max-w-xs flex-col gap-3">
+          <Button
+            type="submit"
+            disabled={isPending}
+            className="w-full rounded-pill text-body-md border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            応募する
+          </Button>
 
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.back()}
-          className="w-full rounded-[47px] border-foreground text-foreground"
-        >
-          もどる
-        </Button>
+          <BackButton />
+        </div>
       </form>
 
       {/* Confirmation dialog */}
