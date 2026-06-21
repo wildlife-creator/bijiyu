@@ -71,9 +71,8 @@ export function BulkSendForm({ recipients }: BulkSendFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      <div className="mx-auto max-w-2xl px-4">
-        <h1 className="py-4 text-center text-lg font-bold text-secondary">一斉送信</h1>
+    <>
+      <h1 className="mb-6 text-center text-heading-lg font-bold text-secondary">一斉送信</h1>
 
         {/* Message body */}
         <div className="mb-6">
@@ -144,7 +143,6 @@ export function BulkSendForm({ recipients }: BulkSendFormProps) {
             もどる
           </Button>
         </div>
-      </div>
-    </div>
+    </>
   );
 }

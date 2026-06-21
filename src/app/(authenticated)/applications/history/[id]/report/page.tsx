@@ -33,7 +33,8 @@ export default async function ContractorReportPage({ params }: Props) {
   const job = application.jobs as { title: string } | null;
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         作業報告・評価入力
       </h1>
@@ -42,6 +43,7 @@ export default async function ContractorReportPage({ params }: Props) {
       </p>
 
       <ContractorReportForm applicationId={application.id} />
+      </div>
     </div>
   );
 }

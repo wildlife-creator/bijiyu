@@ -162,7 +162,8 @@ export default async function ClientProfilePage() {
     ));
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         発注者情報詳細
       </h1>
@@ -310,6 +311,7 @@ export default async function ClientProfilePage() {
         {/* CLI-021 保存後の history 汚染（/edit が履歴に残り router.back で戻ってしまう）を
             避けるため、CLI-020 の戻るは親（/mypage）に明示遷移 */}
         <BackButton className="w-full max-w-xs" href="/mypage" />
+      </div>
       </div>
     </div>
   );

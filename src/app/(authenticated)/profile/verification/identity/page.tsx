@@ -2,12 +2,12 @@
 
 import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ImagePlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { BackButton } from "@/components/shared/back-button";
 
 import { submitIdentityAction } from "./actions";
 
@@ -66,7 +66,8 @@ export default function IdentityUploadPage() {
   }
 
   return (
-    <div className="px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">本人確認</h1>
       <p className="mt-2 text-center text-body-md text-muted-foreground">
         以下のいずれかの本人確認書類を提出してください。
@@ -174,25 +175,18 @@ export default function IdentityUploadPage() {
       </div>
 
       {/* Action buttons */}
-      <div className="mt-8 space-y-4">
+      <div className="mt-8 flex flex-col items-center gap-3">
         <Button
           type="button"
           variant="default"
-          size="lg"
-          className="w-full rounded-full"
+          className="w-full max-w-xs rounded-full"
           disabled={isPending || !file1 || !file2}
           onClick={handleSubmit}
         >
           {isPending ? "送信中..." : "送信する"}
         </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full rounded-full"
-          asChild
-        >
-          <Link href="/profile/verification">もどる</Link>
-        </Button>
+        <BackButton href="/profile/verification" />
+      </div>
       </div>
     </div>
   );

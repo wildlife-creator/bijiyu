@@ -89,13 +89,15 @@ export default async function JobInquiryPage({ params }: PageProps) {
   const defaultEmail = viewerData?.email ?? user.email ?? "";
 
   return (
-    <div className="min-h-dvh px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
-      <InquiryForm
-        defaultName={defaultName}
-        defaultEmail={defaultEmail}
-        targetClientId={id}
-        targetDisplayName={targetDisplayName}
-      />
+    <div className="min-h-dvh">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
+        <InquiryForm
+          defaultName={defaultName}
+          defaultEmail={defaultEmail}
+          targetClientId={id}
+          targetDisplayName={targetDisplayName}
+        />
+      </div>
     </div>
   );
 }

@@ -121,7 +121,8 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
   const paginatedApplications = filteredApplications.slice(from, to + 1);
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         発注履歴一覧
       </h1>
@@ -368,6 +369,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
 
       <div className="mt-6">
         <BackButton />
+      </div>
       </div>
     </div>
   );

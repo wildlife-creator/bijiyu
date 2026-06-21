@@ -1,0 +1,23 @@
+{
+  "feature_name": "appwide-ui-consistency",
+  "created_at": "2026-06-19T00:00:00Z",
+  "updated_at": "2026-06-19T01:30:00Z",
+  "language": "ja",
+  "phase": "tasks-approved",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": false,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": true,
+  "notes": "軽量 spec (option B)。設計判断は requirements.md「採用した設計判断」セクションで完結し、design.md は省略。新規ドメインロジック・データモデル変更・API 変更なし、表示層 (Tailwind class) のみの統一作業。"
+}

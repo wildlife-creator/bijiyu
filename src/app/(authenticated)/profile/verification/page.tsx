@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BackButton } from "@/components/shared/back-button";
 
 // ---------------------------------------------------------------------------
 // Status helpers
@@ -81,7 +82,8 @@ export default async function VerificationPage() {
     identityApproved && (ccusStatus === null || ccusStatus === "rejected");
 
   return (
-    <div className="px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         本人確認・CCUS登録
       </h1>
@@ -205,14 +207,8 @@ export default async function VerificationPage() {
 
       {/* Back button */}
       <div className="mt-8">
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full rounded-full"
-          asChild
-        >
-          <Link href="/mypage">もどる</Link>
-        </Button>
+        <BackButton href="/mypage" />
+      </div>
       </div>
     </div>
   );

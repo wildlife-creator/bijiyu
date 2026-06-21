@@ -363,10 +363,10 @@ export default async function MyPage() {
   const skillNames = userSkills?.map((s) => s.trade_type).join("、") || null;
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <SuccessToast />
-      {/* Page title — CSS: 22px, bold, #601986 */}
-      <h1 className="text-center text-[22px] leading-[32px] font-bold text-bijiyu-purple">マイページ</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">マイページ</h1>
 
       {/* Profile area */}
       <div className="mt-6 flex items-start gap-4">
@@ -640,6 +640,7 @@ export default async function MyPage() {
           <MenuList items={updateInfoItems} />
         </nav>
       </section>
+      </div>
     </div>
   );
 }

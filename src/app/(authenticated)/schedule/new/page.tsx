@@ -16,7 +16,8 @@ export default async function NewSchedulePage() {
   if (!user) redirect("/login");
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         空き日程登録
       </h1>
@@ -26,7 +27,8 @@ export default async function NewSchedulePage() {
 
       <div className="mx-auto mt-6 flex w-full max-w-xs flex-col gap-3">
         <ScheduleForm mode="create" submitLabel="空き日程を登録する" />
-        <BackButton href="/schedule" size="lg" />
+        <BackButton href="/schedule" />
+      </div>
       </div>
     </div>
   );

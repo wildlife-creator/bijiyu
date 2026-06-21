@@ -83,5 +83,11 @@ export default async function BulkSendPage() {
     ([id, name]) => ({ id, name }),
   );
 
-  return <BulkSendForm recipients={recipients} />;
+  return (
+    <div className="min-h-screen bg-muted/40">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
+        <BulkSendForm recipients={recipients} />
+      </div>
+    </div>
+  );
 }

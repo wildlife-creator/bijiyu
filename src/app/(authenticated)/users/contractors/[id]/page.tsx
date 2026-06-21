@@ -143,6 +143,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       {/* Page title */}
       <div className="px-5 pt-6 pb-2">
         <h1 className="text-center text-heading-lg font-bold text-secondary">ユーザー詳細</h1>
@@ -405,6 +406,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       {/* Back link */}
       <div className="mx-5 mb-8">
         <BackButton />
+      </div>
       </div>
     </div>
   );

@@ -197,7 +197,8 @@ export default async function ClientDetailPage({ params }: PageProps) {
   }).ok;
 
   return (
-    <div className="min-h-dvh px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <InquirySuccessToast />
       <h1 className="text-center text-heading-lg font-bold text-secondary">発注者詳細</h1>
 
@@ -326,7 +327,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
       )}
 
       {/* Open jobs */}
-      <section className="mt-6 -mx-4 px-4 py-6 bg-muted md:-mx-8 md:px-8">
+      <section className="mt-6 bleed-viewport py-6 bg-muted">
         <h3 className="text-body-lg font-bold text-foreground">
           掲載中の案件
         </h3>
@@ -335,7 +336,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
             現在掲載中の案件はありません
           </p>
         ) : (
-          <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-2">
             {jobs.map((job) => {
               const images = job.job_images as { image_url: string; sort_order: number }[] | null;
               const thumbnail = images && images.length > 0
@@ -368,6 +369,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
       </section>
 
       <BackButton />
+      </div>
     </div>
   );
 }

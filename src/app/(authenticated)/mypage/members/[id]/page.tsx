@@ -142,7 +142,8 @@ export default async function MemberDetailPage({ params }: PageProps) {
     !isSelf;
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         担当者詳細
       </h1>
@@ -213,6 +214,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
           className="w-full max-w-xs"
           href={isSelf ? "/mypage" : "/mypage/members"}
         />
+      </div>
       </div>
     </div>
   );

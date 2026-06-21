@@ -2,7 +2,6 @@
 
 import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ImagePlus } from "lucide-react";
 
@@ -10,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BackButton } from "@/components/shared/back-button";
 
 import { submitCcusAction } from "./actions";
 
@@ -60,7 +60,8 @@ export default function CcusUploadPage() {
   }
 
   return (
-    <div className="px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">CCUS登録</h1>
       <p className="mt-2 text-center text-body-md text-muted-foreground">
         建設キャリアアップシステム（CCUS）のカードを登録してください。
@@ -142,25 +143,18 @@ export default function CcusUploadPage() {
       </div>
 
       {/* Action buttons */}
-      <div className="mt-8 space-y-4">
+      <div className="mt-8 flex flex-col items-center gap-3">
         <Button
           type="button"
           variant="default"
-          size="lg"
-          className="w-full rounded-full"
+          className="w-full max-w-xs rounded-full"
           disabled={isPending || !file || !ccusWorkerId.trim()}
           onClick={handleSubmit}
         >
           {isPending ? "送信中..." : "送信する"}
         </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full rounded-full"
-          asChild
-        >
-          <Link href="/profile/verification">もどる</Link>
-        </Button>
+        <BackButton href="/profile/verification" />
+      </div>
       </div>
     </div>
   );

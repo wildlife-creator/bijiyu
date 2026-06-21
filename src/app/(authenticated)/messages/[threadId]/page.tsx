@@ -181,21 +181,23 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F0F0F0]">
-      {/* Header */}
-      <MessageHeader name={otherName} />
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-6 md:px-8 md:py-8">
+        {/* Header */}
+        <MessageHeader name={otherName} />
 
-      {/* Message thread: list + input (connected via optimistic updates) */}
-      <MessageThreadView
-        threadId={threadId}
-        currentUserId={user.id}
-        contractorId={thread.participant_2_id}
-        initialMessages={messages}
-        participantAvatarUrl={otherAvatarUrl}
-        participantName={otherName}
-        showScoutActions={showScoutActions}
-        isContractorSide={isContractorSide}
-        isProxyAccount={isProxyAccount}
-      />
+        {/* Message thread: list + input (connected via optimistic updates) */}
+        <MessageThreadView
+          threadId={threadId}
+          currentUserId={user.id}
+          contractorId={thread.participant_2_id}
+          initialMessages={messages}
+          participantAvatarUrl={otherAvatarUrl}
+          participantName={otherName}
+          showScoutActions={showScoutActions}
+          isContractorSide={isContractorSide}
+          isProxyAccount={isProxyAccount}
+        />
+      </div>
     </div>
   );
 }

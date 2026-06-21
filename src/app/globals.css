@@ -248,3 +248,10 @@
   }
 }
 
+@layer utilities {
+  .bleed-viewport {
+    margin-inline: calc(50% - 50vw);
+    padding-inline: calc(50vw - 50%);
+  }
+}
+

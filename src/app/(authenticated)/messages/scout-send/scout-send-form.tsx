@@ -111,9 +111,8 @@ export function ScoutSendForm({
   }
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      <div className="mx-auto max-w-2xl px-4">
-        <h1 className="py-4 text-center text-lg font-bold text-secondary">スカウト送信</h1>
+    <>
+      <h1 className="mb-6 text-center text-heading-lg font-bold text-secondary">スカウト送信</h1>
 
         {/* User profile section */}
         <div className="mb-6 flex items-start gap-3">
@@ -243,13 +242,12 @@ export function ScoutSendForm({
           <Button
             onClick={handleSubmit}
             disabled={isPending}
-            className="w-full rounded-full bg-primary text-white hover:bg-primary/90"
+            className="w-full max-w-xs rounded-full bg-primary text-white hover:bg-primary/90"
           >
             {isPending ? "送信中..." : "送信する"}
           </Button>
           <BackButton />
         </div>
-      </div>
-    </div>
+    </>
   );
 }

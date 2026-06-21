@@ -175,7 +175,8 @@ export default async function OrderDetailPage({ params }: Props) {
   }, null);
 
   return (
-    <div className="min-h-dvh bg-muted px-6 py-6 md:px-12 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       {/* 1. Header */}
       <h1 className="text-center text-heading-lg font-bold text-secondary">発注内容詳細</h1>
 
@@ -417,6 +418,7 @@ export default async function OrderDetailPage({ params }: Props) {
 
         {/* 8. Back button */}
         <BackButton className="w-full max-w-xs" />
+      </div>
       </div>
     </div>
   );

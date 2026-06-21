@@ -153,16 +153,9 @@ export function ScoutTemplateForm({ mode, templateId, initialValues }: Props) {
           保存する
         </Button>
         {mode === "update" && templateId ? (
-          <Button
-            asChild
-            variant="outline"
-            size="lg"
-            className="w-full max-w-xs rounded-pill border-secondary text-secondary"
-          >
-            <Link href={`/messages/templates/${templateId}`}>もどる</Link>
-          </Button>
+          <BackButton href={`/messages/templates/${templateId}`} />
         ) : (
-          <BackButton className="w-full max-w-xs" />
+          <BackButton />
         )}
       </div>
     </form>

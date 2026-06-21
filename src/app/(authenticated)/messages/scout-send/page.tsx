@@ -81,11 +81,15 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
     .order("updated_at", { ascending: false });
 
   return (
-    <ScoutSendForm
-      targetUserId={targetUserId}
-      userProfile={userProfile}
-      jobs={jobsData ?? []}
-      templates={templatesData ?? []}
-    />
+    <div className="min-h-screen bg-muted/40">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
+        <ScoutSendForm
+          targetUserId={targetUserId}
+          userProfile={userProfile}
+          jobs={jobsData ?? []}
+          templates={templatesData ?? []}
+        />
+      </div>
+    </div>
   );
 }

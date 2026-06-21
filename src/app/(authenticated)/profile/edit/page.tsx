@@ -105,10 +105,10 @@ export default async function ProfileEditPage() {
     );
 
   return (
-    <>
-      {showOwnerBanner && (
-        <div className="mx-auto mt-4 max-w-2xl px-4">
-          <div className="rounded-[8px] border border-primary/30 bg-primary/5 px-4 py-3">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
+        {showOwnerBanner && (
+          <div className="mt-4 rounded-[8px] border border-primary/30 bg-primary/5 px-4 py-3">
             <p className="text-body-sm text-foreground">
               氏名・メールアドレスの変更は同一人物の情報更新のみです。契約者
               （管理責任者）を別の方に引き継ぐ場合は、
@@ -121,23 +121,23 @@ export default async function ProfileEditPage() {
               からご依頼ください
             </p>
           </div>
-        </div>
-      )}
-      <ProfileEditForm
-        activeTradeTypes={activeTradeTypes}
-        activeQualifications={activeQualifications}
-        activeSkillTags={activeSkillTags}
-        deprecatedTradeSet={deprecatedTradeSet}
-        deprecatedQualSet={deprecatedQualSet}
-        deprecatedTagSet={deprecatedTagSet}
-        candidateMunicipalitiesByPrefecture={
-          candidateMunicipalitiesByPrefecture
-        }
-        municipalitySortOrderMap={municipalitySortOrderMap}
-        existingDeprecatedMunicipalitiesByPrefecture={
-          existingDeprecatedMunicipalitiesByPrefecture
-        }
-      />
-    </>
+        )}
+        <ProfileEditForm
+          activeTradeTypes={activeTradeTypes}
+          activeQualifications={activeQualifications}
+          activeSkillTags={activeSkillTags}
+          deprecatedTradeSet={deprecatedTradeSet}
+          deprecatedQualSet={deprecatedQualSet}
+          deprecatedTagSet={deprecatedTagSet}
+          candidateMunicipalitiesByPrefecture={
+            candidateMunicipalitiesByPrefecture
+          }
+          municipalitySortOrderMap={municipalitySortOrderMap}
+          existingDeprecatedMunicipalitiesByPrefecture={
+            existingDeprecatedMunicipalitiesByPrefecture
+          }
+        />
+      </div>
+    </div>
   );
 }

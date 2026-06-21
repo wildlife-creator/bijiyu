@@ -90,7 +90,8 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="min-h-dvh px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
+    <div className="min-h-dvh">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         募集現場新規登録
       </h1>
@@ -105,6 +106,7 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
             candidateMunicipalitiesByPrefecture
           }
         />
+      </div>
       </div>
     </div>
   );

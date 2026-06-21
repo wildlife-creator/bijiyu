@@ -86,8 +86,8 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
   }
 
   return (
-    <div className="px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-lg space-y-6">
+    <>
+      <div className="space-y-6">
         <h1 className="text-center text-heading-lg font-bold text-secondary">
           退会手続き
         </h1>
@@ -209,12 +209,11 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
           )}
 
           {/* Buttons */}
-          <div className="space-y-3 pt-2">
+          <div className="mx-auto flex w-full max-w-xs flex-col gap-3 pt-2">
             <Button
               type="submit"
               variant="destructive"
-              size="lg"
-              className="w-full rounded-full"
+              className="w-full rounded-pill text-body-md border-destructive/30"
               disabled={isPending}
             >
               {isPending ? "処理中..." : "退会する"}
@@ -223,8 +222,7 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
             <Button
               type="button"
               variant="outline"
-              size="lg"
-              className="w-full rounded-full"
+              className="w-full rounded-pill text-body-md"
               onClick={() => router.back()}
             >
               もどる
@@ -262,19 +260,17 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <AlertDialogFooter className="mx-auto flex w-full max-w-xs flex-col gap-3 sm:flex-col sm:space-x-0">
               <Button
                 asChild
-                size="lg"
-                className="w-full rounded-full bg-primary text-white hover:bg-primary/90"
+                className="w-full rounded-pill text-body-md border-primary bg-primary text-white hover:bg-primary/90"
               >
                 <Link href="/billing">プランを解約する</Link>
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="lg"
-                className="w-full rounded-full"
+                className="w-full rounded-pill text-body-md"
                 onClick={() => setIsDialogOpen(false)}
               >
                 キャンセル
@@ -282,8 +278,7 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
               <Button
                 type="button"
                 variant="destructive"
-                size="lg"
-                className="w-full rounded-full"
+                className="w-full rounded-pill text-body-md border-destructive/30"
                 onClick={handleConfirmedWithdraw}
                 disabled={isPending}
               >
@@ -293,6 +288,6 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
           </AlertDialogContent>
         </AlertDialog>
       )}
-    </div>
+    </>
   );
 }

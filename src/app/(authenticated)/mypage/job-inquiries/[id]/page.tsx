@@ -45,7 +45,8 @@ export default async function JobInquiryDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-dvh px-4 py-6 md:mx-auto md:max-w-2xl md:px-8 md:py-8">
+    <div className="min-h-dvh">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         お問い合わせ詳細
       </h1>
@@ -82,6 +83,7 @@ export default async function JobInquiryDetailPage({ params }: PageProps) {
 
       <div className="mt-8">
         <BackButton href="/mypage/job-inquiries" />
+      </div>
       </div>
     </div>
   );

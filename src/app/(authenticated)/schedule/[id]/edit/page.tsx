@@ -31,7 +31,8 @@ export default async function EditSchedulePage({ params }: PageProps) {
   if (!schedule || schedule.user_id !== user.id) notFound();
 
   return (
-    <div className="min-h-dvh bg-muted px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-dvh bg-muted">
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         空き日程更新
       </h1>
@@ -50,7 +51,8 @@ export default async function EditSchedulePage({ params }: PageProps) {
           submitLabel="空き日程を更新する"
         />
         <DeleteScheduleButton scheduleId={schedule.id} />
-        <BackButton href="/schedule" size="lg" />
+        <BackButton href="/schedule" />
+      </div>
       </div>
     </div>
   );
