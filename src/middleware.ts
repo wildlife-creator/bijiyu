@@ -361,8 +361,13 @@ export async function middleware(request: NextRequest) {
   // accessible by authenticated users (both rely on session established by
   // Supabase Auth callback)
   // (recovery flow sets the session before redirecting to this page)
+  // Additional exception: /reset-password is the hamburger-menu「パスワード再設定」
+  // entry point. 本プロジェクトはログイン中の in-app パスワード変更画面を持たない方針
+  // （.kiro/specs/organization/requirements.md L291）のため、ログイン済ユーザーも
+  // /reset-password でメール再送依頼 → ログアウト → メールリンクから再設定のフローを踏む。
   if (
     isAuthPage(pathname) &&
+    pathname !== "/reset-password" &&
     pathname !== "/reset-password/confirm" &&
     pathname !== "/accept-invite/confirm"
   ) {

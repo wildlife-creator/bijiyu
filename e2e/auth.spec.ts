@@ -82,11 +82,14 @@ test.describe("退会画面（AUTH-006〜007）", () => {
 });
 
 test.describe("ハンバーガーメニュー（認証状態別）", () => {
+  // ハンバーガーは「自社」プレフィックスで暗黙的に発注者側グループを作る方針
+  // （セクションヘッダーは置かないかわりに、文言で群を視認可能にする）。
+  // マイページや画面 H1 はスペックの正式名称（応募者一覧 / 発注履歴一覧 等）のまま据え置き。
   const CLIENT_ONLY_ITEMS = [
-    "募集現場一覧",
-    "応募者一覧",
-    "発注履歴一覧",
-    "発注者情報詳細",
+    "自社の募集現場一覧",
+    "自社への応募一覧",
+    "自社の発注履歴一覧",
+    "自社の発注者情報詳細",
   ];
 
   test("contractorには発注者メニューが表示されない", async ({ page }) => {
@@ -98,7 +101,7 @@ test.describe("ハンバーガーメニュー（認証状態別）", () => {
 
     // 受注者メニューは表示される
     await expect(drawer.getByText("募集案件一覧")).toBeVisible();
-    await expect(drawer.getByText("プロフィール")).toBeVisible();
+    await expect(drawer.getByText("ユーザープロフィール")).toBeVisible();
 
     // 発注者メニューは非表示
     for (const label of CLIENT_ONLY_ITEMS) {

@@ -47,7 +47,14 @@ function getRoutingResult(
   }
 
   // Authenticated on auth pages → redirect
-  if (isAuthPage(pathname)) {
+  // Exception: /reset-password / /reset-password/confirm / /accept-invite/confirm は
+  // ログイン済ユーザーも踏める（パスワード再設定導線 + Supabase Auth callback フロー）
+  if (
+    isAuthPage(pathname) &&
+    pathname !== "/reset-password" &&
+    pathname !== "/reset-password/confirm" &&
+    pathname !== "/accept-invite/confirm"
+  ) {
     return {
       allowed: false,
       redirectTo: role === "admin" ? "/admin/dashboard" : "/mypage",
@@ -193,6 +200,11 @@ describe("authenticated contractor routing", () => {
 
   it("allows /billing/plans", () => {
     const result = getRoutingResult(role, "/billing/plans", true);
+    expect(result.allowed).toBe(true);
+  });
+
+  it("allows /reset-password (hamburger パスワード再設定 導線)", () => {
+    const result = getRoutingResult(role, "/reset-password", true);
     expect(result.allowed).toBe(true);
   });
 });

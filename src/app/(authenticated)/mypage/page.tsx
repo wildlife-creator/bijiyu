@@ -49,7 +49,7 @@ const FIND_CONTRACTORS_MENU: MenuItem[] = [
 
 // Section 4: Manage orders (client only)
 const MANAGE_ORDERS_MENU: MenuItem[] = [
-  { label: "発注履歴", href: "/applications/orders" },
+  { label: "発注履歴一覧", href: "/applications/orders" },
   { label: "募集現場一覧", href: "/jobs/manage" },
   { label: "求人へのお問い合わせ", href: "/mypage/job-inquiries" },
 ];

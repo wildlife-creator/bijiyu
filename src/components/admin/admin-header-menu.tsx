@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { Menu, ChevronRight } from "lucide-react";
+import { Menu } from "lucide-react";
 
 import { adminLogoutAction } from "@/app/admin/actions";
 import { ADMIN_MENU_ITEMS } from "@/lib/admin/menu-items";
@@ -17,12 +17,12 @@ import {
 } from "@/components/ui/sheet";
 
 /**
- * 管理画面ヘッダー右上のハンバーガーメニュー。
+ * 管理画面ヘッダー右上のハンバーガーメニュー（ログイン後）。
+ * デザインカンプ: design-assets/screens/UI-header-login-b.png
  *
- * ADM-002 トップページと同じメニュー項目（ADMIN_MENU_ITEMS）＋
- * パスワード変更・ログアウトを表示し、全 admin 画面からどのメニューにも
- * 到達できる導線を提供する（REQ-ADM-002）。
- * パスワード変更・ログアウトは小さめの文字。ログアウトは赤字（一般ユーザーと統一）。
+ * 上段（大きい行）: ADM-002 と同じ全 8 項目（ADMIN_MENU_ITEMS）。
+ * 下段（小さいテキスト）: パスワード再設定・ログアウト。
+ * 一般ユーザー側 SiteHeader と同じスタイル系統に揃える。
  */
 export function AdminHeaderMenu() {
   const [isPending, startTransition] = useTransition();
@@ -42,8 +42,8 @@ export function AdminHeaderMenu() {
       </SheetTrigger>
 
       <SheetContent side="right" className="w-72 overflow-y-auto p-0">
-        <SheetHeader className="border-b border-border px-4 py-3">
-          <SheetTitle className="text-heading-sm">メニュー</SheetTitle>
+        <SheetHeader className="border-b border-border px-4 py-4">
+          <SheetTitle className="text-heading-sm">Menu</SheetTitle>
         </SheetHeader>
 
         <nav>
@@ -51,10 +51,9 @@ export function AdminHeaderMenu() {
             <SheetClose asChild key={item.href}>
               <Link
                 href={item.href}
-                className="flex items-center justify-between border-b border-border px-4 py-3 text-body-md text-foreground transition-colors hover:bg-accent"
+                className="block border-b border-border px-4 py-4 text-body-md text-foreground transition-colors hover:bg-accent"
               >
                 {item.label}
-                <ChevronRight className="w-4 h-4 text-primary/70" />
               </Link>
             </SheetClose>
           ))}
@@ -66,7 +65,7 @@ export function AdminHeaderMenu() {
               href="/admin/password"
               className="block text-body-sm text-foreground underline-offset-2 hover:underline"
             >
-              パスワード変更
+              パスワード再設定
             </Link>
           </SheetClose>
           <button

@@ -44,7 +44,7 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
   }) => {
     await adminLogin(page);
 
-    // ダッシュボードの8メニュー＋パスワード変更（計9メニュー）をクリックで巡回。
+    // ダッシュボードの8メニュー＋パスワード再設定（計9メニュー）をクリックで巡回。
     // 各画面から共通ヘッダーのロゴ（accessible name「ビジ友 管理画面」）でダッシュボードへ戻る
     const menus: Array<[string, RegExp, string]> = [
       ["発注者アカウント一覧", /\/admin\/clients/, "発注者 アカウント一覧"],
@@ -55,7 +55,7 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
       ["トラブル報告一覧", /\/admin\/trouble-reports/, "トラブル報告一覧"],
       ["求人問い合わせ一覧", /\/admin\/job-inquiries/, "求人問い合わせ一覧"],
       ["代理メッセージ一覧", /\/admin\/messages/, "代理メッセージ一覧"],
-      ["パスワード変更", /\/admin\/password/, "パスワード変更"],
+      ["パスワード再設定", /\/admin\/password/, "パスワード再設定"],
     ];
 
     for (const [label, urlPattern, heading] of menus) {

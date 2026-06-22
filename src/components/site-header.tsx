@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { Menu, LogOut } from "lucide-react";
+import { Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,56 +18,62 @@ import { logoutAction } from "@/app/(auth)/login/actions";
 interface MenuItem {
   label: string;
   href: string;
+  paidOnly?: boolean;
 }
 
-// Unauthenticated menu
-const GUEST_MENU: MenuItem[] = [
+// design-assets/screens/UI-header-logout.png 上段
+const GUEST_PRIMARY: MenuItem[] = [
   { label: "ログイン", href: "/login" },
   { label: "新規会員登録", href: "/register" },
-  { label: "ビジ友とは", href: "#" },
+  { label: "ビジ友とは", href: "/" },
+];
+
+// design-assets/screens/UI-header-logout.png 下段
+const GUEST_SECONDARY: MenuItem[] = [
   { label: "パスワードを忘れた方はこちら", href: "/reset-password" },
-  { label: "お問合せ", href: "#" },
+  { label: "お問合せ", href: "/contact" },
 ];
 
-// Authenticated: REQ-AUTH-008 受注者メニュー（常に表示）
-const CONTRACTOR_MENU: MenuItem[] = [
-  { label: "募集案件一覧", href: "/jobs/search" },   // CON-002
-  { label: "発注者一覧", href: "/clients" },       // CON-005
-  { label: "マイリスト", href: "/favorites" },     // CON-007
-  { label: "メッセージ/スカウト一覧", href: "#" },  // CON-008
-  { label: "応募履歴一覧", href: "#" },            // CON-011
-  { label: "空き日程一覧", href: "#" },            // CON-014
-  { label: "本人確認・CCUS登録", href: "/profile/verification" }, // COM-003
-  { label: "プロフィール", href: "/profile" },     // COM-001
-  { label: "有料プラン案内", href: "#" },          // CLI-026
-  { label: "よくある質問", href: "#" },            // COM-007
-  { label: "お問い合わせ", href: "#" },            // COM-008
+// design-assets/screens/UI-header-login.png 上段
+const AUTH_PRIMARY: MenuItem[] = [
+  { label: "マイページ", href: "/mypage" },
+  { label: "募集案件一覧", href: "/jobs/search" },
+  { label: "マイリスト", href: "/favorites" },
+  { label: "メッセージ・スカウト", href: "/messages" },
+  { label: "自社への応募一覧", href: "/applications/received", paidOnly: true },
+  { label: "自社の発注履歴一覧", href: "/applications/orders", paidOnly: true },
+  { label: "自社の募集現場一覧", href: "/jobs/manage", paidOnly: true },
 ];
 
-// REQ-AUTH-008 発注者メニュー（課金後に追加表示）
-const CLIENT_MENU: MenuItem[] = [
-  { label: "募集現場一覧", href: "/jobs/manage" },   // CLI-001
-  { label: "応募者一覧", href: "#" },              // CLI-007
-  { label: "発注履歴一覧", href: "#" },            // CLI-010
-  { label: "発注者情報詳細", href: "#" },          // CLI-020
+// design-assets/screens/UI-header-login.png 下段
+const AUTH_SECONDARY: MenuItem[] = [
+  { label: "プラン変更", href: "/billing" },
+  { label: "本人確認・CCUS登録", href: "/profile/verification" },
+  { label: "ユーザープロフィール", href: "/profile" },
+  { label: "自社の発注者情報詳細", href: "/mypage/client-profile", paidOnly: true },
+  { label: "パスワード再設定", href: "/reset-password" },
+  { label: "お問い合わせ", href: "/contact" },
 ];
 
-function MenuItemLink({ item }: { item: MenuItem }) {
-  const isDisabled = item.href === "#";
-
-  if (isDisabled) {
-    return (
-      <span className="block border-b border-border px-3 py-3 text-body-md text-muted-foreground">
-        {item.label}
-      </span>
-    );
-  }
-
+function PrimaryItem({ item }: { item: MenuItem }) {
   return (
     <SheetClose asChild>
       <Link
         href={item.href}
-        className="block border-b border-border px-3 py-3 text-body-md text-foreground transition-colors hover:bg-accent"
+        className="block border-b border-border px-4 py-4 text-body-md text-foreground transition-colors hover:bg-accent"
+      >
+        {item.label}
+      </Link>
+    </SheetClose>
+  );
+}
+
+function SecondaryItem({ item }: { item: MenuItem }) {
+  return (
+    <SheetClose asChild>
+      <Link
+        href={item.href}
+        className="block text-body-sm text-foreground underline-offset-2 hover:underline"
       >
         {item.label}
       </Link>
@@ -92,11 +98,24 @@ export function SiteHeader({
     });
   }
 
-  const mainMenu = isAuthenticated ? CONTRACTOR_MENU : GUEST_MENU;
+  const primary = isAuthenticated ? AUTH_PRIMARY : GUEST_PRIMARY;
+  const secondary = isAuthenticated ? AUTH_SECONDARY : GUEST_SECONDARY;
+  const showPaid = isAuthenticated && hasActiveSubscription;
+
+  const visiblePrimary = primary.filter(
+    (item) => !item.paidOnly || showPaid,
+  );
+  const visibleSecondary = secondary.filter(
+    (item) => !item.paidOnly || showPaid,
+  );
 
   return (
     <header className="flex items-center justify-between border-b border-border bg-background px-4 py-3">
-      <Link href={isAuthenticated ? "/mypage" : "/"} className="flex items-center">
+      <Link
+        href={isAuthenticated ? "/mypage" : "/"}
+        className="flex items-center"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/images/logo-horizontal.png"
           alt="ビジ友"
@@ -113,42 +132,31 @@ export function SiteHeader({
         </SheetTrigger>
 
         <SheetContent side="right" className="w-72 overflow-y-auto p-0">
-          <SheetHeader className="border-b border-border px-4 py-3">
-            <SheetTitle className="text-heading-sm">メニュー</SheetTitle>
+          <SheetHeader className="border-b border-border px-4 py-4">
+            <SheetTitle className="text-heading-sm">Menu</SheetTitle>
           </SheetHeader>
 
           <nav>
-            {mainMenu.map((item) => (
-              <MenuItemLink key={item.label} item={item} />
+            {visiblePrimary.map((item) => (
+              <PrimaryItem key={item.label} item={item} />
             ))}
           </nav>
 
-          {isAuthenticated && hasActiveSubscription && (
-            <>
-              <div className="px-3 pb-1 pt-4 text-body-sm font-bold text-muted-foreground">
-                発注者メニュー
-              </div>
-              <nav>
-                {CLIENT_MENU.map((item) => (
-                  <MenuItemLink key={item.label} item={item} />
-                ))}
-              </nav>
-            </>
-          )}
-
-          {isAuthenticated && (
-            <div className="p-4">
-              <Button
-                variant="outline"
-                className="w-full justify-center gap-2 rounded-pill text-destructive hover:text-destructive"
+          <div className="space-y-3 p-4">
+            {visibleSecondary.map((item) => (
+              <SecondaryItem key={item.label} item={item} />
+            ))}
+            {isAuthenticated && (
+              <button
+                type="button"
                 onClick={handleLogout}
                 disabled={isPending}
+                className="block text-body-sm text-destructive underline-offset-2 hover:underline disabled:opacity-60"
               >
-                <LogOut className="size-4" />
                 {isPending ? "ログアウト中..." : "ログアウト"}
-              </Button>
-            </div>
-          )}
+              </button>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
     </header>

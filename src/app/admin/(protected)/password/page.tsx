@@ -52,7 +52,7 @@ export default function AdminPasswordPage() {
   return (
     <div className="mx-auto max-w-md px-5 py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
-        パスワード変更
+        パスワード再設定
       </h1>
 
       {message && (
