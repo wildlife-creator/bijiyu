@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { SupportFooter } from "@/components/layout/support-footer";
 
 export default function LandingPage() {
   return (
@@ -33,25 +34,9 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="px-6 py-8">
-        <nav className="mx-auto flex max-w-lg flex-wrap items-center justify-center gap-x-4 gap-y-2">
-          <Link href="/faq" className="text-body-sm text-muted-foreground">
-            よくある質問
-          </Link>
-          <Link href="/contact" className="text-body-sm text-muted-foreground">
-            お問い合わせ
-          </Link>
-          <Link href="/terms" className="text-body-sm text-muted-foreground">
-            利用規約
-          </Link>
-          <Link href="/privacy" className="text-body-sm text-muted-foreground">
-            プライバシーポリシー
-          </Link>
-          <Link href="/legal" className="text-body-sm text-muted-foreground">
-            特定商取引法に基づく表記
-          </Link>
-        </nav>
-        <div className="mx-auto mt-4 flex max-w-lg justify-center">
+      <div className="px-6 pb-8">
+        <SupportFooter variant="pre-login" />
+        <div className="mx-auto flex max-w-lg justify-center">
           <Link
             href="/admin/login"
             className="text-xs text-muted-foreground/60 hover:text-muted-foreground"
@@ -59,7 +44,7 @@ export default function LandingPage() {
             管理者ログイン
           </Link>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }

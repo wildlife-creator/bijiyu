@@ -359,7 +359,7 @@ export default function ContactPage() {
         <div className="flex flex-col items-center gap-4 pt-4">
           <Button
             type="submit"
-            className="w-full rounded-full"
+            className="flex mx-auto w-full max-w-xs rounded-full"
             disabled={isSubmitting}
           >
             {isSubmitting ? "送信中..." : "送信する"}

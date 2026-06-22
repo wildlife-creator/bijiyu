@@ -47,7 +47,7 @@ export default function LegalPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
-        特商法に関わる表示
+        特定商取引法に基づく表記
       </h1>
 
       {LEGAL_SECTIONS.map((section) => (

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { SupportFooter } from "@/components/layout/support-footer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
@@ -75,13 +76,6 @@ const CORPORATE_ONLY_MENU: MenuItem = {
   label: "担当者一覧",
   href: "/mypage/members",
 };
-
-// FAQ & Contact (at the end of update info section)
-const SUPPORT_MENU: MenuItem[] = [
-  { label: "よくある質問", href: "/faq" },
-  { label: "お問い合わせ", href: "/contact" },
-  { label: "トラブル報告", href: "/trouble-report" },
-];
 
 // -------------------------------------------------------------------
 // Verification status types
@@ -350,7 +344,6 @@ export default async function MyPage() {
     { label: "ユーザープロフィール変更", href: profileHref },
     ...(isClient ? UPDATE_INFO_CLIENT_MENU : []),
     ...(isCorporate ? [CORPORATE_ONLY_MENU] : []),
-    ...SUPPORT_MENU,
   ];
 
   // Max experience years from skills
@@ -640,6 +633,8 @@ export default async function MyPage() {
           <MenuList items={updateInfoItems} />
         </nav>
       </section>
+
+      <SupportFooter />
       </div>
     </div>
   );

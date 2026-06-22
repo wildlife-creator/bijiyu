@@ -8,6 +8,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { BackChevron } from "@/components/shared/back-chevron";
+import { SupportFooter } from "@/components/layout/support-footer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -128,6 +129,8 @@ export default function LoginPage() {
           こちら
         </Link>
       </p>
+
+      <SupportFooter variant="pre-login" />
 
       {/* Admin login link (discreet) */}
       <p className="text-center">
