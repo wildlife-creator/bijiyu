@@ -238,7 +238,7 @@ sequenceDiagram
 | 8.1 (REQ-PF-008) | お問い合わせ | ContactPage, submitContactAction | ContactSchema, ActionResult | — |
 | 9.1 (REQ-PF-009) | 利用規約 | TermsPage | — | — |
 | 10.1 (REQ-PF-010) | プライバシーポリシー | PrivacyPage | — | — |
-| 11.1 (REQ-PF-011) | 特定商取引法 | LegalPage | — | — |
+| 11.1 (REQ-PF-011) | 特定商取引法に基づく表記 | LegalPage | — | — |
 
 ## Components and Interfaces
 
@@ -260,7 +260,7 @@ sequenceDiagram
 | SubmitContactAction | Action/Support | お問い合わせ送信（認証不要） | 8.1 | Supabase DB (P0) | Service |
 | TermsPage | UI/Support | 利用規約 | 9.1 | — | — |
 | PrivacyPage | UI/Support | プライバシーポリシー | 10.1 | — | — |
-| LegalPage | UI/Support | 特定商取引法 | 11.1 | — | — |
+| LegalPage | UI/Support | 特定商取引法に基づく表記 | 11.1 | — | — |
 
 ### Server Actions Layer
 
