@@ -182,7 +182,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
     .eq("id", user.id)
     .maybeSingle();
   // targetOrgId / adminClient は掲載案件取得の前で解決済み（上部参照）。
-  const viewerOrgId = await resolveViewerOrganizationId(adminClient, user.id);
+  const viewerOrgId = await resolveViewerOrganizationId(adminClient, user.id, supabase);
   const canInquire = canSendJobInquiry({
     viewer: {
       id: user.id,

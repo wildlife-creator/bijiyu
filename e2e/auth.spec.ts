@@ -10,7 +10,7 @@ test.describe("ログイン画面（AUTH-001）", () => {
   test("存在しないメールアドレスでエラーが表示される", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel("メールアドレス").fill("nonexistent@test.local");
-    await page.getByLabel("パスワード").fill("testpass123");
+    await page.getByRole("textbox", { name: /パスワード/ }).fill("testpass123");
     await page.getByRole("button", { name: "ログイン" }).click();
     await expect(
       page.getByText("メールアドレスまたはパスワードが正しくありません"),
@@ -20,7 +20,7 @@ test.describe("ログイン画面（AUTH-001）", () => {
   test("パスワードを間違えるとエラーが表示される", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel("メールアドレス").fill(TEST_CONTRACTOR.email);
-    await page.getByLabel("パスワード").fill("wrongpassword");
+    await page.getByRole("textbox", { name: /パスワード/ }).fill("wrongpassword");
     await page.getByRole("button", { name: "ログイン" }).click();
     await expect(
       page.getByText("メールアドレスまたはパスワードが正しくありません"),

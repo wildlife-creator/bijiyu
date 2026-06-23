@@ -130,6 +130,24 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({ from: (table: string) => adminFrom(table) }),
 }));
 
+// proxy-account-multi-org-support: resolveViewerOrganizationId が
+// `supabase` 引数を渡されると getActiveOrganizationContext を経由する。
+// ヘルパー本体をモックして adminState.viewerMembership と同期させる。
+vi.mock("@/lib/organization/active-org-context", () => ({
+  getActiveOrganizationContext: async () => ({
+    active: adminState.viewerMembership
+      ? {
+          organizationId: adminState.viewerMembership.organization_id,
+          orgRole: "owner" as const,
+          isProxyAccount: false,
+          orgOwnerId: authState.user?.id ?? "",
+          isCorporate: true,
+        }
+      : null,
+    all: [],
+  }),
+}));
+
 vi.mock("@/lib/email/send-email", () => ({ sendEmail: sendEmailMock }));
 
 vi.mock("next/headers", () => ({

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ApplicationStatusBadge, getOrderDisplayCategory } from "@/components/shared/application-status-badge";
@@ -75,13 +76,8 @@ export default async function OrderDetailPage({ params }: Props) {
     if (!job.organization_id) {
       notFound();
     }
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("organization_id", job.organization_id)
-      .maybeSingle();
-    if (!orgMember) {
+    const { active } = await getActiveOrganizationContext(supabase);
+    if (active?.organizationId !== job.organization_id) {
       notFound();
     }
   }

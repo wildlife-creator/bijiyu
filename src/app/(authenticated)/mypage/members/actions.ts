@@ -5,11 +5,13 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PLAN_LIMITS, type PlanType } from "@/lib/constants/plans";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import type { ActionResult } from "@/lib/types/action-result";
 import type { Json } from "@/types/database";
 import {
   memberCreateSchema,
   memberUpdateSchema,
+  memberErrorMessages,
   type MemberCreateInput,
   type MemberUpdateInput,
 } from "@/lib/validations/member";
@@ -20,6 +22,11 @@ const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 // ---------------------------------------------------------------------------
 // Helper: actor context
+//
+// proxy-account-multi-org-support Phase 3 / Task 3.1:
+// `.maybeSingle()` で直接 `organization_members` を引く旧パターンを廃止し、
+// `getActiveOrganizationContext` 経由で組織コンテキストを解決する。
+// 単一組織ユーザーには Cookie が無視されるため既存挙動と完全等価。
 // ---------------------------------------------------------------------------
 async function getActorContext(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -29,24 +36,14 @@ async function getActorContext(
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: member } = await supabase
-    .from("organization_members")
-    .select("organization_id, org_role, organizations!inner(owner_id)")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!member) return null;
-
-  const org = Array.isArray(member.organizations)
-    ? member.organizations[0]
-    : member.organizations;
-  const orgOwnerId = (org as { owner_id: string } | null)?.owner_id ?? null;
+  const { active } = await getActiveOrganizationContext(supabase);
+  if (!active) return null;
 
   return {
     userId: user.id,
-    organizationId: member.organization_id as string,
-    orgRole: member.org_role as "owner" | "admin" | "staff",
-    orgOwnerId: orgOwnerId as string,
+    organizationId: active.organizationId,
+    orgRole: active.orgRole,
+    orgOwnerId: active.orgOwnerId,
   };
 }
 
@@ -86,7 +83,17 @@ export async function createMemberAction(
     return { success: false, error: "担当者の作成権限がありません" };
   }
 
-  // admin が admin を作成しようとした場合は拒否
+  // R6 二重防衛: UI バイパス / 改竄リクエストに備え、入力段階で
+  // 代理 + admin の組み合わせを Zod に依存せず明示拒否する。
+  // Zod superRefine も同条件で issue を出すが、ここを残すことで
+  // 「将来 schema を直接書き換えた場合の安全網」として機能させる。
+  if (input.isProxyAccount === true && input.orgRole === "admin") {
+    return {
+      success: false,
+      error: memberErrorMessages.proxyAdminCombination,
+    };
+  }
+
   const parsed = memberCreateSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -94,6 +101,7 @@ export async function createMemberAction(
       error: parsed.error.issues[0]?.message ?? "入力内容に誤りがあります",
     };
   }
+  // admin が admin を作成しようとした場合は拒否
   if (actor.orgRole === "admin" && parsed.data.orgRole === "admin") {
     return {
       success: false,
@@ -258,6 +266,15 @@ export async function updateMemberAction(
   const supabase = await createClient();
   const actor = await getActorContext(supabase);
   if (!actor) return { success: false, error: "認証が必要です" };
+
+  // R6 二重防衛: UI バイパス / 改竄リクエストに備え、入力段階で
+  // 代理 + admin の組み合わせを Zod に依存せず明示拒否する。
+  if (input.isProxyAccount === true && input.orgRole === "admin") {
+    return {
+      success: false,
+      error: memberErrorMessages.proxyAdminCombination,
+    };
+  }
 
   const parsed = memberUpdateSchema.safeParse(input);
   if (!parsed.success) {

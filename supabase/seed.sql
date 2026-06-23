@@ -1738,3 +1738,96 @@ SELECT
   1, '常勤', 'applied',
   now() - (g || ' minutes')::interval
 FROM generate_series(1, 12) AS g;
+
+-- ============================================================
+-- proxy-account-multi-org-support Phase 3 / Task 3.2
+-- ============================================================
+-- N 法人兼任の代理スタッフ検証用 seed。既存のテストユーザー・法人とは
+-- 完全に独立した新規ツリー（id 帯 f777...）で構築する。
+--
+-- 構成:
+--   * proxy-x-owner@test.local (f7771111-...) — 法人 X の Owner（client）
+--   * proxy-y-owner@test.local (f7772222-...) — 法人 Y の Owner（client）
+--   * proxy-multi@test.local   (f777aaaa-...) — 法人 X / Y の代理スタッフ（兼任）
+--   * proxy-con@test.local     (f777cccc-...) — 動作確認用の受注者
+--   * 法人 X (f777a111-...) — メンバー created_at: 2026-01-01 (= 最古、既定組織)
+--   * 法人 Y (f777b222-...) — メンバー created_at: 2026-02-01
+--   * 各法人に 1 件ずつメッセージスレッド（proxy-multi が代理として参加）
+--
+-- ねらい:
+--   - getActiveOrganizationContext の N 組織パス（Cookie 解決 / 既定値 = 最古）を E2E で踏む
+--   - 法人 X が「既定組織」になることをスモークテストで確認する
+--   - 既存の seed 法人（55555555-... / aabbccdd-... / ade2.... 等）には触れない
+-- ============================================================
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('f7771111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'proxy-x-owner@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f7772222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'proxy-y-owner@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'proxy-multi@test.local',   crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"invited_role":"staff"}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f777cccc-cccc-cccc-cccc-cccccccccccc', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'proxy-con@test.local',     crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES
+  ('f7771111-1111-1111-1111-111111111111', 'f7771111-1111-1111-1111-111111111111', 'proxy-x-owner@test.local', '{"sub":"f7771111-1111-1111-1111-111111111111","email":"proxy-x-owner@test.local"}', 'email', now(), now(), now()),
+  ('f7772222-2222-2222-2222-222222222222', 'f7772222-2222-2222-2222-222222222222', 'proxy-y-owner@test.local', '{"sub":"f7772222-2222-2222-2222-222222222222","email":"proxy-y-owner@test.local"}', 'email', now(), now(), now()),
+  ('f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'proxy-multi@test.local',   '{"sub":"f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","email":"proxy-multi@test.local"}',   'email', now(), now(), now()),
+  ('f777cccc-cccc-cccc-cccc-cccccccccccc', 'f777cccc-cccc-cccc-cccc-cccccccccccc', 'proxy-con@test.local',     '{"sub":"f777cccc-cccc-cccc-cccc-cccccccccccc","email":"proxy-con@test.local"}',     'email', now(), now(), now());
+
+UPDATE public.users SET
+  role = 'client', last_name = 'プロキシ', first_name = '甲社長',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f7771111-1111-1111-1111-111111111111';
+
+UPDATE public.users SET
+  role = 'client', last_name = 'プロキシ', first_name = '乙社長',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '大阪府',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f7772222-2222-2222-2222-222222222222';
+
+UPDATE public.users SET
+  role = 'staff', last_name = '代理', first_name = '太郎',
+  gender = '男性', birth_date = '1992-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+
+UPDATE public.users SET
+  role = 'contractor', last_name = '代理確認', first_name = '次郎',
+  gender = '男性', birth_date = '1990-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now(),
+  skill_tags = ARRAY['木造軸組構法']
+WHERE id = 'f777cccc-cccc-cccc-cccc-cccccccccccc';
+
+INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
+  ('f777cccc-cccc-cccc-cccc-cccccccccccc', '建築/躯体｜大工', 5);
+INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
+  ('f777cccc-cccc-cccc-cccc-cccccccccccc', '東京都', NULL);
+
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end) VALUES
+  ('f7771111-1111-1111-1111-111111111111', 'corporate', 'active', now(), now() + interval '30 days'),
+  ('f7772222-2222-2222-2222-222222222222', 'corporate', 'active', now(), now() + interval '30 days');
+
+INSERT INTO client_profiles (user_id, display_name) VALUES
+  ('f7771111-1111-1111-1111-111111111111', 'プロキシ法人 X 株式会社'),
+  ('f7772222-2222-2222-2222-222222222222', 'プロキシ法人 Y 株式会社');
+
+INSERT INTO organizations (id, owner_id) VALUES
+  ('f777a111-1111-1111-1111-111111111111', 'f7771111-1111-1111-1111-111111111111'),
+  ('f777b222-2222-2222-2222-222222222222', 'f7772222-2222-2222-2222-222222222222');
+
+-- 組織メンバー: Owner + 代理スタッフ（兼任）。created_at を明示し proxy-multi の
+-- 法人 X 在籍が「最古」になるよう順序付ける（Cookie 不在時の既定値が法人 X）。
+INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account, created_at) VALUES
+  ('f777a111-1111-1111-1111-111111111111', 'f7771111-1111-1111-1111-111111111111', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('f777b222-2222-2222-2222-222222222222', 'f7772222-2222-2222-2222-222222222222', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('f777a111-1111-1111-1111-111111111111', 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'staff', true,  '2026-01-01 00:00:00+00'),
+  ('f777b222-2222-2222-2222-222222222222', 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'staff', true,  '2026-02-01 00:00:00+00');
+
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, thread_type, organization_id) VALUES
+  ('f777eeee-0001-0001-0001-000000000001', 'f7771111-1111-1111-1111-111111111111', 'f777cccc-cccc-cccc-cccc-cccccccccccc', 'message', 'f777a111-1111-1111-1111-111111111111'),
+  ('f777eeee-0002-0002-0002-000000000002', 'f7772222-2222-2222-2222-222222222222', 'f777cccc-cccc-cccc-cccc-cccccccccccc', 'message', 'f777b222-2222-2222-2222-222222222222');
+
+INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
+  ('f777eeee-0001-0001-0001-000000000001', 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '法人 X からの代理メッセージです。', false, true, now()),
+  ('f777eeee-0002-0002-0002-000000000002', 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '法人 Y からの代理メッセージです。', false, true, now());

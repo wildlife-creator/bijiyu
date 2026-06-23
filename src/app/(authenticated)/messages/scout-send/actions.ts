@@ -1,5 +1,6 @@
 "use server";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { scoutSchema } from "@/lib/validations/message";
 import { sendEmail } from "@/lib/email/send-email";
@@ -96,13 +97,9 @@ export async function sendScoutAction(
     }
 
     // Get user's org (if any) and proxy account status
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("organization_id, is_proxy_account")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const organizationId = orgMember?.organization_id ?? null;
-    const isProxy = orgMember?.is_proxy_account === true;
+    const { active } = await getActiveOrganizationContext(supabase);
+    const organizationId = active?.organizationId ?? null;
+    const isProxy = active?.isProxyAccount === true;
 
     // Find or create thread
     const thread = await findOrCreateThread(supabase, user.id, parsed.data.userId, organizationId);

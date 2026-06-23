@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/shared/back-button";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import {
   resolveClientProfileForRow,
@@ -34,11 +35,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   // Check if user is in an organization
-  const { data: orgMember } = await supabase
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
   // Build query — include first image via nested select + standard query pattern
   // for B3 (Staff 作成案件でも社長 client_profiles に到達)
@@ -64,9 +61,9 @@ export default async function JobListPage({ searchParams }: PageProps) {
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
-  if (orgMember) {
+  if (active) {
     // Corporate plan: show all organization jobs
-    query = query.eq("organization_id", orgMember.organization_id);
+    query = query.eq("organization_id", active.organizationId);
   } else {
     // Individual: show own jobs only
     query = query.eq("owner_id", user.id);

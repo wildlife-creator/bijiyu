@@ -8,6 +8,7 @@ import { readFeeCookie, FEE_COOKIE_NAME } from "@/lib/billing/fee-cookie";
 import type { OptionType } from "@/lib/billing/options";
 import { getStripeClient } from "@/lib/billing/stripe";
 import { PAID_PLAN_TYPES, type PaidPlanType } from "@/lib/constants/plans";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -219,13 +220,8 @@ export async function startCheckoutAction(
 
       let authorized = job.data.owner_id === user.id;
       if (!authorized && job.data.organization_id) {
-        const { data: orgMember } = await admin
-          .from("organization_members")
-          .select("organization_id")
-          .eq("user_id", user.id)
-          .eq("organization_id", job.data.organization_id)
-          .maybeSingle();
-        authorized = !!orgMember;
+        const { active } = await getActiveOrganizationContext(supabase);
+        authorized = active?.organizationId === job.data.organization_id;
       }
       if (!authorized) {
         return {

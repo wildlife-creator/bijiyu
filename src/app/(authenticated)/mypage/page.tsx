@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SupportFooter } from "@/components/layout/support-footer";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
@@ -254,38 +255,27 @@ export default async function MyPage() {
       .maybeSingle();
     subscription = data;
   } else if (userData.role === "staff") {
-    const admin = createAdminClient();
-    const { data: member } = await admin
-      .from("organization_members")
-      .select("organization_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (member?.organization_id) {
-      const { data: org } = await admin
-        .from("organizations")
-        .select("owner_id, deleted_at")
-        .eq("id", member.organization_id)
-        .maybeSingle();
-
-      if (org?.owner_id && !org.deleted_at) {
-        // subscription と client_profiles.image_url を並列取得
-        const [subResult, profileResult] = await Promise.all([
-          admin
-            .from("subscriptions")
-            .select("status, plan_type")
-            .eq("user_id", org.owner_id)
-            .in("status", ["active", "past_due"])
-            .maybeSingle(),
-          admin
-            .from("client_profiles")
-            .select("image_url")
-            .eq("user_id", org.owner_id)
-            .maybeSingle(),
-        ]);
-        subscription = subResult.data;
-        staffOrgImageUrl = profileResult.data?.image_url ?? null;
-      }
+    // proxy-account-multi-org-support Phase 3: 共通ヘルパー経由で
+    // active org のコンテキストを解決する。ヘルパー側で
+    // organizations.deleted_at IS NULL を担保している。
+    const { active } = await getActiveOrganizationContext(supabase);
+    if (active) {
+      const admin = createAdminClient();
+      const [subResult, profileResult] = await Promise.all([
+        admin
+          .from("subscriptions")
+          .select("status, plan_type")
+          .eq("user_id", active.orgOwnerId)
+          .in("status", ["active", "past_due"])
+          .maybeSingle(),
+        admin
+          .from("client_profiles")
+          .select("image_url")
+          .eq("user_id", active.orgOwnerId)
+          .maybeSingle(),
+      ]);
+      subscription = subResult.data;
+      staffOrgImageUrl = profileResult.data?.image_url ?? null;
     }
   }
 

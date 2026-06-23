@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { BulkSendForm } from "./bulk-send-form";
 
@@ -35,12 +36,8 @@ export default async function BulkSendPage() {
     redirect("/login");
   }
 
-  const { data: orgMember } = await supabase
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  const organizationId = orgMember?.organization_id ?? null;
+  const { active } = await getActiveOrganizationContext(supabase);
+  const organizationId = active?.organizationId ?? null;
 
   let threadsQuery = supabase
     .from("message_threads")

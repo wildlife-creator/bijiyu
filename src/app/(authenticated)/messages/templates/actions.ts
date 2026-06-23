@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
 import {
@@ -11,20 +12,16 @@ import {
 
 /**
  * scout_templates のオーナー/組織を Server 側で確定するためのヘルパー。
- * 個人プランの場合 organization_id は NULL。法人プランの場合は所属組織 ID。
+ * 個人プランの場合 organization_id は NULL。法人プランの場合は active 組織 ID。
  */
 async function resolveOwnerAndOrg(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
 ): Promise<{ ownerId: string; organizationId: string | null }> {
-  const { data: member } = await supabase
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
   return {
     ownerId: userId,
-    organizationId: member?.organization_id ?? null,
+    organizationId: active?.organizationId ?? null,
   };
 }
 

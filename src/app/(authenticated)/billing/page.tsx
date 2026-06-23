@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PLAN_LABELS, PLAN_LIMITS, type PlanType, type PaidPlanType, PAID_PLAN_TYPES } from "@/lib/constants/plans";
@@ -122,19 +123,15 @@ export default async function BillingPage({
   // Jobs eligible for urgent option dropdown
   // - 法人プラン（組織所属）: 組織全体の案件
   // - 個人プラン: 自分がオーナーの案件のみ
-  const { data: orgMember } = await admin
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
   let jobsQuery = admin
     .from("jobs")
     .select("id, title, is_urgent")
     .eq("status", "open");
 
-  if (orgMember) {
-    jobsQuery = jobsQuery.eq("organization_id", orgMember.organization_id);
+  if (active) {
+    jobsQuery = jobsQuery.eq("organization_id", active.organizationId);
   } else {
     jobsQuery = jobsQuery.eq("owner_id", user.id);
   }

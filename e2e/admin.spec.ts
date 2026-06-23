@@ -22,7 +22,7 @@ const MAILPIT_API = "http://127.0.0.1:54324/api/v1";
 async function adminLogin(page: Page) {
   await page.goto("/admin/login");
   await page.getByLabel("メールアドレス").fill(TEST_ADMIN.email);
-  await page.getByLabel("パスワード").fill(TEST_ADMIN.password);
+  await page.getByRole("textbox", { name: /パスワード/ }).fill(TEST_ADMIN.password);
   await page.getByRole("button", { name: "ログイン" }).click();
   await page.waitForURL(/\/admin\/dashboard/);
 }

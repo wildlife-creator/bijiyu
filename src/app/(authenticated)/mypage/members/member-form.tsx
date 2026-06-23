@@ -288,7 +288,10 @@ export function MemberForm({
             disabled={isPending || (mode === "update" && isSelfEdit)}
             className="w-full rounded-[8px] border border-border bg-background px-3 py-2 text-body-md focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            {canSelectAdmin && <option value="admin">管理者</option>}
+            {/* R6: 代理 ON のときは admin オプションを完全に非表示にする */}
+            {canSelectAdmin && !values.isProxyAccount && (
+              <option value="admin">管理者</option>
+            )}
             <option value="staff">担当者</option>
           </select>
         </div>
@@ -299,7 +302,17 @@ export function MemberForm({
         <label className="flex items-center gap-3">
           <Checkbox
             checked={values.isProxyAccount}
-            onCheckedChange={(v) => setValue("isProxyAccount", v === true)}
+            onCheckedChange={(v) => {
+              const next = v === true;
+              setValue("isProxyAccount", next);
+              // R6: 代理 ON へ切替えた瞬間に orgRole が admin なら staff へ自動置換
+              if (next && values.orgRole === "admin") {
+                setValue("orgRole", "staff");
+                toast.info(
+                  "代理アカウントは担当者権限のみのため、権限を「担当者」に切り替えました",
+                );
+              }
+            }}
             disabled={isPending}
             className="bg-background"
           />

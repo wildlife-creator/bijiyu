@@ -6,6 +6,7 @@ const mockAdminFrom = vi.fn();
 const mockStorageFrom = vi.fn();
 const mockAdminStorageFrom = vi.fn();
 const mockRpc = vi.fn();
+const mockGetActiveOrgContext = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -21,6 +22,13 @@ vi.mock("@/lib/supabase/admin", () => ({
     from: (...args: unknown[]) => mockAdminFrom(...args),
     storage: { from: (...args: unknown[]) => mockAdminStorageFrom(...args) },
   }),
+}));
+
+// proxy-account-multi-org-support: Staff ガード / profileUserId 解決は
+// getActiveOrganizationContext を経由するようになった。
+vi.mock("@/lib/organization/active-org-context", () => ({
+  getActiveOrganizationContext: (...args: unknown[]) =>
+    mockGetActiveOrgContext(...args),
 }));
 
 vi.mock("next/cache", () => ({
@@ -101,14 +109,11 @@ beforeEach(() => {
   mockStorageFrom.mockReset();
   mockAdminStorageFrom.mockReset();
   mockRpc.mockReset();
+  mockGetActiveOrgContext.mockReset();
   // replace_client_recruit_areas RPC のデフォルト成功
   mockRpc.mockResolvedValue({ data: null, error: null });
-  // saveClientProfileAction / uploadClientProfileImageAction の冒頭で走る Staff ガード
-  // （organization_members.org_role === 'staff' か確認する SELECT）は
-  // 各テストで共通に通過させる: data=null を返して非 staff 扱い。
-  mockFrom.mockReturnValueOnce(
-    createQueryMock({ maybeSingle: { data: null, error: null } }),
-  );
+  // Staff ガード / profileUserId 解決: 既定で active=null（個人プラン・非 staff 扱い）
+  mockGetActiveOrgContext.mockResolvedValue({ active: null, all: [] });
 });
 
 const basePersonalInput = {
@@ -137,7 +142,6 @@ describe("saveClientProfileAction", () => {
 
   it("edit モード + プラン未加入（contractor 等）は「発注者プランに加入していない」エラー", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     const r = await saveClientProfileAction(basePersonalInput, { mode: "edit" });
     expect(r.success).toBe(false);
@@ -146,7 +150,6 @@ describe("saveClientProfileAction", () => {
 
   it("setup モード + skip=true + プラン未加入は「発注者プランに加入していない」エラー", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     const r = await saveClientProfileAction(basePersonalInput, { mode: "setup", skip: true });
     expect(r.success).toBe(false);
@@ -155,7 +158,6 @@ describe("saveClientProfileAction", () => {
 
   it("setup モード + 通常 save + プラン未加入は soft retry エラー（Webhook race 想定）", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     const r = await saveClientProfileAction(basePersonalInput, { mode: "setup" });
     expect(r.success).toBe(false);
@@ -164,7 +166,6 @@ describe("saveClientProfileAction", () => {
 
   it("非法人プラン + setup モード + skip → DB 書き込みせず /mypage へ", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -180,7 +181,6 @@ describe("saveClientProfileAction", () => {
 
   it("法人プラン + setup モード + skip → スキップ不可エラー", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -195,7 +195,6 @@ describe("saveClientProfileAction", () => {
 
   it("法人プラン + display_name 空文字はバリデーションエラー", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -213,7 +212,6 @@ describe("saveClientProfileAction", () => {
 
   it("Task 17: edit モードでは募集職種・エリア空はバリデーションエラー（必須維持）", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -232,7 +230,6 @@ describe("saveClientProfileAction", () => {
 
   it("Task 17: 法人プラン + setup モードで社名のみ（募集職種・エリア空）でも保存成功する", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -278,7 +275,6 @@ describe("saveClientProfileAction", () => {
 
   it("正常系: upsert が呼ばれ redirectTo が返る（edit モード）", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -324,7 +320,6 @@ describe("saveClientProfileAction", () => {
 
   it("未知の recruit_job_types ラベルは reject される", async () => {
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -355,7 +350,6 @@ describe("saveClientProfileAction", () => {
       { label: "旧職種", deprecated_at: "2026-04-01T00:00:00.000Z" },
     ]);
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -383,7 +377,6 @@ describe("saveClientProfileAction", () => {
     // 直前のテストで蓄積した呼び出し履歴をクリアして、本テスト内の呼び出しのみ計測する
     mockedGetAllMasterRows.mockClear();
     mockAuth(OWNER_ID);
-    mockFrom.mockReturnValueOnce(createQueryMock({ maybeSingle: { data: null, error: null } }));
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {

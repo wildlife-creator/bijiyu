@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { MessageThreadView } from "@/components/messaging/message-thread-view";
 import type { Message, ScoutJobInfo } from "@/components/messaging/message-list";
@@ -106,12 +107,8 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
     sp.showScoutActions !== "false" && thread.participant_2_id === user.id;
 
   // Check if current user is a proxy account (for optimistic UI)
-  const { data: currentOrgMember } = await supabase
-    .from("organization_members")
-    .select("is_proxy_account")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  const isProxyAccount = currentOrgMember?.is_proxy_account === true;
+  const { active } = await getActiveOrganizationContext(supabase);
+  const isProxyAccount = active?.isProxyAccount === true;
 
   // Fetch messages
   const { data: rawMessages } = await supabase

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 
 import { MemberForm } from "../../member-form";
@@ -20,15 +21,11 @@ export default async function MemberEditPage({ params }: PageProps) {
   if (!user) redirect("/login");
 
   // 操作者の組織 + ロール
-  const { data: actorMember } = await supabase
-    .from("organization_members")
-    .select("organization_id, org_role")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
-  if (!actorMember) redirect("/mypage");
+  if (!active) redirect("/mypage");
 
-  const actorRole = actorMember.org_role as OrgRole;
+  const actorRole = active.orgRole;
 
   // Owner が自分の ID を開いた場合は /profile/edit にリダイレクト
   if (id === user.id && actorRole === "owner") {
@@ -42,7 +39,7 @@ export default async function MemberEditPage({ params }: PageProps) {
       `org_role, is_proxy_account,
        user:users!user_id(id, last_name, first_name, email)`,
     )
-    .eq("organization_id", actorMember.organization_id)
+    .eq("organization_id", active.organizationId)
     .eq("user_id", id)
     .maybeSingle();
 

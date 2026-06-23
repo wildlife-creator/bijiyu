@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { MemberForm } from "../member-form";
 
-type OrgRole = "owner" | "admin" | "staff";
 type PlanType = "individual" | "small" | "corporate" | "corporate_premium";
 
 export default async function MemberNewPage() {
@@ -17,15 +17,11 @@ export default async function MemberNewPage() {
   if (!user) redirect("/login");
 
   // 操作者の組織 + ロール
-  const { data: actorMember } = await supabase
-    .from("organization_members")
-    .select("organization_id, org_role, organizations!inner(owner_id)")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
-  if (!actorMember) redirect("/mypage");
+  if (!active) redirect("/mypage");
 
-  const actorRole = actorMember.org_role as OrgRole;
+  const actorRole = active.orgRole;
 
   // Staff は新規作成不可
   if (actorRole === "staff") {
@@ -34,10 +30,7 @@ export default async function MemberNewPage() {
 
   // プラン種別取得（法人プランのみ担当者作成可能。個人/小規模では
   // organization が存在しないか maxStaff=0 のため到達しない想定だが念の為ガード）
-  const org = Array.isArray(actorMember.organizations)
-    ? actorMember.organizations[0]
-    : actorMember.organizations;
-  const ownerUserId = (org as { owner_id: string } | null)?.owner_id;
+  const ownerUserId = active.orgOwnerId;
 
   // Admin / Staff 自身は RLS で Owner の subscription を見れないため admin client 経由
   const admin = createAdminClient();

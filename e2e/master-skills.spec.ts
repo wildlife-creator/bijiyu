@@ -160,19 +160,20 @@ test.describe("9.3a COM-002 編集経路 (master-skills)", () => {
     // ─── 保有スキルを 5 件にする (既存 3 + 追加 2) ───────────────────────
     // multi モードの MasterCombobox はピック後もポップアップが開いたままなので、
     // trigger を 1 回開いたら以降は fill → option click を繰り返すだけ。
-    await triggerForSection(page, "保有スキル").click();
-    await page.getByRole("combobox").last().fill("型枠設置");
+    // position 指定: 既存 chip の × ボタンを誤爆しないよう左上 padding 内 (px-3 py-2 内側) を狙う。
+    await triggerForSection(page, "保有スキル").click({ position: { x: 5, y: 5 } });
+    await page.locator('input[role="combobox"]').last().fill("型枠設置");
     await page.getByRole("option", { name: "型枠設置" }).first().click();
-    await page.getByRole("combobox").last().fill("型枠解体");
+    await page.locator('input[role="combobox"]').last().fill("型枠解体");
     await page.getByRole("option", { name: "型枠解体工" }).first().click();
     // ポップアップを閉じる (次の combobox に進む前に)
     await page.keyboard.press("Escape");
 
     // ─── 保有資格を 2 件追加 (既存 0 + 追加 2) ─────────────────────────────
-    await triggerForSection(page, "保有資格").click();
-    await page.getByRole("combobox").last().fill("2級建築士");
+    await triggerForSection(page, "保有資格").click({ position: { x: 5, y: 5 } });
+    await page.locator('input[role="combobox"]').last().fill("2級建築士");
     await page.getByRole("option", { name: "2級建築士", exact: true }).first().click();
-    await page.getByRole("combobox").last().fill("玉掛");
+    await page.locator('input[role="combobox"]').last().fill("玉掛");
     await page.getByRole("option", { name: "玉掛技能者（1t以上）" }).first().click();
     await page.keyboard.press("Escape");
 

@@ -192,6 +192,90 @@ test.describe("CLI-025 新規作成 権限ガード", () => {
 });
 
 // ---------------------------------------------------------------------------
+// R6: 代理 + admin 組み合わせ禁止 (proxy-account-multi-org-support Phase 1)
+// ---------------------------------------------------------------------------
+test.describe("R6 代理アカウントと管理者権限の組み合わせ禁止", () => {
+  test("CLI-025 新規: Owner が代理 ON にすると admin オプションが消える", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto("/mypage/members/new");
+    await expect(
+      page.getByRole("heading", { name: "担当者新規作成" }),
+    ).toBeVisible();
+
+    const roleSelect = page.locator("select#orgRole");
+
+    // 初期状態（代理 OFF）: Owner なので「管理者」が選べる
+    const before = await roleSelect.locator("option").allInnerTexts();
+    expect(before).toContain("管理者");
+    expect(before).toContain("担当者");
+
+    // 代理アカウントチェックボックスを ON にする
+    await page
+      .getByRole("checkbox", { name: "代理アカウント" })
+      .check();
+
+    // 「管理者」オプションが消え、「担当者」のみになる
+    const after = await roleSelect.locator("option").allInnerTexts();
+    expect(after).not.toContain("管理者");
+    expect(after).toContain("担当者");
+  });
+
+  test("CLI-025 新規: admin 選択中に代理 ON にすると staff へ自動切替 + トースト通知", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto("/mypage/members/new");
+    await expect(
+      page.getByRole("heading", { name: "担当者新規作成" }),
+    ).toBeVisible();
+
+    // 先に「管理者」を選ぶ
+    const roleSelect = page.locator("select#orgRole");
+    await roleSelect.selectOption("admin");
+    await expect(roleSelect).toHaveValue("admin");
+
+    // 代理 ON
+    await page
+      .getByRole("checkbox", { name: "代理アカウント" })
+      .check();
+
+    // 値が staff に切り替わる
+    await expect(roleSelect).toHaveValue("staff");
+
+    // トースト通知が表示される（sonner）
+    await expect(
+      page.getByText(/権限を「担当者」に切り替えました/),
+    ).toBeVisible();
+  });
+
+  test("CLI-024 編集: 代理 ON にすると admin オプションが消える", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    // staff-admin@test.local (ee111111-…) を編集する。初期: admin / 代理 OFF。
+    await page.goto(
+      "/mypage/members/ee111111-1111-1111-1111-111111111111/edit",
+    );
+    await expect(
+      page.getByRole("heading", { name: "担当者編集" }),
+    ).toBeVisible();
+
+    const roleSelect = page.locator("select#orgRole");
+    const before = await roleSelect.locator("option").allInnerTexts();
+    expect(before).toContain("管理者");
+
+    await page
+      .getByRole("checkbox", { name: "代理アカウント" })
+      .check();
+
+    const after = await roleSelect.locator("option").allInnerTexts();
+    expect(after).not.toContain("管理者");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // /profile/edit バナー（Task 13.5）
 // ---------------------------------------------------------------------------
 test.describe("/profile/edit 法人プラン Owner バナー（Task 13.5）", () => {

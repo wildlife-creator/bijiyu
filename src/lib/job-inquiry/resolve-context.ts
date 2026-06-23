@@ -3,32 +3,52 @@
 // ---------------------------------------------------------------------------
 // CON-006 ボタン表示判定（page）と submitJobInquiryAction の双方が同じ解決ロジックを
 // 使うことで、canSendJobInquiry に渡す値の食い違いを防ぐ。
-// organization_members の RLS（is_same_org）で他者の所属は SELECT できないため、
-// admin client（service role）で解決する。
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import type { Database } from "@/types/database";
 
 type AdminClient = SupabaseClient<Database>;
+type SupabaseServerClient = SupabaseClient<Database>;
 
 /**
- * viewer（閲覧者・送信者）が所属する組織 ID を解決する。
- * 法人プランの owner も organization_members に owner として載るためまず membership を見る。
- * 万一 membership に無い owner でも organizations.owner_id で拾えるようフォールバックする。
- * 無所属（個人受注者・個人発注者）は null。
+ * viewer（閲覧者・送信者＝認証ユーザー）が所属する active 組織 ID を解決する。
+ *
+ * proxy-account-multi-org-support: N 組織兼任ユーザーで .maybeSingle() が
+ * 「Cannot coerce to single JSON object」で爆死するパターンを避けるため、
+ * `getActiveOrganizationContext`（Cookie で active org を解決する共通ヘルパー）
+ * を経由する。
+ *
+ * `admin` 引数は organizations フォールバック検索（旧データ救済）にのみ使用する。
  */
 export async function resolveViewerOrganizationId(
   admin: AdminClient,
   viewerId: string,
+  supabase?: SupabaseServerClient,
 ): Promise<string | null> {
-  const { data: membership } = await admin
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", viewerId)
-    .maybeSingle();
-  if (membership?.organization_id) {
-    return membership.organization_id;
+  if (supabase) {
+    const { active } = await getActiveOrganizationContext(supabase);
+    if (active) {
+      return active.organizationId;
+    }
+  } else {
+    // フォールバック: supabase 引数が渡されない呼び出し（後方互換）。
+    // admin client で全 membership を取得し最古のものを返す（getActiveOrganizationContext と同じ既定）。
+    const { data: memberships } = await admin
+      .from("organization_members")
+      .select("organization_id, created_at, organizations!inner(deleted_at)")
+      .eq("user_id", viewerId)
+      .order("created_at", { ascending: true });
+    const firstActive = (memberships ?? []).find((m) => {
+      const org = Array.isArray(m.organizations)
+        ? m.organizations[0]
+        : m.organizations;
+      return org && !(org as { deleted_at: string | null }).deleted_at;
+    });
+    if (firstActive?.organization_id) {
+      return firstActive.organization_id;
+    }
   }
 
   const { data: owned } = await admin

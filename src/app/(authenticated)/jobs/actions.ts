@@ -1,5 +1,6 @@
 "use server";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -102,11 +103,7 @@ export async function createJobAction(
     }
 
     // Get organization membership (if any)
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const { active } = await getActiveOrganizationContext(supabase);
 
     // Check subscription
     const { data: subscription } = await supabase
@@ -199,7 +196,7 @@ export async function createJobAction(
       .from("jobs")
       .insert({
         owner_id: user.id,
-        organization_id: orgMember?.organization_id ?? null,
+        organization_id: active?.organizationId ?? null,
         title: data.title,
         description: data.description || null,
         trade_types: data.tradeTypes ?? [],

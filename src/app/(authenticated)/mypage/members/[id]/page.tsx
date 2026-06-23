@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/shared/back-button";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 
 import { DeleteMemberButton } from "./delete-member-button";
@@ -89,13 +90,9 @@ export default async function MemberDetailPage({ params }: PageProps) {
   if (!user) redirect("/login");
 
   // 操作者の組織 + ロール
-  const { data: actorMember } = await supabase
-    .from("organization_members")
-    .select("organization_id, org_role")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
-  if (!actorMember) redirect("/mypage");
+  if (!active) redirect("/mypage");
 
   // 対象メンバー取得
   const { data: targetRow } = await supabase
@@ -104,7 +101,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
       `org_role, is_proxy_account, user_id,
        user:users!user_id(id, last_name, first_name, email, deleted_at, password_set_at)`,
     )
-    .eq("organization_id", actorMember.organization_id)
+    .eq("organization_id", active.organizationId)
     .eq("user_id", id)
     .maybeSingle();
 
@@ -125,7 +122,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
   const target = targetRow as unknown as TargetRow | null;
   if (!target || !target.user) notFound();
 
-  const actorRole = actorMember.org_role as OrgRole;
+  const actorRole = active.orgRole;
   const targetRole = target.org_role;
   const isSelf = user.id === id;
 

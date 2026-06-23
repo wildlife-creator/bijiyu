@@ -1,5 +1,6 @@
 "use server";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -276,14 +277,8 @@ export async function acceptApplicationAction(
     if (job.owner_id !== user.id) {
       // Check org membership
       if (job.organization_id) {
-        const { data: orgMember } = await supabase
-          .from("organization_members")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("organization_id", job.organization_id)
-          .single();
-
-        if (!orgMember) {
+        const { active } = await getActiveOrganizationContext(supabase);
+        if (active?.organizationId !== job.organization_id) {
           return { success: false, error: "この応募に対する権限がありません" };
         }
       } else {
@@ -413,14 +408,8 @@ export async function rejectApplicationAction(
     // Verify ownership
     if (job.owner_id !== user.id) {
       if (job.organization_id) {
-        const { data: orgMember } = await supabase
-          .from("organization_members")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("organization_id", job.organization_id)
-          .single();
-
-        if (!orgMember) {
+        const { active } = await getActiveOrganizationContext(supabase);
+        if (active?.organizationId !== job.organization_id) {
           return { success: false, error: "この応募に対する権限がありません" };
         }
       } else {
@@ -537,14 +526,8 @@ export async function submitClientReportAction(
     // Verify job owner or org member
     if (job.owner_id !== user.id) {
       if (job.organization_id) {
-        const { data: orgMember } = await supabase
-          .from("organization_members")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("organization_id", job.organization_id)
-          .single();
-
-        if (!orgMember) {
+        const { active } = await getActiveOrganizationContext(supabase);
+        if (active?.organizationId !== job.organization_id) {
           return { success: false, error: "この応募に対する権限がありません" };
         }
       } else {

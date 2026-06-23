@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -29,14 +30,12 @@ export default async function NewMessagePage({ searchParams }: Props) {
   }
 
   // Get BOTH users' organizations
-  // Use admin client because organization_members RLS restricts SELECT to same-org members only
+  // Use admin client for targetUserId because organization_members RLS restricts SELECT to same-org members only
   const admin = createAdminClient();
 
-  const { data: myOrg } = await admin
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // Actor: use multi-org-aware helper (Cookie-resolved active org)
+  const { active } = await getActiveOrganizationContext(supabase);
+  const myOrgId = active?.organizationId ?? null;
 
   const { data: targetOrg } = await admin
     .from("organization_members")
@@ -46,7 +45,7 @@ export default async function NewMessagePage({ searchParams }: Props) {
 
   // Determine organization_id: use whichever side has an org
   // (in a contractor <-> org thread, one side has org, the other doesn't)
-  const organizationId = myOrg?.organization_id ?? targetOrg?.organization_id ?? null;
+  const organizationId = myOrgId ?? targetOrg?.organization_id ?? null;
 
   // Search for existing thread
   let threadId: string | null = null;
@@ -54,7 +53,7 @@ export default async function NewMessagePage({ searchParams }: Props) {
   if (organizationId) {
     // Org-based: search by org + contractor (participant_2)
     // The contractor is whichever user does NOT belong to the org
-    const contractorId = myOrg?.organization_id ? targetUserId : user.id;
+    const contractorId = myOrgId ? targetUserId : user.id;
     const { data: existing } = await supabase
       .from("message_threads")
       .select("id")
@@ -80,7 +79,7 @@ export default async function NewMessagePage({ searchParams }: Props) {
   if (!threadId) {
     // participant_2 = contractor side (the one without org, or the target if neither has org)
     const contractorId = organizationId
-      ? (myOrg?.organization_id ? targetUserId : user.id)
+      ? (myOrgId ? targetUserId : user.id)
       : targetUserId;
     const creatorId = user.id;
 

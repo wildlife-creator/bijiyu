@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,11 +40,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
   // インボックス。判断済みの応募は CLI-010（発注履歴一覧）側の役割。
   // 会社単位スコープ（jobs/manage の正準パターン）: 組織所属なら会社全体の案件への応募、
   // 個人発注者なら従来どおり本人の案件への応募。
-  const { data: orgMember } = await supabase
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
   let countQuery = supabase
     .from("applications")
@@ -62,9 +59,9 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
     .range(from, to);
 
   // 件数クエリと一覧クエリに同一スコープを適用（件数・ページネーションを表示と一致＝Req 1.4 / 3.3）
-  if (orgMember) {
-    countQuery = countQuery.eq("jobs.organization_id", orgMember.organization_id);
-    dataQuery = dataQuery.eq("jobs.organization_id", orgMember.organization_id);
+  if (active) {
+    countQuery = countQuery.eq("jobs.organization_id", active.organizationId);
+    dataQuery = dataQuery.eq("jobs.organization_id", active.organizationId);
   } else {
     countQuery = countQuery.eq("jobs.owner_id", user.id);
     dataQuery = dataQuery.eq("jobs.owner_id", user.id);

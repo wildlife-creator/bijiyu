@@ -5,12 +5,20 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // ---------------------------------------------------------------------------
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
+const mockGetActiveOrgContext = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
     auth: { getUser: (...args: unknown[]) => mockGetUser(...args) },
     from: (...args: unknown[]) => mockFrom(...args),
   }),
+}));
+
+// proxy-account-multi-org-support: resolveOwnerAndOrg は内部で
+// getActiveOrganizationContext を呼ぶようになったため、ヘルパー本体をモック。
+vi.mock("@/lib/organization/active-org-context", () => ({
+  getActiveOrganizationContext: (...args: unknown[]) =>
+    mockGetActiveOrgContext(...args),
 }));
 
 vi.mock("next/cache", () => ({
@@ -81,6 +89,8 @@ function createQueryMock(terminator: Terminator = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // 既定: organization_members なし（個人プラン）。
+  mockGetActiveOrgContext.mockResolvedValue({ active: null, all: [] });
 });
 
 // ===========================================================================
@@ -153,11 +163,17 @@ describe("createScoutTemplateAction", () => {
 
   it("法人プランユーザーは organization_id 付きで INSERT される", async () => {
     mockAuth(USER_ID);
-    // 1. resolveOwnerAndOrg: organization_members.select
-    const memberSelect = createQueryMock({
-      maybeSingle: { data: { organization_id: ORG_ID }, error: null },
+    // 1. resolveOwnerAndOrg: getActiveOrganizationContext
+    mockGetActiveOrgContext.mockResolvedValueOnce({
+      active: {
+        organizationId: ORG_ID,
+        orgRole: "owner",
+        isProxyAccount: false,
+        orgOwnerId: USER_ID,
+        isCorporate: true,
+      },
+      all: [],
     });
-    mockFrom.mockReturnValueOnce(memberSelect);
     // 2. scout_templates.insert
     const insertSelect = createQueryMock({
       single: { data: { id: TEMPLATE_ID }, error: null },
@@ -181,9 +197,7 @@ describe("createScoutTemplateAction", () => {
 
   it("個人プランユーザーは organization_id=null で INSERT される", async () => {
     mockAuth(USER_ID);
-    mockFrom.mockReturnValueOnce(
-      createQueryMock({ maybeSingle: { data: null, error: null } }),
-    );
+    // 既定 (active: null) を使う
     const insertSelect = createQueryMock({
       single: { data: { id: TEMPLATE_ID }, error: null },
     });
@@ -198,9 +212,6 @@ describe("createScoutTemplateAction", () => {
 
   it("memo が空文字なら null として保存される", async () => {
     mockAuth(USER_ID);
-    mockFrom.mockReturnValueOnce(
-      createQueryMock({ maybeSingle: { data: null, error: null } }),
-    );
     const insertSelect = createQueryMock({
       single: { data: { id: TEMPLATE_ID }, error: null },
     });
@@ -214,9 +225,6 @@ describe("createScoutTemplateAction", () => {
 
   it("INSERT が失敗した場合は日本語エラーを返す", async () => {
     mockAuth(USER_ID);
-    mockFrom.mockReturnValueOnce(
-      createQueryMock({ maybeSingle: { data: null, error: null } }),
-    );
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: { data: null, error: { message: "RLS denied" } },

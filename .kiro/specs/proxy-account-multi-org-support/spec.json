@@ -1,0 +1,22 @@
+{
+  "feature_name": "proxy-account-multi-org-support",
+  "created_at": "2026-06-23T14:20:37Z",
+  "updated_at": "2026-06-24T00:00:00Z",
+  "language": "ja",
+  "phase": "implementation",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": true
+}

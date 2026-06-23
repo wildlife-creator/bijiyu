@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { ScoutSendForm } from "./scout-send-form";
@@ -51,11 +52,7 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
   };
 
   // Check if user is in an organization
-  const { data: orgMember } = await supabase
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
   // Fetch open jobs (org jobs or own jobs)
   let jobsQuery = supabase
@@ -64,8 +61,8 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
     .eq("status", "open")
     .is("deleted_at", null);
 
-  if (orgMember) {
-    jobsQuery = jobsQuery.eq("organization_id", orgMember.organization_id);
+  if (active) {
+    jobsQuery = jobsQuery.eq("organization_id", active.organizationId);
   } else {
     jobsQuery = jobsQuery.eq("owner_id", user.id);
   }

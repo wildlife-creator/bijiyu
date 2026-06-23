@@ -7,6 +7,7 @@ const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
 const mockStorageFrom = vi.fn();
 const mockRpc = vi.fn();
+const mockGetActiveOrgContext = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -15,6 +16,13 @@ vi.mock("@/lib/supabase/server", () => ({
     storage: { from: (...args: unknown[]) => mockStorageFrom(...args) },
     rpc: (...args: unknown[]) => mockRpc(...args),
   }),
+}));
+
+// proxy-account-multi-org-support: createJobAction は organization_members を
+// 直接読まず getActiveOrganizationContext 経由に切り替わった。
+vi.mock("@/lib/organization/active-org-context", () => ({
+  getActiveOrganizationContext: (...args: unknown[]) =>
+    mockGetActiveOrgContext(...args),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -137,6 +145,8 @@ describe("createJobAction", () => {
     vi.clearAllMocks();
     // replace_job_areas / replace_user_areas 等の RPC はデフォルト成功
     mockRpc.mockResolvedValue({ data: null, error: null });
+    // 既定: 個人プラン (active=null)。法人プランの test で上書きする。
+    mockGetActiveOrgContext.mockResolvedValue({ active: null, all: [] });
   });
 
   it("returns error when user is not authenticated", async () => {
@@ -404,18 +414,20 @@ describe("createJobAction", () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: "user-1" } },
     });
+    mockGetActiveOrgContext.mockResolvedValue({
+      active: {
+        organizationId: "org-1",
+        orgRole: "owner",
+        isProxyAccount: false,
+        orgOwnerId: "user-1",
+        isCorporate: true,
+      },
+      all: [],
+    });
     mockFrom.mockImplementation((table: string) => {
       if (table === "users") {
         return createQueryMock({
           single: { data: { role: "client" }, error: null },
-        });
-      }
-      if (table === "organization_members") {
-        return createQueryMock({
-          maybeSingle: {
-            data: { organization_id: "org-1" },
-            error: null,
-          },
         });
       }
       if (table === "subscriptions") {
@@ -449,6 +461,8 @@ describe("updateJobAction", () => {
     vi.clearAllMocks();
     // replace_job_areas / replace_user_areas 等の RPC はデフォルト成功
     mockRpc.mockResolvedValue({ data: null, error: null });
+    // 既定: 個人プラン (active=null)。法人プランの test で上書きする。
+    mockGetActiveOrgContext.mockResolvedValue({ active: null, all: [] });
   });
 
   it("returns error when jobId is missing", async () => {
@@ -644,6 +658,8 @@ describe("deleteJobImageAction", () => {
     vi.clearAllMocks();
     // replace_job_areas / replace_user_areas 等の RPC はデフォルト成功
     mockRpc.mockResolvedValue({ data: null, error: null });
+    // 既定: 個人プラン (active=null)。法人プランの test で上書きする。
+    mockGetActiveOrgContext.mockResolvedValue({ active: null, all: [] });
   });
 
   it("returns error when user is not authenticated", async () => {

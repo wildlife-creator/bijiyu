@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import {
   resolveClientProfileForRow,
@@ -150,13 +151,8 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
   // Check if user belongs to the same organization as the job
   let isOrganizationMember = false;
   if (!isOwner && job.organization_id) {
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("id")
-      .eq("organization_id", job.organization_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    isOrganizationMember = !!orgMember;
+    const { active } = await getActiveOrganizationContext(supabase);
+    isOrganizationMember = active?.organizationId === job.organization_id;
   }
 
   const canManage = isOwner || isOrganizationMember;

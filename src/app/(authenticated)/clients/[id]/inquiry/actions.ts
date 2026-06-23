@@ -48,7 +48,7 @@ export async function submitJobInquiryAction(
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  const viewerOrgId = await resolveViewerOrganizationId(admin, user.id);
+  const viewerOrgId = await resolveViewerOrganizationId(admin, user.id, supabase);
 
   // 3. 宛先 client を取得（admin client = cross-user 参照）
   const { data: targetUser } = await admin

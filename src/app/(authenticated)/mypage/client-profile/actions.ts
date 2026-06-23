@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -30,19 +31,10 @@ async function resolveProfileUserId(
   supabase: Awaited<ReturnType<typeof createClient>>,
   actorUserId: string,
 ): Promise<string> {
-  const { data: member } = await supabase
-    .from("organization_members")
-    .select("organization_id, org_role, organizations!inner(owner_id)")
-    .eq("user_id", actorUserId)
-    .maybeSingle();
-
-  if (!member) return actorUserId; // 個人発注者
-  if (member.org_role === "owner") return actorUserId;
-
-  const org = Array.isArray(member.organizations)
-    ? member.organizations[0]
-    : member.organizations;
-  return (org as { owner_id: string } | null)?.owner_id ?? actorUserId;
+  const { active } = await getActiveOrganizationContext(supabase);
+  if (!active) return actorUserId; // 個人発注者
+  if (active.orgRole === "owner") return actorUserId;
+  return active.orgOwnerId;
 }
 
 async function getPlanType(
@@ -84,19 +76,19 @@ export async function saveClientProfileAction(
 
   // 担当者（org_role='staff'）は発注者情報を編集できない（REQ-ORG-002: 閲覧のみ）。
   // Admin（org_role='admin'）は編集可。Middleware でも同じガードがあるが Server Action の二重防御。
-  const { data: orgMember } = await supabase
-    .from("organization_members")
-    .select("org_role")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (orgMember?.org_role === "staff") {
+  const { active } = await getActiveOrganizationContext(supabase);
+  if (active?.orgRole === "staff") {
     return {
       success: false,
       error: "担当者は発注者情報を編集できません",
     };
   }
 
-  const profileUserId = await resolveProfileUserId(supabase, user.id);
+  const profileUserId = active
+    ? active.orgRole === "owner"
+      ? user.id
+      : active.orgOwnerId
+    : user.id;
   const planType = await getPlanType(supabase, profileUserId);
 
   // プラン未確定ガード:
@@ -257,12 +249,8 @@ export async function uploadClientProfileImageAction(
 
   // 担当者（org_role='staff'）は画像アップロード不可（REQ-ORG-002: 閲覧のみ）。
   // Admin（org_role='admin'）は編集可。
-  const { data: orgMember } = await supabase
-    .from("organization_members")
-    .select("org_role")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (orgMember?.org_role === "staff") {
+  const { active } = await getActiveOrganizationContext(supabase);
+  if (active?.orgRole === "staff") {
     return {
       success: false,
       error: "担当者は発注者情報を編集できません",

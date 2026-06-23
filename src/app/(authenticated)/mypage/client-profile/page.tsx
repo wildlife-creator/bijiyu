@@ -11,6 +11,7 @@ import { AreaList } from "@/components/area/area-list";
 import { VideoEmbed } from "@/components/video-embed/video-embed";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { hasActiveOption } from "@/lib/billing/options";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveParticipantName } from "@/lib/utils/display-name";
@@ -36,27 +37,16 @@ async function resolveProfileContext(
   orgRole: "owner" | "admin" | "staff" | null;
   organizationId: string | null;
 }> {
-  const { data: member } = await supabase
-    .from("organization_members")
-    .select("organization_id, org_role, organizations!inner(owner_id)")
-    .eq("user_id", actorUserId)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
-  if (!member) {
+  if (!active) {
     return { profileUserId: actorUserId, orgRole: null, organizationId: null };
   }
 
-  const orgRole = (member.org_role as "owner" | "admin" | "staff") ?? null;
-  const org = Array.isArray(member.organizations)
-    ? member.organizations[0]
-    : member.organizations;
-  const ownerUserId =
-    (org as { owner_id: string } | null)?.owner_id ?? actorUserId;
-
   return {
-    profileUserId: ownerUserId,
-    orgRole,
-    organizationId: member.organization_id ?? null,
+    profileUserId: active.orgOwnerId,
+    orgRole: active.orgRole,
+    organizationId: active.organizationId,
   };
 }
 

@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { JobForm } from "@/components/jobs/job-form";
 import {
@@ -45,13 +46,8 @@ export default async function JobEditPage({ params }: PageProps) {
     if (!job.organization_id) {
       notFound();
     }
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("organization_id", job.organization_id)
-      .maybeSingle();
-    if (!orgMember) {
+    const { active } = await getActiveOrganizationContext(supabase);
+    if (active?.organizationId !== job.organization_id) {
       notFound();
     }
   }

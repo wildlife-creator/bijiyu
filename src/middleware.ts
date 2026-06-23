@@ -449,12 +449,23 @@ export async function middleware(request: NextRequest) {
       pathname === "/mypage/client-profile/edit" ||
       pathname.startsWith("/mypage/client-profile/edit/")
     ) {
-      const { data: orgMember } = await supabase
+      // proxy-account-multi-org-support Phase 3: N 組織兼任スタッフに対応。
+      // Cookie `bizyu_active_org` で active org を解決し、その org の役割で判定する。
+      // 単一組織なら最古（≒ 唯一）。中身は `getActiveOrganizationContext` と
+      // 等価だが、middleware は next/headers cookies() を使えないため inline 実装。
+      const activeOrgId =
+        request.cookies.get("bizyu_active_org")?.value ?? null;
+      const { data: members } = await supabase
         .from("organization_members")
-        .select("org_role")
+        .select("organization_id, org_role")
         .eq("user_id", user.id)
-        .maybeSingle();
-      if (orgMember?.org_role === "staff") {
+        .order("created_at", { ascending: true });
+      const active =
+        (activeOrgId &&
+          members?.find((m) => m.organization_id === activeOrgId)) ||
+        members?.[0] ||
+        null;
+      if (active?.org_role === "staff") {
         return finalize(redirectTo(request, "/mypage/client-profile"));
       }
     }

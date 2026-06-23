@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { ChevronRight } from "lucide-react";
 
@@ -55,16 +56,12 @@ export default async function MembersListPage({ searchParams }: PageProps) {
   if (!user) redirect("/login");
 
   // 操作者の組織 + ロール取得
-  const { data: actorMember } = await supabase
-    .from("organization_members")
-    .select("organization_id, org_role")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
-  if (!actorMember) redirect("/mypage");
+  if (!active) redirect("/mypage");
 
   const canCreate =
-    actorMember.org_role === "owner" || actorMember.org_role === "admin";
+    active.orgRole === "owner" || active.orgRole === "admin";
 
   const page = Math.max(1, Number(sp.page) || 1);
   const offset = (page - 1) * ITEMS_PER_PAGE;
@@ -78,7 +75,7 @@ export default async function MembersListPage({ searchParams }: PageProps) {
       `org_role, is_proxy_account, created_at,
        user:users!user_id(id, last_name, first_name, email, deleted_at, password_set_at)`,
     )
-    .eq("organization_id", actorMember.organization_id);
+    .eq("organization_id", active.organizationId);
 
   const { data: membersRaw } = await query;
 

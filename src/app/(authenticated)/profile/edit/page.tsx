@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import {
   buildExistingDeprecatedMunicipalitiesByPrefecture,
@@ -60,24 +61,20 @@ export default async function ProfileEditPage() {
     .map((r) => r.label);
 
   // 法人プラン Owner 判定
-  const [subResult, memberResult] = await Promise.all([
+  const [subResult, { active }] = await Promise.all([
     supabase
       .from("subscriptions")
       .select("plan_type")
       .eq("user_id", user.id)
       .in("status", ["active", "past_due"])
       .maybeSingle(),
-    supabase
-      .from("organization_members")
-      .select("org_role")
-      .eq("user_id", user.id)
-      .maybeSingle(),
+    getActiveOrganizationContext(supabase),
   ]);
 
   const planType = subResult.data?.plan_type ?? null;
   const isCorporate =
     planType === "corporate" || planType === "corporate_premium";
-  const isOwner = memberResult.data?.org_role === "owner";
+  const isOwner = active?.orgRole === "owner";
   const showOwnerBanner = isCorporate && isOwner;
 
   // 既存登録の deprecated muni を allow-list として AreaListEditor に渡す。

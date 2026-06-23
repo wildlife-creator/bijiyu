@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,16 +20,12 @@ export default async function WithdrawalPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: orgMember } = await supabase
-    .from("organization_members")
-    .select("org_role")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
   let isCorporateOwner = false;
   let displayName = "（社名未設定）";
 
-  if (orgMember?.org_role === "owner") {
+  if (active?.orgRole === "owner") {
     // Owner subscription は本人クエリで引ける（自分の subscriptions は SELECT 可）
     const { data: sub } = await supabase
       .from("subscriptions")

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,11 +45,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
 
   // 会社単位スコープ（jobs/manage の正準パターン）: 組織所属なら会社全体の発注履歴、
   // 個人発注者なら従来どおり本人の案件のみ。
-  const { data: orgMember } = await supabase
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { active } = await getActiveOrganizationContext(supabase);
 
   // Build query — fetch ordered applications with applicant details
   let query = supabase
@@ -67,8 +64,8 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
     )
     .order("updated_at", { ascending: sortOrder });
 
-  query = orgMember
-    ? query.eq("jobs.organization_id", orgMember.organization_id)
+  query = active
+    ? query.eq("jobs.organization_id", active.organizationId)
     : query.eq("jobs.owner_id", user.id);
 
   // Apply DB-level status filter.

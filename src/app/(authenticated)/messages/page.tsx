@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ThreadListItem } from "@/components/messaging/thread-list-item";
@@ -34,12 +35,13 @@ export default async function MessagesPage({ searchParams }: Props) {
   const isClientOrStaff =
     userData?.role === "client" || userData?.role === "staff";
 
-  // Get user's organization (if any)
-  const { data: orgMember } = await supabase
-    .from("organization_members")
-    .select("organization_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // proxy-account-multi-org-support Phase 3 / Task 3.4:
+  // 旧コードは organization_members から orgMember を取得していたが
+  // どこからも参照されない dead query だった。N 組織兼任ユーザーで
+  // .maybeSingle() が複数行で爆死するため共通ヘルパー経由に置換し、
+  // active org を取得して下記の SELECT で「active org のスレッドのみ」
+  // を厳密に絞り込む（昇格前の個人スレッド = organization_id IS NULL は残す）。
+  const { active } = await getActiveOrganizationContext(supabase);
 
   const threadTypeFilter = params.type || "all";
 
@@ -71,6 +73,15 @@ export default async function MessagesPage({ searchParams }: Props) {
     query = query.eq("thread_type", "message");
   } else if (threadTypeFilter === "scout") {
     query = query.eq("thread_type", "scout");
+  }
+
+  // N 組織兼任スタッフ対応: active org のスレッドに絞る。
+  // organization_id IS NULL（昇格前の個人スレッド）は本人参加 RLS で
+  // 別途見える状態のため、ここでは「active org or NULL」を OR で許可する。
+  if (isClientOrStaff && active) {
+    query = query.or(
+      `organization_id.eq.${active.organizationId},organization_id.is.null`,
+    );
   }
 
   const { data: threads } = await query;

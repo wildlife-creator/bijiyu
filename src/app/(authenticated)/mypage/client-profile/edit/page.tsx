@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -24,19 +25,10 @@ async function resolveProfileUserId(
   supabase: Awaited<ReturnType<typeof createClient>>,
   actorUserId: string,
 ): Promise<string> {
-  const { data: member } = await supabase
-    .from("organization_members")
-    .select("organization_id, org_role, organizations!inner(owner_id)")
-    .eq("user_id", actorUserId)
-    .maybeSingle();
-
-  if (!member) return actorUserId;
-  if (member.org_role === "owner") return actorUserId;
-
-  const org = Array.isArray(member.organizations)
-    ? member.organizations[0]
-    : member.organizations;
-  return (org as { owner_id: string } | null)?.owner_id ?? actorUserId;
+  const { active } = await getActiveOrganizationContext(supabase);
+  if (!active) return actorUserId;
+  if (active.orgRole === "owner") return actorUserId;
+  return active.orgOwnerId;
 }
 
 export default async function ClientProfileEditPage({

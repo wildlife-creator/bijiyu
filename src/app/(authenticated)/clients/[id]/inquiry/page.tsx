@@ -51,7 +51,7 @@ export default async function JobInquiryPage({ params }: PageProps) {
     .maybeSingle();
 
   const [viewerOrgId, targetOrgId] = await Promise.all([
-    resolveViewerOrganizationId(admin, user.id),
+    resolveViewerOrganizationId(admin, user.id, supabase),
     resolveTargetOrganizationId(admin, target.id),
   ]);
 

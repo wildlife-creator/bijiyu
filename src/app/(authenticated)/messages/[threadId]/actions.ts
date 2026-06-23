@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 // messageSchema is not used here; validation is done inline to avoid
@@ -102,12 +103,8 @@ export async function sendMessageAction(
     }
 
     // Check if sender is a proxy account
-    const { data: orgMemberData } = await supabase
-      .from("organization_members")
-      .select("is_proxy_account")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const isProxy = orgMemberData?.is_proxy_account === true;
+    const { active } = await getActiveOrganizationContext(supabase);
+    const isProxy = active?.isProxyAccount === true;
 
     // Validate body
     const body = formData.get("body") as string | null;

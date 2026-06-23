@@ -1,5 +1,6 @@
 "use server";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { bulkMessageSchema } from "@/lib/validations/message";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -45,13 +46,9 @@ export async function sendBulkMessagesAction(
     }
 
     // Get user's org (if any) and proxy account status
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("organization_id, is_proxy_account")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const organizationId = orgMember?.organization_id ?? null;
-    const isProxy = orgMember?.is_proxy_account === true;
+    const { active } = await getActiveOrganizationContext(supabase);
+    const organizationId = active?.organizationId ?? null;
+    const isProxy = active?.isProxyAccount === true;
 
     let sent = 0;
     let failed = 0;

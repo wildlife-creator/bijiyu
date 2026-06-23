@@ -8,6 +8,7 @@ const mockInviteUser = vi.fn();
 const mockAdminUpdateUserById = vi.fn();
 const mockAdminDeleteUser = vi.fn();
 const mockAuthUpdateUser = vi.fn();
+const mockGetActiveOrgContext = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -31,6 +32,13 @@ vi.mock("@/lib/supabase/admin", () => ({
       },
     },
   }),
+}));
+
+// proxy-account-multi-org-support Phase 3: getActorContext は内部で
+// getActiveOrganizationContext を呼ぶようになったため、ヘルパー本体をモック。
+vi.mock("@/lib/organization/active-org-context", () => ({
+  getActiveOrganizationContext: (...args: unknown[]) =>
+    mockGetActiveOrgContext(...args),
 }));
 
 vi.mock("next/cache", () => ({
@@ -90,24 +98,30 @@ function createQueryMock(t: Terminator = {}) {
   return chain;
 }
 
-function mockActorContext(userId: string, role: "owner" | "admin" | "staff") {
-  // getActorContext の最初の maybeSingle: organization_members
-  mockFrom.mockReturnValueOnce(
-    createQueryMock({
-      maybeSingle: {
-        data: {
-          organization_id: ORG_ID,
-          org_role: role,
-          organizations: { owner_id: OWNER_ID },
-        },
-        error: null,
-      },
-    }),
-  );
+function mockActorContext(
+  _userId: string,
+  role: "owner" | "admin" | "staff",
+  isProxyAccount: boolean = false,
+) {
+  // proxy-account-multi-org-support Phase 3:
+  // getActorContext は getActiveOrganizationContext を呼ぶ。
+  // active が null か非 null かで挙動が決まる。
+  mockGetActiveOrgContext.mockResolvedValueOnce({
+    active: {
+      organizationId: ORG_ID,
+      orgRole: role,
+      isProxyAccount,
+      orgOwnerId: OWNER_ID,
+      isCorporate: true,
+    },
+    all: [],
+  });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // 既定: organization_members なし（null active）。各テストで mockActorContext で上書き。
+  mockGetActiveOrgContext.mockResolvedValue({ active: null, all: [] });
 });
 
 // ===========================================================================
@@ -507,5 +521,47 @@ describe("resendInviteAction", () => {
     const r = await resendInviteAction(STAFF_ID);
     expect(r.success).toBe(true);
     expect(mockInviteUser).toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// R6: 代理 + admin 組み合わせ禁止 (proxy-account-multi-org-support Phase 1)
+// ===========================================================================
+describe("R6: 代理 + admin の組み合わせを Server Action が拒否する", () => {
+  const validBase = {
+    lastName: "山田",
+    firstName: "太郎",
+    email: "r6@test.local",
+    orgRole: "admin" as const,
+    isProxyAccount: true,
+  };
+
+  it("createMemberAction が proxyAdminCombination を拒否し、招待 RPC に到達しない", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+
+    const r = await createMemberAction(validBase);
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error).toContain("代理アカウントは担当者権限");
+    }
+    expect(mockInviteUser).not.toHaveBeenCalled();
+    expect(mockAdminRpc).not.toHaveBeenCalled();
+  });
+
+  it("updateMemberAction が proxyAdminCombination を拒否し、UPDATE に到達しない", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // target SELECT は呼ばれないはず → mockAdminFrom は使われない
+
+    const r = await updateMemberAction(STAFF_ID, {
+      orgRole: "admin",
+      isProxyAccount: true,
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error).toContain("代理アカウントは担当者権限");
+    }
+    expect(mockAdminFrom).not.toHaveBeenCalled();
   });
 });

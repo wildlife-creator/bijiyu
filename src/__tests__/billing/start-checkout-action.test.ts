@@ -86,6 +86,25 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => makeFakeAdmin(),
 }));
 
+// proxy-account-multi-org-support: 案件オーナー判定の組織メンバーチェックは
+// getActiveOrganizationContext を経由するようになった。
+const activeOrgState: {
+  active: null | {
+    organizationId: string;
+    orgRole: "owner" | "admin" | "staff";
+    isProxyAccount: boolean;
+    orgOwnerId: string;
+    isCorporate: boolean;
+  };
+} = { active: null };
+
+vi.mock("@/lib/organization/active-org-context", () => ({
+  getActiveOrganizationContext: async () => ({
+    active: activeOrgState.active,
+    all: [],
+  }),
+}));
+
 vi.mock("@/lib/billing/stripe", () => ({
   getStripeClient: () => makeFakeStripe(),
 }));
@@ -228,6 +247,7 @@ beforeEach(() => {
   stripeMockState.shouldThrow = false;
   stripeMockState.activeSubscriptions = [];
   cookiesMockState.feeCookieValue = null;
+  activeOrgState.active = null;
   ensureStripeCustomerMock.mockReset();
   ensureStripeCustomerMock.mockResolvedValue({
     stripeCustomerId: "cus_default_123",
@@ -522,8 +542,8 @@ describe("startCheckoutAction — urgent option", () => {
       },
       error: null,
     };
-    // 発注側ユーザーは org-x のメンバーではない
-    adminResults["select:organization_members"] = { data: null, error: null };
+    // 発注側ユーザーは org-x のメンバーではない (active=null = どこの組織にも属さない)
+    activeOrgState.active = null;
     const result = await startCheckoutAction({
       type: "option",
       optionType: "urgent",
@@ -561,9 +581,12 @@ describe("startCheckoutAction — urgent option", () => {
       error: null,
     };
     // 発注ユーザー user-c1 は同じ組織 org-1 のメンバー
-    adminResults["select:organization_members"] = {
-      data: { organization_id: "org-1" },
-      error: null,
+    activeOrgState.active = {
+      organizationId: "org-1",
+      orgRole: "staff",
+      isProxyAccount: false,
+      orgOwnerId: "owner-of-org-1",
+      isCorporate: true,
     };
     adminResults["select:option_subscriptions"] = { data: [], error: null };
 

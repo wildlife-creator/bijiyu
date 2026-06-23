@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,13 +58,8 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
   const isOwner = job.owner_id === user.id;
   let isOrganizationMember = false;
   if (!isOwner && job.organization_id) {
-    const { data: orgMember } = await supabase
-      .from("organization_members")
-      .select("id")
-      .eq("organization_id", job.organization_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    isOrganizationMember = !!orgMember;
+    const { active } = await getActiveOrganizationContext(supabase);
+    isOrganizationMember = active?.organizationId === job.organization_id;
   }
 
   if (!isOwner && !isOrganizationMember) {
