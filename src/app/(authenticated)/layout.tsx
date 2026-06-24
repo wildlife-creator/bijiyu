@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { PastDueBanner } from "@/components/billing/PastDueBanner";
 import { SiteHeader } from "@/components/site-header";
+import { OrgSwitcher } from "@/components/organization/org-switcher";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { Toaster } from "@/components/ui/sonner";
 
 interface AuthenticatedLayoutProps {
@@ -18,6 +20,7 @@ export default async function AuthenticatedLayout({
   } = await supabase.auth.getUser();
 
   let hasActiveSubscription = false;
+  let orgSwitcher: React.ReactNode = null;
 
   if (user) {
     const { data: subscription } = await supabase
@@ -28,6 +31,23 @@ export default async function AuthenticatedLayout({
       .maybeSingle();
 
     hasActiveSubscription = !!subscription;
+
+    // proxy-account-multi-org-support Phase 7 / Task 7.3
+    // N 組織兼任スタッフの組織コンテキスト切替 UI をヘッダーに組み込む。
+    // memberships が 1 件以下なら OrgSwitcher 内部で null を返すため
+    // 単一組織ユーザー / 受注者単独ユーザーには DOM 出力なし。
+    const { active, all } = await getActiveOrganizationContext(supabase);
+    if (all.length > 1) {
+      orgSwitcher = (
+        <OrgSwitcher
+          memberships={all.map((m) => ({
+            organizationId: m.organizationId,
+            displayName: m.displayName,
+          }))}
+          activeOrgId={active?.organizationId ?? null}
+        />
+      );
+    }
   }
 
   // PastDueBanner data: read from middleware-set headers (Task 2 軽 4)
@@ -52,6 +72,7 @@ export default async function AuthenticatedLayout({
       <SiteHeader
         isAuthenticated
         hasActiveSubscription={hasActiveSubscription}
+        orgSwitcher={orgSwitcher}
       />
       {pastDueBanner && (
         <PastDueBanner

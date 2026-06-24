@@ -45,8 +45,13 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+// vi.mock は hoist されるため、テスト内から参照したい mock 関数は
+// vi.hoisted で巻き上げて factory に渡す必要がある。
+const { sendEmailMock } = vi.hoisted(() => ({
+  sendEmailMock: vi.fn(async (_args: unknown) => ({ success: true as const })),
+}));
 vi.mock("@/lib/email/send-email", () => ({
-  sendEmail: vi.fn().mockResolvedValue({ success: true }),
+  sendEmail: sendEmailMock,
 }));
 
 import {
@@ -158,16 +163,28 @@ describe("createMemberAction", () => {
     if (!r.success) expect(r.error).toContain("管理者の作成");
   });
 
-  it("メール重複は日本語エラーで早期リターン", async () => {
+  it("既存ユーザー (代理在籍なし) は『既に登録』日本語エラーで早期リターン", async () => {
+    // resolveExistingProxyReuse 経由:
+    //   1. SELECT users → 既存ユーザー (deleted_at=null)
+    //   2. SELECT organization_members → 空配列 (代理在籍なし)
+    //   → reject_email_taken
     mockAuth(OWNER_ID);
     mockActorContext(OWNER_ID, "owner");
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
-          data: { id: "existing" },
+          data: {
+            id: "existing",
+            last_name: "山田",
+            first_name: "太郎",
+            deleted_at: null,
+          },
           error: null,
         },
       }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
     );
     const r = await createMemberAction(validInput);
     expect(r.success).toBe(false);
@@ -274,6 +291,238 @@ describe("createMemberAction", () => {
     });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toContain("代理アカウントは既に");
+  });
+});
+
+// ===========================================================================
+// R2: 既存ユーザー再利用パス (proxy-account-multi-org-support Phase 6 / Task 6.4)
+// ===========================================================================
+describe("R2: createMemberAction 既存ユーザー再利用パス", () => {
+  const proxyInput = {
+    lastName: "山田",
+    firstName: "太郎",
+    email: "proxy@test.local",
+    orgRole: "staff" as const,
+    isProxyAccount: true,
+  };
+
+  const EXISTING_PROXY_ID = "abcdef00-0000-0000-0000-000000000001";
+
+  function mockHelperFindExistingProxy(name: { last_name: string; first_name: string }) {
+    // resolveExistingProxyReuse の SELECT users → 既存代理ユーザー
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            id: EXISTING_PROXY_ID,
+            last_name: name.last_name,
+            first_name: name.first_name,
+            deleted_at: null,
+          },
+          error: null,
+        },
+      }),
+    );
+    // resolveExistingProxyReuse の SELECT organization_members → 代理在籍 1 件以上
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [{ organization_id: "org-other" }],
+          error: null,
+        },
+      }),
+    );
+  }
+
+  it("N 組織への代理招待: 既存代理 + 同氏名 → inviteUserByEmail スキップ + RPC + 通知メール", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockHelperFindExistingProxy({ last_name: "山田", first_name: "太郎" });
+    // SELECT subscriptions (maxStaff lookup)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    mockAdminRpc.mockResolvedValue({ data: null, error: null });
+    // audit_logs insert
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // sendProxyAssignedEmail 内 3 つの SELECT (users, client_profiles, users)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { last_name: "山田", first_name: "太郎" },
+          error: null,
+        },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト株式会社" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "佐藤", first_name: "一郎" }, error: null },
+      }),
+    );
+
+    const r = await createMemberAction(proxyInput);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data?.userId).toBe(EXISTING_PROXY_ID);
+
+    // 既存ユーザー再利用パスでは inviteUserByEmail を呼ばない
+    expect(mockInviteUser).not.toHaveBeenCalled();
+    // 既存 user_id で RPC が呼ばれる
+    expect(mockAdminRpc).toHaveBeenCalledWith(
+      "insert_staff_member_with_limit",
+      expect.objectContaining({
+        p_user_id: EXISTING_PROXY_ID,
+        p_is_proxy_account: true,
+      }),
+    );
+    // 通知メールが送信される
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const emailCall = sendEmailMock.mock.calls[0]?.[0] as
+      | { to: string; subject: string; html: string }
+      | undefined;
+    expect(emailCall?.to).toBe("proxy@test.local");
+    expect(emailCall?.subject).toContain("代理アカウント");
+    expect(emailCall?.subject).toContain("テスト株式会社");
+  });
+
+  it("既存代理 + 氏名不一致 → reject_name_mismatch エラー (応答に既存氏名を含めない)", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // 既存ユーザーは 佐藤花子 / 入力は 山田太郎 で不一致
+    mockHelperFindExistingProxy({ last_name: "佐藤", first_name: "花子" });
+
+    const r = await createMemberAction(proxyInput);
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error).toContain("違うお名前");
+      // プライバシー: エラー応答に既存氏名 (佐藤 / 花子) を含めない
+      expect(r.error).not.toContain("佐藤");
+      expect(r.error).not.toContain("花子");
+    }
+    expect(mockInviteUser).not.toHaveBeenCalled();
+    expect(mockAdminRpc).not.toHaveBeenCalled();
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("通常スタッフ招待 (isProxyAccount=false) + 既存代理ユーザー → reject_email_taken", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockHelperFindExistingProxy({ last_name: "山田", first_name: "太郎" });
+
+    const r = await createMemberAction({
+      ...proxyInput,
+      isProxyAccount: false,
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("既に登録");
+    expect(mockInviteUser).not.toHaveBeenCalled();
+    expect(mockAdminRpc).not.toHaveBeenCalled();
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("既存ユーザー (代理在籍なし、一般受注者など) → reject_email_taken", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // 既存ユーザーあり (deleted_at=null) だが代理在籍 0 件
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            id: "regular-user",
+            last_name: "山田",
+            first_name: "太郎",
+            deleted_at: null,
+          },
+          error: null,
+        },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
+
+    const r = await createMemberAction(proxyInput);
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("既に登録");
+    expect(mockInviteUser).not.toHaveBeenCalled();
+  });
+
+  it("削除済みユーザー (deleted_at セット済み) → new_user 扱い → invite 通常パス", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // helper の SELECT users → deleted_at セット済み (退会後の再登録)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            id: "deleted-user",
+            last_name: "山田",
+            first_name: "太郎",
+            deleted_at: "2026-01-01T00:00:00Z",
+          },
+          error: null,
+        },
+      }),
+    );
+    // helper は deleted_at セット時に SELECT organization_members を発行しない
+    // (= 通常の new_user パスに合流。SELECT subscriptions が次に来る)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    mockInviteUser.mockResolvedValue({
+      data: { user: { id: NEW_USER_ID } },
+      error: null,
+    });
+    mockAdminRpc.mockResolvedValue({ data: null, error: null });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await createMemberAction(proxyInput);
+    expect(r.success).toBe(true);
+    // 削除済みユーザー → 新規 auth.users 作成パス
+    expect(mockInviteUser).toHaveBeenCalled();
+    expect(mockAdminRpc).toHaveBeenCalledWith(
+      "insert_staff_member_with_limit",
+      expect.objectContaining({ p_user_id: NEW_USER_ID }),
+    );
+    // reuse パスではないため通知メールは送信されない
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("reuse パスで RPC が PROXY_ACCOUNT_ALREADY_EXISTS を返した場合: cleanup 不要 + 日本語エラー", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockHelperFindExistingProxy({ last_name: "山田", first_name: "太郎" });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    mockAdminRpc.mockResolvedValue({
+      data: null,
+      error: { message: "PROXY_ACCOUNT_ALREADY_EXISTS: organization_id=..." },
+    });
+    // 失敗 audit log
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await createMemberAction(proxyInput);
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("代理アカウントは既に");
+    // reuse パスでは auth.users を作っていないため deleteUser は呼ばない
+    expect(mockAdminDeleteUser).not.toHaveBeenCalled();
   });
 });
 

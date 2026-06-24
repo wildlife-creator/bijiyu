@@ -2,7 +2,7 @@
 -- Run with: supabase test db
 
 BEGIN;
-SELECT plan(9);
+SELECT plan(11);
 
 -- ============================================================
 -- Setup
@@ -13,9 +13,14 @@ VALUES
   ('33333333-aaaa-bbbb-cccc-000000000002', 'ism-staff1@test.local',  crypt('x', gen_salt('bf')), NOW(), '{}'::jsonb, '{"invited_role":"staff","invited_last_name":"山田","invited_first_name":"太郎"}'::jsonb, NOW(), NOW()),
   ('33333333-aaaa-bbbb-cccc-000000000003', 'ism-staff2@test.local',  crypt('x', gen_salt('bf')), NOW(), '{}'::jsonb, '{"invited_role":"staff"}'::jsonb, NOW(), NOW()),
   ('33333333-aaaa-bbbb-cccc-000000000004', 'ism-proxy@test.local',   crypt('x', gen_salt('bf')), NOW(), '{}'::jsonb, '{"invited_role":"staff"}'::jsonb, NOW(), NOW()),
-  ('33333333-aaaa-bbbb-cccc-000000000005', 'ism-proxy2@test.local',  crypt('x', gen_salt('bf')), NOW(), '{}'::jsonb, '{"invited_role":"staff"}'::jsonb, NOW(), NOW());
+  ('33333333-aaaa-bbbb-cccc-000000000005', 'ism-proxy2@test.local',  crypt('x', gen_salt('bf')), NOW(), '{}'::jsonb, '{"invited_role":"staff"}'::jsonb, NOW(), NOW()),
+  ('33333333-aaaa-bbbb-cccc-000000000006', 'ism-owner2@test.local',  crypt('x', gen_salt('bf')), NOW(), '{}'::jsonb, '{}'::jsonb, NOW(), NOW());
 
-UPDATE public.users SET role = 'client' WHERE id = '33333333-aaaa-bbbb-cccc-000000000001';
+UPDATE public.users SET role = 'client'
+ WHERE id IN (
+   '33333333-aaaa-bbbb-cccc-000000000001',
+   '33333333-aaaa-bbbb-cccc-000000000006'
+ );
 
 INSERT INTO organizations (id, owner_id) VALUES
   ('33333333-aaaa-bbbb-cccc-100000000001', '33333333-aaaa-bbbb-cccc-000000000001');
@@ -120,7 +125,38 @@ SELECT throws_ok(
 );
 
 -- ============================================================
--- Test 6: authenticated ロールに EXECUTE 権限が無い
+-- Test 6: N 組織化 — 同一ユーザーが異なる組織にも代理として在籍できる
+-- (proxy-account-multi-org-support Phase 4 / R1, R5.2)
+-- 既存の PROXY_ACCOUNT_ALREADY_EXISTS は 1 組織内の制約であり、
+-- 異なる組織に対しては同じ user_id でも proxy=true の追加が成功する。
+-- ============================================================
+INSERT INTO organizations (id, owner_id) VALUES
+  ('33333333-aaaa-bbbb-cccc-100000000002', '33333333-aaaa-bbbb-cccc-000000000006');
+
+INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
+  ('33333333-aaaa-bbbb-cccc-100000000002', '33333333-aaaa-bbbb-cccc-000000000006', 'owner');
+
+SELECT lives_ok(
+  $$SELECT insert_staff_member_with_limit(
+    '33333333-aaaa-bbbb-cccc-000000000004'::uuid,
+    '33333333-aaaa-bbbb-cccc-100000000002'::uuid,
+    'staff',
+    true,
+    10
+  );$$,
+  '同一ユーザーが別組織にも代理として追加できる (N 組織兼任成立)'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM organization_members
+   WHERE user_id = '33333333-aaaa-bbbb-cccc-000000000004'
+     AND is_proxy_account = true),
+  2,
+  'proxy ユーザーが 2 組織に代理として在籍 (per-user 上限なし)'
+);
+
+-- ============================================================
+-- Test 7: authenticated ロールに EXECUTE 権限が無い
 -- （pg_catalog で直接権限確認。pgTAP の SET LOCAL role では pooler
 --  経由の挙動が環境依存のため、権限 ACL を直接検証する）
 -- ============================================================

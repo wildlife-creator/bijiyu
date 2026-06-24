@@ -700,7 +700,12 @@ describe("invoice.payment_failed", () => {
 // ===========================================================================
 
 describe("invoice.payment_succeeded", () => {
-  it("recovery from past_due → status=active and reactivates corporate staff", async () => {
+  it("recovery from past_due → status=active (no corporate staff reactivation)", async () => {
+    // Phase 5 (proxy-account-multi-org-support) で reactivateCorporateMembers
+    // を撤廃した。past_due → active 復帰時に users.is_active を書き換える
+    // 旧挙動はなくなり、subscriptions のステータス更新のみ行われる。
+    // 配下メンバーの「凍結」「復帰」は org_members 行削除モデルに置き換わったため
+    // ここでは何もしない (organizations / organization_members の SELECT も発生しない)。
     const invoice = buildInvoice();
     const { admin, calls } = makeAdmin({
       results: {
@@ -711,10 +716,6 @@ describe("invoice.payment_succeeded", () => {
             plan_type: "corporate",
             status: "past_due",
           },
-        },
-        "select:organizations": { data: { id: "org-1" } },
-        "select:organization_members": {
-          data: [{ user_id: "staff-a" }, { user_id: "staff-b" }],
         },
       },
     });
@@ -734,10 +735,19 @@ describe("invoice.payment_succeeded", () => {
       past_due_since: null,
     });
 
-    const userUpdate = calls.find(
-      (c) => c.op === "update" && c.table === "users",
-    );
-    expect(userUpdate?.payload).toEqual({ is_active: true });
+    // users への UPDATE は発生しない (is_active=true の旧復帰挙動廃止)
+    expect(
+      calls.find((c) => c.op === "update" && c.table === "users"),
+    ).toBeUndefined();
+    // organizations / organization_members の SELECT も発生しない
+    expect(
+      calls.find((c) => c.op === "select" && c.table === "organizations"),
+    ).toBeUndefined();
+    expect(
+      calls.find(
+        (c) => c.op === "select" && c.table === "organization_members",
+      ),
+    ).toBeUndefined();
   });
 
   it("ignores invoice for already-active subscription (no changes)", async () => {

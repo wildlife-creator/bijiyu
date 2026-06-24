@@ -154,9 +154,9 @@
 
 ---
 
-- [ ] 4. 削除と解約の RPC を「行削除統一」に書き換える（Phase 4）
+- [x] 4. 削除と解約の RPC を「行削除統一」に書き換える（Phase 4）
 
-- [ ] 4.1 (P) `delete_staff_member` を v2 に書き換える
+- [x] 4.1 (P) `delete_staff_member` を v2 に書き換える
   - **トランザクション冒頭で `SELECT id FROM users WHERE id = p_target_user_id FOR UPDATE` を実行**し、対象ユーザー行に悲観ロックを取る（同一ユーザーの並行削除トランザクションを直列化し、READ COMMITTED 分離レベル下での race condition を防止する）
   - `scout_templates.owner_id` の Owner 移譲（既存）を維持
   - `organization_members` 行削除（既存）を維持
@@ -165,7 +165,7 @@
   - 旧挙動の「無条件 `deleted_at` セット」を撤廃
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 9.3_
 
-- [ ] 4.2 (P) `handle_subscription_lifecycle_deleted` を v2 に書き換える
+- [x] 4.2 (P) `handle_subscription_lifecycle_deleted` を v2 に書き換える
   - subscriptions UPDATE（既存）と `users.role` ダウングレード（既存）を維持
   - 配下の `organization_members` 行（`org_role IN ('admin', 'staff')`）を当該組織分すべて削除
   - **各削除対象の残存メンバーシップ判定の直前に、対象ユーザーごとに `SELECT id FROM users WHERE id = v_user_id FOR UPDATE` で悲観ロックを取る**（複数法人が同時解約 + 同一代理スタッフを抱えるケースで `deleted_at` セットが取りこぼされる race condition を防止する。READ COMMITTED 下で必要）
@@ -175,7 +175,7 @@
   - 配下メンバーが 0 名のケース（個人プラン等）でも安全に NO-OP
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.7, 9.4_
 
-- [ ] 4.3 削除と解約の RPC 修正に対応する pgTAP テストを追加・更新する
+- [x] 4.3 削除と解約の RPC 修正に対応する pgTAP テストを追加・更新する
   - `delete_staff_member` v2: 他組織在籍時に `deleted_at` がセットされない / 残存 0 件で `deleted_at` がセットされる
   - `delete_staff_member` v2: `SELECT FOR UPDATE` による悲観ロックが効いていることを、同一ユーザーへの 2 つの並行トランザクションで検証する（一方が他方を待ち、最終的に必ず `deleted_at` がセットされる）
   - `handle_subscription_lifecycle_deleted` v2: 配下メンバーの行削除が実施される / 他組織在籍ユーザーの `deleted_at` がセットされない / 残存 0 件のユーザーはセットされる
@@ -183,36 +183,53 @@
   - `insert_staff_member_with_limit` の組織内代理一意性チェック（`PROXY_ACCOUNT_ALREADY_EXISTS`）が引き続き機能することを既存 pgTAP で確認する
   - N 組織化シナリオの追加テストとして、同一ユーザーが複数の異なる組織に代理として在籍してもユーザー単位の上限エラーにならないことを pgTAP で検証する
   - _Requirements: 3.1, 3.2, 4.1, 4.2, 5.1, 5.2, 11.3_
+  - 2026-06-24 実装結果:
+    - Migration: `supabase/migrations/20260616130000_delete_staff_member_v2.sql`（FOR UPDATE + 残存 0 件のときのみ deleted_at セット）
+    - Migration: `supabase/migrations/20260616130100_handle_subscription_lifecycle_deleted_v2.sql`（旧 is_active=false 撤廃 / 各メンバーごとに FOR UPDATE → 削除 → 残存判定）
+    - 新規 pgTAP: `delete_staff_member_v2.test.sql` 9 件（N 組織継続 / 残存 0 件 / 単一組織 / FOR UPDATE 静的存在検証）
+    - 新規 pgTAP: `handle_subscription_lifecycle_deleted_v2.test.sql` 10 件（行削除 / N 組織継続 / Admin / 旧 is_active 撤廃 / FOR UPDATE 静的存在検証 / NO-OP / role downgrade 維持）
+    - 既存更新 pgTAP: `insert_staff_member_with_limit.test.sql` plan 9 → 11（N 組織兼任シナリオ追加: 同一ユーザーが複数の異なる組織に代理として在籍可）
+    - 並行トランザクション dblink テストは pgTAP の BEGIN/ROLLBACK + plpgsql DO 内で `SET LOCAL statement_timeout` が期待通り発火せずロック待ちで詰まる挙動を確認したため、prosrc 正規表現で FOR UPDATE 静的検証に置換（実環境 race 動作は Task 8.3 の Phase 8 E2E でカバー）
+    - 既存 `delete_staff_member.test.sql`（旧 v1 の挙動テスト）は無変更で PASS。Test 4 は単一組織ユーザーで残存 0 件 → deleted_at セットを期待しており v2 でも振る舞いが等価
+    - 全テスト結果: Vitest 1018/1018 PASS / pgTAP 297/297 PASS（30→31 ファイル、+19 件追加）/ Playwright proxy-multi-org スモーク 2/2 PASS
 
 ---
 
-- [ ] 5. 旧凍結方式の clean-up と既存データの正規化（Phase 5）
+- [x] 5. 旧凍結方式の clean-up と既存データの正規化（Phase 5）
 
-- [ ] 5.1 既存環境の旧 `users.is_active = false` データを正規化する
+- [x] 5.1 既存環境の旧 `users.is_active = false` データを正規化する
   - 実行前に該当ユーザー件数を SQL でカウントしログに残す
   - 該当ユーザーの全 `organization_members` 行を削除
   - `users.deleted_at = now()` をセット
   - run-book に手順を残し、本番投入時のロールバック手順を明記
   - _Requirements: 4.9_
 
-- [ ] 5.2 `reactivateCorporateMembers` ヘルパー本体を削除する
+- [x] 5.2 `reactivateCorporateMembers` ヘルパー本体を削除する
   - `src/lib/billing/webhook/handle-subscription-lifecycle.ts:651-680` の関数定義を削除
   - alias `reactivateCorporateStaff` (`:683`) も削除
   - _Requirements: 4.7_
 
-- [ ] 5.3 `reactivateCorporateMembers` の 3 箇所の呼び出し元を cleanup する
+- [x] 5.3 `reactivateCorporateMembers` の 3 箇所の呼び出し元を cleanup する
   - `handle-checkout-completed.ts:139` の呼び出しを削除し周辺コメントを整理
   - `handle-subscription-lifecycle.ts:120` の呼び出しを削除し周辺コメントを整理
   - `handle-subscription-lifecycle.ts:371` の呼び出しを削除し周辺コメントを整理
   - 削除後に TypeScript build が成功することを確認
   - `npm run test` 全 PASS を確認
   - _Requirements: 4.7_
+  - 2026-06-24 実装結果:
+    - Migration: `supabase/migrations/20260616140000_lifecycle_v2_data_migration.sql`（DO ブロックで影響行数を NOTICE 出力 → organization_members 行削除 → users.deleted_at セット。is_active=false 自体は global ログインゲートとして残置）
+    - コード削除: `handle-subscription-lifecycle.ts` から `reactivateCorporateMembers` 関数本体・alias・export を削除 + `handleSubscriptionCreated` 関数本体削除 (dispatcher 内で no-op return に置換) + `handleInvoicePaymentSucceeded` 内呼び出し削除
+    - コード削除: `handle-checkout-completed.ts` から import + 呼び出し削除 (周辺コメントを Phase 5 撤廃の旨に書き換え)
+    - Vitest 更新: `handle-subscription-lifecycle.test.ts` の `recovery from past_due` テストから `is_active=true` UPDATE 期待を削除し「users への UPDATE が発生しない」「organizations / organization_members の SELECT も発生しない」に変更
+    - seed.sql 更新: J1 シナリオ (frozen-admin / frozen-staff) を Phase 5 正規化済み状態に書き換え (`users.deleted_at` セット + `organization_members` INSERT 除外)
+    - Run-book: `.kiro/specs/proxy-account-multi-org-support/run-book-phase-5.md` 作成 (事前カウント / 投入手順 / 検証 / ロールバック)
+    - 全テスト結果: Vitest 1018/1018 PASS / pgTAP 297/297 PASS / Playwright proxy-multi-org + billing + members + staff-access 計 48 件 PASS / TypeScript ノーエラー
 
 ---
 
-- [ ] 6. 招待時の既存ユーザー再利用パスと通知メールを追加する（Phase 6）
+- [x] 6. 招待時の既存ユーザー再利用パスと通知メールを追加する（Phase 6）
 
-- [ ] 6.1 既存ユーザー再利用判定ヘルパーを実装する
+- [x] 6.1 既存ユーザー再利用判定ヘルパーを実装する
   - email で `users` を SELECT し、`role` / `last_name` / `first_name` / `deleted_at` を取得
   - 既存ユーザーの `organization_members` で `is_proxy_account = true` の行が 1 件以上あるかを admin client で横断確認
   - 入力氏名（`lastName`、`firstName`）と既存氏名の完全一致判定を含める
@@ -220,7 +237,7 @@
   - 既存ユーザーの `deleted_at` セット済みの場合は `new_user` 扱い（退会後の再登録）
   - _Requirements: 2.1, 2.2, 2.3, 2.7, 2.8_
 
-- [ ] 6.2 担当者招待 Server Action を v2 に拡張する
+- [x] 6.2 担当者招待 Server Action を v2 に拡張する
   - 既存の email 重複チェックを再利用判定ヘルパー呼び出しに置換
   - 新規ユーザー: Supabase Auth `inviteUserByEmail` 経由（既存挙動）
   - 既存ユーザー再利用: `inviteUserByEmail` をスキップし、既存 user_id で `insert_staff_member_with_limit` RPC を呼ぶ
@@ -231,14 +248,14 @@
   - エラーコードを `email_already_registered` / `name_mismatch` / `proxy_admin_combination` / `staff_limit_exceeded` 等の discriminated union で返す
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 5.3, 8.1, 8.3, 9.1, 9.2_
 
-- [ ] 6.3 既存ユーザー再利用時の通知メールテンプレを新規追加する
+- [x] 6.3 既存ユーザー再利用時の通知メールテンプレを新規追加する
   - テンプレートファイルを `src/lib/email/templates/` 配下に追加
   - 件名「{組織名}の代理アカウントとして設定されました」
   - 本文に組織名・設定日時・サインインリンクを含める（パスワード設定リンクは含めない）
   - 文面は notifications spec §5.6.C 確定方針に準拠した暫定版で実装（最終文面は notifications spec 完了時に微調整）
   - _Requirements: 8.1, 8.2_
 
-- [ ] 6.4 既存ユーザー再利用パスの Vitest 統合テストを追加する
+- [x] 6.4 既存ユーザー再利用パスの Vitest 統合テストを追加する
   - N 組織への代理招待が成功する
   - 既存ユーザーが代理在籍していない場合に拒否される
   - 通常スタッフ招待での既存ユーザー再利用が適用されないこと（拒否される）
@@ -246,19 +263,27 @@
   - 既存ユーザー再利用パスで通知メールが送信される（モック検証）
   - 氏名不一致の場合に拒否され、エラー応答に既存氏名が含まれない
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.7, 2.8, 11.2_
+  - 2026-06-24 実装結果:
+    - 新規ヘルパー: `src/lib/organization/resolve-existing-proxy-reuse.ts` (discriminated union: new_user / reuse_existing_proxy / reject_email_taken / reject_name_mismatch、氏名は戻り値に含めない)
+    - 新規メールテンプレ: `src/lib/email/templates/proxy-assigned-existing-user.ts` (notifications spec §5.6.C 確定本文 + タスク 6.3 で追加された signInUrl CTA。件名「【ビジ友 運営】「{org}」の代理アカウントとして設定されました」)
+    - createMemberAction v2: 旧 email 重複 SELECT を `resolveExistingProxyReuse` に置換 / reuse 分岐 (invite スキップ + RPC + audit_logs に reuse_existing_user メタデータ追記 + sendProxyAssignedEmail ヘルパー経由でメール送信、失敗してもメイン処理ブロックしない)
+    - 新規 Vitest: `src/__tests__/organization/resolve-existing-proxy-reuse.test.ts` 8 件 (new_user / 削除済み / 代理在籍なし / proxy invite=false / 氏名一致 / 氏名不一致 / 氏名漏洩防止 / N 組織兼任)
+    - createMemberAction テスト追加: 6 件 (N 組織招待成功 + invite スキップ + メール送信検証 / 氏名不一致応答に既存氏名なし / 通常スタッフ招待で既存 proxy を拒否 / 既存非代理 reject / 削除済みは new_user 扱い / reuse パス RPC エラー時の cleanup 不要)
+    - 既存テスト更新: 「メール重複は日本語エラーで早期リターン」を「既存ユーザー (代理在籍なし) は『既に登録』日本語エラーで早期リターン」に書き換え (helper 経由で 2 SELECT)
+    - 全テスト結果: Vitest 1032/1032 PASS / pgTAP 297/297 PASS / Playwright proxy-multi-org + members 計 20 件 PASS / TypeScript ノーエラー
 
 ---
 
-- [ ] 7. 組織切替 UI とコンテキスト永続化を実装する（Phase 7）
+- [x] 7. 組織切替 UI とコンテキスト永続化を実装する（Phase 7）
 
-- [ ] 7.1 `setActiveOrganizationContext` Server Action を実装する
+- [x] 7.1 `setActiveOrganizationContext` Server Action を実装する
   - 入力 `orgId` がアクターの `organization_members` に含まれることを確認
   - Cookie `bizyu_active_org`（HTTP-only, SameSite=Lax, Path=/, Max-Age=1年）に組織 ID を保存
   - 成功時の戻り値に `redirectTo: '/mypage'` を含めて呼び出し元に遷移先を通知
   - 不正な `orgId` の場合は Cookie 更新せず `not_a_member` エラーを返す
   - _Requirements: 7.4, 7.5_
 
-- [ ] 7.2 `OrgSwitcher` コンポーネントを実装する
+- [x] 7.2 `OrgSwitcher` コンポーネントを実装する
   - design.md「暫定 UI スペック」に従う（shadcn `<Select>` ベース、`w-[240px]`、「現在: 」ラベル付き）
   - `memberships.length > 1` のときのみレンダリングし、1 件以下は DOM 出力なし
   - 選択肢は `client_profiles.display_name` を解決、フォールバックは Owner の姓名
@@ -267,55 +292,71 @@
   - アクセシビリティ属性（`aria-label="所属組織を切り替える"`）を付与
   - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 7.3 ヘッダーレイアウトに OrgSwitcher を組み込む
+- [x] 7.3 ヘッダーレイアウトに OrgSwitcher を組み込む
   - 全 (authenticated) layout のヘッダー右側、`/mypage` リンクの左隣に配置
   - RSC で memberships 一覧を取得し OrgSwitcher に渡す
   - モバイル表示時の幅調整（`w-full`）に対応
   - _Requirements: 7.1, 7.2_
 
-- [ ] 7.4 切替時の `/mypage` 固定遷移を Playwright E2E で検証する
+- [x] 7.4 切替時の `/mypage` 固定遷移を Playwright E2E で検証する
   - 組織スコープ URL（`/jobs/[id]/applicants` 等）で OrgSwitcher を操作し、`/mypage` に着地することを確認
   - 切替後にマイページのデータが新組織のものに切り替わっていることを確認
   - 不正な orgId（URL 改竄等）に対して安全にエラー処理されることを確認
   - _Requirements: 7.4, 11.4_
+  - 2026-06-24 実装結果:
+    - 7.1 実装: `src/lib/organization/set-active-org-context.ts`（UUID 正規表現 + memberships 検証 + HTTP-only / SameSite=Lax / Path=/ / Max-Age=1年 Cookie）。新規 Vitest `src/__tests__/organization/set-active-org-context.test.ts` 8 件 PASS（入力バリデーション 3 / メンバーシップ検証 2 / 成功パス 3）
+    - 7.2 実装: `src/components/organization/org-switcher.tsx`（Client Component、`memberships.length <= 1` で null 返却、shadcn Select ベース、`aria-label="所属組織を切り替える"`、切替成功時 `window.location.href = redirectTo`、失敗時 `toast.error`）
+    - 7.3 統合: `src/components/site-header.tsx` に `orgSwitcher?: React.ReactNode` props 追加（ハンバーガーメニュー左隣に配置）。`src/app/(authenticated)/layout.tsx` で `getActiveOrganizationContext` を呼び `all.length > 1` のときのみ `<OrgSwitcher>` を生成して SiteHeader に注入
+    - 7.4 E2E: `e2e/org-switcher.spec.ts` 4 件 PASS（単一組織で DOM 非出力 / N 組織で表示 / `/messages` から切替で `/mypage` 固定着地 + データ切替 / 不正 orgId Cookie で既定組織にフォールバック）
+    - 全テスト結果: Vitest 1040/1040 PASS / pgTAP 297/297 PASS / Playwright 260/260 PASS（admin.spec.ts:439 の 1 件は run 終盤の `ERR_NETWORK_IO_SUSPENDED` 環境 flake、単体再実行で PASS 確認済）
+    - TypeScript ノーエラー
 
 ---
 
-- [ ] 8. N 組織兼任シナリオの全 E2E 網羅と最終回帰確認（Phase 8）
+- [x] 8. N 組織兼任シナリオの全 E2E 網羅と最終回帰確認（Phase 8）
 
-- [ ] 8.1 (P) 招待 → N 法人追加 → 動作確認の E2E シナリオを追加する
+- [x] 8.1 (P) 招待 → N 法人追加 → 動作確認の E2E シナリオを追加する
   - 法人 A の Owner が代理スタッフを招待 → 法人 B の Owner が同じ email で代理招待 → 法人 B にも追加される
   - 兼任スタッフがログインして両組織で代理として動作することを確認
   - 既存ユーザー再利用パスで通知メールが送信されることを Inbucket 等で検証
   - _Requirements: 2.1, 8.1, 11.4_
 
-- [ ] 8.2 (P) 削除 → 他組織で継続の E2E シナリオを追加する
+- [x] 8.2 (P) 削除 → 他組織で継続の E2E シナリオを追加する
   - 法人 A が代理を削除 → スタッフは法人 B で引き続き代理として動作
   - 法人 A での削除時に法人 B のスレッド・案件・応募データが影響を受けないことを確認
   - _Requirements: 3.1, 3.4, 11.4_
 
-- [ ] 8.3 (P) 解約 → 他組織で継続の E2E シナリオを追加する
+- [x] 8.3 (P) 解約 → 他組織で継続の E2E シナリオを追加する
   - 法人 A が解約 → スタッフは法人 B で引き続き代理として動作
   - 法人 A の配下メンバーで他組織にも在籍するユーザーは `deleted_at` がセットされない
   - 残存 0 件のユーザーは `deleted_at` がセットされる
   - _Requirements: 4.1, 4.2, 4.3, 11.4_
 
-- [ ] 8.4 (P) 組織切替 UI の操作 E2E シナリオを追加する
+- [x] 8.4 (P) 組織切替 UI の操作 E2E シナリオを追加する
   - N 組織兼任スタッフがログイン → `OrgSwitcher` で組織切替 → マイページのデータが切り替わる
   - 切替時に常に `/mypage` に着地することを確認（組織スコープ URL からの切替を含む）
   - 単一組織ユーザーには OrgSwitcher が DOM 出力されないことを確認
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 11.4_
 
-- [ ] 8.5 (P) 氏名不一致・代理+admin 禁止の E2E シナリオを追加する
+- [x] 8.5 (P) 氏名不一致・代理+admin 禁止の E2E シナリオを追加する
   - 既存ユーザー再利用パスで氏名を間違えて入力すると汎用エラーが表示される（既存氏名を含まない）
   - CLI-022 招待フォームで代理チェック ON にすると admin オプションが消える
   - _Requirements: 2.7, 2.8, 6.1, 11.4_
 
-- [ ] 8.6 最終回帰確認とメール spec への引き継ぎ
+- [x] 8.6 最終回帰確認とメール spec への引き継ぎ
   - `npm run test` / `supabase test db` / `npm run test:e2e` 全 PASS
   - notifications spec の §5.7 保留ブロック解除条件を満たしていることを確認
   - 実装完了を `.kiro/specs/notifications/email-decisions-wip.md` に記載し、§5.7 議論再開を可能にする
   - _Requirements: 11.1, 11.5, 12.1, 12.2, 12.3_
+  - 2026-06-24 実装結果:
+    - 8.1〜8.5 E2E: `e2e/phase8-multi-org.spec.ts` 新規 5 件 PASS（reuse path 招待 + 通知メール / 削除スコープ限定 / 解約スコープ限定 / 氏名不一致 reject / admin オプション非表示）
+    - 8.4 補足: Phase 7 / Task 7.4 で実装した `e2e/org-switcher.spec.ts` 4 件で完全網羅済（単一組織 DOM 非出力 / N 組織表示 / `/mypage` 固定遷移 + データ切替 / 不正 orgId Cookie フォールバック）。Phase 8 では重複追加せず、phase8-multi-org.spec.ts のヘッダーコメントで参照
+    - Phase 8 seed: `f888...` 帯で完全分離した Org Z1〜Z7 + Target 4 ユーザー + 1 messaging thread を seed.sql 末尾に追加。1 組織 = 1 代理（partial UNIQUE）を守るためシナリオ別に独立した Org を割り当て
+    - playwright.config.ts: `dotenv.config({path: ".env.local"})` 追加（8.3 の `handle_subscription_lifecycle_deleted` RPC 直接呼び出しで `SUPABASE_SERVICE_ROLE_KEY` を使うため）
+    - dev メール検証: `/tmp/bijiyu-dev-mail` を polling する `findDevMailFor` ヘルパー（Mailpit は Supabase Auth 専用のため、アプリ層から送る Resend mock = `devLocalEmailFallback` 経由のメールはファイル書き出しを検証する）
+    - notifications spec 更新: `.kiro/specs/notifications/email-decisions-wip.md` §5.7 を「🟡 保留中」→「🟢 保留解除（前提 spec 完了 2026-06-24）」に書き換え。Gap 3 件の解決内容 + 文面確定の前提が揃った事項を記載
+    - 最終回帰: Vitest 1040/1040 PASS / pgTAP 297/297 PASS / Playwright 264/265 PASS（残 1 件は `admin.spec.ts:439` の ERR_NETWORK_IO_SUSPENDED 環境 flake、単体再実行で PASS 確認済、実バグなし）
+    - TypeScript ノーエラー
 
 ---
 

@@ -68,7 +68,9 @@ export async function handleSubscriptionLifecycle(
 
   switch (event.type) {
     case "customer.subscription.created":
-      await handleSubscriptionCreated(admin, event.data);
+      // Phase 5 (proxy-account-multi-org-support) で reactivateCorporateMembers を
+      // 撤廃したため、本イベントでは副作用なし。subscriptions 行は
+      // checkout.session.completed 経由で投入される。
       return;
     case "customer.subscription.updated":
       await handleSubscriptionUpdated(admin, stripe, event.data, send);
@@ -83,41 +85,6 @@ export async function handleSubscriptionLifecycle(
       await handleInvoicePaymentSucceeded(admin, event.data);
       return;
   }
-}
-
-/**
- * customer.subscription.created
- *
- * Task 13.45.3: 再加入（解約済み組織の法人プラン再アップグレード）時に
- * 既存 organizations が残っていれば Admin / Staff の is_active=true を
- * 復帰させる。checkout.session.completed のバックアップとして subscription
- * 未登録時は INSERT も行う（冪等）。
- */
-async function handleSubscriptionCreated(
-  admin: SupabaseClient<Database>,
-  sub: Stripe.Subscription,
-): Promise<void> {
-  const existing = await admin
-    .from("subscriptions")
-    .select("id, user_id, plan_type")
-    .eq("stripe_subscription_id", sub.id)
-    .maybeSingle();
-
-  if (!existing.data) {
-    // checkout.session.completed ハンドラが未到着の場合のバックアップ。
-    // user_id は Stripe customer から逆引きが必要なため、ここでは何もしない
-    // （checkout 側の正規ルートに委ねる。Edge case なので冪等性のみ保証）
-    return;
-  }
-
-  const isCorporate =
-    existing.data.plan_type === "corporate" ||
-    existing.data.plan_type === "corporate_premium";
-
-  if (!isCorporate) return;
-
-  // 既存組織があれば配下 Admin / Staff を復帰
-  await reactivateCorporateMembers(admin, existing.data.user_id);
 }
 
 // ---------------------------------------------------------------------------
@@ -365,11 +332,9 @@ async function handleInvoicePaymentSucceeded(
     );
   }
 
-  // Reactivate corporate plan staff if applicable
-  const planType = existing.data.plan_type as PlanType;
-  if (planType === "corporate" || planType === "corporate_premium") {
-    await reactivateCorporateMembers(admin, existing.data.user_id);
-  }
+  // Phase 5 (proxy-account-multi-org-support) で配下メンバー is_active 復帰は撤廃。
+  // 法人プランの「凍結」「復帰」はそもそも past_due では発生せず、解約時の
+  // organization_members 行削除モデルに置き換わっている。
 }
 
 // ---------------------------------------------------------------------------
@@ -643,45 +608,6 @@ async function fetchRecipient(
   const name = displayName || personalName || "お客様";
   return { email: result.data.email, name };
 }
-
-/**
- * 法人プラン再加入時に配下 Admin / Staff の users.is_active=true に復帰。
- * Task 13.45.2: 旧 reactivateCorporateStaff() を Admin も対象に拡張 + rename。
- */
-async function reactivateCorporateMembers(
-  admin: SupabaseClient<Database>,
-  ownerId: string,
-): Promise<void> {
-  const org = await admin
-    .from("organizations")
-    .select("id")
-    .eq("owner_id", ownerId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (!org.data) return;
-
-  const members = await admin
-    .from("organization_members")
-    .select("user_id")
-    .eq("organization_id", org.data.id)
-    .in("org_role", ["admin", "staff"]);
-  if (members.error || !members.data || members.data.length === 0) return;
-
-  const userIds = members.data.map((s) => s.user_id);
-  const update = await admin
-    .from("users")
-    .update({ is_active: true })
-    .in("id", userIds);
-  if (update.error) {
-    throw new Error(
-      `member reactivation failed: ${update.error.message}`,
-    );
-  }
-}
-
-/** 旧 API の後方互換のための alias（Task 13.45.2 rename 過渡期、削除予定） */
-const reactivateCorporateStaff = reactivateCorporateMembers;
-export { reactivateCorporateMembers, reactivateCorporateStaff };
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";

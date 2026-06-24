@@ -1095,11 +1095,21 @@ VALUES ('b1110000-0000-1000-8000-000000000006', 'subscription', 'sub_seed_free_c
 -- ============================================================
 
 -- ------------------------------------------------------------
--- Task 7.2: J1 シナリオ — 法人プラン完全解約 + 冷凍保存 Admin/Staff
+-- Task 7.2 (旧 J1) → Phase 5 で正規化済みシナリオに置換
 -- ------------------------------------------------------------
--- 再アップグレード時の display_name prefill と Admin/Staff 復帰検証用。
--- Owner は cancelled + role='contractor' 降格済み、Admin/Staff は
--- users.is_active=false で冷凍保存。organizations はソフト削除せず残す。
+-- 元用途: 法人プラン完全解約 + 冷凍保存 Admin/Staff の再アップグレード復帰検証
+-- 現用途: 再アップグレード時の display_name prefill 検証 (Admin/Staff 復帰は
+--         Phase 5 で organization_members 行削除モデルに移行したため検証対象外)
+--
+-- Phase 4/5 で `users.is_active=false` 凍結方式を廃止し、行削除統一に切り替えた。
+-- 旧 frozen-admin (c2222222) / frozen-staff (c2223333) は本来であれば
+-- Phase 5 lifecycle_v2_data_migration で:
+--   * organization_members 行を物理削除
+--   * users.deleted_at = now() をセット
+-- された状態になる。seed.sql は migration 後に走るため、最初から
+-- 正規化後の状態で投入する。
+--
+-- Owner (c2221111) は cancelled + role='contractor' 降格済み (Phase 5 後も変わらず)。
 
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
 VALUES
@@ -1114,8 +1124,10 @@ VALUES
   ('c2223333-3333-3333-3333-333333333333', 'c2223333-3333-3333-3333-333333333333', 'frozen-staff@test.local', '{"sub":"c2223333-3333-3333-3333-333333333333","email":"frozen-staff@test.local"}', 'email', now(), now(), now());
 
 UPDATE public.users SET role = 'contractor', last_name = '解約', first_name = '社長', email = 'corp-cancelled@test.local', prefecture = '東京都', is_active = true, password_set_at = now() WHERE id = 'c2221111-1111-1111-1111-111111111111';
-UPDATE public.users SET role = 'staff', last_name = '冷凍', first_name = '管理', email = 'frozen-admin@test.local', is_active = false, password_set_at = now() WHERE id = 'c2222222-2222-2222-2222-222222222222';
-UPDATE public.users SET role = 'staff', last_name = '冷凍', first_name = '担当', email = 'frozen-staff@test.local', is_active = false, password_set_at = now() WHERE id = 'c2223333-3333-3333-3333-333333333333';
+-- Phase 5 正規化済み (旧 is_active=false 凍結 → deleted_at セット + memberships 削除)
+-- is_active 自体は global ログインゲートとして残置 (migration と同じ仕様)
+UPDATE public.users SET role = 'staff', last_name = '冷凍', first_name = '管理', email = 'frozen-admin@test.local', is_active = false, deleted_at = now() - interval '30 days', password_set_at = now() WHERE id = 'c2222222-2222-2222-2222-222222222222';
+UPDATE public.users SET role = 'staff', last_name = '冷凍', first_name = '担当', email = 'frozen-staff@test.local', is_active = false, deleted_at = now() - interval '30 days', password_set_at = now() WHERE id = 'c2223333-3333-3333-3333-333333333333';
 
 INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end)
 VALUES ('c2221111-1111-1111-1111-111111111111', 'corporate', 'cancelled', now() - interval '60 days', now() - interval '30 days');
@@ -1125,10 +1137,10 @@ INSERT INTO client_profiles (user_id, display_name) VALUES ('c2221111-1111-1111-
 INSERT INTO organizations (id, owner_id) VALUES
   ('c2225555-5555-5555-5555-555555555555', 'c2221111-1111-1111-1111-111111111111');
 
+-- Phase 5 正規化済み: Admin/Staff (c2222222 / c2223333) の organization_members 行は
+-- 削除済みを模擬 (INSERT しない)。Owner のみ membership を持つ。
 INSERT INTO organization_members (organization_id, user_id, org_role) VALUES
-  ('c2225555-5555-5555-5555-555555555555', 'c2221111-1111-1111-1111-111111111111', 'owner'),
-  ('c2225555-5555-5555-5555-555555555555', 'c2222222-2222-2222-2222-222222222222', 'admin'),
-  ('c2225555-5555-5555-5555-555555555555', 'c2223333-3333-3333-3333-333333333333', 'staff');
+  ('c2225555-5555-5555-5555-555555555555', 'c2221111-1111-1111-1111-111111111111', 'owner');
 
 INSERT INTO scout_templates (organization_id, owner_id, title, body, memo) VALUES
   ('c2225555-5555-5555-5555-555555555555', 'c2221111-1111-1111-1111-111111111111', '【解約済み】挨拶テンプレ', '弊社ではスカウト対応しています。ご興味ございましたらお知らせください。', '再課金後も継続利用の想定'),
@@ -1831,3 +1843,191 @@ INSERT INTO message_threads (id, participant_1_id, participant_2_id, thread_type
 INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
   ('f777eeee-0001-0001-0001-000000000001', 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '法人 X からの代理メッセージです。', false, true, now()),
   ('f777eeee-0002-0002-0002-000000000002', 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '法人 Y からの代理メッセージです。', false, true, now());
+
+-- ============================================================
+-- proxy-account-multi-org-support Phase 8 / Task 8.1〜8.5 E2E fixtures
+-- ============================================================
+-- N 法人兼任 E2E のシナリオ別に独立した法人ツリーを用意する。
+-- 既存の proxy-multi（f777...）系には触れず、id 帯 f888... で完全分離。
+--
+-- 制約: organization_members_proxy_unique（partial UNIQUE on (organization_id)
+-- WHERE is_proxy_account = true）により「1 組織 = 1 代理」。各 target に対し
+-- シナリオ独立の専用 Org を 1〜2 個用意する。
+--
+-- 構成:
+--   * 法人 Z1 (f888a111) — Z1Owner (f8881111)。phase8-reuse-target を代理
+--   * 法人 Z2 (f888b222) — Z2Owner (f8882222)。8.1 と 8.5 の招待 actor。初期代理なし
+--   * 法人 Z3 (f888c333) — Z3Owner (f8883333)。phase8-multi-keep を代理。8.2 で削除される側
+--   * 法人 Z4 (f888d444) — Z4Owner (f8884444)。phase8-multi-keep を代理。8.2 で残存する側
+--   * 法人 Z5 (f888e555) — Z5Owner (f8885555)。phase8-cancel-keep を代理。8.3 で解約される側
+--     [corporate active sub_phase8_z5、stripe_subscription_id 付き]
+--   * 法人 Z6 (f888f666) — Z6Owner (f8886666)。phase8-cancel-keep を代理。8.3 で残存する側
+--   * 法人 Z7 (f8889977) — Z7Owner (f8887777)。phase8-name-mismatch を代理。8.5 の本人氏名解決元
+--
+-- Target ユーザー:
+--   * phase8-reuse-target  (f888aaaa) — Z1 のみ。8.1 で Z2 owner が招待 → reuse path で Z2 にも追加
+--   * phase8-multi-keep    (f888bbbb) — Z3 + Z4。8.2 で Z3 owner が削除 → Z4 だけ残る
+--   * phase8-cancel-keep   (f888cccc) — Z5 + Z6。8.3 で Z5 解約 → Z6 だけ残る
+--   * phase8-name-mismatch (f888dddd) — Z7 のみ。本来「田中 太郎」。8.5 で Z2 owner が違う氏名で招待 → 拒否
+--
+-- 設計のキー:
+--   - 各シナリオを完全分離して、互いの mutate に依存しない
+--   - 全 corporate sub に stripe_subscription_id を付け、8.3 の RPC 直接呼び出しに対応
+--   - 8.2 検証用に Z4 に phase8-multi-keep 絡みのスレッド 1 件を用意
+-- ============================================================
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  -- Owners (Z1〜Z7)
+  ('f8881111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-z1-owner@test.local',     crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f8882222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-z2-owner@test.local',     crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f8883333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-z3-owner@test.local',     crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f8884444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-z4-owner@test.local',     crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f8885555-5555-5555-5555-555555555555', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-z5-owner@test.local',     crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f8886666-6666-6666-6666-666666666666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-z6-owner@test.local',     crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f8887777-7777-7777-7777-777777777777', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-z7-owner@test.local',     crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  -- Targets
+  ('f888aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-reuse-target@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"invited_role":"staff"}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f888bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-multi-keep@test.local',   crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"invited_role":"staff"}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f888cccc-cccc-cccc-cccc-cccccccccccc', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-cancel-keep@test.local',  crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"invited_role":"staff"}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('f888dddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'phase8-name-mismatch@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"invited_role":"staff"}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES
+  ('f8881111-1111-1111-1111-111111111111', 'f8881111-1111-1111-1111-111111111111', 'phase8-z1-owner@test.local',     '{"sub":"f8881111-1111-1111-1111-111111111111","email":"phase8-z1-owner@test.local"}',     'email', now(), now(), now()),
+  ('f8882222-2222-2222-2222-222222222222', 'f8882222-2222-2222-2222-222222222222', 'phase8-z2-owner@test.local',     '{"sub":"f8882222-2222-2222-2222-222222222222","email":"phase8-z2-owner@test.local"}',     'email', now(), now(), now()),
+  ('f8883333-3333-3333-3333-333333333333', 'f8883333-3333-3333-3333-333333333333', 'phase8-z3-owner@test.local',     '{"sub":"f8883333-3333-3333-3333-333333333333","email":"phase8-z3-owner@test.local"}',     'email', now(), now(), now()),
+  ('f8884444-4444-4444-4444-444444444444', 'f8884444-4444-4444-4444-444444444444', 'phase8-z4-owner@test.local',     '{"sub":"f8884444-4444-4444-4444-444444444444","email":"phase8-z4-owner@test.local"}',     'email', now(), now(), now()),
+  ('f8885555-5555-5555-5555-555555555555', 'f8885555-5555-5555-5555-555555555555', 'phase8-z5-owner@test.local',     '{"sub":"f8885555-5555-5555-5555-555555555555","email":"phase8-z5-owner@test.local"}',     'email', now(), now(), now()),
+  ('f8886666-6666-6666-6666-666666666666', 'f8886666-6666-6666-6666-666666666666', 'phase8-z6-owner@test.local',     '{"sub":"f8886666-6666-6666-6666-666666666666","email":"phase8-z6-owner@test.local"}',     'email', now(), now(), now()),
+  ('f8887777-7777-7777-7777-777777777777', 'f8887777-7777-7777-7777-777777777777', 'phase8-z7-owner@test.local',     '{"sub":"f8887777-7777-7777-7777-777777777777","email":"phase8-z7-owner@test.local"}',     'email', now(), now(), now()),
+  ('f888aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'f888aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'phase8-reuse-target@test.local', '{"sub":"f888aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","email":"phase8-reuse-target@test.local"}', 'email', now(), now(), now()),
+  ('f888bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'f888bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'phase8-multi-keep@test.local',   '{"sub":"f888bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb","email":"phase8-multi-keep@test.local"}',   'email', now(), now(), now()),
+  ('f888cccc-cccc-cccc-cccc-cccccccccccc', 'f888cccc-cccc-cccc-cccc-cccccccccccc', 'phase8-cancel-keep@test.local',  '{"sub":"f888cccc-cccc-cccc-cccc-cccccccccccc","email":"phase8-cancel-keep@test.local"}',  'email', now(), now(), now()),
+  ('f888dddd-dddd-dddd-dddd-dddddddddddd', 'f888dddd-dddd-dddd-dddd-dddddddddddd', 'phase8-name-mismatch@test.local','{"sub":"f888dddd-dddd-dddd-dddd-dddddddddddd","email":"phase8-name-mismatch@test.local"}','email', now(), now(), now());
+
+-- Owner ユーザーは client / identity_verified=true / 法人プラン契約者
+UPDATE public.users SET
+  role = 'client', last_name = 'Phase8Z1', first_name = 'オーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f8881111-1111-1111-1111-111111111111';
+
+UPDATE public.users SET
+  role = 'client', last_name = 'Phase8Z2', first_name = 'オーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f8882222-2222-2222-2222-222222222222';
+
+UPDATE public.users SET
+  role = 'client', last_name = 'Phase8Z3', first_name = 'オーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f8883333-3333-3333-3333-333333333333';
+
+UPDATE public.users SET
+  role = 'client', last_name = 'Phase8Z4', first_name = 'オーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f8884444-4444-4444-4444-444444444444';
+
+UPDATE public.users SET
+  role = 'client', last_name = 'Phase8Z5', first_name = 'オーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f8885555-5555-5555-5555-555555555555';
+
+UPDATE public.users SET
+  role = 'client', last_name = 'Phase8Z6', first_name = 'オーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f8886666-6666-6666-6666-666666666666';
+
+UPDATE public.users SET
+  role = 'client', last_name = 'Phase8Z7', first_name = 'オーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f8887777-7777-7777-7777-777777777777';
+
+-- 代理 target ユーザーは staff role 固定
+UPDATE public.users SET
+  role = 'staff', last_name = 'リユース', first_name = '対象',
+  gender = '男性', birth_date = '1992-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f888aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+
+UPDATE public.users SET
+  role = 'staff', last_name = 'マルチ', first_name = '残存',
+  gender = '男性', birth_date = '1992-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f888bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+
+UPDATE public.users SET
+  role = 'staff', last_name = '解約', first_name = '残存',
+  gender = '男性', birth_date = '1992-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f888cccc-cccc-cccc-cccc-cccccccccccc';
+
+UPDATE public.users SET
+  role = 'staff', last_name = '田中', first_name = '太郎',
+  gender = '男性', birth_date = '1992-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'f888dddd-dddd-dddd-dddd-dddddddddddd';
+
+-- 全 Owner に corporate active subscription を付与（stripe_subscription_id 必須: 8.3 で RPC 直接呼び出し）
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end, stripe_subscription_id) VALUES
+  ('f8881111-1111-1111-1111-111111111111', 'corporate', 'active', now(), now() + interval '30 days', 'sub_phase8_z1'),
+  ('f8882222-2222-2222-2222-222222222222', 'corporate', 'active', now(), now() + interval '30 days', 'sub_phase8_z2'),
+  ('f8883333-3333-3333-3333-333333333333', 'corporate', 'active', now(), now() + interval '30 days', 'sub_phase8_z3'),
+  ('f8884444-4444-4444-4444-444444444444', 'corporate', 'active', now(), now() + interval '30 days', 'sub_phase8_z4'),
+  ('f8885555-5555-5555-5555-555555555555', 'corporate', 'active', now(), now() + interval '30 days', 'sub_phase8_z5'),
+  ('f8886666-6666-6666-6666-666666666666', 'corporate', 'active', now(), now() + interval '30 days', 'sub_phase8_z6'),
+  ('f8887777-7777-7777-7777-777777777777', 'corporate', 'active', now(), now() + interval '30 days', 'sub_phase8_z7');
+
+INSERT INTO client_profiles (user_id, display_name) VALUES
+  ('f8881111-1111-1111-1111-111111111111', 'Phase8 法人 Z1'),
+  ('f8882222-2222-2222-2222-222222222222', 'Phase8 法人 Z2'),
+  ('f8883333-3333-3333-3333-333333333333', 'Phase8 法人 Z3'),
+  ('f8884444-4444-4444-4444-444444444444', 'Phase8 法人 Z4'),
+  ('f8885555-5555-5555-5555-555555555555', 'Phase8 法人 Z5'),
+  ('f8886666-6666-6666-6666-666666666666', 'Phase8 法人 Z6'),
+  ('f8887777-7777-7777-7777-777777777777', 'Phase8 法人 Z7');
+
+INSERT INTO organizations (id, owner_id) VALUES
+  ('f888a111-1111-1111-1111-111111111111', 'f8881111-1111-1111-1111-111111111111'),
+  ('f888b222-2222-2222-2222-222222222222', 'f8882222-2222-2222-2222-222222222222'),
+  ('f888c333-3333-3333-3333-333333333333', 'f8883333-3333-3333-3333-333333333333'),
+  ('f888d444-4444-4444-4444-444444444444', 'f8884444-4444-4444-4444-444444444444'),
+  ('f888e555-5555-5555-5555-555555555555', 'f8885555-5555-5555-5555-555555555555'),
+  ('f888f666-6666-6666-6666-666666666666', 'f8886666-6666-6666-6666-666666666666'),
+  ('f8889977-7777-7777-7777-777777777777', 'f8887777-7777-7777-7777-777777777777');
+
+-- 各法人の Owner + シナリオ別 target を組織メンバーに追加
+-- 1 組織につき max 1 代理（partial UNIQUE）に注意。
+INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account, created_at) VALUES
+  -- Owners
+  ('f888a111-1111-1111-1111-111111111111', 'f8881111-1111-1111-1111-111111111111', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('f888b222-2222-2222-2222-222222222222', 'f8882222-2222-2222-2222-222222222222', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('f888c333-3333-3333-3333-333333333333', 'f8883333-3333-3333-3333-333333333333', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('f888d444-4444-4444-4444-444444444444', 'f8884444-4444-4444-4444-444444444444', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('f888e555-5555-5555-5555-555555555555', 'f8885555-5555-5555-5555-555555555555', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('f888f666-6666-6666-6666-666666666666', 'f8886666-6666-6666-6666-666666666666', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('f8889977-7777-7777-7777-777777777777', 'f8887777-7777-7777-7777-777777777777', 'owner', false, '2025-12-31 00:00:00+00'),
+  -- 8.1 (Z1 → Z2 招待): phase8-reuse-target は Z1 のみ。Z2 は actor 用に proxy 無し。
+  ('f888a111-1111-1111-1111-111111111111', 'f888aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'staff', true, '2026-01-01 00:00:00+00'),
+  -- 8.2 (Z3 で削除 → Z4 残存): phase8-multi-keep は Z3 + Z4 両方
+  ('f888c333-3333-3333-3333-333333333333', 'f888bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'staff', true, '2026-01-01 00:00:00+00'),
+  ('f888d444-4444-4444-4444-444444444444', 'f888bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'staff', true, '2026-02-01 00:00:00+00'),
+  -- 8.3 (Z5 解約 → Z6 残存): phase8-cancel-keep は Z5 + Z6 両方
+  ('f888e555-5555-5555-5555-555555555555', 'f888cccc-cccc-cccc-cccc-cccccccccccc', 'staff', true, '2026-01-01 00:00:00+00'),
+  ('f888f666-6666-6666-6666-666666666666', 'f888cccc-cccc-cccc-cccc-cccccccccccc', 'staff', true, '2026-02-01 00:00:00+00'),
+  -- 8.5 (氏名不一致): phase8-name-mismatch は Z7 のみ。本来「田中 太郎」、Z2 owner が違う氏名で招待 → reject
+  ('f8889977-7777-7777-7777-777777777777', 'f888dddd-dddd-dddd-dddd-dddddddddddd', 'staff', true, '2026-01-01 00:00:00+00');
+
+-- 8.2 検証用: Z4 で phase8-multi-keep が代理として絡んでいるスレッドを 1 件用意
+-- （Z3 削除後に Z4 のデータが影響を受けないことを確認するため）
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, thread_type, organization_id) VALUES
+  ('f888eeee-0002-0002-0002-000000000002', 'f8884444-4444-4444-4444-444444444444', 'f777cccc-cccc-cccc-cccc-cccccccccccc', 'message', 'f888d444-4444-4444-4444-444444444444');
+
+INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
+  ('f888eeee-0002-0002-0002-000000000002', 'f888bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Phase8 Z4 スレッド: 削除後も残るメッセージです。', false, true, now());

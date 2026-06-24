@@ -84,11 +84,19 @@ function SecondaryItem({ item }: { item: MenuItem }) {
 interface SiteHeaderProps {
   isAuthenticated?: boolean;
   hasActiveSubscription?: boolean;
+  /**
+   * N 組織兼任スタッフ向けの組織切替 UI。
+   * memberships が 1 以下のときはコンポーネント側で null を返すため、
+   * 単一組織ユーザーには DOM 出力されない。
+   * RSC でメンバーシップを解決した状態で `<OrgSwitcher>` を渡す。
+   */
+  orgSwitcher?: React.ReactNode;
 }
 
 export function SiteHeader({
   isAuthenticated = false,
   hasActiveSubscription = false,
+  orgSwitcher,
 }: SiteHeaderProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -124,41 +132,44 @@ export function SiteHeader({
         />
       </Link>
 
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="メニュー">
-            <Menu className="size-6" />
-          </Button>
-        </SheetTrigger>
+      <div className="flex items-center gap-3">
+        {isAuthenticated && orgSwitcher}
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="メニュー">
+              <Menu className="size-6" />
+            </Button>
+          </SheetTrigger>
 
-        <SheetContent side="right" className="w-72 overflow-y-auto p-0">
-          <SheetHeader className="border-b border-border px-4 py-4">
-            <SheetTitle className="text-heading-sm">Menu</SheetTitle>
-          </SheetHeader>
+          <SheetContent side="right" className="w-72 overflow-y-auto p-0">
+            <SheetHeader className="border-b border-border px-4 py-4">
+              <SheetTitle className="text-heading-sm">Menu</SheetTitle>
+            </SheetHeader>
 
-          <nav>
-            {visiblePrimary.map((item) => (
-              <PrimaryItem key={item.label} item={item} />
-            ))}
-          </nav>
+            <nav>
+              {visiblePrimary.map((item) => (
+                <PrimaryItem key={item.label} item={item} />
+              ))}
+            </nav>
 
-          <div className="space-y-3 p-4">
-            {visibleSecondary.map((item) => (
-              <SecondaryItem key={item.label} item={item} />
-            ))}
-            {isAuthenticated && (
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={isPending}
-                className="block text-body-sm text-destructive underline-offset-2 hover:underline disabled:opacity-60"
-              >
-                {isPending ? "ログアウト中..." : "ログアウト"}
-              </button>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+            <div className="space-y-3 p-4">
+              {visibleSecondary.map((item) => (
+                <SecondaryItem key={item.label} item={item} />
+              ))}
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={isPending}
+                  className="block text-body-sm text-destructive underline-offset-2 hover:underline disabled:opacity-60"
+                >
+                  {isPending ? "ログアウト中..." : "ログアウト"}
+                </button>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
     </header>
   );
 }

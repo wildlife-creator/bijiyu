@@ -17,6 +17,8 @@ import {
 } from "@/lib/validations/member";
 import { sendEmail } from "@/lib/email/send-email";
 import { emailChangedByAdminEmail } from "@/lib/email/templates/email-changed-by-admin";
+import { proxyAssignedExistingUserEmail } from "@/lib/email/templates/proxy-assigned-existing-user";
+import { resolveExistingProxyReuse } from "@/lib/organization/resolve-existing-proxy-reuse";
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -111,19 +113,34 @@ export async function createMemberAction(
 
   const admin = createAdminClient();
 
-  // R2: メール重複事前チェック（public.users.email + idx_users_email で O(log N)）
-  const { data: existingUser } = await admin
-    .from("users")
-    .select("id")
-    .eq("email", parsed.data.email)
-    .maybeSingle();
+  // R2 (proxy-account-multi-org-support Phase 6): 既存ユーザー再利用判定
+  //   - 新規ユーザー → 現状通り invite + RPC
+  //   - 既存代理 + 同名 + isProxyAccount=true → 既存 user_id で RPC + 通知メール
+  //   - 既存ユーザー (代理ではない / 招待が通常スタッフ) → reject_email_taken
+  //   - 既存代理 + 氏名不一致 → reject_name_mismatch (既存氏名は応答に含めない)
+  const reuseDecision = await resolveExistingProxyReuse(admin, {
+    email: parsed.data.email,
+    lastName: parsed.data.lastName,
+    firstName: parsed.data.firstName,
+    isProxyAccount: parsed.data.isProxyAccount,
+  });
 
-  if (existingUser) {
+  if (reuseDecision.kind === "reject_email_taken") {
     return {
       success: false,
       error: "このメールアドレスは既に登録されています",
     };
   }
+
+  if (reuseDecision.kind === "reject_name_mismatch") {
+    return {
+      success: false,
+      error:
+        "このメールアドレスは既に違うお名前で登録されています。お名前をご確認の上、再度お試しください",
+    };
+  }
+
+  const isReusePath = reuseDecision.kind === "reuse_existing_proxy";
 
   // プラン種別から maxStaff を取得
   const { data: subscription } = await admin
@@ -145,29 +162,37 @@ export async function createMemberAction(
     };
   }
 
-  // 招待メール送信 + auth.users 作成（D 対応: メタデータで staff + 氏名を自動設定）
-  // redirectTo は /auth/callback を経由せず直接 /accept-invite/confirm に向ける。
-  // AUTH-008 は client component で createBrowserClient 経由で session を確立できるため、
-  // implicit flow のトークン（URL fragment / Cookie）を素直に受けられる。
-  const { data: invited, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
-      redirectTo: `${SERVICE_URL}/accept-invite/confirm`,
-      data: {
-        invited_role: "staff",
-        invited_last_name: parsed.data.lastName,
-        invited_first_name: parsed.data.firstName,
-      },
-    });
+  // 招待メール送信 + auth.users 作成 (新規ユーザーのみ。reuse パスでは既存
+  // user_id を使うため inviteUserByEmail はスキップする)
+  //
+  // 新規パス:
+  //   redirectTo は /auth/callback を経由せず直接 /accept-invite/confirm に向ける。
+  //   AUTH-008 は client component で createBrowserClient 経由で session を確立できるため、
+  //   implicit flow のトークン (URL fragment / Cookie) を素直に受けられる。
+  let newUserId: string;
+  if (isReusePath) {
+    newUserId = reuseDecision.userId;
+  } else {
+    const { data: invited, error: inviteError } =
+      await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
+        redirectTo: `${SERVICE_URL}/accept-invite/confirm`,
+        data: {
+          invited_role: "staff",
+          invited_last_name: parsed.data.lastName,
+          invited_first_name: parsed.data.firstName,
+        },
+      });
 
-  if (inviteError || !invited.user) {
-    console.error("[createMemberAction] inviteUserByEmail failed", inviteError);
-    return {
-      success: false,
-      error: "招待メールの送信に失敗しました。時間をおいて再度お試しください",
-    };
+    if (inviteError || !invited.user) {
+      console.error("[createMemberAction] inviteUserByEmail failed", inviteError);
+      return {
+        success: false,
+        error: "招待メールの送信に失敗しました。時間をおいて再度お試しください",
+      };
+    }
+
+    newUserId = invited.user.id;
   }
-
-  const newUserId = invited.user.id;
 
   // insert_staff_member_with_limit RPC（atomic: FOR UPDATE ロック + 上限 + 代理一意性チェック）
   const { error: rpcError } = await admin.rpc("insert_staff_member_with_limit", {
@@ -179,7 +204,37 @@ export async function createMemberAction(
   });
 
   if (rpcError) {
-    // クリーンアップ: auth.users を削除（孤児防止）
+    // クリーンアップ: 新規パスでのみ auth.users を削除 (孤児防止)
+    // reuse パスでは auth.users を作成していないため cleanup 不要
+    if (isReusePath) {
+      await logAudit(admin, actor.userId, "member_create_failed_reuse_path", {
+        target_user_id: newUserId,
+        email: parsed.data.email,
+        organization_id: actor.organizationId,
+        rpc_error: rpcError.message,
+        reuse_existing_user: true,
+      });
+
+      const msg = rpcError.message || "";
+      if (msg.includes("STAFF_LIMIT_EXCEEDED")) {
+        return {
+          success: false,
+          error: `担当者の上限（${maxStaff}人）に達しています。プランのアップグレードをご検討ください`,
+        };
+      }
+      if (msg.includes("PROXY_ACCOUNT_ALREADY_EXISTS")) {
+        return {
+          success: false,
+          error:
+            "代理アカウントは既に登録されています。既存の代理アカウントを解除してから再度お試しください",
+        };
+      }
+      return {
+        success: false,
+        error: "担当者の追加に失敗しました。時間をおいて再度お試しください",
+      };
+    }
+
     const { error: cleanupError } = await admin.auth.admin.deleteUser(newUserId);
     if (cleanupError) {
       await logAudit(admin, actor.userId, "member_create_failed_cleanup_failed", {
@@ -250,10 +305,93 @@ export async function createMemberAction(
     email: parsed.data.email,
     organization_id: actor.organizationId,
     org_role: parsed.data.orgRole,
+    ...(isReusePath ? { reuse_existing_user: true } : {}),
   });
+
+  // 既存ユーザー再利用パスの通知メール送信 (proxy-assigned-existing-user)
+  // 失敗してもメイン処理はロールバックしない (DB 登録は成功済み、運用通知扱い)
+  if (isReusePath) {
+    await sendProxyAssignedEmail({
+      admin,
+      targetUserId: newUserId,
+      recipientEmail: parsed.data.email,
+      orgOwnerId: actor.orgOwnerId,
+      actorUserId: actor.userId,
+    });
+  }
 
   revalidatePath("/mypage/members");
   return { success: true, data: { userId: newUserId } };
+}
+
+// ---------------------------------------------------------------------------
+// Helper: existing ユーザー再利用パスの通知メール送信
+// proxy-account-multi-org-support Phase 6 / Task 6.2 + 6.3
+// ---------------------------------------------------------------------------
+async function sendProxyAssignedEmail(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  targetUserId: string;
+  recipientEmail: string;
+  orgOwnerId: string;
+  actorUserId: string;
+}): Promise<void> {
+  const { admin, targetUserId, recipientEmail, orgOwnerId, actorUserId } = params;
+
+  try {
+    const [targetRes, ownerProfileRes, actorRes] = await Promise.all([
+      admin
+        .from("users")
+        .select("last_name, first_name")
+        .eq("id", targetUserId)
+        .maybeSingle(),
+      admin
+        .from("client_profiles")
+        .select("display_name")
+        .eq("user_id", orgOwnerId)
+        .maybeSingle(),
+      admin
+        .from("users")
+        .select("last_name, first_name")
+        .eq("id", actorUserId)
+        .maybeSingle(),
+    ]);
+
+    const recipientName =
+      `${targetRes.data?.last_name ?? ""}${targetRes.data?.first_name ?? ""}`.trim() ||
+      "ご担当者";
+    const organizationName =
+      ownerProfileRes.data?.display_name?.trim() || "ビジ友組織";
+    const actorName =
+      `${actorRes.data?.last_name ?? ""}${actorRes.data?.first_name ?? ""}`.trim() ||
+      "管理者";
+    const now = new Date();
+    const assignedAt = formatJapaneseDateTime(now);
+    const signInUrl = `${SERVICE_URL}/login`;
+
+    const { subject, html } = proxyAssignedExistingUserEmail({
+      recipientName,
+      organizationName,
+      actorName,
+      assignedAt,
+      signInUrl,
+    });
+
+    await sendEmail({ to: recipientEmail, subject, html });
+  } catch (err) {
+    console.error(
+      "[createMemberAction] proxy-assigned-existing-user email failed",
+      err,
+    );
+  }
+}
+
+function formatJapaneseDateTime(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
 }
 
 // ---------------------------------------------------------------------------
