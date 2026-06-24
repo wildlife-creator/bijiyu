@@ -62,9 +62,11 @@ export function proxyAssignedExistingUserEmail({
           <tr><td style="padding:4px 0;">【設定操作者】 ${actorName}</td></tr>
           <tr><td style="padding:4px 0;">【設定日時】 ${assignedAt}</td></tr>
         </table>
+        <p style="margin:0 0 12px;">
+          このアカウントが ${organizationName} のスタッフとしてメッセージ送信などを行えるようになりました。
+        </p>
         <p style="margin:0 0 16px;">
-          このアカウントから、法人としてビジ友を操作する役割になります。
-          代理アカウントから送信したメッセージには「代理」表示が付与されます。
+          代理として送信したメッセージには、発注者側の画面でのみ「代理」マークが付きます。受注者側には表示されません。
         </p>
         <p style="margin:24px 0;text-align:center;">
           <a href="${signInUrl}"
