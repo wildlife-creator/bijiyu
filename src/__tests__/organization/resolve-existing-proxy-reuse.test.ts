@@ -249,4 +249,55 @@ describe("resolveExistingProxyReuse", () => {
       userId: "user-multi-proxy",
     });
   });
+
+  // ===========================================================================
+  // Task 6: deleted_at IS NULL フィルタ追加
+  // ===========================================================================
+  it("Task 6: 同 email で deleted + active が並存 → `.is('deleted_at', null)` フィルタで active 行のみが拾われる", async () => {
+    // フィルタが効いている前提のため maybeSingle が返すのは active 行 1 件のみ
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            id: "user-active",
+            last_name: "山田",
+            first_name: "太郎",
+            deleted_at: null,
+          },
+          error: null,
+        },
+      }),
+    );
+    // active 行が代理在籍中 → reuse_existing_proxy パスに進む
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: { data: [{ organization_id: "org-x" }], error: null },
+      }),
+    );
+
+    const result = await resolveExistingProxyReuse(makeAdmin(), baseInput);
+    expect(result).toEqual({
+      kind: "reuse_existing_proxy",
+      userId: "user-active",
+    });
+
+    // SELECT users チェーンで `.is("deleted_at", null)` が呼ばれていること
+    const usersBuilder = mockFrom.mock.results[0]?.value as {
+      is: ReturnType<typeof vi.fn>;
+    };
+    expect(usersBuilder.is).toHaveBeenCalledWith("deleted_at", null);
+  });
+
+  it("Task 6: 全行 deleted (フィルタ後 0 件) → maybeSingle null → new_user", async () => {
+    // active 行が無いため maybeSingle は null を返す
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+
+    const result = await resolveExistingProxyReuse(makeAdmin(), baseInput);
+    expect(result).toEqual({ kind: "new_user" });
+
+    // active 行が無いため organization_members SELECT は発行されない
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+  });
 });

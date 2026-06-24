@@ -7,6 +7,7 @@ const mockAdminRpc = vi.fn();
 const mockInviteUser = vi.fn();
 const mockAdminUpdateUserById = vi.fn();
 const mockAdminDeleteUser = vi.fn();
+const mockAdminGetUserById = vi.fn();
 const mockAuthUpdateUser = vi.fn();
 const mockGetActiveOrgContext = vi.fn();
 
@@ -29,6 +30,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         inviteUserByEmail: (...args: unknown[]) => mockInviteUser(...args),
         updateUserById: (...args: unknown[]) => mockAdminUpdateUserById(...args),
         deleteUser: (...args: unknown[]) => mockAdminDeleteUser(...args),
+        getUserById: (...args: unknown[]) => mockAdminGetUserById(...args),
       },
     },
   }),
@@ -87,6 +89,7 @@ function createQueryMock(t: Terminator = {}) {
     eq: vi.fn().mockReturnThis(),
     neq: vi.fn().mockReturnThis(),
     in: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue(
@@ -723,6 +726,104 @@ describe("deleteMemberAction", () => {
       p_organization_id: ORG_ID,
       p_owner_user_id: OWNER_ID,
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Task 7: applyDeletedSuffix 統合（delete_staff_member v3 戻り値分岐）
+  // -------------------------------------------------------------------------
+  it("Task 7: globally_deleted=true → applyDeletedSuffix が呼ばれる", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { org_role: "staff" }, error: null },
+      }),
+    );
+    mockAdminRpc.mockResolvedValue({
+      data: { user_id: STAFF_ID, globally_deleted: true },
+      error: null,
+    });
+    // applyDeletedSuffix 内部の getUserById → 印付け email 候補
+    mockAdminGetUserById.mockResolvedValueOnce({
+      data: { user: { id: STAFF_ID, email: "staff@test.local" } },
+      error: null,
+    });
+    // updateUserById（印付け書き換え）成功
+    mockAdminUpdateUserById.mockResolvedValueOnce({
+      data: { user: { id: STAFF_ID } },
+      error: null,
+    });
+    // audit_logs.insert（applyDeletedSuffix 内部）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // audit_logs.insert（logAudit member_deleted）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await deleteMemberAction(STAFF_ID);
+    expect(r.success).toBe(true);
+
+    expect(mockAdminGetUserById).toHaveBeenCalledWith(STAFF_ID);
+    expect(mockAdminUpdateUserById).toHaveBeenCalledTimes(1);
+    const [calledUserId, calledOpts] =
+      mockAdminUpdateUserById.mock.calls[0] ?? [];
+    expect(calledUserId).toBe(STAFF_ID);
+    expect((calledOpts as { email_confirm?: boolean }).email_confirm).toBe(
+      true,
+    );
+    expect((calledOpts as { email?: string }).email).toMatch(
+      /^deleted-\d{8}-[a-z0-9]{4}-staff@test\.local$/,
+    );
+  });
+
+  it("Task 7: globally_deleted=false → applyDeletedSuffix は呼ばれない（N 組織兼任継続）", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { org_role: "staff" }, error: null },
+      }),
+    );
+    mockAdminRpc.mockResolvedValue({
+      data: { user_id: STAFF_ID, globally_deleted: false },
+      error: null,
+    });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await deleteMemberAction(STAFF_ID);
+    expect(r.success).toBe(true);
+    expect(mockAdminGetUserById).not.toHaveBeenCalled();
+    expect(mockAdminUpdateUserById).not.toHaveBeenCalled();
+  });
+
+  it("Task 7: applyDeletedSuffix が予期せず throw しても削除は成功扱い", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { org_role: "staff" }, error: null },
+      }),
+    );
+    mockAdminRpc.mockResolvedValue({
+      data: { user_id: STAFF_ID, globally_deleted: true },
+      error: null,
+    });
+    // getUserById で throw（SDK の想定外 throw を模擬）
+    mockAdminGetUserById.mockRejectedValueOnce(new Error("network down"));
+    // applyDeletedSuffix は throw せず内部で failed 返却 + audit 書込み試行
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await deleteMemberAction(STAFF_ID);
+    expect(r.success).toBe(true);
   });
 });
 

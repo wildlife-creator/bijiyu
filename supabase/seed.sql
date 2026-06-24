@@ -2031,3 +2031,99 @@ INSERT INTO message_threads (id, participant_1_id, participant_2_id, thread_type
 
 INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at) VALUES
   ('f888eeee-0002-0002-0002-000000000002', 'f888bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Phase8 Z4 スレッド: 削除後も残るメッセージです。', false, true, now());
+
+-- ============================================================
+-- email-recycle-on-delete spec / Task 11 E2E fixtures
+-- ============================================================
+-- 3 つの E2E シナリオで独立した user / org を使う。互いに mutate しない。
+--
+--   11.1: ER-A Owner が単一在籍代理を削除 → ER-B Owner が同 email 再招待 → 成功
+--   11.2: ER-C Owner が通常 staff を削除 → 同 Owner が同 email 再招待 → 成功
+--   11.3: ER-D Contractor が自己退会 → 同 email の auth.users が解放されていること
+-- ============================================================
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  -- 11.1: ER-A Owner + ER-B Owner + Proxy Target (ER-A only)
+  ('ee110011-1111-4111-8111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'er-a-owner@test.local',       crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ee110022-2222-4222-8222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'er-b-owner@test.local',       crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ee110099-9999-4999-8999-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'er-proxy-target@test.local',  crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"invited_role":"staff"}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  -- 11.2: ER-C Owner + Normal Staff Target
+  ('ee220011-1111-4111-8111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'er-c-owner@test.local',       crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ee220099-9999-4999-8999-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'er-staff-target@test.local',  crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{"invited_role":"staff"}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  -- 11.3: ER-D Contractor (本人退会用)
+  ('ee330011-1111-4111-8111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'er-self-withdraw@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES
+  ('ee110011-1111-4111-8111-111111111111', 'ee110011-1111-4111-8111-111111111111', 'er-a-owner@test.local',       '{"sub":"ee110011-1111-4111-8111-111111111111","email":"er-a-owner@test.local"}',       'email', now(), now(), now()),
+  ('ee110022-2222-4222-8222-222222222222', 'ee110022-2222-4222-8222-222222222222', 'er-b-owner@test.local',       '{"sub":"ee110022-2222-4222-8222-222222222222","email":"er-b-owner@test.local"}',       'email', now(), now(), now()),
+  ('ee110099-9999-4999-8999-111111111111', 'ee110099-9999-4999-8999-111111111111', 'er-proxy-target@test.local',  '{"sub":"ee110099-9999-4999-8999-111111111111","email":"er-proxy-target@test.local"}',  'email', now(), now(), now()),
+  ('ee220011-1111-4111-8111-111111111111', 'ee220011-1111-4111-8111-111111111111', 'er-c-owner@test.local',       '{"sub":"ee220011-1111-4111-8111-111111111111","email":"er-c-owner@test.local"}',       'email', now(), now(), now()),
+  ('ee220099-9999-4999-8999-111111111111', 'ee220099-9999-4999-8999-111111111111', 'er-staff-target@test.local',  '{"sub":"ee220099-9999-4999-8999-111111111111","email":"er-staff-target@test.local"}',  'email', now(), now(), now()),
+  ('ee330011-1111-4111-8111-111111111111', 'ee330011-1111-4111-8111-111111111111', 'er-self-withdraw@test.local', '{"sub":"ee330011-1111-4111-8111-111111111111","email":"er-self-withdraw@test.local"}', 'email', now(), now(), now());
+
+-- Owner 3 名は client + 本人確認済 + プロフィール完了
+UPDATE public.users SET
+  role = 'client', last_name = 'リサイクル', first_name = 'エーオーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'ee110011-1111-4111-8111-111111111111';
+
+UPDATE public.users SET
+  role = 'client', last_name = 'リサイクル', first_name = 'ビーオーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'ee110022-2222-4222-8222-222222222222';
+
+UPDATE public.users SET
+  role = 'client', last_name = 'リサイクル', first_name = 'シーオーナー',
+  gender = '男性', birth_date = '1980-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'ee220011-1111-4111-8111-111111111111';
+
+-- Proxy target / Staff target は staff role
+UPDATE public.users SET
+  role = 'staff', last_name = 'リサイクル', first_name = '代理対象',
+  gender = '男性', birth_date = '1992-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'ee110099-9999-4999-8999-111111111111';
+
+UPDATE public.users SET
+  role = 'staff', last_name = 'リサイクル', first_name = '通常対象',
+  gender = '男性', birth_date = '1992-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'ee220099-9999-4999-8999-111111111111';
+
+-- Contractor は通常受注者
+UPDATE public.users SET
+  role = 'contractor', last_name = 'リサイクル', first_name = '退会対象',
+  gender = '男性', birth_date = '1990-01-01', prefecture = '東京都',
+  identity_verified = true, password_set_at = now()
+WHERE id = 'ee330011-1111-4111-8111-111111111111';
+
+-- Owner 3 名に corporate active subscription
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end, stripe_subscription_id) VALUES
+  ('ee110011-1111-4111-8111-111111111111', 'corporate', 'active', now(), now() + interval '30 days', 'sub_email_recycle_a'),
+  ('ee110022-2222-4222-8222-222222222222', 'corporate', 'active', now(), now() + interval '30 days', 'sub_email_recycle_b'),
+  ('ee220011-1111-4111-8111-111111111111', 'corporate', 'active', now(), now() + interval '30 days', 'sub_email_recycle_c');
+
+INSERT INTO client_profiles (user_id, display_name) VALUES
+  ('ee110011-1111-4111-8111-111111111111', 'メール再利用 法人 A'),
+  ('ee110022-2222-4222-8222-222222222222', 'メール再利用 法人 B'),
+  ('ee220011-1111-4111-8111-111111111111', 'メール再利用 法人 C');
+
+INSERT INTO organizations (id, owner_id) VALUES
+  ('ee110aa1-aaaa-4aaa-8aaa-111111111111', 'ee110011-1111-4111-8111-111111111111'),
+  ('ee110aa2-aaaa-4aaa-8aaa-222222222222', 'ee110022-2222-4222-8222-222222222222'),
+  ('ee220aa1-aaaa-4aaa-8aaa-111111111111', 'ee220011-1111-4111-8111-111111111111');
+
+INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account, created_at) VALUES
+  -- Owners
+  ('ee110aa1-aaaa-4aaa-8aaa-111111111111', 'ee110011-1111-4111-8111-111111111111', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('ee110aa2-aaaa-4aaa-8aaa-222222222222', 'ee110022-2222-4222-8222-222222222222', 'owner', false, '2025-12-31 00:00:00+00'),
+  ('ee220aa1-aaaa-4aaa-8aaa-111111111111', 'ee220011-1111-4111-8111-111111111111', 'owner', false, '2025-12-31 00:00:00+00'),
+  -- 11.1 proxy target: ER-A のみ在籍（兼任なし → 削除で globally_deleted）
+  ('ee110aa1-aaaa-4aaa-8aaa-111111111111', 'ee110099-9999-4999-8999-111111111111', 'staff', true, '2026-01-01 00:00:00+00'),
+  -- 11.2 normal staff target: ER-C のみ
+  ('ee220aa1-aaaa-4aaa-8aaa-111111111111', 'ee220099-9999-4999-8999-111111111111', 'staff', false, '2026-01-01 00:00:00+00');

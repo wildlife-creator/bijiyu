@@ -1,5 +1,6 @@
 import { getStripeClient } from "@/lib/billing/stripe";
 import { getWithdrawalReasonLabel } from "@/lib/constants/profile-options";
+import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -152,6 +153,21 @@ export async function executeWithdrawal(params: {
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", targetUserId);
 
+  // Task 9: 印付けで元 email を解放（同メール再登録経路の常時開通）。
+  // 順序: 印付け → ban の順（防御的、逆でも機能する）。
+  // 失敗時も退会自体は継続させるため try/catch で隔離。
+  try {
+    await applyDeletedSuffix(admin, targetUserId, {
+      path: "self_withdrawal",
+      actorId: cancelledBy === "contractor" ? targetUserId : null,
+    });
+  } catch (e) {
+    console.error("[executeWithdrawal] applyDeletedSuffix unexpected throw", {
+      targetUserId,
+      error: e,
+    });
+  }
+
   // 募集中・下書き案件のクローズ
   await admin
     .from("jobs")
@@ -205,9 +221,22 @@ export async function executeWithdrawal(params: {
           .in("id", memberIds);
       }
 
-      // 配下メンバーも auth.users で ban して signin を即時ブロック
-      // （public.users.deleted_at だけだと auth 側の signin は通ってしまう）
+      // Task 9: 配下メンバーごとに「印付け → ban」の順で適用。
+      // 印付けは Owner 退会カスケードの actor = targetUserId (退会する Owner)。
+      // ban は public.users.deleted_at だけでは auth 側 signin が通ってしまうため
+      // 即時ブロック用に必須。
       for (const memberId of memberIds) {
+        try {
+          await applyDeletedSuffix(admin, memberId, {
+            path: "self_withdrawal",
+            actorId: targetUserId,
+          });
+        } catch (e) {
+          console.error(
+            "[executeWithdrawal] applyDeletedSuffix unexpected throw (org cascade)",
+            { memberId, error: e },
+          );
+        }
         try {
           await admin.auth.admin.updateUserById(memberId, {
             ban_duration: BAN_DURATION,

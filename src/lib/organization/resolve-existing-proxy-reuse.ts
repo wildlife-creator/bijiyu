@@ -40,11 +40,21 @@ export async function resolveExistingProxyReuse(
   admin: AdminClient,
   input: ReuseInput,
 ): Promise<ReuseDecision> {
-  // Step 1: email で既存ユーザーを検索
+  // Step 1: email で既存ユーザーを検索（active 行のみ = deleted_at IS NULL）
+  //
+  // email-recycle-on-delete spec / Task 6 で `.is("deleted_at", null)` を追加。
+  // 削除済みユーザーは auth.users.email が印付け書き換えされる設計のため、
+  // public.users.email は原本のまま残るが、本関数では active 行のみを扱う。
+  // 削除済み行と active 行が同じ原本 email で並存する状況（同メールで再登録
+  // された場合）でも、active 行のみが `.maybeSingle()` で拾われる。
+  //
+  // SELECT 列は変更なし。Step 3 の deleted_at 判定はフィルタにより dead code
+  // 化するが、二重防御として残す。
   const { data: existingUser } = await admin
     .from("users")
     .select("id, last_name, first_name, deleted_at")
     .eq("email", input.email)
+    .is("deleted_at", null)
     .maybeSingle();
 
   // Step 2: 既存ユーザーなし → 新規ユーザーとして扱う
@@ -53,6 +63,9 @@ export async function resolveExistingProxyReuse(
   }
 
   // Step 3: 論理削除済みユーザー → 新規ユーザーとして扱う (退会後の再登録)
+  //
+  // Step 1 の `.is("deleted_at", null)` フィルタにより到達しない dead code。
+  // 万一 RLS 等で漏れた場合の二重防御として残す。
   if (existingUser.deleted_at !== null) {
     return { kind: "new_user" };
   }

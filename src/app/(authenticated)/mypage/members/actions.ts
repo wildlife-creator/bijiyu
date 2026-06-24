@@ -19,6 +19,7 @@ import { sendEmail } from "@/lib/email/send-email";
 import { emailChangedByAdminEmail } from "@/lib/email/templates/email-changed-by-admin";
 import { proxyAssignedExistingUserEmail } from "@/lib/email/templates/proxy-assigned-existing-user";
 import { resolveExistingProxyReuse } from "@/lib/organization/resolve-existing-proxy-reuse";
+import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -639,7 +640,7 @@ export async function deleteMemberAction(
     return { success: false, error: "管理者の削除は管理責任者のみ可能です" };
   }
 
-  const { error } = await admin.rpc("delete_staff_member", {
+  const { data, error } = await admin.rpc("delete_staff_member", {
     p_target_user_id: targetUserId,
     p_organization_id: actor.organizationId,
     p_owner_user_id: actor.orgOwnerId,
@@ -647,6 +648,23 @@ export async function deleteMemberAction(
 
   if (error) {
     return { success: false, error: "担当者の削除に失敗しました" };
+  }
+
+  // delete_staff_member v3: 戻り値 jsonb は { user_id, globally_deleted }。
+  // globally_deleted=true（本 RPC で users.deleted_at が NULL → now() に遷移）の
+  // ときのみ auth.users.email を印付け書き換えして元のメールアドレスを解放する。
+  // 印付け失敗は削除自体の成功を維持する（audit_logs.auth_email_recycle_failed
+  // で運用が後追いできる）。
+  const result = data as { user_id: string; globally_deleted: boolean } | null;
+  if (result?.globally_deleted === true) {
+    try {
+      await applyDeletedSuffix(admin, targetUserId, {
+        path: "staff_delete",
+        actorId: actor.userId,
+      });
+    } catch (e) {
+      console.error("[deleteMemberAction] applyDeletedSuffix unexpected throw", e);
+    }
   }
 
   await logAudit(admin, actor.userId, "member_deleted", {

@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email/send-email";
 import { paymentFailedEmail } from "@/lib/email/templates/payment-failed";
 import { subscriptionCancelledEmail } from "@/lib/email/templates/subscription-cancelled";
 import { subscriptionChangedEmail } from "@/lib/email/templates/subscription-changed";
+import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
 import {
   PLAN_LABELS,
   resolvePlanTypeFromPriceId,
@@ -206,7 +207,7 @@ async function handleSubscriptionDeleted(
 
     // 2. Delegate to RPC (subscriptions UPDATE + role downgrade + staff + jobs close)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: rpcError } = await (admin as any).rpc(
+    const { data: rpcData, error: rpcError } = await (admin as any).rpc(
       "handle_subscription_lifecycle_deleted",
       { event_data: { stripe_subscription_id: sub.id } },
     );
@@ -216,12 +217,34 @@ async function handleSubscriptionDeleted(
       );
     }
 
-    // 3. 補償オプション（受注者向け給与未払い保険）は基本プランから独立した
+    // 3. handle_subscription_lifecycle_deleted v3: 戻り値 jsonb に
+    //    globally_deleted_user_ids: uuid[] が含まれる。RPC で users.deleted_at が
+    //    NULL → now() に遷移した配下メンバー全員に対し applyDeletedSuffix を呼ぶ。
+    //    各呼び出しは try/catch で隔離（部分成功許容）、Webhook 全体は印付け
+    //    失敗で throw しない（Stripe 再送抑制、後追いは audit_logs.auth_email_recycle_failed）。
+    const globallyDeletedIds =
+      ((rpcData as { globally_deleted_user_ids?: string[] } | null)
+        ?.globally_deleted_user_ids ?? []);
+    for (const memberUserId of globallyDeletedIds) {
+      try {
+        await applyDeletedSuffix(admin, memberUserId, {
+          path: "subscription_deleted",
+          actorId: null,
+        });
+      } catch (e) {
+        console.error(
+          "[handleSubscriptionDeleted] applyDeletedSuffix unexpected throw",
+          { memberUserId, error: e },
+        );
+      }
+    }
+
+    // 4. 補償オプション（受注者向け給与未払い保険）は基本プランから独立した
     //    契約。基本プラン解約時の連鎖キャンセルは行わない（旧 Gap 3 ロジック
     //    廃止）。ユーザーが補償も停止したい場合は別途 cancelCompensationAction
     //    を呼ぶ。
 
-    // 4. Send subscriptionCancelledEmail (basic plan path only)
+    // 5. Send subscriptionCancelledEmail (basic plan path only)
     await sendCancelledEmail(admin, send, userId, planType);
     return;
   }

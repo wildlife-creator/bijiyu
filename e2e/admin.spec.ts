@@ -444,7 +444,10 @@ test.describe("ADM-023/024: 代理メッセージ閲覧", () => {
       page.getByRole("heading", { name: "代理メッセージ一覧" }),
     ).toBeVisible();
 
-    await page.locator("a[href^='/admin/messages/']").first().click();
+    // proxy-multi-org seed（f777/f888 系）が last_message_at=now() で複数スレッドを
+    // 追加したため `.first()` は 1 proxy message のスレッドを拾ってしまう。
+    // 2 proxy messages を持つ adee0000 を contractor 名「山本健」で一意に特定する。
+    await page.getByRole("link", { name: /山本健/ }).click();
     await expect(
       page.getByRole("heading", { name: "メッセージ詳細" }),
     ).toBeVisible();

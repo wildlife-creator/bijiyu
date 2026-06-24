@@ -3,6 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { handleSubscriptionLifecycle } from "@/lib/billing/webhook/handle-subscription-lifecycle";
 
+// Task 8: applyDeletedSuffix を module-mock してファンアウト呼び出しを検証できるようにする
+const { applyDeletedSuffixMock } = vi.hoisted(() => ({
+  applyDeletedSuffixMock: vi.fn(),
+}));
+vi.mock("@/lib/email-recycle/apply-deleted-suffix", () => ({
+  applyDeletedSuffix: applyDeletedSuffixMock,
+}));
+
 /**
  * Test plan (covers Task 13.7 + 13.13 minimal cases for Task 3.7 CP2):
  *  - updated × subscriptions hit → calls RPC, then sends email per diff
@@ -27,6 +35,11 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_SMALL = "price_small";
   process.env.STRIPE_PRICE_CORPORATE = "price_corporate";
   process.env.STRIPE_PRICE_CORPORATE_PREMIUM = "price_corporate_premium";
+  applyDeletedSuffixMock.mockReset();
+  applyDeletedSuffixMock.mockResolvedValue({
+    kind: "applied",
+    recycledEmail: "stub",
+  });
 });
 
 afterEach(() => {
@@ -607,6 +620,163 @@ describe("customer.subscription.deleted", () => {
       calls.find((c) => c.op === "update" && c.table === "client_profiles"),
     ).toBeUndefined();
     expect(SEND).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Task 8: applyDeletedSuffix のループ統合
+  // -------------------------------------------------------------------------
+  it("Task 8: globally_deleted_user_ids が空配列 → applyDeletedSuffix は 1 度も呼ばれない", async () => {
+    const sub = buildSubscription();
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: { id: "sub-row-x", user_id: "user-x", plan_type: "individual" },
+        },
+        "select:users": {
+          data: {
+            email: "userx@test.local",
+            last_name: "佐藤",
+            first_name: "太郎",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_deleted: {
+          data: { globally_deleted_user_ids: [] },
+          error: null,
+        },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(applyDeletedSuffixMock).not.toHaveBeenCalled();
+  });
+
+  it("Task 8: globally_deleted_user_ids 1 件 → 1 回 applyDeletedSuffix が呼ばれる", async () => {
+    const sub = buildSubscription();
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: { id: "sub-row-1", user_id: "user-o", plan_type: "corporate" },
+        },
+        "select:users": {
+          data: {
+            email: "owner@test.local",
+            last_name: "高橋",
+            first_name: "二郎",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_deleted: {
+          data: { globally_deleted_user_ids: ["staff-a"] },
+          error: null,
+        },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(1);
+    expect(applyDeletedSuffixMock).toHaveBeenCalledWith(admin, "staff-a", {
+      path: "subscription_deleted",
+      actorId: null,
+    });
+  });
+
+  it("Task 8: globally_deleted_user_ids 複数件 → 全 user_id で applyDeletedSuffix が呼ばれる", async () => {
+    const sub = buildSubscription();
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: { id: "sub-row-2", user_id: "user-o", plan_type: "corporate" },
+        },
+        "select:users": {
+          data: {
+            email: "owner@test.local",
+            last_name: "高橋",
+            first_name: "二郎",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_deleted: {
+          data: { globally_deleted_user_ids: ["staff-a", "staff-b", "staff-c"] },
+          error: null,
+        },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(3);
+    const calledUserIds = applyDeletedSuffixMock.mock.calls.map((c) => c[1]);
+    expect(calledUserIds).toEqual(["staff-a", "staff-b", "staff-c"]);
+  });
+
+  it("Task 8: 1 件目が throw しても残りの呼び出しは継続 (partial-success)", async () => {
+    const sub = buildSubscription();
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: { id: "sub-row-3", user_id: "user-o", plan_type: "corporate" },
+        },
+        "select:users": {
+          data: {
+            email: "owner@test.local",
+            last_name: "高橋",
+            first_name: "二郎",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_deleted: {
+          data: { globally_deleted_user_ids: ["staff-a", "staff-b"] },
+          error: null,
+        },
+      },
+    });
+
+    applyDeletedSuffixMock.mockReset();
+    applyDeletedSuffixMock.mockRejectedValueOnce(new Error("api down"));
+    applyDeletedSuffixMock.mockResolvedValueOnce({
+      kind: "applied",
+      recycledEmail: "stub",
+    });
+
+    // Webhook 全体が throw しないこと (Stripe 再送抑制)
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(2);
+    // 2 件目は throw 後でも実行される
+    expect(applyDeletedSuffixMock.mock.calls[1]?.[1]).toBe("staff-b");
+    // 連鎖キャンセル後の email 送信も継続している (最後まで処理完走)
+    expect(SEND).toHaveBeenCalled();
   });
 });
 

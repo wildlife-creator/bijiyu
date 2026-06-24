@@ -1660,7 +1660,7 @@ export type Database = {
           p_owner_user_id: string
           p_target_user_id: string
         }
-        Returns: undefined
+        Returns: Json
       }
       ensure_organization_exists: { Args: { uid: string }; Returns: Json }
       get_or_lock_stripe_customer: { Args: { uid: string }; Returns: Json }

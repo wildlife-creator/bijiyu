@@ -22,6 +22,14 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
+// Task 9: applyDeletedSuffix の呼び出しを直接アサートするため module mock
+const { applyDeletedSuffixMock } = vi.hoisted(() => ({
+  applyDeletedSuffixMock: vi.fn(),
+}));
+vi.mock("@/lib/email-recycle/apply-deleted-suffix", () => ({
+  applyDeletedSuffix: applyDeletedSuffixMock,
+}));
+
 const mockStripeCancel = vi.fn();
 vi.mock("@/lib/billing/stripe", () => ({
   getStripeClient: () => ({
@@ -122,6 +130,10 @@ beforeEach(() => {
   mockAdminFrom.mockReset();
   mockAdminAuthUpdate.mockReset().mockResolvedValue({ data: null, error: null });
   mockStripeCancel.mockReset().mockResolvedValue({});
+  applyDeletedSuffixMock.mockReset().mockResolvedValue({
+    kind: "applied",
+    recycledEmail: "stub",
+  });
 });
 
 describe("executeWithdrawal: 退会前ガード", () => {
@@ -374,6 +386,112 @@ describe("executeWithdrawal: カスケード処理", () => {
     expect(
       orgChain._updates.some((u) => typeof u.deleted_at === "string"),
     ).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Task 9: applyDeletedSuffix 統合
+  // -------------------------------------------------------------------------
+  it("Task 9: 本人退会 (cancelledBy=contractor) → 対象本人で applyDeletedSuffix が呼ばれる (actorId = 本人)", async () => {
+    setupHappyPath();
+
+    await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(1);
+    expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
+      expect.anything(),
+      TARGET_ID,
+      { path: "self_withdrawal", actorId: TARGET_ID },
+    );
+  });
+
+  it("Task 9: admin 削除 (cancelledBy=admin) → applyDeletedSuffix の actorId は null", async () => {
+    setupHappyPath();
+
+    await executeWithdrawal({ targetUserId: TARGET_ID, cancelledBy: "admin" });
+
+    expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(1);
+    expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
+      expect.anything(),
+      TARGET_ID,
+      { path: "self_withdrawal", actorId: null },
+    );
+  });
+
+  it("Task 9: Owner 退会カスケードで配下メンバー全員に applyDeletedSuffix が呼ばれる (actor = Owner)", async () => {
+    const MEMBER_A = "22222222-2222-2222-2222-222222222222";
+    const MEMBER_B = "33333333-3333-3333-3333-333333333333";
+    setupHappyPath({
+      organization_members: {
+        data: { org_role: "owner", organization_id: ORG_ID },
+        thenable: {
+          data: [{ user_id: MEMBER_A }, { user_id: MEMBER_B }],
+          error: null,
+        },
+      },
+    });
+
+    await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    // 対象本人 + 配下 2 名 = 3 回
+    expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(3);
+    expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
+      expect.anything(),
+      MEMBER_A,
+      { path: "self_withdrawal", actorId: TARGET_ID },
+    );
+    expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
+      expect.anything(),
+      MEMBER_B,
+      { path: "self_withdrawal", actorId: TARGET_ID },
+    );
+  });
+
+  it("Task 9: applyDeletedSuffix が throw しても退会自体は成功する (非ブロッキング)", async () => {
+    setupHappyPath();
+    applyDeletedSuffixMock.mockReset();
+    applyDeletedSuffixMock.mockRejectedValue(new Error("auth api down"));
+
+    const result = await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    expect(result.success).toBe(true);
+    // ban は印付け失敗にかかわらず実施される (signin ブロックは必須)
+    expect(mockAdminAuthUpdate).toHaveBeenCalledWith(TARGET_ID, {
+      ban_duration: "876600h",
+    });
+  });
+
+  it("Task 9: 印付けは ban より先に実行される (順序: 印付け → ban)", async () => {
+    setupHappyPath();
+    const callOrder: string[] = [];
+    applyDeletedSuffixMock.mockImplementation(async () => {
+      callOrder.push("applyDeletedSuffix");
+      return { kind: "applied" as const, recycledEmail: "stub" };
+    });
+    mockAdminAuthUpdate.mockImplementation(async () => {
+      callOrder.push("updateUserById");
+      return { data: null, error: null };
+    });
+
+    await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    // 順序: applyDeletedSuffix (印付け) → updateUserById (ban 適用)
+    const applyIdx = callOrder.indexOf("applyDeletedSuffix");
+    const banIdx = callOrder.indexOf("updateUserById");
+    expect(applyIdx).toBeGreaterThanOrEqual(0);
+    expect(banIdx).toBeGreaterThanOrEqual(0);
+    expect(applyIdx).toBeLessThan(banIdx);
   });
 });
 
