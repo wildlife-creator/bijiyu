@@ -400,7 +400,7 @@ OrgSwitcher は新規 UI コンポーネントだが、`design-assets/screens/` 
 | 幅 | `w-[240px]`（モバイルでは `w-full`） |
 | トリガーラベル | 選択中の組織名（`client_profiles.display_name` 解決済）+ 右側に下向き chevron |
 | 選択肢項目 | `client_profiles.display_name`（解決失敗時は組織 owner の `users.last_name + first_name`）。並び順は `organization_members.created_at ASC` で安定化 |
-| プレフィックス | トリガー左上に「現在: 」の小ラベル（`text-body-xs text-muted-foreground`） |
+| プレフィックス | 無し（暫定スペックでは「現在: 」ラベルを想定していたが、2026-06-24 の実機目視確認でヘッダー他要素との縦中央軸ズレが目立つため削除。Select トリガーの選択値表示で「現在の組織」は自明） |
 | アイコン | 必要なし（shadcn デフォルト chevron のみ） |
 | アクセシビリティ | `aria-label="所属組織を切り替える"`、Select の標準キーボード操作対応 |
 | 切替時の挙動 | 選択直後に `setActiveOrganizationContext(orgId)` 実行 → 成功なら `/mypage` へハードナビゲーション、失敗ならトーストでエラー表示 |
