@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PastDueBanner } from "@/components/billing/PastDueBanner";
 import { SiteHeader } from "@/components/site-header";
 import { OrgSwitcher } from "@/components/organization/org-switcher";
@@ -23,20 +24,42 @@ export default async function AuthenticatedLayout({
   let orgSwitcher: React.ReactNode = null;
 
   if (user) {
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("status")
-      .eq("user_id", user.id)
-      .in("status", ["active", "past_due"])
-      .maybeSingle();
+    // proxy-account-multi-org-support Phase 3 / Phase 7
+    // active org コンテキストを 1 回解決して subscription 解決と OrgSwitcher
+    // 描画の両方に使い回す（organization_members SELECT を 2 回走らせない）。
+    const { active, all } = await getActiveOrganizationContext(supabase);
 
-    hasActiveSubscription = !!subscription;
+    // ---- subscription 解決 ----
+    // Owner / 個人ユーザーは自分の subscription を持つので素直に SELECT。
+    // Staff / Admin は自分の subscription を持たず Owner のサブスクに相乗りする
+    // 設計（CLAUDE.md「Staff ユーザーの subscription 参照」/ REQ-ORG-011）。
+    // Staff セッションは RLS で他者の subscriptions を SELECT 不可のため
+    // admin client で解決する。基準実装: src/app/(authenticated)/mypage/page.tsx
+    const isStaffContext = active !== null && active.orgRole !== "owner";
+    if (isStaffContext) {
+      const admin = createAdminClient();
+      const { data: subscription } = await admin
+        .from("subscriptions")
+        .select("status")
+        .eq("user_id", active.orgOwnerId)
+        .in("status", ["active", "past_due"])
+        .maybeSingle();
+      hasActiveSubscription = !!subscription;
+    } else {
+      const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("status")
+        .eq("user_id", user.id)
+        .in("status", ["active", "past_due"])
+        .maybeSingle();
+      hasActiveSubscription = !!subscription;
+    }
 
+    // ---- OrgSwitcher ----
     // proxy-account-multi-org-support Phase 7 / Task 7.3
     // N 組織兼任スタッフの組織コンテキスト切替 UI をヘッダーに組み込む。
     // memberships が 1 件以下なら OrgSwitcher 内部で null を返すため
     // 単一組織ユーザー / 受注者単独ユーザーには DOM 出力なし。
-    const { active, all } = await getActiveOrganizationContext(supabase);
     if (all.length > 1) {
       orgSwitcher = (
         <OrgSwitcher
