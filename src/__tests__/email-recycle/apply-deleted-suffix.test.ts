@@ -29,6 +29,7 @@ interface UpdateUserMock {
 const getUserById = vi.fn();
 const updateUserById = vi.fn();
 const auditInsert = vi.fn();
+const rpc = vi.fn();
 
 function makeAdmin() {
   return {
@@ -46,6 +47,7 @@ function makeAdmin() {
       }
       return { insert: auditInsert };
     },
+    rpc,
   } as never;
 }
 
@@ -53,7 +55,9 @@ beforeEach(() => {
   getUserById.mockReset();
   updateUserById.mockReset();
   auditInsert.mockReset();
+  rpc.mockReset();
   auditInsert.mockResolvedValue({ error: null });
+  rpc.mockResolvedValue({ error: null });
 });
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -111,6 +115,33 @@ describe("applyDeletedSuffix", () => {
     });
     // metadata に元 email を含めない（個人情報二重保存回避）
     expect(JSON.stringify(inserted.metadata)).not.toContain(ORIGINAL_EMAIL);
+
+    // auth.identities 同期 RPC が呼ばれる
+    expect(rpc).toHaveBeenCalledWith("email_recycle_sync_identity", {
+      p_user_id: USER_ID,
+      p_from_email: ORIGINAL_EMAIL,
+      p_to_email: result.recycledEmail,
+    });
+  });
+
+  it("auth.identities 同期 RPC が失敗しても applied は維持される（業務継続）", async () => {
+    mockGetUser({
+      data: { user: { id: USER_ID, email: ORIGINAL_EMAIL } },
+      error: null,
+    });
+    mockUpdateUser({
+      data: { user: { id: USER_ID, email: "stub" } },
+      error: null,
+    });
+    rpc.mockReset();
+    rpc.mockResolvedValueOnce({ error: { message: "rpc broke" } });
+
+    const result = await applyDeletedSuffix(makeAdmin(), USER_ID, {
+      path: "staff_delete",
+      actorId: ACTOR_ID,
+    });
+
+    expect(result.kind).toBe("applied");
   });
 
   it("冪等性: 既に印付き形式の email なら no-op で already_suffixed を返し audit_logs に書かない", async () => {

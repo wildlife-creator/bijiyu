@@ -159,6 +159,36 @@ export async function restoreDeletedSuffix(
   }
   const originalEmail = match[1];
 
+  // 4-pre) 事前衝突判定: 原本 email が別 active user に取られていれば即拒否。
+  //   updateUserById の衝突時 error は HTTP 500 / code='unexpected_failure'
+  //   という汎用エラーで返るため、後段 (4) の error.code 判定だけでは
+  //   collision を確定できない (= api_error として誤分類される)。本 RPC
+  //   で事前に SELECT EXISTS を回して collision を確実に分類する。
+  //   RPC 自体が失敗した場合は通常パスに進む (updateUserById で結局
+  //   弾かれるので安全性は維持される)。
+  const { data: takenData, error: takenErr } = await admin.rpc(
+    "email_taken_by_other_user",
+    { p_email: originalEmail, p_excluding_user_id: userId },
+  );
+  if (!takenErr && takenData === true) {
+    const errorMessage =
+      "original email is already taken by another active user";
+    await recordAudit(admin, {
+      action: "auth_email_restore_failed",
+      targetId: userId,
+      metadata: {
+        invoked_by: "developer",
+        reason: "email_collision",
+        date: isoDate,
+      },
+    });
+    return {
+      kind: "rejected",
+      reason: "email_collision",
+      error: errorMessage,
+    };
+  }
+
   // 4) auth.users.email を原本に戻す + ban 解除（同一 API 呼び出しで適用）
   let updateResp: Awaited<
     ReturnType<AdminClient["auth"]["admin"]["updateUserById"]>
@@ -213,7 +243,24 @@ export async function restoreDeletedSuffix(
     return { kind: "failed", reason: "api_error", error: errObj.message };
   }
 
-  // 5) public.users.deleted_at を NULL に戻す（失敗してもログのみ・restored 維持）
+  // 5) auth.identities も対称的に元 email に戻す (applyDeletedSuffix の
+  //    逆操作)。失敗してもログのみで restored は維持する。
+  const { error: identityError } = await admin.rpc(
+    "email_recycle_sync_identity",
+    {
+      p_user_id: userId,
+      p_from_email: currentEmail, // 印付き email (今の auth.users.email)
+      p_to_email: originalEmail, // 原本 email (戻す先)
+    },
+  );
+  if (identityError) {
+    console.error(
+      "[restoreDeletedSuffix] auth.identities sync failed (non-blocking)",
+      { userId, error: identityError },
+    );
+  }
+
+  // 6) public.users.deleted_at を NULL に戻す（失敗してもログのみ・restored 維持）
   const { error: usersError } = await admin
     .from("users")
     .update({ deleted_at: null })

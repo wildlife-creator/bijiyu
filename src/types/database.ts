@@ -1662,6 +1662,14 @@ export type Database = {
         }
         Returns: Json
       }
+      email_recycle_sync_identity: {
+        Args: { p_from_email: string; p_to_email: string; p_user_id: string }
+        Returns: undefined
+      }
+      email_taken_by_other_user: {
+        Args: { p_email: string; p_excluding_user_id: string }
+        Returns: boolean
+      }
       ensure_organization_exists: { Args: { uid: string }; Returns: Json }
       get_or_lock_stripe_customer: { Args: { uid: string }; Returns: Json }
       handle_checkout_completed_plan: {

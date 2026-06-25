@@ -225,5 +225,30 @@ test.describe("Task 11.3: 受注者本人退会 → email 解放", () => {
     expect(recycledEmail).not.toBeNull();
     expect(recycledEmail).toMatch(SUFFIX_PATTERN);
     expect(recycledEmail).toContain(TEST_FIXTURES.dContractor.email);
+
+    // Step 4: 元 email で実際に supabase.auth.signUp が通ることを実機検証
+    //         (2026-06-25 修正で auth.identities も同期するようになり、
+    //          以前は signUp が user_already_exists で詰まっていた回帰防止)
+    const signUpResp = await request.post(
+      "http://127.0.0.1:54321/auth/v1/signup",
+      {
+        headers: {
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+          "Content-Type": "application/json",
+        },
+        data: {
+          email: TEST_FIXTURES.dContractor.email,
+          password: "fresh-signup-test-pass",
+        },
+      },
+    );
+    const signUpBody = (await signUpResp.json()) as {
+      id?: string;
+      error_code?: string;
+      msg?: string;
+    };
+    // user_already_exists エラーで詰まらず、新規 user が作られていること
+    expect(signUpBody.error_code).toBeUndefined();
+    expect(signUpBody.id).toBeTruthy();
   });
 });

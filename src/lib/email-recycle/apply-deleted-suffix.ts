@@ -203,6 +203,25 @@ export async function applyDeletedSuffix(
     }
 
     if (!updateResp.error) {
+      // auth.identities も同期する (Supabase Auth の signUp は identities の
+      // email 列も一意性判定に使うため、auth.users.email だけ書き換えると
+      // user_already_exists で詰まる)。RPC は SECURITY DEFINER で service_role
+      // のみ実行可。失敗してもメインの印付け処理は成功扱いとし業務を止めない。
+      const { error: identityError } = await admin.rpc(
+        "email_recycle_sync_identity",
+        {
+          p_user_id: userId,
+          p_from_email: currentEmail,
+          p_to_email: suffixedEmail,
+        },
+      );
+      if (identityError) {
+        console.error(
+          "[applyDeletedSuffix] auth.identities sync failed (non-blocking)",
+          { userId, error: identityError },
+        );
+      }
+
       await recordAudit(admin, {
         actorId: options.actorId,
         action: "auth_email_recycled",

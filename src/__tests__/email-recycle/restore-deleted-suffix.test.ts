@@ -19,6 +19,7 @@ const updateUserById = vi.fn();
 const userUpdateEq = vi.fn();
 const userUpdate = vi.fn(() => ({ eq: userUpdateEq }));
 const auditInsert = vi.fn();
+const rpc = vi.fn();
 
 function makeAdmin() {
   return {
@@ -37,6 +38,7 @@ function makeAdmin() {
       }
       throw new Error(`unexpected from(${table})`);
     },
+    rpc,
   } as never;
 }
 
@@ -46,10 +48,18 @@ beforeEach(() => {
   userUpdate.mockReset();
   userUpdateEq.mockReset();
   auditInsert.mockReset();
+  rpc.mockReset();
   // デフォルト: 副作用の終端は成功
   userUpdate.mockImplementation(() => ({ eq: userUpdateEq }));
   userUpdateEq.mockResolvedValue({ data: null, error: null });
   auditInsert.mockResolvedValue({ error: null });
+  // RPC のデフォルト: 事前衝突判定 = 衝突なし (false)、それ以外 = error なし
+  rpc.mockImplementation((fn: string) => {
+    if (fn === "email_taken_by_other_user") {
+      return Promise.resolve({ data: false, error: null });
+    }
+    return Promise.resolve({ error: null });
+  });
 });
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -97,6 +107,13 @@ describe("restoreDeletedSuffix", () => {
       invoked_by: "developer",
       date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     });
+
+    // auth.identities も対称的に元 email に戻す RPC が呼ばれる
+    expect(rpc).toHaveBeenCalledWith("email_recycle_sync_identity", {
+      p_user_id: USER_ID,
+      p_from_email: SUFFIXED_EMAIL_4,
+      p_to_email: ORIGINAL_EMAIL,
+    });
   });
 
   it("バックフィル形式（8 文字）の印付き email も復元できる（貪欲マッチ）", async () => {
@@ -116,14 +133,18 @@ describe("restoreDeletedSuffix", () => {
     expect(result.originalEmail).toBe(ORIGINAL_EMAIL);
   });
 
-  it("email_collision: 原本 email が別 active user に取られている → rejected/email_collision + 失敗 audit", async () => {
+  it("email_collision: 事前衝突判定 RPC が true → updateUserById は呼ばれず rejected/email_collision + 失敗 audit", async () => {
     getUserById.mockResolvedValueOnce({
       data: { user: { id: USER_ID, email: SUFFIXED_EMAIL_4 } },
       error: null,
     });
-    updateUserById.mockResolvedValueOnce({
-      data: null,
-      error: { message: "email already exists", code: "email_exists" } as AuthError,
+    // 事前衝突判定 RPC が「衝突あり (true)」を返す
+    rpc.mockReset();
+    rpc.mockImplementation((fn: string) => {
+      if (fn === "email_taken_by_other_user") {
+        return Promise.resolve({ data: true, error: null });
+      }
+      return Promise.resolve({ error: null });
     });
 
     const result = await restoreDeletedSuffix(makeAdmin(), USER_ID);
@@ -132,7 +153,8 @@ describe("restoreDeletedSuffix", () => {
     if (result.kind !== "rejected") return;
     expect(result.reason).toBe("email_collision");
 
-    // 衝突時は副作用ゼロ: users UPDATE 走らない
+    // 事前判定で確定 → updateUserById は呼ばれない (副作用ゼロ)
+    expect(updateUserById).not.toHaveBeenCalled();
     expect(userUpdate).not.toHaveBeenCalled();
 
     expect(auditInsert).toHaveBeenCalledTimes(1);
