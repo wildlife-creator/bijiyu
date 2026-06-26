@@ -585,7 +585,7 @@ describe("customer.subscription.deleted", () => {
     );
     expect(SEND).toHaveBeenCalledOnce();
     const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
-    expect(args.subject).toBe("【ビジ友】解約が完了しました");
+    expect(args.subject).toBe("【ビジ友】有料プランのご解約が完了しました");
     expect(args.html).toContain("法人向けプラン");
   });
 
@@ -822,7 +822,7 @@ describe("invoice.payment_failed", () => {
 
     expect(SEND).toHaveBeenCalledOnce();
     const args = SEND.mock.calls[0]![0]! as { subject: string };
-    expect(args.subject).toBe("【ビジ友】お支払いが確認できません");
+    expect(args.subject).toBe("【ビジ友】有料プランのお支払いが確認できませんでした");
   });
 
   it("preserves past_due_since when it's already set", async () => {

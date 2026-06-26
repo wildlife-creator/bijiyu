@@ -13,8 +13,6 @@ import { verificationRejectedEmail } from "@/lib/email/templates/verification-re
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import type { ActionResult } from "@/lib/types/action-result";
 
-const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
-
 const rejectionReasonSchema = z
   .string()
   .min(1, "否認理由を入力してください")
@@ -149,7 +147,6 @@ export async function approveVerificationAction(
     verificationApprovedEmail({
       recipientName: name,
       documentType: verification.document_type,
-      serviceUrl: SERVICE_URL,
     }),
   );
 
@@ -214,7 +211,6 @@ export async function rejectVerificationAction(
       recipientName: name,
       documentType: verification.document_type,
       rejectionReason,
-      serviceUrl: SERVICE_URL,
     }),
   );
 

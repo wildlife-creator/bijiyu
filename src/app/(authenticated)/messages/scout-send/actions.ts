@@ -204,7 +204,7 @@ export async function sendScoutAction(
         recipientName,
         senderName,
         jobTitle: parsed.data.title,
-        serviceUrl: SERVICE_URL,
+        messageExcerpt: parsed.data.body,
       });
 
       await sendEmail({ to: targetUser.email, subject, html }).catch((err) => {

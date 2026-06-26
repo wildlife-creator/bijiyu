@@ -70,7 +70,6 @@ export async function withdrawAction(
     if (email) {
       const { subject, html } = withdrawalCompletedEmail({
         recipientName,
-        serviceUrl: SERVICE_URL,
       });
       await sendEmail({ to: email, subject, html });
     }

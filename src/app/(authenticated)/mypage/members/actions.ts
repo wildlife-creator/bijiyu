@@ -367,14 +367,12 @@ async function sendProxyAssignedEmail(params: {
       "管理者";
     const now = new Date();
     const assignedAt = formatJapaneseDateTime(now);
-    const signInUrl = `${SERVICE_URL}/login`;
 
     const { subject, html } = proxyAssignedExistingUserEmail({
       recipientName,
       organizationName,
       actorName,
       assignedAt,
-      signInUrl,
     });
 
     await sendEmail({ to: recipientEmail, subject, html });
@@ -553,7 +551,6 @@ export async function updateMemberAction(
         oldEmail,
         newEmail: parsed.data.email,
         organizationName,
-        serviceUrl: SERVICE_URL,
       });
 
       const recipients = [oldEmail, parsed.data.email].filter(

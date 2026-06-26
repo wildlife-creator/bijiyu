@@ -1,56 +1,45 @@
+import { listItem, paragraph, renderLayout, truncateExcerpt } from "@/lib/email/components";
+
 interface ScoutNotificationEmailProps {
   recipientName: string;
   senderName: string;
   jobTitle: string;
-  serviceUrl: string;
+  /** スカウト本文の先頭 100 文字 + 「...」。空文字なら【メッセージ】行を省略。 */
+  messageExcerpt: string;
 }
 
+/**
+ * §1.7.A スカウト送信通知（既存 E-3 改修）。受注者本人 1 名宛。
+ *
+ * `sendScoutAction` でスカウトメッセージ INSERT 成功後に発火。
+ * M-04 準拠: CTA「メッセージを確認する」と「ビジ友にログインしてご確認ください」誘導文を削除。
+ * メッセージ抜粋を本文に echo（§1.1.A 応募通知と対称構造）。
+ * 件名は「【ビジ友】スカウトが届きました」（案件名末尾を削除し本文の【案件名】行で表示）。
+ */
 export function scoutNotificationEmail({
   recipientName,
   senderName,
   jobTitle,
-  serviceUrl,
+  messageExcerpt,
 }: ScoutNotificationEmailProps): { subject: string; html: string } {
+  const trimmedExcerpt = messageExcerpt.trim();
+  const excerpt = trimmedExcerpt ? truncateExcerpt(trimmedExcerpt, 100) : "";
+
+  const items = [
+    listItem("案件名", jobTitle),
+    excerpt ? listItem("メッセージ", `「${excerpt}」`, { blockEnd: true }) : "",
+  ].filter(Boolean);
+
   return {
-    subject: `【ビジ友】スカウトが届きました - ${jobTitle}`,
-    html: `
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:'Zen Kaku Gothic New',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
-    <tr>
-      <td style="padding:24px;text-align:center;background:#920783;">
-        <span style="color:#ffffff;font-size:20px;font-weight:bold;">ビジ友</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:32px 24px;">
-        <p style="margin:0 0 16px;font-size:14px;color:#1e1e1e;">${recipientName} 様</p>
-        <p style="margin:0 0 24px;font-size:14px;color:#1e1e1e;">
-          ${senderName} 様からスカウトメッセージが届きました。
-        </p>
-        <table width="100%" style="background:#f4f4f4;border-radius:8px;padding:16px;margin:0 0 24px;">
-          <tr><td style="padding:8px 16px;font-size:13px;color:#666;">案件名</td></tr>
-          <tr><td style="padding:0 16px 8px;font-size:15px;font-weight:bold;color:#1e1e1e;">${jobTitle}</td></tr>
-        </table>
-        <p style="margin:0 0 24px;font-size:14px;color:#1e1e1e;">
-          ビジ友にログインして詳細をご確認ください。
-        </p>
-        <p style="text-align:center;">
-          <a href="${serviceUrl}/messages" style="display:inline-block;padding:12px 32px;background:#920783;color:#ffffff;text-decoration:none;border-radius:47px;font-weight:bold;">メッセージを確認する</a>
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:24px;text-align:center;background:#f4f4f4;font-size:12px;color:#9e9e9e;">
-        <p style="margin:0 0 8px;">このメールはビジ友からの自動送信です。</p>
-        <p style="margin:0;"><a href="${serviceUrl}" style="color:#601986;">ビジ友</a></p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `.trim(),
+    subject: `【ビジ友】スカウトが届きました`,
+    html: renderLayout({
+      title: "スカウトが届きました",
+      bodyContent: [
+        paragraph(`${recipientName} 様`),
+        paragraph(`${senderName} 様からスカウトメッセージが届きました。`),
+        ...items,
+        paragraph("ご検討ください。", { last: true }),
+      ].join(""),
+    }),
   };
 }

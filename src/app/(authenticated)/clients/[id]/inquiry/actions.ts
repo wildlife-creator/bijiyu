@@ -1,7 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
-
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { canSendJobInquiry } from "@/lib/job-inquiry/access-guard";
@@ -19,13 +17,6 @@ const MAX_SUBMISSIONS_PER_HOUR = 5;
 const GENERIC_ERROR =
   "送信中にエラーが発生しました。しばらくしてから再度お試しください。";
 const FORBIDDEN_ERROR = "この発注者には求人へのお問い合わせを送信できません";
-
-function resolveSiteUrl(host: string | null, proto: string | null): string {
-  if (host) {
-    return `${proto ?? "http"}://${host}`;
-  }
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
-}
 
 export async function submitJobInquiryAction(
   targetClientId: string,
@@ -139,19 +130,12 @@ export async function submitJobInquiryAction(
   });
 
   if (targetUser.email) {
-    const hdrs = await headers();
-    const siteUrl = resolveSiteUrl(
-      hdrs.get("host"),
-      hdrs.get("x-forwarded-proto"),
-    );
     const { subject, html } = jobInquiryNotificationEmail({
       recipientName,
       senderName: input.name,
       senderEmail: input.email,
       topics: input.topics,
       content: input.content,
-      inboxUrl: `${siteUrl}/mypage/job-inquiries`,
-      serviceUrl: siteUrl,
     });
     void sendEmail({ to: targetUser.email, subject, html }).catch((err) => {
       console.error("[submitJobInquiryAction] email send failed:", err);

@@ -344,12 +344,17 @@ export async function acceptApplicationAction(
         firstName: resolution.firstName,
         deletedAt: resolution.deletedAt,
       });
+      const tradeTypesValue = (job as { trade_types?: string[] | null }).trade_types ?? null;
+      const workEndDateValue = (job as { work_end_date?: string | null }).work_end_date ?? null;
       const { subject, html } = matchingAcceptedEmail({
         applicantName,
         jobTitle: job.title,
         clientName,
+        tradeType: tradeTypesValue && tradeTypesValue.length > 0
+          ? tradeTypesValue.join("、")
+          : undefined,
         firstWorkDate: input.firstWorkDate,
-        serviceUrl: SERVICE_URL,
+        workEndDate: workEndDateValue ?? undefined,
       });
 
       await sendEmail({ to: applicant.email, subject, html }).catch((err) => {
@@ -457,7 +462,6 @@ export async function rejectApplicationAction(
         applicantName,
         jobTitle: job.title,
         clientName,
-        serviceUrl: SERVICE_URL,
       });
 
       await sendEmail({ to: applicant.email, subject, html }).catch((err) => {

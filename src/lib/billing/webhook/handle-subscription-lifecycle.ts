@@ -37,8 +37,6 @@ interface SubscriptionSnapshot {
   cancel_at_period_end: boolean;
 }
 
-const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://bijiyu.com";
-
 export type SubscriptionLifecycleEvent =
   | { type: "customer.subscription.created"; data: Stripe.Subscription }
   | { type: "customer.subscription.updated"; data: Stripe.Subscription }
@@ -552,7 +550,6 @@ async function sendChangedEmail(
       oldPlanName: PLAN_LABELS[oldPlan],
       newPlanName: PLAN_LABELS[newPlan],
       effectiveDate,
-      serviceUrl: SERVICE_URL,
     });
     await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
   } catch (err) {
@@ -573,7 +570,6 @@ async function sendCancelledEmail(
       recipientName: recipient.name,
       planName: PLAN_LABELS[planType],
       cancelledAt: formatDate(new Date().toISOString()),
-      serviceUrl: SERVICE_URL,
     });
     await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
   } catch (err) {
@@ -601,7 +597,6 @@ async function sendPaymentFailedEmail(
       recipientName: recipient.name,
       planName: PLAN_LABELS[planType],
       nextRetryDate,
-      serviceUrl: SERVICE_URL,
     });
     await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
   } catch (err) {
