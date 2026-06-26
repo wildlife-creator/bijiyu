@@ -49,6 +49,7 @@ export const AUTH_PAGE_PATHS = [
   "/register",
   "/reset-password",
   "/accept-invite",
+  "/email-change-confirmed",
   "/admin/login",
 ] as const;
 
@@ -369,7 +370,8 @@ export async function middleware(request: NextRequest) {
     isAuthPage(pathname) &&
     pathname !== "/reset-password" &&
     pathname !== "/reset-password/confirm" &&
-    pathname !== "/accept-invite/confirm"
+    pathname !== "/accept-invite/confirm" &&
+    pathname !== "/email-change-confirmed"
   ) {
     if (role === "admin") {
       return finalize(redirectTo(request, "/admin/dashboard"));
