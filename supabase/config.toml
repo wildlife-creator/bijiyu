@@ -215,8 +215,12 @@ secure_password_change = false
 max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# Number of seconds before the email OTP expires.
+# 24h (86400 秒) に統一: メール本文「リンクは 24 時間有効」(§5.1 招待 / §5.5 メール変更 /
+# §5.8 PW リセット / §8.1 サインアップ確認) との整合性確保。spec §8 共通 prerequisites の項目 2 参照。
+# 本番ダッシュボードでも Project Settings → Authentication → Email OTP Expiration が
+# 86400 になっていることを併せて確認すること。
+otp_expiry = 86400
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
