@@ -46,10 +46,21 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       const loginUrl = new URL("/login", origin);
-      loginUrl.searchParams.set(
-        "error",
-        "認証に失敗しました。もう一度お試しください",
-      );
+      // PW リセット (recovery) パスはリンク期限切れの可能性が高いため、
+      // /login の <LinkExpiredCard> を出すための query を立てる。
+      // それ以外のフロー(招待・サインアップ等)は汎用エラー表示。
+      const flowHint = `${type ?? ""} ${next ?? ""}`;
+      if (
+        flowHint.includes("recovery") ||
+        flowHint.includes("reset-password")
+      ) {
+        loginUrl.searchParams.set("expired", "password_reset");
+      } else {
+        loginUrl.searchParams.set(
+          "error",
+          "認証に失敗しました。もう一度お試しください",
+        );
+      }
       return NextResponse.redirect(loginUrl);
     }
   } else {

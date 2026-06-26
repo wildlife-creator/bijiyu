@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
+import { EmailLandingCard } from "@/components/auth-landing/email-landing-card";
+import { LinkExpiredCard } from "@/components/auth/link-expired-card";
+
 /**
  * AUTH-001 メール認証コールバック (implicit flow)
  *
@@ -68,18 +71,24 @@ export default function VerifySignupPage() {
     verify();
   }, [router]);
 
+  if (error) {
+    return (
+      <EmailLandingCard>
+        <LinkExpiredCard actionText="お手数ですが、もう一度ご登録をお申し込みください。" />
+      </EmailLandingCard>
+    );
+  }
+
   return (
-    <div className="space-y-6 text-center">
-      <h1 className="text-heading-xl font-bold text-secondary">
-        メール認証中...
-      </h1>
-      {error ? (
-        <p className="text-body-base text-destructive">{error}</p>
-      ) : (
+    <EmailLandingCard>
+      <div className="space-y-6 text-center">
+        <h1 className="text-heading-xl font-bold text-secondary">
+          メール認証中...
+        </h1>
         <p className="text-body-base text-muted-foreground">
           認証情報を確認しています。少々お待ちください。
         </p>
-      )}
-    </div>
+      </div>
+    </EmailLandingCard>
   );
 }

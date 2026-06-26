@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
-
 import { Button } from "@/components/ui/button";
+import { EmailLandingCard } from "@/components/auth-landing/email-landing-card";
 import { Label } from "@/components/ui/label";
+import { LinkExpiredCard } from "@/components/auth/link-expired-card";
 import { PasswordInput } from "@/components/ui/password-input";
 import { createBrowserClient } from "@supabase/ssr";
 import {
@@ -114,78 +114,76 @@ export default function AcceptInviteConfirmPage() {
     return null;
   }
 
+  if (isExpired) {
+    return (
+      <EmailLandingCard>
+        <LinkExpiredCard actionText="お手数ですが、招待元(管理責任者または ビジ友運営)へ再送をご依頼ください。" />
+      </EmailLandingCard>
+    );
+  }
+
   return (
-    <div className="flex flex-1 flex-col items-center px-6 pt-10">
-      <div className="w-full max-w-lg">
-        <h1 className="text-heading-xl font-bold text-center text-secondary">
-          ビジ友へようこそ
-        </h1>
+    <EmailLandingCard>
+      <h1 className="text-heading-xl font-bold text-center text-secondary">
+        ビジ友へようこそ
+      </h1>
 
-        <p className="mt-4 text-body-sm text-center text-muted-foreground">
-          ご利用開始にあたり、パスワードをご設定ください
-        </p>
+      <p className="mt-4 text-body-sm text-center text-muted-foreground">
+        ご利用開始にあたり、パスワードをご設定ください
+      </p>
 
-        {serverError && (
-          <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-center">
-            <p className="text-body-sm text-destructive">{serverError}</p>
-            {isExpired && (
-              <Link
-                href="/login"
-                className="mt-2 inline-block text-body-sm text-secondary underline"
-              >
-                ログイン画面へ戻る
-              </Link>
-            )}
-          </div>
-        )}
+      {serverError && (
+        <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-center">
+          <p className="text-body-sm text-destructive">{serverError}</p>
+        </div>
+      )}
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="mt-8 flex flex-col gap-6"
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="mt-8 flex flex-col gap-6"
+      >
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="password">パスワード</Label>
+          <PasswordInput
+            id="password"
+            aria-invalid={!!errors.password}
+            {...register("password")}
+          />
+          <p className="text-body-xs text-muted-foreground">
+            ※ 半角英数字の組み合わせ、8〜16文字
+          </p>
+          {errors.password && (
+            <p className="text-body-sm text-destructive">
+              {errors.password.message}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="confirmPassword">パスワード（確認）</Label>
+          <PasswordInput
+            id="confirmPassword"
+            aria-invalid={!!errors.confirmPassword}
+            {...register("confirmPassword")}
+          />
+          <p className="text-body-xs text-muted-foreground">
+            ※ 半角英数字の組み合わせ、8〜16文字
+          </p>
+          {errors.confirmPassword && (
+            <p className="text-body-sm text-destructive">
+              {errors.confirmPassword.message}
+            </p>
+          )}
+        </div>
+
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="rounded-[47px] bg-primary text-primary-foreground h-12 w-full font-bold"
         >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">パスワード</Label>
-            <PasswordInput
-              id="password"
-              aria-invalid={!!errors.password}
-              {...register("password")}
-            />
-            <p className="text-body-xs text-muted-foreground">
-              ※ 半角英数字の組み合わせ、8〜16文字
-            </p>
-            {errors.password && (
-              <p className="text-body-sm text-destructive">
-                {errors.password.message}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="confirmPassword">パスワード（確認）</Label>
-            <PasswordInput
-              id="confirmPassword"
-              aria-invalid={!!errors.confirmPassword}
-              {...register("confirmPassword")}
-            />
-            <p className="text-body-xs text-muted-foreground">
-              ※ 半角英数字の組み合わせ、8〜16文字
-            </p>
-            {errors.confirmPassword && (
-              <p className="text-body-sm text-destructive">
-                {errors.confirmPassword.message}
-              </p>
-            )}
-          </div>
-
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded-[47px] bg-primary text-primary-foreground h-12 w-full font-bold"
-          >
-            {isSubmitting ? "設定中..." : "パスワードを設定する"}
-          </Button>
-        </form>
-      </div>
-    </div>
+          {isSubmitting ? "設定中..." : "パスワードを設定する"}
+        </Button>
+      </form>
+    </EmailLandingCard>
   );
 }

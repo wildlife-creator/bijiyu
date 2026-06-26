@@ -8,6 +8,8 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { BackChevron } from "@/components/shared/back-chevron";
+import { EmailLandingCard } from "@/components/auth-landing/email-landing-card";
+import { LinkExpiredCard } from "@/components/auth/link-expired-card";
 import { SupportFooter } from "@/components/layout/support-footer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +21,7 @@ import type { ActionResult } from "@/lib/types/action-result";
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const errorFromParams = searchParams.get("error");
+  const expiredFromParams = searchParams.get("expired");
 
   const {
     register,
@@ -48,6 +51,16 @@ export default function LoginPage() {
 
   const displayError =
     errorFromParams ?? (state && !state.success ? state.error : null);
+
+  // §5.8 PW リセットリンク期限切れ(/auth/callback からの redirect)時は
+  // 通常のログインフォームを隠して LinkExpiredCard だけ出す。
+  if (expiredFromParams === "password_reset") {
+    return (
+      <EmailLandingCard>
+        <LinkExpiredCard actionText="お手数ですが、もう一度パスワード再設定をお申し込みください。" />
+      </EmailLandingCard>
+    );
+  }
 
   return (
     <div className="space-y-6">
