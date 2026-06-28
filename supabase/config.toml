@@ -237,6 +237,13 @@ otp_expiry = 86400
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# §5.8 パスワード再設定（recovery）日本語カスタムテンプレ。
+# 本番 Supabase ダッシュボードの Email Templates → Reset Password にも
+# 同 HTML / 件名を反映する必要あり（supabase/config.toml はローカル開発専用）。
+[auth.email.template.recovery]
+subject = "【ビジ友】パスワード再設定のご案内"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true
