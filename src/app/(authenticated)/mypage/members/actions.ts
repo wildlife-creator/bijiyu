@@ -24,6 +24,10 @@ import { memberRoleChangedEmail } from "@/lib/email/templates/member-role-change
 import { memberRoleChangedControlEmail } from "@/lib/email/templates/member-role-changed-control";
 import { proxyAssignedEmail } from "@/lib/email/templates/proxy-assigned";
 import { proxyAssignedControlEmail } from "@/lib/email/templates/proxy-assigned-control";
+import { proxyRemovedEmail } from "@/lib/email/templates/proxy-removed";
+import { proxyRemovedControlEmail } from "@/lib/email/templates/proxy-removed-control";
+import { staffRemovedEmail } from "@/lib/email/templates/staff-removed";
+import { staffRemovedControlEmail } from "@/lib/email/templates/staff-removed-control";
 import { getOrganizationManagementRecipients } from "@/lib/email/recipients/organization-managers";
 import { resolveExistingProxyReuse } from "@/lib/organization/resolve-existing-proxy-reuse";
 import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
@@ -548,6 +552,117 @@ async function sendMemberInvitedControl(params: {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: §5.7 / §5.7.5 削除通知 (本人 + 組織管理層 broadcast)
+//
+// deleteMemberAction 成功後に呼ばれる共通 bundle:
+//   - isProxy=true:  §5.7.A (残存有無で末尾分岐) + §5.7.B
+//   - isProxy=false: §5.7.5.A + §5.7.5.B
+//
+// 失敗は console.error のみで握り潰す (DB 削除は完了済み、Server Action 自体は成功)。
+// ---------------------------------------------------------------------------
+async function sendMemberRemoved(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  organizationId: string;
+  actorUserId: string;
+  targetUserId: string;
+  /** 削除実行前に取得した本人 email (applyDeletedSuffix 後は使えない) */
+  targetEmail: string;
+  /** 削除実行前に取得した本人姓名 */
+  targetName: string;
+  orgOwnerId: string;
+  isProxy: boolean;
+  /** §5.7.A 末尾分岐: true = 他組織で代理続行 / false = 全組織解除 (= globally_deleted=true) */
+  hasRemainingMembership: boolean;
+}): Promise<void> {
+  const {
+    admin,
+    organizationId,
+    actorUserId,
+    targetUserId,
+    targetEmail,
+    targetName,
+    orgOwnerId,
+    isProxy,
+    hasRemainingMembership,
+  } = params;
+
+  try {
+    const [ownerProfileRes, actorRes, recipients] = await Promise.all([
+      admin
+        .from("client_profiles")
+        .select("display_name")
+        .eq("user_id", orgOwnerId)
+        .maybeSingle(),
+      admin
+        .from("users")
+        .select("last_name, first_name")
+        .eq("id", actorUserId)
+        .maybeSingle(),
+      getOrganizationManagementRecipients(admin, organizationId, [targetUserId]),
+    ]);
+
+    const organizationName =
+      ownerProfileRes.data?.display_name?.trim() || "ビジ友組織";
+    const actorName =
+      `${actorRes.data?.last_name ?? ""}${actorRes.data?.first_name ?? ""}`.trim() ||
+      "管理者";
+    const removedAt = formatJapaneseDateTime(new Date());
+
+    const tasks: Promise<unknown>[] = [];
+
+    // 本人宛 (§5.7.A or §5.7.5.A)
+    if (targetEmail) {
+      if (isProxy) {
+        const { subject, html } = proxyRemovedEmail({
+          recipientName: targetName,
+          organizationName,
+          actorName,
+          removedAt,
+          hasRemainingMembership,
+        });
+        tasks.push(sendEmail({ to: targetEmail, subject, html }));
+      } else {
+        const { subject, html } = staffRemovedEmail({
+          recipientName: targetName,
+          organizationName,
+          actorName,
+          removedAt,
+        });
+        tasks.push(sendEmail({ to: targetEmail, subject, html }));
+      }
+    }
+
+    // 組織管理層 broadcast (§5.7.B or §5.7.5.B)
+    for (const r of recipients) {
+      if (isProxy) {
+        const { subject, html } = proxyRemovedControlEmail({
+          recipientName: r.displayName,
+          targetName,
+          actorName,
+          removedAt,
+        });
+        tasks.push(sendEmail({ to: r.email, subject, html }));
+      } else {
+        const { subject, html } = staffRemovedControlEmail({
+          recipientName: r.displayName,
+          targetName,
+          actorName,
+          removedAt,
+        });
+        tasks.push(sendEmail({ to: r.email, subject, html }));
+      }
+    }
+
+    await Promise.all(tasks);
+  } catch (err) {
+    console.error(
+      "[deleteMemberAction] §5.7 / §5.7.5 member-removed broadcast failed",
+      err,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helper: §5.6.A + §5.6.B 権限変更通知 (本人 + 組織管理層 broadcast)
 // updateMemberAction で org_role が変わった瞬間に呼ばれる。
 // 本人宛 1 通 + 組織管理層 (本人除外) に 1 通ずつ Promise.all で並行送信。
@@ -988,7 +1103,7 @@ export async function deleteMemberAction(
 
   const { data: target } = await admin
     .from("organization_members")
-    .select("org_role")
+    .select("org_role, is_proxy_account")
     .eq("user_id", targetUserId)
     .eq("organization_id", actor.organizationId)
     .maybeSingle();
@@ -1002,6 +1117,14 @@ export async function deleteMemberAction(
   if (actor.orgRole === "admin" && target.org_role === "admin") {
     return { success: false, error: "管理者の削除は管理責任者のみ可能です" };
   }
+
+  // §5.7 / §5.7.5: 削除実行前に対象本人の email + 氏名を取得しておく。
+  // applyDeletedSuffix が auth.users.email を印付け書き換えするため、削除前に保持する。
+  const { data: targetUserRow } = await admin
+    .from("users")
+    .select("email, last_name, first_name")
+    .eq("id", targetUserId)
+    .maybeSingle();
 
   const { data, error } = await admin.rpc("delete_staff_member", {
     p_target_user_id: targetUserId,
@@ -1033,6 +1156,24 @@ export async function deleteMemberAction(
   await logAudit(admin, actor.userId, "member_deleted", {
     target_user_id: targetUserId,
     organization_id: actor.organizationId,
+  });
+
+  // §5.7 / §5.7.5 削除通知 (本人 + 組織管理層)
+  //   - target.is_proxy_account=true: §5.7.A (残存有無で末尾分岐) + §5.7.B 送信
+  //   - target.is_proxy_account=false: §5.7.5.A + §5.7.5.B 送信
+  //   - 残存有無は delete_staff_member の globally_deleted で判定
+  await sendMemberRemoved({
+    admin,
+    organizationId: actor.organizationId,
+    actorUserId: actor.userId,
+    targetUserId,
+    targetEmail: targetUserRow?.email ?? "",
+    targetName:
+      `${targetUserRow?.last_name ?? ""}${targetUserRow?.first_name ?? ""}`.trim() ||
+      "ご担当者",
+    orgOwnerId: actor.orgOwnerId,
+    isProxy: target.is_proxy_account === true,
+    hasRemainingMembership: result?.globally_deleted !== true,
   });
 
   revalidatePath("/mypage/members");

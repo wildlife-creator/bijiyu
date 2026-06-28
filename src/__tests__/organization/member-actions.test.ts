@@ -1430,14 +1430,32 @@ describe("deleteMemberAction", () => {
   it("正常系: RPC 呼び出し + audit_log", async () => {
     mockAuth(OWNER_ID);
     mockActorContext(OWNER_ID, "owner");
+    // target SELECT (organization_members)
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
-        maybeSingle: { data: { org_role: "staff" }, error: null },
+        maybeSingle: {
+          data: { org_role: "staff", is_proxy_account: false },
+          error: null,
+        },
       }),
+    );
+    // §5.7.5 用 targetUserRow SELECT (users)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
     );
     mockAdminRpc.mockResolvedValue({ data: null, error: null });
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // §5.7.5 sendMemberRemoved: 3 並列クエリ (client_profiles, actor users, organization_members 空)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
     );
 
     const r = await deleteMemberAction(STAFF_ID);
@@ -1457,8 +1475,15 @@ describe("deleteMemberAction", () => {
     mockActorContext(OWNER_ID, "owner");
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
-        maybeSingle: { data: { org_role: "staff" }, error: null },
+        maybeSingle: {
+          data: { org_role: "staff", is_proxy_account: false },
+          error: null,
+        },
       }),
+    );
+    // §5.7.5 用 targetUserRow SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
     );
     mockAdminRpc.mockResolvedValue({
       data: { user_id: STAFF_ID, globally_deleted: true },
@@ -1482,6 +1507,16 @@ describe("deleteMemberAction", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
+    // §5.7.5 sendMemberRemoved: 3 並列クエリ
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
 
     const r = await deleteMemberAction(STAFF_ID);
     expect(r.success).toBe(true);
@@ -1504,8 +1539,14 @@ describe("deleteMemberAction", () => {
     mockActorContext(OWNER_ID, "owner");
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
-        maybeSingle: { data: { org_role: "staff" }, error: null },
+        maybeSingle: {
+          data: { org_role: "staff", is_proxy_account: false },
+          error: null,
+        },
       }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
     );
     mockAdminRpc.mockResolvedValue({
       data: { user_id: STAFF_ID, globally_deleted: false },
@@ -1514,6 +1555,16 @@ describe("deleteMemberAction", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
+    // §5.7.5 sendMemberRemoved short-circuit
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
 
     const r = await deleteMemberAction(STAFF_ID);
     expect(r.success).toBe(true);
@@ -1521,13 +1572,286 @@ describe("deleteMemberAction", () => {
     expect(mockAdminUpdateUserById).not.toHaveBeenCalled();
   });
 
+  it("§5.7 (代理削除): is_proxy_account=true 削除時に §5.7.A 本人(残存あり) + §5.7.B 組織管理層に送信", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // target SELECT: is_proxy_account=true
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { org_role: "staff", is_proxy_account: true },
+          error: null,
+        },
+      }),
+    );
+    // targetUserRow SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            email: "proxy@bijiyu.local",
+            last_name: "ビジ友",
+            first_name: "代理",
+          },
+          error: null,
+        },
+      }),
+    );
+    // RPC: globally_deleted=false → 残存あり
+    mockAdminRpc.mockResolvedValue({
+      data: { user_id: STAFF_ID, globally_deleted: false },
+      error: null,
+    });
+    // logAudit member_deleted
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // §5.7 sendMemberRemoved 3 並列クエリ
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "○○建設" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "発注", first_name: "者一郎" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: { data: [{ user_id: OWNER_ID }], error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [
+            {
+              id: OWNER_ID,
+              email: "owner@test.local",
+              last_name: "発注",
+              first_name: "者一郎",
+            },
+          ],
+          error: null,
+        },
+      }),
+    );
+
+    const r = await deleteMemberAction(STAFF_ID);
+    expect(r.success).toBe(true);
+
+    // §5.7.A 本人 + §5.7.B Owner = 計 2 通
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+    const sentTos = sendEmailMock.mock.calls.map(
+      (c) => (c[0] as { to: string }).to,
+    );
+    expect(sentTos).toContain("proxy@bijiyu.local");
+    expect(sentTos).toContain("owner@test.local");
+
+    // §5.7.A 本人宛: 残存あり末尾分岐 + 「【ビジ友 運営】」プレフィックス
+    const selfMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "proxy@bijiyu.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(selfMail?.subject).toBe(
+      "【ビジ友 運営】「○○建設」の代理アカウント設定が解除されました",
+    );
+    expect(selfMail?.html).toContain("他の法人組織での代理業務は引き続き継続します");
+    expect(selfMail?.html).not.toContain("すべての法人組織での代理アカウント設定が解除");
+
+    // §5.7.B 法人側: 「(ビジ友運営スタッフ)」サフィックス + 「一部」を削除した断言
+    const controlMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "owner@test.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(controlMail?.subject).toBe(
+      "【ビジ友】ビジ友代理さんの代理アカウント設定を解除しました",
+    );
+    expect(controlMail?.html).toContain("(ビジ友運営スタッフ)");
+    expect(controlMail?.html).toContain("代行することはなくなります");
+  });
+
+  it("§5.7 (代理削除、globally_deleted=true): §5.7.A 残存なし末尾分岐に切り替わる", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { org_role: "staff", is_proxy_account: true },
+          error: null,
+        },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            email: "proxy@bijiyu.local",
+            last_name: "ビジ友",
+            first_name: "代理",
+          },
+          error: null,
+        },
+      }),
+    );
+    mockAdminRpc.mockResolvedValue({
+      data: { user_id: STAFF_ID, globally_deleted: true },
+      error: null,
+    });
+    mockAdminGetUserById.mockResolvedValueOnce({
+      data: { user: { id: STAFF_ID, email: "proxy@bijiyu.local" } },
+      error: null,
+    });
+    mockAdminUpdateUserById.mockResolvedValueOnce({
+      data: { user: { id: STAFF_ID } },
+      error: null,
+    });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // §5.7 sendMemberRemoved short-circuit (0 receivers, but target self mail still sent)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "○○建設" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "発", first_name: "注" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
+
+    const r = await deleteMemberAction(STAFF_ID);
+    expect(r.success).toBe(true);
+
+    // §5.7.A 本人 1 通のみ (0 受信者なので §5.7.B なし)
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const selfMail = sendEmailMock.mock.calls[0]?.[0] as
+      | { html: string }
+      | undefined;
+    // 残存なし末尾分岐
+    expect(selfMail?.html).toContain("すべての法人組織での代理アカウント設定が解除");
+    expect(selfMail?.html).not.toContain("他の法人組織での代理業務は引き続き");
+  });
+
+  it("§5.7.5 (通常 staff 削除): is_proxy_account=false 削除時に §5.7.5.A + §5.7.5.B 送信", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { org_role: "staff", is_proxy_account: false },
+          error: null,
+        },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            email: "staff@test.local",
+            last_name: "田",
+            first_name: "中",
+          },
+          error: null,
+        },
+      }),
+    );
+    mockAdminRpc.mockResolvedValue({
+      data: { user_id: STAFF_ID, globally_deleted: true },
+      error: null,
+    });
+    mockAdminGetUserById.mockResolvedValueOnce({
+      data: { user: { id: STAFF_ID, email: "staff@test.local" } },
+      error: null,
+    });
+    mockAdminUpdateUserById.mockResolvedValueOnce({
+      data: { user: { id: STAFF_ID } },
+      error: null,
+    });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // §5.7.5 sendMemberRemoved
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "○○建設" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "発", first_name: "注" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: { data: [{ user_id: OWNER_ID }], error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [
+            {
+              id: OWNER_ID,
+              email: "owner@test.local",
+              last_name: "発",
+              first_name: "注",
+            },
+          ],
+          error: null,
+        },
+      }),
+    );
+
+    const r = await deleteMemberAction(STAFF_ID);
+    expect(r.success).toBe(true);
+
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+    const sentTos = sendEmailMock.mock.calls.map(
+      (c) => (c[0] as { to: string }).to,
+    );
+    expect(sentTos).toContain("staff@test.local");
+    expect(sentTos).toContain("owner@test.local");
+
+    // §5.7.5.A 本人宛
+    const selfMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "staff@test.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(selfMail?.subject).toBe(
+      "【ビジ友】「○○建設」の組織から削除されました",
+    );
+    expect(selfMail?.html).toContain("これに伴い、ビジ友のご利用は終了いたしました");
+
+    // §5.7.5.B 法人側: 「(ビジ友運営スタッフ)」サフィックス無し
+    const controlMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "owner@test.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(controlMail?.subject).toBe("【ビジ友】田中さんを担当者から削除しました");
+    expect(controlMail?.html).not.toContain("(ビジ友運営スタッフ)");
+  });
+
   it("Task 7: applyDeletedSuffix が予期せず throw しても削除は成功扱い", async () => {
     mockAuth(OWNER_ID);
     mockActorContext(OWNER_ID, "owner");
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
-        maybeSingle: { data: { org_role: "staff" }, error: null },
+        maybeSingle: {
+          data: { org_role: "staff", is_proxy_account: false },
+          error: null,
+        },
       }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
     );
     mockAdminRpc.mockResolvedValue({
       data: { user_id: STAFF_ID, globally_deleted: true },
@@ -1541,6 +1865,16 @@ describe("deleteMemberAction", () => {
     );
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // §5.7.5 sendMemberRemoved short-circuit
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
     );
 
     const r = await deleteMemberAction(STAFF_ID);
