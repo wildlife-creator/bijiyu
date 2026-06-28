@@ -57,6 +57,12 @@ function adminFrom(table: string) {
             data: adminState.viewerMembership,
             error: null,
           }),
+          // §7.3.A broadcast: getOrganizationMemberRecipients が
+          // `.select('user_id').eq('organization_id', ...)` を array thenable として await する。
+          // 既存テストはここで org members を simulate しないので空配列で OK。
+          then: (
+            resolve: (v: { data: { user_id: string }[]; error: null }) => unknown,
+          ) => resolve({ data: [], error: null }),
         }),
       }),
     };
@@ -81,7 +87,21 @@ function adminFrom(table: string) {
     return {
       select: () => ({
         eq: () => ({
-          maybeSingle: async () => ({ data: adminState.targetUser, error: null }),
+          maybeSingle: async () => ({
+            data: adminState.targetUser,
+            error: null,
+          }),
+          // §7.3.A broadcast: getJobClientRecipients (個人プラン分岐) が
+          // `.single()` で deleted_at / is_active 付きの user を引く
+          single: async () => {
+            if (!adminState.targetUser) {
+              return { data: null, error: { message: "not found" } };
+            }
+            return {
+              data: { ...adminState.targetUser, is_active: true },
+              error: null,
+            };
+          },
         }),
       }),
     };
@@ -192,15 +212,21 @@ beforeEach(() => {
 });
 
 describe("submitJobInquiryAction", () => {
-  it("正常系: INSERT し、宛先へメールを fire-and-forget で送る", async () => {
+  it("正常系: INSERT し、宛先 broadcast (§7.3.A) + 送信者控え (§7.3.B) を fire-and-forget で送る", async () => {
     const result = await submitJobInquiryAction("target-1", validForm());
     expect(result.success).toBe(true);
     expect(adminState.inserts).toHaveLength(1);
     expect(adminState.inserts[0].sender_id).toBe("viewer-1");
     expect(adminState.inserts[0].target_client_id).toBe("target-1");
     expect(adminState.inserts[0].topics).toEqual(["求人について話を聞きたい"]);
-    expect(sendEmailMock).toHaveBeenCalledTimes(1);
-    expect(sendEmailMock.mock.calls[0][0].to).toBe("client@example.com");
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+    const recipients = sendEmailMock.mock.calls.map(
+      (c) => (c[0] as { to: string }).to,
+    );
+    // §7.3.A 宛先発注者組織への通知（個人プラン target → owner 1 名）
+    expect(recipients).toContain("client@example.com");
+    // §7.3.B 送信者本人控え（フォーム入力 email）
+    expect(recipients).toContain("yamada@example.com");
   });
 
   it("法人発注者宛は target_organization_id を denormalize 保存する", async () => {

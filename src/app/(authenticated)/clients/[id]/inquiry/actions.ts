@@ -7,10 +7,13 @@ import {
   resolveTargetOrganizationId,
   resolveViewerOrganizationId,
 } from "@/lib/job-inquiry/resolve-context";
+import { getJobClientRecipients } from "@/lib/email/recipients/organization-members";
 import { jobInquiryNotificationEmail } from "@/lib/email/templates/job-inquiry-notification";
+import { jobInquiryReceiptEmail } from "@/lib/email/templates/job-inquiry-receipt";
 import { sendEmail } from "@/lib/email/send-email";
 import { jobInquirySchema } from "@/lib/validations/job-inquiry";
 import { resolveParticipantName } from "@/lib/utils/display-name";
+import { formatDateTime } from "@/lib/utils/format-date";
 import type { ActionResult } from "@/lib/types/action-result";
 
 const MAX_SUBMISSIONS_PER_HOUR = 5;
@@ -116,7 +119,8 @@ export async function submitJobInquiryAction(
     return { success: false, error: GENERIC_ERROR };
   }
 
-  // 8. 宛先発注者へ通知メールを fire-and-forget で送信（失敗してもロールバックしない）
+  // 8. 宛先発注者組織への通知メール（§7.3.A、M-03 broadcast）と
+  //    送信者本人への控えメール（§7.3.B）を fire-and-forget で並列送信
   const { data: targetProfile } = await admin
     .from("client_profiles")
     .select("display_name")
@@ -129,7 +133,13 @@ export async function submitJobInquiryAction(
     deletedAt: targetUser.deleted_at,
   });
 
-  if (targetUser.email) {
+  // §7.3.A: M-03 broadcast。法人プランは Owner + admin + staff 全員、個人プランは Owner 1 通
+  //         (job.owner_id, organization_id) ペアと同形の引数で getJobClientRecipients を流用
+  try {
+    const recipients = await getJobClientRecipients(admin, {
+      owner_id: targetUser.id,
+      organization_id: targetOrgId,
+    });
     const { subject, html } = jobInquiryNotificationEmail({
       recipientName,
       senderName: input.name,
@@ -137,10 +147,37 @@ export async function submitJobInquiryAction(
       topics: input.topics,
       content: input.content,
     });
-    void sendEmail({ to: targetUser.email, subject, html }).catch((err) => {
-      console.error("[submitJobInquiryAction] email send failed:", err);
-    });
+    for (const recipient of recipients) {
+      void sendEmail({ to: recipient.email, subject, html }).catch((err) => {
+        console.error(
+          "[submitJobInquiryAction] notification email failed:",
+          err,
+        );
+      });
+    }
+  } catch (err) {
+    console.error(
+      "[submitJobInquiryAction] broadcast recipient resolve failed:",
+      err,
+    );
   }
+
+  // §7.3.B: 送信者本人への控え
+  const sentAt = formatDateTime(new Date().toISOString());
+  const receipt = jobInquiryReceiptEmail({
+    senderName: input.name,
+    targetDisplayName: recipientName,
+    topics: input.topics.join("、"),
+    content: input.content,
+    sentAt,
+  });
+  void sendEmail({
+    to: input.email,
+    subject: receipt.subject,
+    html: receipt.html,
+  }).catch((err) => {
+    console.error("[submitJobInquiryAction] receipt email failed:", err);
+  });
 
   return { success: true };
 }

@@ -1,11 +1,18 @@
 "use server";
 
+import { headers } from "next/headers";
+
+import { contactOpsNotificationEmail } from "@/lib/email/templates/contact-ops-notification";
+import { contactReceiptEmail } from "@/lib/email/templates/contact-receipt";
+import { sendEmail } from "@/lib/email/send-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   removeSupportAttachments,
   uploadSupportAttachments,
 } from "@/lib/support/attachments";
+import { resolveParticipantName } from "@/lib/utils/display-name";
+import { formatDateTime } from "@/lib/utils/format-date";
 import { contactSchema } from "@/lib/validations/contact";
 import type { ActionResult } from "@/lib/types/action-result";
 
@@ -118,6 +125,77 @@ export async function submitContactAction(
       console.error("contact attachment update failed:", updateError.message);
       return { success: false, error: GENERIC_ERROR };
     }
+  }
+
+  // 8. §7.1.A 送信者控え + §7.1.B 運営通知を fire-and-forget で並列送信
+  //    失敗してもレコードはロールバックしない（メール失敗 ≠ 受付失敗）。
+  //    日時は INSERT 直後にサーバー側で stamp（DB の created_at は本文表示で再 SELECT しない）。
+  const receivedAt = formatDateTime(new Date().toISOString());
+
+  // §7.1.A 送信者控え
+  const receipt = contactReceiptEmail({
+    name: input.name,
+    inquiryType: input.inquiryType,
+    detail: input.detail,
+    receivedAt,
+  });
+  void sendEmail({ to: input.email, subject: receipt.subject, html: receipt.html }).catch(
+    (err) => {
+      console.error("[submitContactAction] receipt email failed:", err);
+    },
+  );
+
+  // §7.1.B 運営通知（ログイン中なら memberDisplayName を解決）
+  const opsEmail = process.env.OPS_NOTIFICATION_EMAIL;
+  if (opsEmail) {
+    let loginStatus:
+      | { kind: "logged_in"; memberDisplayName: string }
+      | { kind: "anonymous" } = { kind: "anonymous" };
+    if (userId) {
+      const [userRes, profileRes] = await Promise.all([
+        admin
+          .from("users")
+          .select("last_name, first_name, deleted_at")
+          .eq("id", userId)
+          .maybeSingle(),
+        admin
+          .from("client_profiles")
+          .select("display_name")
+          .eq("user_id", userId)
+          .maybeSingle(),
+      ]);
+      const memberDisplayName = resolveParticipantName({
+        displayName: profileRes.data?.display_name ?? null,
+        lastName: userRes.data?.last_name ?? null,
+        firstName: userRes.data?.first_name ?? null,
+        deletedAt: userRes.data?.deleted_at ?? null,
+      });
+      loginStatus = { kind: "logged_in", memberDisplayName };
+    }
+
+    const hdrs = await headers();
+    const host = hdrs.get("host");
+    const proto = hdrs.get("x-forwarded-proto") ?? "http";
+    const siteUrl = host
+      ? `${proto}://${host}`
+      : (process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000");
+
+    const ops = contactOpsNotificationEmail({
+      companyName: input.companyName,
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      inquiryType: input.inquiryType,
+      receivedAt,
+      loginStatus,
+      siteUrl,
+      contactId: inserted.id,
+    });
+    void sendEmail({ to: opsEmail, subject: ops.subject, html: ops.html }).catch(
+      (err) => {
+        console.error("[submitContactAction] ops email failed:", err);
+      },
+    );
   }
 
   return { success: true };
