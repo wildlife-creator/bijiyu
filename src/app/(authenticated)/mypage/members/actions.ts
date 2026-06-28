@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -657,9 +658,18 @@ export async function updateMemberAction(
   if (parsed.data.email) {
     if (isSelfEdit) {
       // パターン A: 本人のセッションで auth.updateUser
-      const { error: emailError } = await supabase.auth.updateUser({
-        email: parsed.data.email,
-      });
+      // §5.5.D ランディング画面へ遷移させるため emailRedirectTo を host header から組む
+      // (CLAUDE.md「Server Action から emailRedirectTo を組む時は host header を使う」)。
+      const hdrs = await headers();
+      const host = hdrs.get("host");
+      const proto = hdrs.get("x-forwarded-proto") ?? "http";
+      const siteUrl = host
+        ? `${proto}://${host}`
+        : SERVICE_URL;
+      const { error: emailError } = await supabase.auth.updateUser(
+        { email: parsed.data.email },
+        { emailRedirectTo: `${siteUrl}/email-change-confirmed` },
+      );
       if (emailError) {
         return { success: false, error: "メールアドレスの変更に失敗しました" };
       }

@@ -1,5 +1,7 @@
 "use server";
 
+import { headers } from "next/headers";
+
 import { createClient } from "@/lib/supabase/server";
 import {
   profileEditSchema,
@@ -230,9 +232,19 @@ export async function updateProfileAction(
 
     // Update email if provided and different from current
     if (data.email && data.email !== user.email) {
-      const { error: emailError } = await supabase.auth.updateUser({
-        email: data.email,
-      });
+      // §5.5.D ランディング画面へ遷移させるため emailRedirectTo を渡す。
+      // host header から組むことで localhost / 127.0.0.1 の cookie ドメインずれを回避
+      // (CLAUDE.md「Server Action から emailRedirectTo を組む時は host header を使う」)。
+      const hdrs = await headers();
+      const host = hdrs.get("host");
+      const proto = hdrs.get("x-forwarded-proto") ?? "http";
+      const siteUrl = host
+        ? `${proto}://${host}`
+        : (process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000");
+      const { error: emailError } = await supabase.auth.updateUser(
+        { email: data.email },
+        { emailRedirectTo: `${siteUrl}/email-change-confirmed` },
+      );
 
       if (emailError) {
         return {

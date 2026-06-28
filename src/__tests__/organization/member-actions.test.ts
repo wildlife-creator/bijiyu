@@ -47,6 +47,14 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock("next/headers", () => ({
+  headers: async () =>
+    new Map([
+      ["host", "127.0.0.1:3000"],
+      ["x-forwarded-proto", "http"],
+    ]),
+}));
+
 // vi.mock は hoist されるため、テスト内から参照したい mock 関数は
 // vi.hoisted で巻き上げて factory に渡す必要がある。
 const { sendEmailMock } = vi.hoisted(() => ({
@@ -1054,9 +1062,14 @@ describe("updateMemberAction", () => {
 
     const r = await updateMemberAction(STAFF_ID, { email: "self-new@test.local" });
     expect(r.success).toBe(true);
-    expect(mockAuthUpdateUser).toHaveBeenCalledWith({
-      email: "self-new@test.local",
-    });
+    // §5.5.D: emailRedirectTo を渡してランディングへ誘導
+    expect(mockAuthUpdateUser).toHaveBeenCalledWith(
+      { email: "self-new@test.local" },
+      {
+        emailRedirectTo:
+          "http://127.0.0.1:3000/email-change-confirmed",
+      },
+    );
     expect(mockAdminUpdateUserById).not.toHaveBeenCalled();
   });
 });

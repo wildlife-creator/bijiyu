@@ -243,6 +243,21 @@ otp_expiry = 86400
 subject = "{{ if .Data.is_proxy_account }}【ビジ友 運営】「{{ .Data.invited_org_name }}」の代理アカウントとしてご招待{{ else }}【ビジ友】ビジ友へのご招待{{ end }}"
 content_path = "./supabase/templates/invite.html"
 
+# §5.5.A / §5.5.B セルフメール変更確認テンプレ（パターン Y = 2 ファイル分離）。
+# double_confirm_changes = true 下で旧 + 新 両方に確認メールが飛ぶ。
+# Supabase CLI バージョンによってキー名が異なる可能性あり (`email_change` 単一
+# テンプレで両方カバーするバージョンもある)。Inbucket で「両方とも日本語」を
+# 確認する。片方が英語デフォルトに戻る場合はパターン X (単一テンプレ + Go template
+# `{{ if eq .Email .NewEmail }}` 分岐) にフォールバック設計する (spec §5.5
+# 「実装着手前の検証手順」参照)。
+[auth.email.template.email_change]
+subject = "【ビジ友】メールアドレス変更のご確認(新しいアドレス)"
+content_path = "./supabase/templates/email-change-new.html"
+
+[auth.email.template.email_change_current]
+subject = "【ビジ友】メールアドレス変更のご確認(現在のアドレス)"
+content_path = "./supabase/templates/email-change-current.html"
+
 # §5.8 パスワード再設定（recovery）日本語カスタムテンプレ。
 # 本番 Supabase ダッシュボードの Email Templates → Reset Password にも
 # 同 HTML / 件名を反映する必要あり（supabase/config.toml はローカル開発専用）。

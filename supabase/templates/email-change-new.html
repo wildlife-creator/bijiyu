@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メールアドレス変更のご確認</title>
+<style>
+@media only screen and (max-width: 600px) {
+  .outer-cell { padding: 16px 8px !important; }
+  .container { width: 100% !important; }
+  .header-cell { padding: 24px 16px 18px !important; }
+  .body-cell { padding: 28px 20px !important; }
+  .url-cell { padding: 10px 12px !important; }
+  .footer-cell { padding: 18px 16px !important; }
+  .body-text { font-size: 14px !important; }
+}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f5f3f7;font-family:'Zen Kaku Gothic New','ヒラギノ角ゴ ProN','Hiragino Kaku Gothic ProN',sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td class="outer-cell" align="center" style="padding:32px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="container" style="max-width:600px;background:#ffffff;border-radius:14px;box-shadow:0 6px 16px rgba(85,30,99,0.08);overflow:hidden;">
+<tr><td align="center" class="header-cell" style="padding:32px 24px 24px;background:#ffffff;border-bottom:3px solid #920783;">
+<img src="http://127.0.0.1:3000/images/logo-horizontal.png" alt="ビジ友" width="150" style="display:block;height:auto;border:0;">
+</td></tr>
+<tr><td class="body-cell" style="padding:40px 36px;">
+<p class="body-text" style="margin:0 0 8px;font-size:15px;color:#2a2a2a;line-height:1.8;">ビジ友 アカウントのメールアドレス変更が行われています。</p>
+<p class="body-text" style="margin:0 0 20px;font-size:15px;color:#2a2a2a;line-height:1.8;">このアドレスを新しいログイン用アドレスとして登録するため、ご本人確認をお願いします。</p>
+<p class="body-text" style="margin:0 0 8px;font-size:15px;color:#2a2a2a;line-height:1.8;">【現在のメールアドレス】 {{ .Email }}</p>
+<p class="body-text" style="margin:0 0 20px;font-size:15px;color:#2a2a2a;line-height:1.8;">【新しいメールアドレス】 {{ .NewEmail }}</p>
+<p class="body-text" style="margin:0 0 8px;font-size:15px;color:#2a2a2a;line-height:1.8;">下記のリンクから、変更を確定してください。</p>
+<p class="body-text" style="margin:0 0 20px;font-size:15px;color:#2a2a2a;line-height:1.8;">このリンクは 24 時間有効です。</p>
+<p style="text-align:center;margin:28px 0;"><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:11px 26px;background:#920783;color:#ffffff;text-decoration:none;border-radius:47px;font-weight:bold;font-size:14px;">変更を確定する</a></p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#faf7fb;border-radius:8px;margin:0 0 28px;"><tr><td class="url-cell" style="padding:12px 16px;"><p style="margin:0 0 6px;font-size:11px;color:#999;line-height:1.6;">ボタンが押せない場合は、下記の URL をブラウザに貼り付けてください</p><p style="margin:0;font-size:12px;color:#666;word-break:break-all;line-height:1.6;">{{ .ConfirmationURL }}</p></td></tr></table>
+<p class="body-text" style="margin:0 0 8px;font-size:15px;color:#2a2a2a;line-height:1.8;">※ 現在のメールアドレス宛にも、同じ確認メールが届いています。</p>
+<p class="body-text" style="margin:0 0 8px;font-size:15px;color:#2a2a2a;line-height:1.8;">変更の完了には、両方のメールのリンクをクリックする必要があります。</p>
+<p class="body-text" style="margin:0 0 20px;font-size:15px;color:#2a2a2a;line-height:1.8;">リンククリック後は、確認完了画面が表示されます。</p>
+<p class="body-text" style="margin:0 0 20px;font-size:15px;color:#2a2a2a;line-height:1.8;">リンクの有効期限が切れた場合は、お手数ですが再度メールアドレス変更をお申し込みください。</p>
+<p class="body-text" style="margin:0 0 8px;font-size:15px;color:#2a2a2a;line-height:1.8;">ご本人による操作でない場合は、このメールを破棄してください。</p>
+<p class="body-text" style="margin:0;font-size:15px;color:#2a2a2a;line-height:1.8;">リンクを開かなければ変更は完了しません。</p>
+</td></tr>
+<tr><td align="center" class="footer-cell" style="padding:24px;background:#ffffff;border-top:1px solid #ececec;">
+<p style="margin:0;font-size:12px;color:#999;line-height:1.6;">このメールは ビジ友 から自動送信されています</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
