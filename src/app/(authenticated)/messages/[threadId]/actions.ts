@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send-email";
 import { scoutDeclinedControlEmail } from "@/lib/email/templates/scout-declined-control";
 import { getJobClientRecipients } from "@/lib/email/recipients/organization-members";
+import { sendMessageNotification } from "@/lib/email/send/message-notification";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDateTime } from "@/lib/utils/format-date";
 // messageSchema is not used here; validation is done inline to avoid
@@ -166,6 +167,21 @@ export async function sendMessageAction(
       .from("message_threads")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", threadId);
+
+    // §2.1 メッセージ受信通知 (throttle 15 分 + M-03 broadcast)、fire-and-forget。
+    // メッセージ送信自体は完了済みなので、メール失敗は握り潰す。
+    void sendMessageNotification(createAdminClient(), {
+      threadId,
+      thread,
+      senderId: user.id,
+      messageBody: bodyText,
+      hasImage: Boolean(hasImage),
+    }).catch((err) => {
+      console.error(
+        "[sendMessageAction] §2.1 message notification failed:",
+        err,
+      );
+    });
 
     return { success: true, data: { messageId: message.id } };
   } catch {
