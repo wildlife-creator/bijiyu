@@ -1123,6 +1123,129 @@ describe("updateMemberAction", () => {
     expect(controlMail?.html).toContain("【操作者】 発注者一郎");
   });
 
+  // -------------------------------------------------------------------------
+  // §5.4 BUG 回帰防止 (commit b888b2e): 旧 = 新 email の no-op 保存で
+  // §5.4.A 本人宛 / §5.4.B 組織管理層宛の虚偽通知が飛ばないことを保証する。
+  //
+  // フォームの email は initialValues から常に populate されるため、氏名 / 権限だけを
+  // 変更する保存リクエストでも email フィールドが含まれる。
+  // `if (oldEmail !== parsed.data.email)` ガードが外れると「【旧 X@】【新 X@】」の
+  // 同一値メールが本人 + Owner / admin 全員に飛ぶ。
+  // -------------------------------------------------------------------------
+  it("§5.4 BUG 回帰防止: 旧 == 新 email の no-op 保存では updateUserById も通知メールも呼ばれない", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // 1. target SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            organization_id: ORG_ID,
+            org_role: "staff",
+            is_proxy_account: false,
+            user_id: STAFF_ID,
+          },
+          error: null,
+        },
+      }),
+    );
+    // 2. oldUser SELECT: フォーム表示で populate されるのと同じ email
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            email: "same@test.local",
+            last_name: "田",
+            first_name: "太",
+          },
+          error: null,
+        },
+      }),
+    );
+    // ガードで早期 return されるため audit_logs / organizations / client_profiles
+    // / §5.4.B broadcast 系のチェインは一切呼ばれない (= mock は登録しない)
+
+    const r = await updateMemberAction(STAFF_ID, { email: "same@test.local" });
+    expect(r.success).toBe(true);
+
+    // §5.4 ガード: admin.updateUserById は実行されない
+    expect(mockAdminUpdateUserById).not.toHaveBeenCalled();
+    // §5.4.A 本人宛 / §5.4.B 組織管理層宛のいずれも発火しない
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("§5.4 BUG 回帰防止 (positive control): 旧 != 新 email では updateUserById が呼ばれる", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // 1. target SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            organization_id: ORG_ID,
+            org_role: "staff",
+            is_proxy_account: false,
+            user_id: STAFF_ID,
+          },
+          error: null,
+        },
+      }),
+    );
+    // 2. oldUser SELECT: 旧 email
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            email: "old@test.local",
+            last_name: "田",
+            first_name: "太",
+          },
+          error: null,
+        },
+      }),
+    );
+    mockAdminUpdateUserById.mockResolvedValue({ error: null });
+    // 3. audit_logs insert
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // 4. organizations SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { id: ORG_ID, owner_user: { id: OWNER_ID } },
+          error: null,
+        },
+      }),
+    );
+    // 5. client_profiles SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト" }, error: null },
+      }),
+    );
+    // 6. §5.4.B broadcast: organization_members を空で early exit
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
+
+    const r = await updateMemberAction(STAFF_ID, { email: "new@test.local" });
+    expect(r.success).toBe(true);
+
+    // ガードは「旧 != 新」を抜けるので updateUserById は呼ばれる
+    expect(mockAdminUpdateUserById).toHaveBeenCalledWith(STAFF_ID, {
+      email: "new@test.local",
+      email_confirm: true,
+    });
+    // §5.4.A 本人宛 (旧 + 新 = 2 通)。§5.4.B は organization_members 0 件で送らない。
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+    const tos = sendEmailMock.mock.calls.map(
+      (c) => (c[0] as { to: string }).to,
+    );
+    expect(tos).toContain("old@test.local");
+    expect(tos).toContain("new@test.local");
+  });
+
   it("§5.6.A/B: org_role 変更成功時に本人 + 組織管理層 (本人除外) にメールが飛ぶ", async () => {
     mockAuth(OWNER_ID);
     mockActorContext(OWNER_ID, "owner");

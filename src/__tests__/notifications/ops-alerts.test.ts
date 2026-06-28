@@ -52,15 +52,24 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("sendOrphanAuthUserAlert — §9.1", () => {
-  it("OPS_NOTIFICATION_EMAIL が未設定なら sendEmail を呼ばずに skip", async () => {
+  it("OPS_NOTIFICATION_EMAIL が未設定なら sendEmail を呼ばずに skip + console.warn で運用に検知させる", async () => {
     delete process.env.OPS_NOTIFICATION_EMAIL;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    await sendOrphanAuthUserAlert(makeAdmin({}), {
-      invitedEmail: "new@example.com",
-      organizationId: ORG_ID,
-    });
+    try {
+      await sendOrphanAuthUserAlert(makeAdmin({}), {
+        invitedEmail: "new@example.com",
+        organizationId: ORG_ID,
+      });
 
-    expect(sendEmailMock).not.toHaveBeenCalled();
+      expect(sendEmailMock).not.toHaveBeenCalled();
+      // 「設定漏れに気付けないバグ」を防ぐため必ず warn が出ること
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const warnMsg = warnSpy.mock.calls[0]?.[0];
+      expect(String(warnMsg)).toContain("OPS_NOTIFICATION_EMAIL not set");
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("OPS_NOTIFICATION_EMAIL 設定時: 組織名解決成功 → 件名 + 本文に組織名を含めて送信", async () => {
@@ -91,7 +100,7 @@ describe("sendOrphanAuthUserAlert — §9.1", () => {
     expect(args.html).toContain("【招待先メールアドレス】 new@example.com");
   });
 
-  it("組織名解決失敗時 → organization_id (UUID) を fallback として本文に出力", async () => {
+  it("組織名解決失敗時 (organizations not found) → organization_id (UUID) を fallback として本文に出力", async () => {
     process.env.OPS_NOTIFICATION_EMAIL = "ops@bijiyu.local";
 
     await sendOrphanAuthUserAlert(
@@ -108,6 +117,42 @@ describe("sendOrphanAuthUserAlert — §9.1", () => {
     const html = (sendEmailMock.mock.calls[0]?.[0] as { html: string }).html;
     expect(html).toContain(`【対象組織】 ${ORG_ID}`);
   });
+
+  // -------------------------------------------------------------------------
+  // resolveOrganizationDisplayName 内部 fallback の他 2 ケース
+  // (2026-06-28 監査弱点補強)。組織レコードはあるが owner_id null /
+  // display_name が空 trim の 2 経路でも UUID fallback で本文に出ること。
+  // -------------------------------------------------------------------------
+  it("組織は見つかるが owner_id が null → UUID fallback", async () => {
+    process.env.OPS_NOTIFICATION_EMAIL = "ops@bijiyu.local";
+
+    await sendOrphanAuthUserAlert(
+      makeAdmin({
+        organizations: [{ data: { owner_id: null }, error: null }],
+      }),
+      { invitedEmail: "new@example.com", organizationId: ORG_ID },
+    );
+
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const html = (sendEmailMock.mock.calls[0]?.[0] as { html: string }).html;
+    expect(html).toContain(`【対象組織】 ${ORG_ID}`);
+  });
+
+  it("client_profiles.display_name が空白のみ (trim で空) → UUID fallback", async () => {
+    process.env.OPS_NOTIFICATION_EMAIL = "ops@bijiyu.local";
+
+    await sendOrphanAuthUserAlert(
+      makeAdmin({
+        organizations: [{ data: { owner_id: OWNER_ID }, error: null }],
+        client_profiles: [{ data: { display_name: "   " }, error: null }],
+      }),
+      { invitedEmail: "new@example.com", organizationId: ORG_ID },
+    );
+
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const html = (sendEmailMock.mock.calls[0]?.[0] as { html: string }).html;
+    expect(html).toContain(`【対象組織】 ${ORG_ID}`);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -115,16 +160,24 @@ describe("sendOrphanAuthUserAlert — §9.1", () => {
 // ---------------------------------------------------------------------------
 
 describe("sendEmailRecycleFailureAlert — §9.2", () => {
-  it("OPS_NOTIFICATION_EMAIL 未設定なら sendEmail を呼ばずに skip", async () => {
+  it("OPS_NOTIFICATION_EMAIL 未設定なら sendEmail を呼ばずに skip + console.warn で運用に検知させる", async () => {
     delete process.env.OPS_NOTIFICATION_EMAIL;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    await sendEmailRecycleFailureAlert(makeAdmin({}), {
-      path: "self_withdrawal",
-      targetUserId: TARGET_USER_ID,
-      targetEmail: "tanaka@example.com",
-    });
+    try {
+      await sendEmailRecycleFailureAlert(makeAdmin({}), {
+        path: "self_withdrawal",
+        targetUserId: TARGET_USER_ID,
+        targetEmail: "tanaka@example.com",
+      });
 
-    expect(sendEmailMock).not.toHaveBeenCalled();
+      expect(sendEmailMock).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const warnMsg = warnSpy.mock.calls[0]?.[0];
+      expect(String(warnMsg)).toContain("OPS_NOTIFICATION_EMAIL not set");
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("path 'self_withdrawal' → triggerLabel「退会」で送信", async () => {

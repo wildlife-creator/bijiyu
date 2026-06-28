@@ -37,6 +37,16 @@ vi.mock("@/lib/billing/stripe", () => ({
   }),
 }));
 
+// §8.5 / §8.5.5 cascade メール送信 (fire-and-forget Promise.all) を観察するため
+// sendEmail を vi.hoisted で巻き上げて mock 化する。
+const { sendEmailMock } = vi.hoisted(() => ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  sendEmailMock: vi.fn(async (_args: unknown) => ({ success: true as const })),
+}));
+vi.mock("@/lib/email/send-email", () => ({
+  sendEmail: sendEmailMock,
+}));
+
 import { executeWithdrawal } from "@/lib/withdrawal/execute";
 
 const TARGET_ID = "11111111-1111-1111-1111-111111111111";
@@ -134,6 +144,7 @@ beforeEach(() => {
     kind: "applied",
     recycledEmail: "stub",
   });
+  sendEmailMock.mockReset().mockResolvedValue({ success: true as const });
 });
 
 describe("executeWithdrawal: 退会前ガード", () => {
@@ -574,6 +585,146 @@ describe("executeWithdrawal: カスケード処理", () => {
     expect(applyIdx).toBeGreaterThanOrEqual(0);
     expect(banIdx).toBeGreaterThanOrEqual(0);
     expect(applyIdx).toBeLessThan(banIdx);
+  });
+});
+
+// ===========================================================================
+// §8.5 / §8.5.5 cascade メール送信 (fire-and-forget Promise.all) のエラーパス
+//
+// 2026-06-28 通知メール runtime 監査の弱点補強。Owner 退会 → 配下メンバーへの
+// cascade 通知メールが下記 2 シナリオでも壊れないことを保証する:
+//   ③a sendEmail が 1 件目で reject されても 2 件目は試行される (隔離)
+//   ③d Owner の applyDeletedSuffix が throw しても cascade メールは発火する (継続)
+// ===========================================================================
+describe("executeWithdrawal: §8.5 cascade エラーパス", () => {
+  const M1 = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+  const M2 = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+
+  /** Owner + N members (全員 regular staff) の cascade シナリオ用 setup */
+  function setupOwnerCascade(members: Array<{
+    user_id: string;
+    email: string;
+    last_name: string;
+    first_name: string;
+  }>) {
+    return setupTables({
+      applications: { count: 0, thenable: { data: [], error: null } },
+      organization_members: {
+        // hasRemaining 用 count (regular staff では未使用なので 0 でも有害でない)
+        count: 0,
+        data: { org_role: "owner", organization_id: ORG_ID },
+        thenable: {
+          data: members.map((m) => ({
+            user_id: m.user_id,
+            is_proxy_account: false,
+          })),
+          error: null,
+        },
+      },
+      users: {
+        // maybeSingle (snapshotUser / ownerUserRes) 用 — role + 姓名を 1 物にまとめる
+        data: { role: "contractor", last_name: "退会", first_name: "代表" },
+        // IN ("id", [...]) → memberUserRows 用
+        thenable: {
+          data: members.map((m) => ({
+            id: m.user_id,
+            email: m.email,
+            last_name: m.last_name,
+            first_name: m.first_name,
+          })),
+          error: null,
+        },
+      },
+      client_profiles: { data: { display_name: "テスト株式会社" } },
+      subscriptions: { thenable: { data: [], error: null } },
+      option_subscriptions: { thenable: { data: [], error: null } },
+    });
+  }
+
+  it("③a §8.5 cascade: sendEmail 1 件目 reject でも 2 件目は試行される (Promise.all 内 try/catch で隔離)", async () => {
+    setupOwnerCascade([
+      {
+        user_id: M1,
+        email: "m1@test.local",
+        last_name: "メンバー",
+        first_name: "一郎",
+      },
+      {
+        user_id: M2,
+        email: "m2@test.local",
+        last_name: "メンバー",
+        first_name: "二郎",
+      },
+    ]);
+
+    // 1 件目 reject、以降 (default) resolve
+    sendEmailMock.mockRejectedValueOnce(new Error("smtp down for first recipient"));
+
+    const result = await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    expect(result.success).toBe(true);
+
+    // fire-and-forget Promise.all が drain されるまで poll
+    await vi.waitFor(
+      () => {
+        expect(sendEmailMock).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 1000 },
+    );
+
+    const sentTos = sendEmailMock.mock.calls.map(
+      (c) => (c[0] as { to: string }).to,
+    );
+    expect(sentTos).toContain("m1@test.local");
+    expect(sentTos).toContain("m2@test.local");
+  });
+
+  it("③d Owner の applyDeletedSuffix が throw しても cascade メールは発火する (L169-180 try/catch + 後続継続)", async () => {
+    setupOwnerCascade([
+      {
+        user_id: M1,
+        email: "m1@test.local",
+        last_name: "メンバー",
+        first_name: "一郎",
+      },
+    ]);
+
+    // 1 件目 (= Owner 自身の applyDeletedSuffix) のみ throw、配下メンバー (call 2+) は default で成功
+    applyDeletedSuffixMock.mockRejectedValueOnce(
+      new Error("owner suffix failed"),
+    );
+
+    const result = await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    // Owner suffix throw でも success: true
+    expect(result.success).toBe(true);
+    // 配下メンバー (member 1) の applyDeletedSuffix は呼ばれる (Owner throw が伝播しない)
+    expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(2);
+    expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
+      expect.anything(),
+      M1,
+      expect.objectContaining({
+        path: "self_withdrawal",
+        actorId: TARGET_ID,
+        organizationId: ORG_ID,
+      }),
+    );
+    // 配下メンバーへの cascade メール送信が 1 件発火
+    await vi.waitFor(
+      () => {
+        expect(sendEmailMock).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 1000 },
+    );
+    expect((sendEmailMock.mock.calls[0]?.[0] as { to: string }).to).toBe(
+      "m1@test.local",
+    );
   });
 });
 
