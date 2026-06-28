@@ -20,10 +20,19 @@ import { sendEmail } from "@/lib/email/send-email";
 import { emailChangedByAdminEmail } from "@/lib/email/templates/email-changed-by-admin";
 import { emailChangedByAdminControlEmail } from "@/lib/email/templates/email-changed-by-admin-control";
 import { memberInvitedControlEmail } from "@/lib/email/templates/member-invited-control";
+import { memberRoleChangedEmail } from "@/lib/email/templates/member-role-changed";
+import { memberRoleChangedControlEmail } from "@/lib/email/templates/member-role-changed-control";
 import { proxyAssignedExistingUserEmail } from "@/lib/email/templates/proxy-assigned-existing-user";
 import { getOrganizationManagementRecipients } from "@/lib/email/recipients/organization-managers";
 import { resolveExistingProxyReuse } from "@/lib/organization/resolve-existing-proxy-reuse";
 import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
+
+function roleLabel(role: "owner" | "admin" | "staff" | string): string {
+  if (role === "admin") return "管理者";
+  if (role === "staff") return "担当者";
+  if (role === "owner") return "管理責任者";
+  return role;
+}
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -496,6 +505,89 @@ async function sendMemberInvitedControl(params: {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: §5.6.A + §5.6.B 権限変更通知 (本人 + 組織管理層 broadcast)
+// updateMemberAction で org_role が変わった瞬間に呼ばれる。
+// 本人宛 1 通 + 組織管理層 (本人除外) に 1 通ずつ Promise.all で並行送信。
+// 失敗は console.error のみで握り潰す (Server Action 自体は成功)。
+// ---------------------------------------------------------------------------
+async function sendMemberRoleChanged(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  organizationId: string;
+  actorUserId: string;
+  targetUserId: string;
+  oldRoleLabel: string;
+  newRoleLabel: string;
+}): Promise<void> {
+  const {
+    admin,
+    organizationId,
+    actorUserId,
+    targetUserId,
+    oldRoleLabel,
+    newRoleLabel,
+  } = params;
+
+  try {
+    const [targetRes, actorRes, recipients] = await Promise.all([
+      admin
+        .from("users")
+        .select("email, last_name, first_name")
+        .eq("id", targetUserId)
+        .maybeSingle(),
+      admin
+        .from("users")
+        .select("last_name, first_name")
+        .eq("id", actorUserId)
+        .maybeSingle(),
+      getOrganizationManagementRecipients(admin, organizationId, [targetUserId]),
+    ]);
+
+    const targetEmail = targetRes.data?.email ?? "";
+    const targetName =
+      `${targetRes.data?.last_name ?? ""}${targetRes.data?.first_name ?? ""}`.trim() ||
+      "ご担当者";
+    const actorName =
+      `${actorRes.data?.last_name ?? ""}${actorRes.data?.first_name ?? ""}`.trim() ||
+      "管理者";
+    const changedAt = formatJapaneseDateTime(new Date());
+
+    const tasks: Promise<unknown>[] = [];
+
+    // §5.6.A 本人宛
+    if (targetEmail) {
+      const { subject, html } = memberRoleChangedEmail({
+        recipientName: targetName,
+        oldRoleLabel,
+        newRoleLabel,
+        actorName,
+        changedAt,
+      });
+      tasks.push(sendEmail({ to: targetEmail, subject, html }));
+    }
+
+    // §5.6.B 組織管理層 broadcast
+    for (const r of recipients) {
+      const { subject, html } = memberRoleChangedControlEmail({
+        recipientName: r.displayName,
+        targetName,
+        oldRoleLabel,
+        newRoleLabel,
+        actorName,
+        changedAt,
+      });
+      tasks.push(sendEmail({ to: r.email, subject, html }));
+    }
+
+    await Promise.all(tasks);
+  } catch (err) {
+    console.error(
+      "[updateMemberAction] §5.6.A/B member-role-changed broadcast failed",
+      err,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helper: §5.4.B email-changed-by-admin control broadcast
 // updateMemberAction パターン B (admin client での強制 email 変更) 成功時、
 // 組織の Owner + admin (操作者含む、変更対象本人は除外) に控えメール送信。
@@ -785,6 +877,21 @@ export async function updateMemberAction(
       }
       return { success: false, error: "権限の更新に失敗しました" };
     }
+  }
+
+  // §5.6.A / §5.6.B 権限変更通知 (本人 + 組織管理層)。
+  //   - existingRole !== newRole のときのみ発火
+  //   - 「権限が変わっていない」場合は送信しない (spec §5.6 設計判断)
+  const newRole = parsed.data.orgRole;
+  if (newRole !== undefined && newRole !== target.org_role) {
+    await sendMemberRoleChanged({
+      admin,
+      organizationId: actor.organizationId,
+      actorUserId: actor.userId,
+      targetUserId,
+      oldRoleLabel: roleLabel(target.org_role),
+      newRoleLabel: roleLabel(newRole),
+    });
   }
 
   revalidatePath("/mypage/members");

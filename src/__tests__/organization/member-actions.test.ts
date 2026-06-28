@@ -1042,6 +1042,126 @@ describe("updateMemberAction", () => {
     expect(controlMail?.html).toContain("【操作者】 発注者一郎");
   });
 
+  it("§5.6.A/B: org_role 変更成功時に本人 + 組織管理層 (本人除外) にメールが飛ぶ", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // target SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            organization_id: ORG_ID,
+            org_role: "staff",
+            is_proxy_account: false,
+            user_id: STAFF_ID,
+          },
+          error: null,
+        },
+      }),
+    );
+    // organization_members UPDATE (memberUpdates)
+    const updateChain = createQueryMock({ thenable: { data: null, error: null } });
+    mockAdminFrom.mockReturnValueOnce(updateChain);
+    // §5.6 sendMemberRoleChanged: 3 並列クエリ (target users, actor users, recipients)
+    // target users SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { email: "target@test.local", last_name: "田", first_name: "中" },
+          error: null,
+        },
+      }),
+    );
+    // actor users SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { last_name: "発注", first_name: "者一郎" },
+          error: null,
+        },
+      }),
+    );
+    // getOrganizationManagementRecipients: organization_members → Owner 自身
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: { data: [{ user_id: OWNER_ID }], error: null },
+      }),
+    );
+    // getOrganizationManagementRecipients: users → Owner アクティブ
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [
+            {
+              id: OWNER_ID,
+              email: "owner@test.local",
+              last_name: "発注",
+              first_name: "者一郎",
+            },
+          ],
+          error: null,
+        },
+      }),
+    );
+
+    const r = await updateMemberAction(STAFF_ID, { orgRole: "admin" });
+    expect(r.success).toBe(true);
+
+    // §5.6.A 本人宛 1 通 + §5.6.B Owner 宛 1 通 = 計 2 通
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+
+    const sentTos = sendEmailMock.mock.calls.map(
+      (c) => (c[0] as { to: string }).to,
+    );
+    expect(sentTos).toContain("target@test.local");
+    expect(sentTos).toContain("owner@test.local");
+
+    // §5.6.A 本人宛検証
+    const selfMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "target@test.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(selfMail?.subject).toBe("【ビジ友】あなたの権限が変更されました");
+    expect(selfMail?.html).toContain("田中 様");
+    expect(selfMail?.html).toContain("【変更前の権限】 担当者");
+    expect(selfMail?.html).toContain("【変更後の権限】 管理者");
+
+    // §5.6.B 組織管理層宛検証
+    const controlMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "owner@test.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(controlMail?.subject).toBe(
+      "【ビジ友】田中さんの権限を変更しました",
+    );
+    expect(controlMail?.html).toContain("発注者一郎 様");
+    expect(controlMail?.html).toContain("【対象担当者】 田中");
+  });
+
+  it("§5.6.A/B: orgRole が target と同値 (変更なし) なら role-change メールは飛ばない", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            organization_id: ORG_ID,
+            org_role: "admin",
+            is_proxy_account: false,
+            user_id: STAFF_ID,
+          },
+          error: null,
+        },
+      }),
+    );
+    // memberUpdates UPDATE (org_role を同値 "admin" にセットしても UPDATE は呼ばれる、§5.6 だけ skip)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await updateMemberAction(STAFF_ID, { orgRole: "admin" });
+    expect(r.success).toBe(true);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
   it("自己メール変更は auth.updateUser を使う", async () => {
     mockAuth(STAFF_ID);
     mockActorContext(STAFF_ID, "staff");
