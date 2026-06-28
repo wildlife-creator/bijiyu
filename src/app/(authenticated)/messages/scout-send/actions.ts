@@ -2,10 +2,14 @@
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { scoutSchema } from "@/lib/validations/message";
 import { sendEmail } from "@/lib/email/send-email";
 import { scoutNotificationEmail } from "@/lib/email/templates/scout-notification";
+import { scoutSentBroadcastEmail } from "@/lib/email/templates/scout-sent-broadcast";
+import { getOrganizationMemberRecipients } from "@/lib/email/recipients/organization-members";
 import {
+  getUserDisplayName,
   resolveClientProfileForRow,
   resolveParticipantName,
 } from "@/lib/utils/display-name";
@@ -212,8 +216,111 @@ export async function sendScoutAction(
       });
     }
 
+    // §1.7.B 発注者組織宛 broadcast (fire-and-forget)
+    await sendScoutSentBroadcast({
+      supabase,
+      senderId: user.id,
+      organizationId,
+      targetUserId: parsed.data.userId,
+      jobTitle: parsed.data.title,
+      messageBody: parsed.data.body,
+    }).catch((err) => {
+      console.error("[sendScoutAction] scout-sent-broadcast failed:", err);
+    });
+
     return { success: true, data: { threadId: thread.id, messageId: message.id } };
   } catch {
     return { success: false, error: "処理中にエラーが発生しました" };
   }
+}
+
+// ---------------------------------------------------------------------------
+// sendScoutSentBroadcast — §1.7.B 発注者組織宛 broadcast
+// ---------------------------------------------------------------------------
+
+async function sendScoutSentBroadcast(params: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  senderId: string;
+  organizationId: string | null;
+  targetUserId: string;
+  jobTitle: string;
+  messageBody: string;
+}): Promise<void> {
+  const { senderId, organizationId, targetUserId, jobTitle, messageBody } =
+    params;
+  const admin = createAdminClient();
+
+  const [targetRes, senderRes] = await Promise.all([
+    admin
+      .from("users")
+      .select("last_name, first_name, company_name, deleted_at")
+      .eq("id", targetUserId)
+      .single(),
+    admin
+      .from("users")
+      .select("last_name, first_name")
+      .eq("id", senderId)
+      .single(),
+  ]);
+
+  const contractorName = targetRes.data
+    ? getUserDisplayName(
+        {
+          lastName: targetRes.data.last_name,
+          firstName: targetRes.data.first_name,
+          companyName: targetRes.data.company_name,
+          deletedAt: targetRes.data.deleted_at,
+        },
+        "prefer-company",
+      )
+    : "受注者";
+  const actualSenderName = senderRes.data
+    ? `${senderRes.data.last_name ?? ""}${senderRes.data.first_name ?? ""}`.trim() ||
+      "送信者"
+    : "送信者";
+
+  let recipients: Array<{ email: string; displayName: string }> = [];
+  if (organizationId) {
+    recipients = await getOrganizationMemberRecipients(admin, organizationId);
+  } else {
+    const { data: self } = await admin
+      .from("users")
+      .select("email, last_name, first_name, deleted_at, is_active")
+      .eq("id", senderId)
+      .single();
+    if (
+      self?.email &&
+      !self.deleted_at &&
+      self.is_active !== false &&
+      typeof self.email === "string" &&
+      self.email.trim() !== ""
+    ) {
+      recipients = [
+        {
+          email: self.email,
+          displayName:
+            `${self.last_name ?? ""}${self.first_name ?? ""}`.trim() ||
+            "ご担当者",
+        },
+      ];
+    }
+  }
+
+  await Promise.all(
+    recipients.map((r) => {
+      const { subject, html } = scoutSentBroadcastEmail({
+        memberName: r.displayName,
+        contractorName,
+        jobTitle,
+        messageExcerpt: messageBody,
+        actualSenderName,
+      });
+      return sendEmail({ to: r.email, subject, html }).catch((err) => {
+        console.error(
+          "[sendScoutAction] scout-sent-broadcast send failed:",
+          err,
+        );
+      });
+    }),
+  );
 }

@@ -1,8 +1,20 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { applicationSchema } from "@/lib/validations/application";
 import { canApplyJob } from "@/lib/matching";
+import { sendEmail } from "@/lib/email/send-email";
+import { applicationReceivedEmail } from "@/lib/email/templates/application-received";
+import { applicationConfirmationEmail } from "@/lib/email/templates/application-confirmation";
+import { getJobClientRecipients } from "@/lib/email/recipients/organization-members";
+import {
+  getUserDisplayName,
+  resolveClientProfileForRow,
+  resolveParticipantName,
+} from "@/lib/utils/display-name";
+import { formatDateTime } from "@/lib/utils/format-date";
+import { formatAreasShort } from "@/lib/utils/format-areas";
 import type { ActionResult } from "@/lib/types/action-result";
 
 // ---------------------------------------------------------------------------
@@ -182,6 +194,17 @@ export async function applyJobAction(
       };
     }
 
+    // §1.1.A/§1.4.A 発注者宛応募通知 + §1.1.B/§1.4.B 受注者控え (fire-and-forget)
+    await sendApplicationEmails({
+      applicantId: user.id,
+      jobId: data.jobId,
+      headcount: data.headcount,
+      message: data.message ?? null,
+      scoutMessageId: validatedScoutMessageId,
+    }).catch((err) => {
+      console.error("[applyJobAction] Email notification failed:", err);
+    });
+
     return { success: true, data: { applicationId: application.id } };
   } catch {
     return {
@@ -189,6 +212,161 @@ export async function applyJobAction(
       error: "応募の登録に失敗しました。時間をおいて再度お試しください。",
     };
   }
+}
+
+// ---------------------------------------------------------------------------
+// sendApplicationEmails — §1.1.A/§1.4.A 発注者宛 + §1.1.B/§1.4.B 受注者控え
+// ---------------------------------------------------------------------------
+
+interface SendApplicationEmailsParams {
+  applicantId: string;
+  jobId: string;
+  headcount: number;
+  message: string | null;
+  scoutMessageId: string | null;
+}
+
+async function sendApplicationEmails(
+  params: SendApplicationEmailsParams,
+): Promise<void> {
+  const { applicantId, jobId, headcount, message, scoutMessageId } = params;
+  const admin = createAdminClient();
+
+  const [jobRes, applicantRes, areaRes] = await Promise.all([
+    admin
+      .from("jobs")
+      .select(
+        `id, title, owner_id, organization_id, trade_types,
+         owner:users!owner_id(
+           last_name, first_name, deleted_at,
+           client_profiles(display_name, image_url)
+         ),
+         organization:organizations(
+           owner_user:users!owner_id(
+             last_name, first_name, deleted_at,
+             client_profiles(display_name, image_url)
+           )
+         )`,
+      )
+      .eq("id", jobId)
+      .single(),
+    admin
+      .from("users")
+      .select("email, last_name, first_name, company_name, deleted_at")
+      .eq("id", applicantId)
+      .single(),
+    admin
+      .from("job_areas")
+      .select("prefecture, municipality")
+      .eq("job_id", jobId),
+  ]);
+
+  const job = jobRes.data;
+  const applicant = applicantRes.data;
+  if (!job) return;
+
+  const applicantName = applicant
+    ? getUserDisplayName(
+        {
+          lastName: applicant.last_name,
+          firstName: applicant.first_name,
+          companyName: applicant.company_name,
+          deletedAt: applicant.deleted_at,
+        },
+        "prefer-company",
+      )
+    : "応募者";
+
+  const tradeTypesValue = Array.isArray(job.trade_types) ? job.trade_types : [];
+  const tradeType =
+    tradeTypesValue.length > 0 ? tradeTypesValue.join("、") : undefined;
+  const appliedAt = formatDateTime(new Date().toISOString());
+
+  // §1.4.A 分岐用: スカウト送信日 (scout message の created_at)
+  let scoutSentDate: string | undefined;
+  if (scoutMessageId) {
+    const { data: scoutMsg } = await admin
+      .from("messages")
+      .select("created_at, scout_status")
+      .eq("id", scoutMessageId)
+      .single();
+    if (scoutMsg?.scout_status === "accepted" && scoutMsg.created_at) {
+      // 日付のみ (YYYY/MM/DD)
+      const dt = formatDateTime(scoutMsg.created_at);
+      scoutSentDate = dt !== "—" ? dt.split(" ")[0] : undefined;
+    }
+  }
+
+  const messageExcerpt = message ?? undefined;
+  const tasks: Array<Promise<unknown>> = [];
+
+  // §1.1.A/§1.4.A 発注者組織宛 broadcast
+  const recipients = await getJobClientRecipients(admin, {
+    owner_id: job.owner_id,
+    organization_id: job.organization_id ?? null,
+  });
+  for (const r of recipients) {
+    const { subject, html } = applicationReceivedEmail({
+      recipientName: r.displayName,
+      jobTitle: job.title,
+      applicantName,
+      tradeType,
+      headcount,
+      appliedAt,
+      messageExcerpt,
+      scoutSentDate,
+    });
+    tasks.push(
+      sendEmail({ to: r.email, subject, html }).catch((err) => {
+        console.error(
+          "[applyJobAction] application-received send failed:",
+          err,
+        );
+      }),
+    );
+  }
+
+  // §1.1.B/§1.4.B 受注者本人控え
+  if (applicant?.email && !applicant.deleted_at) {
+    const resolution = resolveClientProfileForRow({
+      organization_id: job.organization_id ?? null,
+      owner: job.owner ?? null,
+      organization: job.organization ?? null,
+    });
+    const clientName = resolveParticipantName({
+      displayName: resolution.displayName,
+      lastName: resolution.lastName,
+      firstName: resolution.firstName,
+      deletedAt: resolution.deletedAt,
+    });
+    const area = areaRes.data && areaRes.data.length > 0
+      ? formatAreasShort(
+          areaRes.data.map((a) => ({
+            prefecture: a.prefecture,
+            municipality: a.municipality ?? null,
+          })),
+        ) || undefined
+      : undefined;
+    const { subject, html } = applicationConfirmationEmail({
+      applicantName,
+      jobTitle: job.title,
+      clientName,
+      tradeType,
+      area,
+      headcount,
+      appliedAt,
+    });
+    tasks.push(
+      sendEmail({ to: applicant.email, subject, html }).catch((err) => {
+        console.error(
+          "[applyJobAction] application-confirmation send failed:",
+          err,
+        );
+      }),
+    );
+  }
+
+  await Promise.all(tasks);
 }
 
 // ---------------------------------------------------------------------------

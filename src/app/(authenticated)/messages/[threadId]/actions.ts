@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/send-email";
+import { scoutDeclinedControlEmail } from "@/lib/email/templates/scout-declined-control";
+import { getJobClientRecipients } from "@/lib/email/recipients/organization-members";
+import { getUserDisplayName } from "@/lib/utils/display-name";
+import { formatDateTime } from "@/lib/utils/format-date";
 // messageSchema is not used here; validation is done inline to avoid
 // File instanceof issues across server/client boundary
 import type { ActionResult } from "@/lib/types/action-result";
@@ -214,7 +219,9 @@ export async function respondToScoutAction(
     // Fetch the scout message
     const { data: scoutMessage, error: msgError } = await supabase
       .from("messages")
-      .select("id, thread_id, sender_id, job_id, is_scout, scout_status")
+      .select(
+        "id, thread_id, sender_id, job_id, is_scout, scout_status, created_at",
+      )
       .eq("id", messageId)
       .single();
 
@@ -254,6 +261,18 @@ export async function respondToScoutAction(
     // Invalidate thread page cache so back navigation shows updated status
     revalidatePath(`/messages/${scoutMessage.thread_id}`);
 
+    // §1.3.A 発注者組織宛 broadcast (辞退のみ、承諾は応募フローで §1.4.A 発火)
+    if (response === "rejected" && scoutMessage.job_id) {
+      await sendScoutDeclinedEmails({
+        admin,
+        contractorId: user.id,
+        jobId: scoutMessage.job_id,
+        scoutCreatedAt: scoutMessage.created_at ?? null,
+      }).catch((err) => {
+        console.error("[respondToScoutAction] Email failed:", err);
+      });
+    }
+
     return {
       success: true,
       data: {
@@ -264,4 +283,72 @@ export async function respondToScoutAction(
   } catch {
     return { success: false, error: "処理中にエラーが発生しました" };
   }
+}
+
+// ---------------------------------------------------------------------------
+// sendScoutDeclinedEmails — §1.3.A 発注者組織宛 broadcast
+// ---------------------------------------------------------------------------
+
+async function sendScoutDeclinedEmails(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  contractorId: string;
+  jobId: string;
+  scoutCreatedAt: string | null;
+}): Promise<void> {
+  const { admin, contractorId, jobId, scoutCreatedAt } = params;
+
+  const [jobRes, contractorRes] = await Promise.all([
+    admin
+      .from("jobs")
+      .select("title, owner_id, organization_id")
+      .eq("id", jobId)
+      .single(),
+    admin
+      .from("users")
+      .select("last_name, first_name, company_name, deleted_at")
+      .eq("id", contractorId)
+      .single(),
+  ]);
+  const job = jobRes.data;
+  const contractor = contractorRes.data;
+  if (!job) return;
+
+  const contractorName = contractor
+    ? getUserDisplayName(
+        {
+          lastName: contractor.last_name,
+          firstName: contractor.first_name,
+          companyName: contractor.company_name,
+          deletedAt: contractor.deleted_at,
+        },
+        "prefer-company",
+      )
+    : "受注者";
+
+  const scoutSentDate = scoutCreatedAt
+    ? formatDateTime(scoutCreatedAt).split(" ")[0] || "—"
+    : "—";
+  const declinedAt = formatDateTime(new Date().toISOString());
+
+  const recipients = await getJobClientRecipients(admin, {
+    owner_id: job.owner_id,
+    organization_id: job.organization_id ?? null,
+  });
+  await Promise.all(
+    recipients.map((r) => {
+      const { subject, html } = scoutDeclinedControlEmail({
+        recipientName: r.displayName,
+        jobTitle: job.title,
+        contractorName,
+        scoutSentDate,
+        declinedAt,
+      });
+      return sendEmail({ to: r.email, subject, html }).catch((err) => {
+        console.error(
+          "[respondToScoutAction] scout-declined-control send failed:",
+          err,
+        );
+      });
+    }),
+  );
 }
