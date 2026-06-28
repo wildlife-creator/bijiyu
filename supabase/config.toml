@@ -232,10 +232,16 @@ otp_expiry = 86400
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# §5.1 招待（invite）日本語カスタムテンプレ。
+# 1 ファイル / 3 ケース分岐（通常 staff / 代理 staff / 発注者）。
+# subject は Go template による動的切替を試す。Supabase CLI バージョンで
+# 未対応の場合は静的に「【ビジ友】ビジ友へのご招待」に下げる（本文 1 行目で
+# 代理 / 発注者を明示しているので情報欠落はしない）。
+# 本番 Supabase ダッシュボードの Email Templates → Invite User にも
+# 同 HTML / 件名を反映する必要あり（supabase/config.toml はローカル開発専用）。
+[auth.email.template.invite]
+subject = "{{ if .Data.is_proxy_account }}【ビジ友 運営】「{{ .Data.invited_org_name }}」の代理アカウントとしてご招待{{ else }}【ビジ友】ビジ友へのご招待{{ end }}"
+content_path = "./supabase/templates/invite.html"
 
 # §5.8 パスワード再設定（recovery）日本語カスタムテンプレ。
 # 本番 Supabase ダッシュボードの Email Templates → Reset Password にも

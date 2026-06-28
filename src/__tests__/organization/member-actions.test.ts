@@ -195,7 +195,7 @@ describe("createMemberAction", () => {
     expect(mockInviteUser).not.toHaveBeenCalled();
   });
 
-  it("inviteUserByEmail にメタデータ（invited_role + 氏名）が渡される", async () => {
+  it("inviteUserByEmail に §5.1 招待テンプレ用 metadata が全フィールド渡される（Staff 招待）", async () => {
     mockAuth(OWNER_ID);
     mockActorContext(OWNER_ID, "owner");
     mockAdminFrom.mockReturnValueOnce(
@@ -205,6 +205,21 @@ describe("createMemberAction", () => {
       createQueryMock({
         maybeSingle: {
           data: { plan_type: "corporate" },
+          error: null,
+        },
+      }),
+    );
+    // §5.1: Owner の client_profiles.display_name 取得 (invited_org_name)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト株式会社" }, error: null },
+      }),
+    );
+    // §5.1: actor の姓名取得 (invited_by_name)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { last_name: "発注", first_name: "者一郎" },
           error: null,
         },
       }),
@@ -228,6 +243,95 @@ describe("createMemberAction", () => {
           invited_role: "staff",
           invited_last_name: "山田",
           invited_first_name: "太郎",
+          invited_org_name: "テスト株式会社",
+          invited_by_name: "発注者一郎",
+          invited_at: expect.stringMatching(/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}$/),
+          is_proxy_account: false,
+        }),
+      }),
+    );
+  });
+
+  it("代理招待時は is_proxy_account: true で metadata が渡される（§5.1-Proxy 分岐キー）", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "○○建設" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "山田", first_name: "一郎" }, error: null },
+      }),
+    );
+    mockInviteUser.mockResolvedValue({
+      data: { user: { id: NEW_USER_ID } },
+      error: null,
+    });
+    mockAdminRpc.mockResolvedValue({ data: null, error: null });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await createMemberAction({ ...validInput, isProxyAccount: true });
+    expect(r.success).toBe(true);
+    expect(mockInviteUser).toHaveBeenCalledWith(
+      "new@test.local",
+      expect.objectContaining({
+        data: expect.objectContaining({
+          is_proxy_account: true,
+          invited_org_name: "○○建設",
+          invited_by_name: "山田一郎",
+        }),
+      }),
+    );
+  });
+
+  it("Owner の client_profiles が無ければ「ビジ友組織」、actor 氏名が無ければ「管理者」にフォールバック", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    // client_profiles 取得失敗
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // actor users 取得失敗
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockInviteUser.mockResolvedValue({
+      data: { user: { id: NEW_USER_ID } },
+      error: null,
+    });
+    mockAdminRpc.mockResolvedValue({ data: null, error: null });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await createMemberAction(validInput);
+    expect(r.success).toBe(true);
+    expect(mockInviteUser).toHaveBeenCalledWith(
+      "new@test.local",
+      expect.objectContaining({
+        data: expect.objectContaining({
+          invited_org_name: "ビジ友組織",
+          invited_by_name: "管理者",
         }),
       }),
     );
@@ -242,6 +346,17 @@ describe("createMemberAction", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    // §5.1: client_profiles + actor users
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "山", first_name: "田" }, error: null },
       }),
     );
     mockInviteUser.mockResolvedValue({
@@ -273,6 +388,17 @@ describe("createMemberAction", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    // §5.1: client_profiles + actor users
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "山", first_name: "田" }, error: null },
       }),
     );
     mockInviteUser.mockResolvedValue({
@@ -480,6 +606,17 @@ describe("R2: createMemberAction 既存ユーザー再利用パス", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    // §5.1: client_profiles + actor users
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "山", first_name: "田" }, error: null },
       }),
     );
     mockInviteUser.mockResolvedValue({

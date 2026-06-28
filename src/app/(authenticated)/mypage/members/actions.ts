@@ -174,6 +174,31 @@ export async function createMemberAction(
   if (isReusePath) {
     newUserId = reuseDecision.userId;
   } else {
+    // §5.1 招待テンプレ（supabase/templates/invite.html）の Go template が
+    // 参照する metadata を解決する。Staff / Proxy 共通で必要:
+    //   - invited_org_name: Owner の client_profiles.display_name（CLI-021 で登録した社名）
+    //   - invited_by_name : 操作者の users.姓名（スペースなし結合）
+    //   - invited_at      : 操作タイムスタンプ（YYYY/MM/DD HH:MM、テンプレで【設定日時】として表示）
+    //   - is_proxy_account: テンプレ分岐キー
+    const [ownerProfileRes, actorRes] = await Promise.all([
+      admin
+        .from("client_profiles")
+        .select("display_name")
+        .eq("user_id", actor.orgOwnerId)
+        .maybeSingle(),
+      admin
+        .from("users")
+        .select("last_name, first_name")
+        .eq("id", actor.userId)
+        .maybeSingle(),
+    ]);
+    const invitedOrgName =
+      ownerProfileRes.data?.display_name?.trim() || "ビジ友組織";
+    const invitedByName =
+      `${actorRes.data?.last_name ?? ""}${actorRes.data?.first_name ?? ""}`.trim() ||
+      "管理者";
+    const invitedAt = formatJapaneseDateTime(new Date());
+
     const { data: invited, error: inviteError } =
       await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
         redirectTo: `${SERVICE_URL}/accept-invite/confirm`,
@@ -181,6 +206,10 @@ export async function createMemberAction(
           invited_role: "staff",
           invited_last_name: parsed.data.lastName,
           invited_first_name: parsed.data.firstName,
+          invited_org_name: invitedOrgName,
+          invited_by_name: invitedByName,
+          invited_at: invitedAt,
+          is_proxy_account: parsed.data.isProxyAccount,
         },
       });
 
