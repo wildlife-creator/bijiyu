@@ -117,3 +117,57 @@ export async function getJobClientRecipients(
     },
   ];
 }
+
+/**
+ * §6.6 / §6.7 で使用: ユーザー起点 (案件起点ではなく) の broadcast 配信先解決。
+ *
+ * - ユーザーが法人組織に所属していれば組織メンバー全員 (M-03)
+ * - 個人プラン or 組織未所属 → 申込者本人 1 名のみ
+ *
+ * 動画オプション (§6.6.B / C-User) や急募の M-03 broadcast (個人プラン申込者を含む) で使う。
+ * 複数組織に所属する代理 staff は最初の 1 組織のみ採用する (本ヘルパーの利用ケース
+ * = 課金イベント由来であり、購入主体は通常 Owner 1 名なので practical impact は無い)。
+ */
+export async function getUserOrganizationRecipients(
+  admin: SupabaseClient<Database>,
+  userId: string,
+  excludeUserIds: string[] = [],
+): Promise<OrgMemberRecipient[]> {
+  const { data: memberships, error: memErr } = await admin
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", userId)
+    .limit(1);
+
+  if (memErr || !memberships || memberships.length === 0) {
+    // 個人プラン or 組織未所属 → 申込者本人 1 名のみ
+    if (excludeUserIds.includes(userId)) return [];
+
+    const { data: self, error: selfErr } = await admin
+      .from("users")
+      .select("id, email, last_name, first_name, deleted_at, is_active")
+      .eq("id", userId)
+      .single();
+
+    if (selfErr || !self) return [];
+    if (self.deleted_at) return [];
+    if (self.is_active === false) return [];
+    if (typeof self.email !== "string" || self.email.trim() === "") return [];
+
+    return [
+      {
+        userId: self.id,
+        email: self.email,
+        displayName:
+          `${self.last_name ?? ""}${self.first_name ?? ""}`.trim() ||
+          "ご担当者",
+      },
+    ];
+  }
+
+  return getOrganizationMemberRecipients(
+    admin,
+    memberships[0].organization_id as string,
+    excludeUserIds,
+  );
+}

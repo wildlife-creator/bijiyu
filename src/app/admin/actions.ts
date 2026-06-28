@@ -1,9 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { writeAuditLog } from "@/lib/audit/log";
+import { OPTION_LABELS } from "@/lib/billing/options";
+import { resolveApplicantCompanyName } from "@/lib/email/recipients/applicant-company-name";
+import {
+  formatBillingDate,
+  formatBillingDateTime,
+} from "@/lib/email/recipients/billing-recipient";
+import { getUserOrganizationRecipients } from "@/lib/email/recipients/organization-members";
+import { sendEmail } from "@/lib/email/send-email";
+import { videoPublishedEmail } from "@/lib/email/templates/video-published";
+import { videoPublishedOpsEmail } from "@/lib/email/templates/video-published-ops";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -66,6 +77,20 @@ async function updateVideoColumn(
 
   // admin（service-role）client で UPDATE（RLS バイパス）
   const admin = createAdminClient();
+
+  // §6.6.C 初回登録判定: 旧値 (NULL/空) → 新値 (URL) のときだけメール送信。
+  // 差し替え (URL → URL) / 削除 (URL → NULL) では送信しない。
+  const { data: previousRow } = await admin
+    .from(config.table)
+    .select(config.column)
+    .eq(config.matchColumn, userId)
+    .maybeSingle();
+  const previousValue =
+    (previousRow as Record<string, string | null> | null)?.[config.column] ??
+    null;
+  const isInitialRegistration =
+    (previousValue === null || previousValue === "") && value !== null;
+
   const { error } = await admin
     .from(config.table)
     .update({ [config.column]: value })
@@ -88,8 +113,97 @@ async function updateVideoColumn(
     metadata: { column: config.column, cleared: value === null },
   });
 
+  // §6.6.C-User + §6.6.C-Ops 並列送信（初回登録のみ、fire-and-forget）
+  if (isInitialRegistration) {
+    const optionType =
+      config.column === "workplace_video_url" ? "video_workplace" : "video";
+    void sendVideoPublishedEmails(admin, userId, optionType).catch((err) => {
+      console.error("[admin updateVideoColumn] §6.6.C emails failed", err);
+    });
+  }
+
   revalidatePath(`/admin/users/${userId}`);
   return { success: true };
+}
+
+/**
+ * §6.6.C-User + §6.6.C-Ops 並列送信ヘルパー。
+ *
+ * - C-User: 申込者本人 + 法人プランなら組織メンバー全員 (M-03 broadcast)
+ * - C-Ops: `process.env.OPS_NOTIFICATION_EMAIL` 単一宛先 (M-07)
+ *
+ * `updateVideoColumn` から fire-and-forget で呼ばれる。失敗はサイレント。
+ */
+async function sendVideoPublishedEmails(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  optionType: "video" | "video_workplace",
+): Promise<void> {
+  const optionLabel = OPTION_LABELS[optionType];
+  const publishedAtIso = new Date().toISOString();
+
+  // C-User broadcast (M-03)
+  try {
+    const recipients = await getUserOrganizationRecipients(admin, userId);
+    await Promise.all(
+      recipients.map(async (r) => {
+        const built = videoPublishedEmail({
+          recipientName: r.displayName,
+          optionLabel,
+          publishedAt: formatBillingDate(publishedAtIso),
+        });
+        try {
+          await sendEmail({
+            to: r.email,
+            subject: built.subject,
+            html: built.html,
+          });
+        } catch (err) {
+          console.error("[updateVideoColumn] §6.6.C-User send failed", {
+            to: r.email,
+            err,
+          });
+        }
+      }),
+    );
+  } catch (err) {
+    console.error("[updateVideoColumn] §6.6.C-User broadcast failed", err);
+  }
+
+  // C-Ops single (M-07)
+  try {
+    const opsEmail = process.env.OPS_NOTIFICATION_EMAIL;
+    if (!opsEmail) return;
+
+    const { data: applicant } = await admin
+      .from("users")
+      .select("last_name, first_name")
+      .eq("id", userId)
+      .maybeSingle();
+    const applicantName =
+      `${applicant?.last_name ?? ""}${applicant?.first_name ?? ""}`.trim() ||
+      "申込者";
+    const companyName = await resolveApplicantCompanyName(admin, userId);
+
+    const hdrs = await headers();
+    const host = hdrs.get("host");
+    const proto = hdrs.get("x-forwarded-proto") ?? "http";
+    const siteUrl = host
+      ? `${proto}://${host}`
+      : (process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000");
+
+    const tpl = videoPublishedOpsEmail({
+      applicantName,
+      companyName,
+      optionLabel,
+      publishedAt: formatBillingDateTime(publishedAtIso),
+      userId,
+      siteUrl,
+    });
+    await sendEmail({ to: opsEmail, subject: tpl.subject, html: tpl.html });
+  } catch (err) {
+    console.error("[updateVideoColumn] §6.6.C-Ops send failed", err);
+  }
 }
 
 /**

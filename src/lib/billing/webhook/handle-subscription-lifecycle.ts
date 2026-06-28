@@ -2,9 +2,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
 import { sendEmail } from "@/lib/email/send-email";
+import { OPTION_LABELS, type OptionType } from "@/lib/billing/options";
+import { optionPaymentFailedEmail } from "@/lib/email/templates/option-payment-failed";
+import {
+  optionSubscriptionCancelledEmail,
+  type OptionCancellationReason,
+} from "@/lib/email/templates/option-subscription-cancelled";
 import { paymentFailedEmail } from "@/lib/email/templates/payment-failed";
 import { subscriptionCancelledEmail } from "@/lib/email/templates/subscription-cancelled";
-import { subscriptionChangedEmail } from "@/lib/email/templates/subscription-changed";
+import {
+  subscriptionChangedEmail,
+  type SubscriptionChangedEventType,
+} from "@/lib/email/templates/subscription-changed";
 import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
 import {
   PLAN_LABELS,
@@ -203,6 +212,16 @@ async function handleSubscriptionDeleted(
     const userId = existingSubscription.data.user_id;
     const planType = existingSubscription.data.plan_type as PlanType;
 
+    // §6.5 退会フロー時の suppression: ユーザーが既に退会していれば
+    // E-8 退会通知に集約し、§6.2 のメール送信は skip する（DB UPDATE は
+    // 通常通り RPC で実行）。判定は RPC 呼出 **前** に SELECT する。
+    const userRow = await admin
+      .from("users")
+      .select("deleted_at")
+      .eq("id", userId)
+      .maybeSingle();
+    const isWithdrawn = userRow.data?.deleted_at != null;
+
     // 2. Delegate to RPC (subscriptions UPDATE + role downgrade + staff + jobs close)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rpcData, error: rpcError } = await (admin as any).rpc(
@@ -243,7 +262,10 @@ async function handleSubscriptionDeleted(
     //    を呼ぶ。
 
     // 5. Send subscriptionCancelledEmail (basic plan path only)
-    await sendCancelledEmail(admin, send, userId, planType);
+    //    §6.5 退会 suppression: 退会済なら skip（E-8 退会通知に集約）。
+    if (!isWithdrawn) {
+      await sendCancelledEmail(admin, send, userId, planType);
+    }
     return;
   }
 
@@ -264,13 +286,49 @@ async function handleSubscriptionDeleted(
         `option_subscriptions update failed: ${updateOption.error.message}`,
       );
     }
-    // 補償オプション解約は単一テーブル更新のみ。client_profiles のフラグ
-    // カラムは廃止済みのため追加 UPDATE は不要。基本プランの解約とは別の
-    // ユーザー操作として扱うため、subscriptionCancelledEmail も送信しない。
+
+    // §6.5.C 補償オプション解約通知。
+    // 退会 suppression: 退会済なら skip（E-8 退会通知に集約）。
+    // 補償系は subscription mode のため `compensation_*` のみ通知対象。
+    // urgent / video / video_workplace は payment mode で本パスに来ない想定だが、
+    // データ異常で来た場合は通知 skip して DB 整合のみ取る。
+    const optionType = existingOption.data.option_type as OptionType;
+    const isCompensation =
+      optionType === "compensation_5000" || optionType === "compensation_9800";
+    if (isCompensation) {
+      const optionUserRow = await admin
+        .from("users")
+        .select("deleted_at")
+        .eq("id", existingOption.data.user_id)
+        .maybeSingle();
+      const optionUserWithdrawn = optionUserRow.data?.deleted_at != null;
+      if (!optionUserWithdrawn) {
+        const reason = resolveOptionCancellationReason(sub);
+        await sendOptionCancelledEmail(
+          admin,
+          send,
+          existingOption.data.user_id,
+          optionType,
+          reason,
+        );
+      }
+    }
     return;
   }
 
   // 6. Neither hit → silently skip
+}
+
+function resolveOptionCancellationReason(
+  sub: Stripe.Subscription,
+): OptionCancellationReason {
+  // Stripe API v2023-10-16+ で提供される `cancellation_details.reason`。
+  // 既存型に未収録なケースがあるため安全に narrow する。
+  const details = sub.cancellation_details;
+  const reason = details?.reason;
+  if (reason === "payment_failed") return "stripe-dunning";
+  // `cancellation_requested` / null / unknown → 安全側で manual
+  return "manual";
 }
 
 // ---------------------------------------------------------------------------
@@ -294,31 +352,54 @@ async function handleInvoicePaymentFailed(
     .eq("stripe_subscription_id", subscriptionId)
     .maybeSingle();
 
-  if (!existing.data) {
-    return; // Race: invoice arrived before checkout.session.completed
+  if (existing.data) {
+    const update = await admin
+      .from("subscriptions")
+      .update({
+        status: "past_due",
+        past_due_since:
+          existing.data.past_due_since ?? new Date().toISOString(),
+      })
+      .eq("id", existing.data.id);
+    if (update.error) {
+      throw new Error(
+        `subscriptions past_due update failed: ${update.error.message}`,
+      );
+    }
+
+    await sendPaymentFailedEmail(
+      admin,
+      send,
+      existing.data.user_id,
+      existing.data.plan_type as PlanType,
+      invoice.next_payment_attempt,
+    );
+    return;
   }
 
-  const update = await admin
-    .from("subscriptions")
-    .update({
-      status: "past_due",
-      past_due_since:
-        existing.data.past_due_since ?? new Date().toISOString(),
-    })
-    .eq("id", existing.data.id);
-  if (update.error) {
-    throw new Error(
-      `subscriptions past_due update failed: ${update.error.message}`,
+  // §6.5.B: subscriptions に該当無し → 補償オプション分岐を試す。
+  // option_subscriptions の DB 状態は変更しない (Stripe dunning に委ねる方針)。
+  const existingOption = await admin
+    .from("option_subscriptions")
+    .select("id, user_id, option_type")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+
+  if (existingOption.data) {
+    const optionType = existingOption.data.option_type as OptionType;
+    const isCompensation =
+      optionType === "compensation_5000" || optionType === "compensation_9800";
+    if (!isCompensation) {
+      return; // urgent / video は payment mode のため本パスには来ない想定。来ても skip。
+    }
+    await sendOptionPaymentFailedEmail(
+      admin,
+      send,
+      existingOption.data.user_id,
+      optionType,
+      invoice.next_payment_attempt,
     );
   }
-
-  await sendPaymentFailedEmail(
-    admin,
-    send,
-    existing.data.user_id,
-    existing.data.plan_type as PlanType,
-    invoice.next_payment_attempt,
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -461,13 +542,15 @@ interface PostUpdateState {
 /**
  * Decide which subscriptionChangedEmail variant to send (if any) and dispatch.
  *
- * Cases (Gap 4):
- *   (a) plan_type changed                          → upgrade (即時)
- *   (b) schedule_id null → non-null                → downgrade reservation
- *   (c) cancel_at_period_end false → true          → cancel reservation
- *   (d) schedule_id non-null → null                → reservation cancelled
- *   (d) cancel_at_period_end true → false          → reservation cancelled
+ * §6.1 サブケース (webhook 判定軸):
+ *   (a) plan_type changed                              → upgrade-immediate (A-1)
+ *   (b) schedule_id null → non-null                    → downgrade-reserved (A-2)
+ *   (c) cancel_at_period_end false → true              → cancel-reserved (B)
+ *   (d-1) schedule_id non-null → null                  → reservation-removed-downgrade (C-1)
+ *   (d-2) cancel_at_period_end true → false            → reservation-removed-cancel (C-2)
  *   else → no email
+ *
+ * (d-1) / (d-2) は webhook 上検知パスが異なるため別ケースとして発火する。
  */
 async function maybeSendChangedEmail(
   admin: SupabaseClient<Database>,
@@ -477,79 +560,77 @@ async function maybeSendChangedEmail(
 ): Promise<void> {
   // (a) Upgrade — plan_type changed
   if (before.plan_type !== after.planType) {
-    await sendChangedEmail(
-      admin,
-      send,
-      before.user_id,
-      before.plan_type as PlanType,
-      after.planType,
-      "ただ今",
-    );
+    await sendChangedEmail(admin, send, before.user_id, {
+      eventType: "upgrade-immediate",
+      oldPlanName: PLAN_LABELS[before.plan_type as PlanType],
+      newPlanName: PLAN_LABELS[after.planType],
+    });
     return;
   }
 
   // (b) Downgrade reservation appeared
   if (before.schedule_id == null && after.scheduleId != null) {
     const newPlan = (after.scheduledPlanType as PlanType) ?? after.planType;
-    await sendChangedEmail(
-      admin,
-      send,
-      before.user_id,
-      before.plan_type as PlanType,
-      newPlan,
-      formatDate(after.scheduledAt),
-    );
+    await sendChangedEmail(admin, send, before.user_id, {
+      eventType: "downgrade-reserved",
+      oldPlanName: PLAN_LABELS[before.plan_type as PlanType],
+      newPlanName: PLAN_LABELS[newPlan],
+      scheduledDate: formatDate(after.scheduledAt),
+    });
     return;
   }
 
   // (c) Cancel reservation appeared
   if (!before.cancel_at_period_end && after.cancelAtPeriodEnd) {
-    await sendChangedEmail(
-      admin,
-      send,
-      before.user_id,
-      before.plan_type as PlanType,
-      "free",
-      formatDate(after.currentPeriodEnd),
-    );
+    await sendChangedEmail(admin, send, before.user_id, {
+      eventType: "cancel-reserved",
+      endDate: formatDate(after.currentPeriodEnd),
+    });
     return;
   }
 
-  // (d) Reservation removed
-  if (
-    (before.schedule_id != null && after.scheduleId == null) ||
-    (before.cancel_at_period_end && !after.cancelAtPeriodEnd)
-  ) {
-    await sendChangedEmail(
-      admin,
-      send,
-      before.user_id,
-      before.plan_type as PlanType,
-      after.planType,
-      "予約取消",
-    );
+  // (d-1) Downgrade reservation removed (schedule_id non-null → null)
+  if (before.schedule_id != null && after.scheduleId == null) {
+    await sendChangedEmail(admin, send, before.user_id, {
+      eventType: "reservation-removed-downgrade",
+      planName: PLAN_LABELS[before.plan_type as PlanType],
+    });
+    return;
+  }
+
+  // (d-2) Cancel reservation removed (cancel_at_period_end true → false)
+  if (before.cancel_at_period_end && !after.cancelAtPeriodEnd) {
+    await sendChangedEmail(admin, send, before.user_id, {
+      eventType: "reservation-removed-cancel",
+      planName: PLAN_LABELS[before.plan_type as PlanType],
+    });
     return;
   }
 
   // No diff worth notifying
 }
 
+interface ChangedEmailParams {
+  eventType: SubscriptionChangedEventType;
+  oldPlanName?: string;
+  newPlanName?: string;
+  planName?: string;
+  scheduledDate?: string;
+  endDate?: string;
+}
+
 async function sendChangedEmail(
   admin: SupabaseClient<Database>,
   send: typeof sendEmail,
   userId: string,
-  oldPlan: PlanType,
-  newPlan: PlanType,
-  effectiveDate: string,
+  params: ChangedEmailParams,
 ): Promise<void> {
   try {
     const recipient = await fetchRecipient(admin, userId);
     if (!recipient) return;
     const tpl = subscriptionChangedEmail({
       recipientName: recipient.name,
-      oldPlanName: PLAN_LABELS[oldPlan],
-      newPlanName: PLAN_LABELS[newPlan],
-      effectiveDate,
+      ...params,
     });
     await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
   } catch (err) {
@@ -602,6 +683,58 @@ async function sendPaymentFailedEmail(
   } catch (err) {
     console.error(
       "[handleSubscriptionLifecycle] sendPaymentFailedEmail failed",
+      err,
+    );
+  }
+}
+
+async function sendOptionPaymentFailedEmail(
+  admin: SupabaseClient<Database>,
+  send: typeof sendEmail,
+  userId: string,
+  optionType: OptionType,
+  nextRetryEpochSeconds: number | null,
+): Promise<void> {
+  try {
+    const recipient = await fetchRecipient(admin, userId);
+    if (!recipient) return;
+    const nextRetryDate = nextRetryEpochSeconds
+      ? formatDate(new Date(nextRetryEpochSeconds * 1000).toISOString())
+      : "近日中";
+    const tpl = optionPaymentFailedEmail({
+      recipientName: recipient.name,
+      optionLabel: OPTION_LABELS[optionType],
+      nextRetryDate,
+    });
+    await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
+  } catch (err) {
+    console.error(
+      "[handleSubscriptionLifecycle] sendOptionPaymentFailedEmail failed",
+      err,
+    );
+  }
+}
+
+async function sendOptionCancelledEmail(
+  admin: SupabaseClient<Database>,
+  send: typeof sendEmail,
+  userId: string,
+  optionType: OptionType,
+  reason: OptionCancellationReason,
+): Promise<void> {
+  try {
+    const recipient = await fetchRecipient(admin, userId);
+    if (!recipient) return;
+    const tpl = optionSubscriptionCancelledEmail({
+      recipientName: recipient.name,
+      optionLabel: OPTION_LABELS[optionType],
+      cancelledAt: formatDate(new Date().toISOString()),
+      reason,
+    });
+    await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
+  } catch (err) {
+    console.error(
+      "[handleSubscriptionLifecycle] sendOptionCancelledEmail failed",
       err,
     );
   }

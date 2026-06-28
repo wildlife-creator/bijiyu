@@ -68,6 +68,14 @@ function makeAdmin(config: FakeAdminConfig) {
           error: result.error ?? null,
         });
       }),
+      single: vi.fn(function () {
+        const result = config.selectByTable?.[table] ?? { data: null, error: null };
+        calls.push({ op: "select", table });
+        return Promise.resolve({
+          data: result.data ?? null,
+          error: result.error ?? null,
+        });
+      }),
       limit: vi.fn(function (this: typeof builder) {
         const result = config.selectByTable?.[table] ?? { data: [], error: null };
         calls.push({ op: "select", table });
@@ -79,10 +87,24 @@ function makeAdmin(config: FakeAdminConfig) {
       insert: vi.fn(function (payload: unknown) {
         calls.push({ op: "insert", table, payload });
         const result = config.insertByTable?.[table] ?? { error: null };
-        return Promise.resolve({
+        // Hybrid return: awaitable directly (existing call sites) AND chainable
+        // `.select(...).single()` (used by handleCompensationOption after §6.5).
+        const resolveValue = {
           data: result.data ?? null,
           error: result.error ?? null,
-        });
+        };
+        const promise = Promise.resolve(resolveValue);
+        const chain = {
+          select: vi.fn(function () {
+            return {
+              single: vi.fn(() => Promise.resolve(resolveValue)),
+            };
+          }),
+          then: promise.then.bind(promise),
+          catch: promise.catch.bind(promise),
+          finally: promise.finally.bind(promise),
+        };
+        return chain;
       }),
       update: vi.fn(function (payload: unknown) {
         calls.push({ op: "update", table, payload });
@@ -549,5 +571,227 @@ describe("handleCheckoutCompleted (video_workplace option)", () => {
         }),
       ),
     ).rejects.toThrow(/video_workplace option_subscriptions insert failed/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §6.5.A 補償オプション申し込み完了メール送信
+// ---------------------------------------------------------------------------
+
+type SendArgs = { to: string; subject: string; html: string };
+const SEND = vi.fn(async (_args: SendArgs) => ({ success: true as const }));
+
+beforeEach(() => {
+  SEND.mockClear();
+});
+
+describe("handleCheckoutCompleted §6.5.A compensation email", () => {
+  it("compensation_5000 申込 → §6.5.A optionLabel + activatedAt 入りのメールを申込者へ送信", async () => {
+    const { admin } = makeAdmin({
+      selectByTable: {
+        option_subscriptions: { data: [], error: null },
+        users: {
+          data: {
+            email: "cmp@test.local",
+            last_name: "田中",
+            first_name: "太郎",
+            client_profiles: null,
+          },
+        },
+      },
+      insertByTable: {
+        option_subscriptions: { data: { created_at: "2026-06-01T03:00:00.000Z" } },
+      },
+    });
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "option",
+        option_type: "compensation_5000",
+        user_id: "user-cmp",
+      }),
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as SendArgs;
+    expect(args.to).toBe("cmp@test.local");
+    expect(args.subject).toBe(
+      "【ビジ友】補償オプションのお申し込みを承りました",
+    );
+    expect(args.html).toContain("田中太郎 様");
+    expect(args.html).toContain("補償（5,000円/月、最大200万円）");
+    expect(args.html).toContain("2026/06/01");
+  });
+
+  it("compensation_9800 申込 → optionLabel が 9,800 円表記に切り替わる", async () => {
+    const { admin } = makeAdmin({
+      selectByTable: {
+        option_subscriptions: { data: [], error: null },
+        users: {
+          data: {
+            email: "cmp2@test.local",
+            last_name: "佐藤",
+            first_name: "花子",
+            client_profiles: null,
+          },
+        },
+      },
+      insertByTable: {
+        option_subscriptions: { data: { created_at: "2026-06-15T03:00:00.000Z" } },
+      },
+    });
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "option",
+        option_type: "compensation_9800",
+        user_id: "user-cmp2",
+      }),
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as SendArgs;
+    expect(args.html).toContain("補償（9,800円/月、最大500万円）");
+  });
+
+  it("§6.6.A urgent 申込 → 件名に jobTitle 含む 急募申込完了メールを案件オーナーへ送信 (個人プラン = 1 通)", async () => {
+    const { admin } = makeAdmin({
+      selectByTable: {
+        // jobs SELECT (sendUrgentActivatedEmails 内の maybeSingle)
+        jobs: {
+          data: {
+            title: "渋谷区マンション新築 鉄筋工",
+            owner_id: "user-owner",
+            organization_id: null,
+          },
+        },
+        // getJobClientRecipients 個人プラン分岐の users.single()
+        users: {
+          data: {
+            id: "user-owner",
+            email: "owner@test.local",
+            last_name: "山田",
+            first_name: "太郎",
+            deleted_at: null,
+            is_active: true,
+          },
+        },
+      },
+    });
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "option",
+        option_type: "urgent",
+        user_id: "user-owner",
+        job_id: "job-99",
+      }),
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as {
+      to: string;
+      subject: string;
+      html: string;
+    };
+    expect(args.to).toBe("owner@test.local");
+    expect(args.subject).toBe(
+      "【ビジ友】「渋谷区マンション新築 鉄筋工」の急募オプションお申し込みを承りました",
+    );
+    expect(args.html).toContain("山田太郎 様");
+    expect(args.html).toContain("急募期間");
+    expect(args.html).toContain("7 日間");
+  });
+
+  it("§6.7 plan checkout → 件名は「プランのお申し込みを承りました」、planName + activatedAt を含むメールを Owner 1 名に送信", async () => {
+    const { admin } = makeAdmin({
+      rpcResults: { handle_checkout_completed_plan: { data: {}, error: null } },
+      selectByTable: {
+        users: {
+          data: {
+            email: "owner@test.local",
+            last_name: "山田",
+            first_name: "太郎",
+            client_profiles: null,
+          },
+        },
+      },
+    });
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "plan",
+        plan_type: "corporate",
+        user_id: "user-owner",
+      }),
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as {
+      to: string;
+      subject: string;
+      html: string;
+    };
+    expect(args.to).toBe("owner@test.local");
+    expect(args.subject).toBe("【ビジ友】プランのお申し込みを承りました");
+    expect(args.html).toContain("山田太郎 様");
+    expect(args.html).toContain("法人向けプラン");
+    expect(args.html).toContain("お申し込みプラン");
+    expect(args.html).toContain("ご利用開始日");
+  });
+
+  it("§6.7 fetchBillingRecipient が null → throw せず redirect 続行 (メール send skip)", async () => {
+    const { admin } = makeAdmin({
+      rpcResults: { handle_checkout_completed_plan: { data: {}, error: null } },
+      selectByTable: { users: { data: null } },
+    });
+
+    await expect(
+      handleCheckoutCompleted(
+        admin,
+        makeSession({
+          type: "plan",
+          plan_type: "individual",
+          user_id: "user-missing",
+        }),
+        { sendEmail: SEND as never },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(SEND).not.toHaveBeenCalled();
+  });
+
+  it("fetchRecipient が null → メール送信 skip（throw しない）", async () => {
+    const { admin } = makeAdmin({
+      selectByTable: {
+        option_subscriptions: { data: [], error: null },
+        users: { data: null },
+      },
+      insertByTable: {
+        option_subscriptions: { data: { created_at: "2026-06-01T03:00:00.000Z" } },
+      },
+    });
+
+    await expect(
+      handleCheckoutCompleted(
+        admin,
+        makeSession({
+          type: "option",
+          option_type: "compensation_5000",
+          user_id: "user-cmp-missing",
+        }),
+        { sendEmail: SEND as never },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(SEND).not.toHaveBeenCalled();
   });
 });

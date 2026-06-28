@@ -22,6 +22,20 @@ export type OptionType =
 export type VideoOptionType = Extract<OptionType, "video" | "video_workplace">;
 
 /**
+ * オプション表示ラベル（メール本文・UI 共用、§6.5 / §6.6 の【お申し込みオプション】行で使用）。
+ *
+ * 補償系は「金額 + 補償上限」を一括で表す慣用表現に合わせる。動画系は「受注者PR動画」「職場紹介動画」
+ * の正式名称、急募は「急募オプション」。
+ */
+export const OPTION_LABELS: Record<OptionType, string> = {
+  compensation_5000: "補償（5,000円/月、最大200万円）",
+  compensation_9800: "補償（9,800円/月、最大500万円）",
+  urgent: "急募オプション",
+  video: "受注者PR動画",
+  video_workplace: "職場紹介動画",
+};
+
+/**
  * 指定ユーザーが指定 option_type の active レコードを持つか判定する。
  *
  * - status='active' のみ true。'cancelled'/'expired' は（DB 側フィルタで除外され）false。

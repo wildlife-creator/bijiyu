@@ -435,7 +435,7 @@ describe("customer.subscription.updated", () => {
     expect(args.html).toContain("佐藤花子 様");
   });
 
-  it("cancel reservation appears: sends cancel reservation email with free target", async () => {
+  it("cancel reservation appears (§6.1-B): subject「解約をご予約いただきました」, body has endDate + 有料プラン明記, 無料プラン表現なし", async () => {
     const sub = buildSubscription({ cancel_at_period_end: true });
     const { admin } = makeAdmin({
       results: {
@@ -469,9 +469,109 @@ describe("customer.subscription.updated", () => {
       { sendEmail: SEND as never },
     );
     expect(SEND).toHaveBeenCalledOnce();
-    const args = SEND.mock.calls[0]![0]! as { html: string };
+    const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
+    expect(args.subject).toBe("【ビジ友】解約をご予約いただきました");
     expect(args.html).toContain("鈴木次郎 様");
-    expect(args.html).toContain("無料プラン");
+    expect(args.html).toContain("ビジ友の解約をご予約いただきました");
+    expect(args.html).toContain("有料プランでのご利用が終了します");
+    expect(args.html).not.toContain("無料プラン");
+  });
+
+  it("§6.1-C-1 downgrade reservation removed (schedule_id non-null → null): subject 「ご予約を取り消しました」, 本文「プラン変更を取り消しました」", async () => {
+    // before: schedule_id 設定済 / after: schedule_id 解除 (Stripe schedule null + same plan)
+    const sub = buildSubscription({ schedule: null });
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-1",
+            user_id: "user-c1",
+            plan_type: "corporate",
+            schedule_id: "sub_sched_existing",
+            cancel_at_period_end: false,
+          },
+        },
+        "select:users": {
+          data: {
+            email: "userc1@test.local",
+            last_name: "中村",
+            first_name: "一郎",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_updated: { data: {}, error: null },
+      },
+    });
+
+    // sub.items.data[0].price.id = "price_individual" by default → newPlanType = individual
+    // but before.plan_type = corporate ≠ individual → upgrade branch would fire first.
+    // To force (d-1) we need before.plan_type === after.planType. Override priceId.
+    const subFixed = buildSubscription({
+      schedule: null,
+      priceId: "price_corporate",
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.updated", data: subFixed },
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
+    expect(args.subject).toBe("【ビジ友】ご予約を取り消しました");
+    expect(args.html).toContain("中村一郎 様");
+    expect(args.html).toContain("先日ご予約いただいたプラン変更を取り消しました");
+    expect(args.html).toContain("法人向けプラン");
+  });
+
+  it("§6.1-C-2 cancel reservation removed (cancel_at_period_end true → false): subject 「ご予約を取り消しました」, 本文「解約を取り消しました」", async () => {
+    const sub = buildSubscription({
+      cancel_at_period_end: false,
+      priceId: "price_individual",
+    });
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-2",
+            user_id: "user-c2",
+            plan_type: "individual",
+            schedule_id: null,
+            cancel_at_period_end: true,
+          },
+        },
+        "select:users": {
+          data: {
+            email: "userc2@test.local",
+            last_name: "渡辺",
+            first_name: "良子",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_updated: { data: {}, error: null },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.updated", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
+    expect(args.subject).toBe("【ビジ友】ご予約を取り消しました");
+    expect(args.html).toContain("渡辺良子 様");
+    expect(args.html).toContain("先日ご予約いただいた解約を取り消しました");
+    expect(args.html).toContain("個人発注者様向けプラン");
+    expect(args.html).toContain("今後も引き続き");
   });
 
   it("no relevant change: does NOT send email", async () => {
@@ -733,6 +833,176 @@ describe("customer.subscription.deleted", () => {
     expect(calledUserIds).toEqual(["staff-a", "staff-b", "staff-c"]);
   });
 
+  it("§6.5 退会 suppression: users.deleted_at != null なら §6.2 解約メールは送らない (RPC は通常通り実行)", async () => {
+    const sub = buildSubscription();
+    const { admin, calls } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: { id: "sub-row-w", user_id: "user-w", plan_type: "corporate" },
+        },
+        // 退会済ユーザー
+        "select:users": {
+          data: {
+            deleted_at: "2026-06-10T00:00:00.000Z",
+            email: "withdrawn@test.local",
+            last_name: "山田",
+            first_name: "太郎",
+            client_profiles: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_deleted: { data: {}, error: null },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    // RPC は通常通り呼ばれる（退会フローの DB 整合性は維持）
+    expect(calls.find((c) => c.op === "rpc")?.fn).toBe(
+      "handle_subscription_lifecycle_deleted",
+    );
+    // §6.2 メールは送らない（E-8 退会通知に集約）
+    expect(SEND).not.toHaveBeenCalled();
+  });
+
+  it("§6.5.C manual パターン: option_subscriptions hit + cancellation_requested → 補償解約完了メール送信", async () => {
+    const sub = buildSubscription();
+    // Stripe cancellation_details を後付け（buildSubscription は素の型なので unknown キャスト）
+    (sub as unknown as { cancellation_details: { reason: string } }).cancellation_details = {
+      reason: "cancellation_requested",
+    };
+
+    const { admin, calls } = makeAdmin({
+      results: {
+        "select:subscriptions": { data: null },
+        "select:option_subscriptions": {
+          data: {
+            id: "opt-c",
+            user_id: "user-c",
+            option_type: "compensation_5000",
+          },
+        },
+        "select:users": {
+          data: {
+            deleted_at: null,
+            email: "cmp@test.local",
+            last_name: "中村",
+            first_name: "次郎",
+            client_profiles: null,
+          },
+        },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(calls.find(
+      (c) => c.op === "update" && c.table === "option_subscriptions",
+    )?.payload).toEqual({ status: "cancelled" });
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
+    expect(args.subject).toBe(
+      "【ビジ友】補償オプションのご解約が完了しました",
+    );
+    expect(args.html).toContain("中村次郎 様");
+    expect(args.html).toContain("補償（5,000円/月、最大200万円）");
+    expect(args.html).toContain("以下の内容で補償オプションの解約が完了しました");
+    // manual パスでは stripe-dunning 専用 opening は含まない
+    expect(args.html).not.toContain("お支払い方法での決済が確認できないまま");
+  });
+
+  it("§6.5.C stripe-dunning パターン: cancellation_details.reason=payment_failed → opening が「決済が確認できないまま日数が経過したため」に切替", async () => {
+    const sub = buildSubscription();
+    (sub as unknown as { cancellation_details: { reason: string } }).cancellation_details = {
+      reason: "payment_failed",
+    };
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": { data: null },
+        "select:option_subscriptions": {
+          data: {
+            id: "opt-d",
+            user_id: "user-d",
+            option_type: "compensation_9800",
+          },
+        },
+        "select:users": {
+          data: {
+            deleted_at: null,
+            email: "dun@test.local",
+            last_name: "鈴木",
+            first_name: "三郎",
+            client_profiles: null,
+          },
+        },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { html: string };
+    expect(args.html).toContain(
+      "お支払い方法での決済が確認できないまま日数が経過したため",
+    );
+    expect(args.html).toContain("補償（9,800円/月、最大500万円）");
+  });
+
+  it("§6.5 退会 suppression (option path): users.deleted_at != null → §6.5.C メール skip, option_subscriptions UPDATE は実行", async () => {
+    const sub = buildSubscription();
+    const { admin, calls } = makeAdmin({
+      results: {
+        "select:subscriptions": { data: null },
+        "select:option_subscriptions": {
+          data: {
+            id: "opt-w",
+            user_id: "user-cw",
+            option_type: "compensation_5000",
+          },
+        },
+        "select:users": {
+          data: {
+            deleted_at: "2026-06-10T00:00:00.000Z",
+            email: "withdrawn-cmp@test.local",
+            last_name: "退会",
+            first_name: "太郎",
+            client_profiles: null,
+          },
+        },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    // UPDATE は通常通り
+    expect(
+      calls.find((c) => c.op === "update" && c.table === "option_subscriptions")?.payload,
+    ).toEqual({ status: "cancelled" });
+    // §6.5.C メールは送らない
+    expect(SEND).not.toHaveBeenCalled();
+  });
+
   it("Task 8: 1 件目が throw しても残りの呼び出しは継続 (partial-success)", async () => {
     const sub = buildSubscription();
     const { admin } = makeAdmin({
@@ -823,6 +1093,53 @@ describe("invoice.payment_failed", () => {
     expect(SEND).toHaveBeenCalledOnce();
     const args = SEND.mock.calls[0]![0]! as { subject: string };
     expect(args.subject).toBe("【ビジ友】有料プランのお支払いが確認できませんでした");
+  });
+
+  it("§6.5.B: subscriptions miss + option_subscriptions hit (compensation) → sends optionPaymentFailedEmail, no DB update on option_subscriptions", async () => {
+    const invoice = buildInvoice({ subscriptionId: "sub_compensation_1" });
+    const { admin, calls } = makeAdmin({
+      results: {
+        "select:subscriptions": { data: null },
+        "select:option_subscriptions": {
+          data: {
+            id: "opt-cmp-1",
+            user_id: "user-cmp",
+            option_type: "compensation_5000",
+          },
+        },
+        "select:users": {
+          data: {
+            email: "cmp@test.local",
+            last_name: "田中",
+            first_name: "太郎",
+            client_profiles: null,
+          },
+        },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "invoice.payment_failed", data: invoice },
+      { sendEmail: SEND as never },
+    );
+
+    // 補償オプションは Stripe dunning に委ねる方針: option_subscriptions の DB 状態は変更しない
+    expect(
+      calls.find((c) => c.op === "update" && c.table === "option_subscriptions"),
+    ).toBeUndefined();
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as {
+      to: string;
+      subject: string;
+      html: string;
+    };
+    expect(args.to).toBe("cmp@test.local");
+    expect(args.subject).toBe(
+      "【ビジ友】補償オプションのお支払いが確認できませんでした",
+    );
+    expect(args.html).toContain("補償（5,000円/月、最大200万円）");
   });
 
   it("preserves past_due_since when it's already set", async () => {

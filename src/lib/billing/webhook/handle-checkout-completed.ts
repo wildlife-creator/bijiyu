@@ -1,7 +1,35 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
+import { headers } from "next/headers";
+
+import { OPTION_LABELS } from "@/lib/billing/options";
+import { PLAN_LABELS, type PlanType } from "@/lib/constants/plans";
+import { resolveApplicantCompanyName } from "@/lib/email/recipients/applicant-company-name";
+import {
+  fetchBillingRecipient,
+  formatBillingDate,
+  formatBillingDateTime,
+} from "@/lib/email/recipients/billing-recipient";
+import {
+  getJobClientRecipients,
+  getUserOrganizationRecipients,
+} from "@/lib/email/recipients/organization-members";
+import { sendEmail } from "@/lib/email/send-email";
+import { optionSubscriptionActivatedEmail } from "@/lib/email/templates/option-subscription-activated";
+import { planActivatedEmail } from "@/lib/email/templates/plan-activated";
+import { urgentOptionActivatedEmail } from "@/lib/email/templates/urgent-option-activated";
+import { videoOptionActivatedEmail } from "@/lib/email/templates/video-option-activated";
+import { videoOptionAppliedOpsEmail } from "@/lib/email/templates/video-option-applied-ops";
 import type { Database } from "@/types/database";
+
+/**
+ * Test-only DI seam mirroring `LifecycleDeps` in handle-subscription-lifecycle.ts.
+ * 通常コードパスは sendEmail を直接使う。
+ */
+export interface CheckoutDeps {
+  sendEmail?: typeof sendEmail;
+}
 
 /**
  * Handle a Stripe `checkout.session.completed` event.
@@ -19,17 +47,19 @@ import type { Database } from "@/types/database";
 export async function handleCheckoutCompleted(
   admin: SupabaseClient<Database>,
   session: Stripe.Checkout.Session,
+  deps: CheckoutDeps = {},
 ): Promise<void> {
   const metadata = session.metadata ?? {};
   const type = metadata.type;
+  const send = deps.sendEmail ?? sendEmail;
 
   if (type === "plan") {
-    await handlePlanCheckout(admin, session);
+    await handlePlanCheckout(admin, session, send);
     return;
   }
 
   if (type === "option") {
-    await handleOptionCheckout(admin, session);
+    await handleOptionCheckout(admin, session, send);
     return;
   }
 
@@ -47,6 +77,7 @@ export async function handleCheckoutCompleted(
 async function handlePlanCheckout(
   admin: SupabaseClient<Database>,
   session: Stripe.Checkout.Session,
+  send: typeof sendEmail,
 ): Promise<void> {
   const metadata = session.metadata ?? {};
   const userId = metadata.user_id;
@@ -131,6 +162,30 @@ async function handlePlanCheckout(
   // Phase 5 (proxy-account-multi-org-support) で reactivateCorporateMembers を撤廃。
   // 法人プラン再アップグレード時の配下 Admin/Staff 復帰は organization_members 行
   // 削除モデルに移行したため、checkout.session.completed では何も追加処理しない。
+
+  // §6.7 基本プラン契約完了メール (初回契約 / 解約後の再契約両方をカバー、Owner 1 名のみ)。
+  // 失敗はサイレント (DB 整合は RPC で完了済み)。
+  await sendPlanActivatedEmail(admin, send, userId, planType as PlanType);
+}
+
+async function sendPlanActivatedEmail(
+  admin: SupabaseClient<Database>,
+  send: typeof sendEmail,
+  userId: string,
+  planType: PlanType,
+): Promise<void> {
+  try {
+    const recipient = await fetchBillingRecipient(admin, userId);
+    if (!recipient) return;
+    const tpl = planActivatedEmail({
+      recipientName: recipient.name,
+      planName: PLAN_LABELS[planType],
+      activatedAt: formatBillingDate(new Date().toISOString()),
+    });
+    await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
+  } catch (err) {
+    console.error("[handlePlanCheckout] sendPlanActivatedEmail failed", err);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +195,7 @@ async function handlePlanCheckout(
 async function handleOptionCheckout(
   admin: SupabaseClient<Database>,
   session: Stripe.Checkout.Session,
+  send: typeof sendEmail,
 ): Promise<void> {
   const metadata = session.metadata ?? {};
   const userId = metadata.user_id;
@@ -152,22 +208,22 @@ async function handleOptionCheckout(
   }
 
   if (optionType === "compensation_5000" || optionType === "compensation_9800") {
-    await handleCompensationOption(admin, session, userId, optionType);
+    await handleCompensationOption(admin, session, userId, optionType, send);
     return;
   }
 
   if (optionType === "urgent") {
-    await handleUrgentOption(admin, session, userId, metadata.job_id);
+    await handleUrgentOption(admin, session, userId, metadata.job_id, send);
     return;
   }
 
   if (optionType === "video") {
-    await handleVideoOption(admin, session, userId);
+    await handleVideoOption(admin, session, userId, send);
     return;
   }
 
   if (optionType === "video_workplace") {
-    await handleVideoWorkplaceOption(admin, session, userId);
+    await handleVideoWorkplaceOption(admin, session, userId, send);
     return;
   }
 
@@ -179,6 +235,7 @@ async function handleCompensationOption(
   session: Stripe.Checkout.Session,
   userId: string,
   optionType: "compensation_5000" | "compensation_9800",
+  send: typeof sendEmail,
 ): Promise<void> {
   // 二重防御チェック: 既存 active な補償オプションがあれば fail
   const existing = await admin
@@ -206,15 +263,52 @@ async function handleCompensationOption(
   // 全ユーザーが購入対象。active 判定の Single Source of Truth は
   // option_subscriptions に一本化済みのため、client_profiles 側のフラグ
   // 更新は不要（カラム自体が廃止）。
-  const insert = await admin.from("option_subscriptions").insert({
-    user_id: userId,
-    payment_type: "subscription",
-    stripe_subscription_id: subscriptionId,
-    option_type: optionType,
-    status: "active",
-  });
+  const insert = await admin
+    .from("option_subscriptions")
+    .insert({
+      user_id: userId,
+      payment_type: "subscription",
+      stripe_subscription_id: subscriptionId,
+      option_type: optionType,
+      status: "active",
+    })
+    .select("created_at")
+    .single();
   if (insert.error) {
     throw new Error(`option_subscriptions insert failed: ${insert.error.message}`);
+  }
+
+  // §6.5.A 補償オプション申し込み完了メール（申込者本人 1 通、fire-and-forget）。
+  await sendCompensationActivatedEmail(
+    admin,
+    send,
+    userId,
+    optionType,
+    insert.data?.created_at ?? new Date().toISOString(),
+  );
+}
+
+async function sendCompensationActivatedEmail(
+  admin: SupabaseClient<Database>,
+  send: typeof sendEmail,
+  userId: string,
+  optionType: "compensation_5000" | "compensation_9800",
+  activatedAtIso: string,
+): Promise<void> {
+  try {
+    const recipient = await fetchBillingRecipient(admin, userId);
+    if (!recipient) return;
+    const tpl = optionSubscriptionActivatedEmail({
+      recipientName: recipient.name,
+      optionLabel: OPTION_LABELS[optionType],
+      activatedAt: formatBillingDate(activatedAtIso),
+    });
+    await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
+  } catch (err) {
+    console.error(
+      "[handleCheckoutCompleted] sendCompensationActivatedEmail failed",
+      err,
+    );
   }
 }
 
@@ -223,6 +317,7 @@ async function handleUrgentOption(
   session: Stripe.Checkout.Session,
   userId: string,
   jobId: string | undefined,
+  send: typeof sendEmail,
 ): Promise<void> {
   if (!jobId) {
     throw new Error(
@@ -272,12 +367,62 @@ async function handleUrgentOption(
   if (updateJob.error) {
     throw new Error(`jobs update is_urgent failed: ${updateJob.error.message}`);
   }
+
+  // §6.6.A 急募オプション申し込み完了 (M-03 broadcast、jobs 起点で配信先解決)。
+  // 失敗はサイレント (DB 整合は完了している)。
+  await sendUrgentActivatedEmails(admin, send, jobId, sevenDaysLater);
+}
+
+async function sendUrgentActivatedEmails(
+  admin: SupabaseClient<Database>,
+  send: typeof sendEmail,
+  jobId: string,
+  endDate: Date,
+): Promise<void> {
+  try {
+    const { data: job, error: jobErr } = await admin
+      .from("jobs")
+      .select("title, owner_id, organization_id")
+      .eq("id", jobId)
+      .maybeSingle();
+    if (jobErr || !job) return;
+
+    const recipients = await getJobClientRecipients(admin, {
+      owner_id: job.owner_id as string,
+      organization_id: (job.organization_id as string | null) ?? null,
+    });
+    if (recipients.length === 0) return;
+
+    const tpl = (recipientName: string) =>
+      urgentOptionActivatedEmail({
+        recipientName,
+        jobTitle: (job.title as string) ?? "",
+        endDate: formatBillingDate(endDate.toISOString()),
+      });
+
+    await Promise.all(
+      recipients.map(async (r) => {
+        const built = tpl(r.displayName);
+        try {
+          await send({ to: r.email, subject: built.subject, html: built.html });
+        } catch (err) {
+          console.error(
+            "[handleUrgentOption] §6.6.A send failed",
+            { to: r.email, err },
+          );
+        }
+      }),
+    );
+  } catch (err) {
+    console.error("[handleUrgentOption] sendUrgentActivatedEmails failed", err);
+  }
 }
 
 async function handleVideoOption(
   admin: SupabaseClient<Database>,
   session: Stripe.Checkout.Session,
   userId: string,
+  send: typeof sendEmail,
 ): Promise<void> {
   const paymentIntentId = extractPaymentIntentId(session.payment_intent);
   if (!paymentIntentId) {
@@ -286,25 +431,38 @@ async function handleVideoOption(
     );
   }
 
-  const insert = await admin.from("option_subscriptions").insert({
-    user_id: userId,
-    payment_type: "one_time",
-    stripe_payment_intent_id: paymentIntentId,
-    option_type: "video",
-    status: "active",
-    end_date: null,
-  });
+  const insert = await admin
+    .from("option_subscriptions")
+    .insert({
+      user_id: userId,
+      payment_type: "one_time",
+      stripe_payment_intent_id: paymentIntentId,
+      option_type: "video",
+      status: "active",
+      end_date: null,
+    })
+    .select("created_at")
+    .single();
   if (insert.error) {
     throw new Error(
       `video option_subscriptions insert failed: ${insert.error.message}`,
     );
   }
+
+  await sendVideoActivatedEmails(
+    admin,
+    send,
+    userId,
+    "video",
+    insert.data?.created_at ?? new Date().toISOString(),
+  );
 }
 
 async function handleVideoWorkplaceOption(
   admin: SupabaseClient<Database>,
   session: Stripe.Checkout.Session,
   userId: string,
+  send: typeof sendEmail,
 ): Promise<void> {
   // 職場紹介動画掲載（video-display Task 4.2）。
   // 既存 handleVideoOption と同パターン（option_type のみ差し替え）。
@@ -316,18 +474,107 @@ async function handleVideoWorkplaceOption(
     );
   }
 
-  const insert = await admin.from("option_subscriptions").insert({
-    user_id: userId,
-    payment_type: "one_time",
-    stripe_payment_intent_id: paymentIntentId,
-    option_type: "video_workplace",
-    status: "active",
-    end_date: null,
-  });
+  const insert = await admin
+    .from("option_subscriptions")
+    .insert({
+      user_id: userId,
+      payment_type: "one_time",
+      stripe_payment_intent_id: paymentIntentId,
+      option_type: "video_workplace",
+      status: "active",
+      end_date: null,
+    })
+    .select("created_at")
+    .single();
   if (insert.error) {
     throw new Error(
       `video_workplace option_subscriptions insert failed: ${insert.error.message}`,
     );
+  }
+
+  await sendVideoActivatedEmails(
+    admin,
+    send,
+    userId,
+    "video_workplace",
+    insert.data?.created_at ?? new Date().toISOString(),
+  );
+}
+
+/**
+ * §6.6.B-User + §6.6.B-Ops 並列送信ヘルパー (動画 / 職場紹介動画共通)。
+ *
+ * - B-User: 申込者本人 + 法人プランなら組織メンバー全員 (M-03 broadcast)
+ * - B-Ops: `process.env.OPS_NOTIFICATION_EMAIL` 単一宛先 (M-07)
+ *
+ * 失敗はサイレント (片方失敗でも他方は送信)。
+ */
+async function sendVideoActivatedEmails(
+  admin: SupabaseClient<Database>,
+  send: typeof sendEmail,
+  userId: string,
+  optionType: "video" | "video_workplace",
+  activatedAtIso: string,
+): Promise<void> {
+  const optionLabel = OPTION_LABELS[optionType];
+
+  // B-User broadcast
+  try {
+    const recipients = await getUserOrganizationRecipients(admin, userId);
+    await Promise.all(
+      recipients.map(async (r) => {
+        const built = videoOptionActivatedEmail({
+          recipientName: r.displayName,
+          optionLabel,
+          activatedAt: formatBillingDate(activatedAtIso),
+        });
+        try {
+          await send({ to: r.email, subject: built.subject, html: built.html });
+        } catch (err) {
+          console.error("[handleVideoOption] §6.6.B-User send failed", {
+            to: r.email,
+            err,
+          });
+        }
+      }),
+    );
+  } catch (err) {
+    console.error("[handleVideoOption] §6.6.B-User broadcast failed", err);
+  }
+
+  // B-Ops single
+  try {
+    const opsEmail = process.env.OPS_NOTIFICATION_EMAIL;
+    if (!opsEmail) return;
+
+    const { data: applicant } = await admin
+      .from("users")
+      .select("last_name, first_name")
+      .eq("id", userId)
+      .maybeSingle();
+    const applicantName =
+      `${applicant?.last_name ?? ""}${applicant?.first_name ?? ""}`.trim() ||
+      "申込者";
+    const companyName = await resolveApplicantCompanyName(admin, userId);
+
+    const hdrs = await headers();
+    const host = hdrs.get("host");
+    const proto = hdrs.get("x-forwarded-proto") ?? "http";
+    const siteUrl = host
+      ? `${proto}://${host}`
+      : (process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000");
+
+    const tpl = videoOptionAppliedOpsEmail({
+      applicantName,
+      companyName,
+      appliedAt: formatBillingDateTime(activatedAtIso),
+      optionLabel,
+      userId,
+      siteUrl,
+    });
+    await send({ to: opsEmail, subject: tpl.subject, html: tpl.html });
+  } catch (err) {
+    console.error("[handleVideoOption] §6.6.B-Ops send failed", err);
   }
 }
 

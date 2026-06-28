@@ -24,6 +24,8 @@ const adminState = {
   updates: [] as AdminUpdateLog[],
   updateError: null as null | { message: string },
   inserts: [] as Array<{ table: string; payload: Record<string, unknown> }>,
+  /** §6.6.C 初回登録判定の SELECT で返す既存 video URL。null なら初回登録扱い。 */
+  previousVideoUrl: null as null | string,
 };
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -47,6 +49,33 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: (table: string) => ({
+      select: (cols: string) => ({
+        eq: () => ({
+          maybeSingle: async () => {
+            // §6.6.C 初回登録判定用 SELECT (config.column の旧値を返す)
+            if (cols === "video_url") {
+              return {
+                data:
+                  adminState.previousVideoUrl !== null
+                    ? { video_url: adminState.previousVideoUrl }
+                    : { video_url: null },
+                error: null,
+              };
+            }
+            if (cols === "workplace_video_url") {
+              return {
+                data:
+                  adminState.previousVideoUrl !== null
+                    ? { workplace_video_url: adminState.previousVideoUrl }
+                    : { workplace_video_url: null },
+                error: null,
+              };
+            }
+            // §6.6.C-Ops の users 引き当て (last_name, first_name) は無視 (null 返す)
+            return { data: null, error: null };
+          },
+        }),
+      }),
       update: (payload: Record<string, unknown>) => ({
         eq: (matchColumn: string, matchValue: unknown) => {
           adminState.updates.push({ table, payload, matchColumn, matchValue });
@@ -85,6 +114,7 @@ beforeEach(() => {
   adminState.updates = [];
   adminState.updateError = null;
   adminState.inserts = [];
+  adminState.previousVideoUrl = null;
 });
 
 /** audit_logs への INSERT のみを抽出する */
@@ -193,6 +223,40 @@ describe("監査ログ（video_url_update・admin spec Task 3.2）", () => {
       fd("user-9", "https://www.tiktok.com/@u/video/123"),
     );
     expect(auditInserts()).toHaveLength(0);
+  });
+});
+
+describe("§6.6.C 初回登録判定 (NULL/空 → URL のときだけメール送信)", () => {
+  // sendEmail / next/headers の実体は呼ばないため send 自体の assertion は別レイヤー
+  // (email-templates.test.ts) に委ねる。本ブロックは「初回判定の SELECT が走り、
+  // UPDATE が想定通りであること」 + 「差し替え/削除時に skip 経路を通ること」を検証。
+
+  it("初回登録 (URL → null/空 → URL): UPDATE は実行、success", async () => {
+    adminState.previousVideoUrl = null;
+    const result = await updateVideoUrlAction(
+      fd("user-9", "https://www.tiktok.com/@u/video/123"),
+    );
+    expect(result.success).toBe(true);
+    expect(adminState.updates).toHaveLength(1);
+  });
+
+  it("差し替え (旧 URL → 新 URL): UPDATE は実行されるが、初回判定は false (メール send 経路に入らない)", async () => {
+    adminState.previousVideoUrl = "https://www.tiktok.com/@old/video/000";
+    const result = await updateVideoUrlAction(
+      fd("user-9", "https://www.tiktok.com/@new/video/999"),
+    );
+    expect(result.success).toBe(true);
+    // UPDATE 自体は走る
+    expect(adminState.updates[0]?.payload).toEqual({
+      video_url: "https://www.tiktok.com/@new/video/999",
+    });
+  });
+
+  it("削除 (旧 URL → 空文字 → NULL): UPDATE は NULL 化、初回判定は false", async () => {
+    adminState.previousVideoUrl = "https://www.tiktok.com/@u/video/123";
+    const result = await updateVideoUrlAction(fd("user-9", ""));
+    expect(result.success).toBe(true);
+    expect(adminState.updates[0]?.payload).toEqual({ video_url: null });
   });
 });
 
