@@ -2,6 +2,10 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatMessageTime } from "@/lib/utils/format-message-time";
 
+// サービス開始時のアプリ内通知は使わずメール通知のみ。
+// 復活させる場合は true に戻すだけ（データ取得・Realtime はそのまま稼働中）。
+const SHOW_UNREAD_BADGE = false;
+
 interface ThreadListItemProps {
   threadId: string;
   participantName: string;
@@ -68,7 +72,7 @@ export function ThreadListItem({
         <span className="text-[10px] text-muted-foreground">
           {formatMessageTime(lastMessageAt)}
         </span>
-        {unreadCount > 0 && (
+        {SHOW_UNREAD_BADGE && unreadCount > 0 && (
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-white">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
