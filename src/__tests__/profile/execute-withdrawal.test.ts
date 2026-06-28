@@ -403,11 +403,11 @@ describe("executeWithdrawal: カスケード処理", () => {
     expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
       expect.anything(),
       TARGET_ID,
-      { path: "self_withdrawal", actorId: TARGET_ID },
+      { path: "self_withdrawal", actorId: TARGET_ID, organizationId: null },
     );
   });
 
-  it("Task 9: admin 削除 (cancelledBy=admin) → applyDeletedSuffix の actorId は null", async () => {
+  it("Task 9 + §8 prereq: admin 削除 (cancelledBy=admin) → applyDeletedSuffix の path は admin_force_delete + actorId は null", async () => {
     setupHappyPath();
 
     await executeWithdrawal({ targetUserId: TARGET_ID, cancelledBy: "admin" });
@@ -416,7 +416,7 @@ describe("executeWithdrawal: カスケード処理", () => {
     expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
       expect.anything(),
       TARGET_ID,
-      { path: "self_withdrawal", actorId: null },
+      { path: "admin_force_delete", actorId: null, organizationId: null },
     );
   });
 
@@ -438,17 +438,27 @@ describe("executeWithdrawal: カスケード処理", () => {
       cancelledBy: "contractor",
     });
 
-    // 対象本人 + 配下 2 名 = 3 回
+    // 対象本人 + 配下 2 名 (通常 staff 想定 = is_proxy_account 未設定 → 全凍結) = 3 回
+    // §8 prereq cascade 修正後: applyDeletedSuffix には組織コンテキスト (organizationId)
+    // が必須で渡される (§9.2 OPS アラートに必要)
     expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(3);
     expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
       expect.anything(),
       MEMBER_A,
-      { path: "self_withdrawal", actorId: TARGET_ID },
+      {
+        path: "self_withdrawal",
+        actorId: TARGET_ID,
+        organizationId: ORG_ID,
+      },
     );
     expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
       expect.anything(),
       MEMBER_B,
-      { path: "self_withdrawal", actorId: TARGET_ID },
+      {
+        path: "self_withdrawal",
+        actorId: TARGET_ID,
+        organizationId: ORG_ID,
+      },
     );
   });
 
@@ -465,6 +475,78 @@ describe("executeWithdrawal: カスケード処理", () => {
     expect(result.success).toBe(true);
     // ban は印付け失敗にかかわらず実施される (signin ブロックは必須)
     expect(mockAdminAuthUpdate).toHaveBeenCalledWith(TARGET_ID, {
+      ban_duration: "876600h",
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // §8 prereq: cascade 修正 — 代理 staff の N 法人継続判定
+  // -------------------------------------------------------------------------
+  it("§8 prereq: 代理 staff (is_proxy_account=true) + 他組織残存あり → applyDeletedSuffix 呼ばない", async () => {
+    const MEMBER_PROXY = "44444444-4444-4444-4444-444444444444";
+    setupHappyPath({
+      organization_members: {
+        // .select(..., { head: true }) で count を 1 (他組織で残存ありを意味する) で返す
+        count: 1,
+        data: { org_role: "owner", organization_id: ORG_ID },
+        thenable: {
+          data: [{ user_id: MEMBER_PROXY, is_proxy_account: true }],
+          error: null,
+        },
+      },
+    });
+
+    await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    // 対象本人 (Owner 自身) のみ applyDeletedSuffix が呼ばれる。
+    // 配下代理 staff は他組織で代理継続中のため凍結されず applyDeletedSuffix 呼ばれない。
+    expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(1);
+    expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
+      expect.anything(),
+      TARGET_ID,
+      expect.objectContaining({ path: "self_withdrawal" }),
+    );
+    // 代理 staff の ban も呼ばれないこと (Owner 本人だけ ban)
+    const banCalls = mockAdminAuthUpdate.mock.calls.map(
+      (call) => call[0] as string,
+    );
+    expect(banCalls).not.toContain(MEMBER_PROXY);
+  });
+
+  it("§8 prereq: 代理 staff (is_proxy_account=true) + 他組織残存なし → applyDeletedSuffix + ban を呼ぶ", async () => {
+    const MEMBER_PROXY = "44444444-4444-4444-4444-444444444444";
+    setupHappyPath({
+      organization_members: {
+        // count: 0 = 他組織残存なし
+        count: 0,
+        data: { org_role: "owner", organization_id: ORG_ID },
+        thenable: {
+          data: [{ user_id: MEMBER_PROXY, is_proxy_account: true }],
+          error: null,
+        },
+      },
+    });
+
+    await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    // 対象本人 + 代理 staff (残存なしで全凍結) = 2 回
+    expect(applyDeletedSuffixMock).toHaveBeenCalledTimes(2);
+    expect(applyDeletedSuffixMock).toHaveBeenCalledWith(
+      expect.anything(),
+      MEMBER_PROXY,
+      {
+        path: "self_withdrawal",
+        actorId: TARGET_ID,
+        organizationId: ORG_ID,
+      },
+    );
+    expect(mockAdminAuthUpdate).toHaveBeenCalledWith(MEMBER_PROXY, {
       ban_duration: "876600h",
     });
   });

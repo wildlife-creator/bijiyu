@@ -1,7 +1,7 @@
 "use server";
 
-import { Resend } from "resend";
-
+import { sendEmail } from "@/lib/email/send-email";
+import { registrationCompletedEmail } from "@/lib/email/templates/registration-completed";
 import { createClient } from "@/lib/supabase/server";
 import { registerProfileSchema } from "@/lib/validations/auth";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -95,20 +95,21 @@ export async function completeRegistrationAction(
     return { success: false, error: "パスワードの設定に失敗しました。もう一度お試しください。" };
   }
 
-  // Send welcome email (non-blocking, do not fail registration)
+  // §8.2 会員登録完了 welcome (non-blocking, do not fail registration).
+  //   - 件名統一「【ビジ友】会員登録が完了しました」
+  //   - 姓名はスペースなし結合 (CLAUDE.md「日本語の姓名結合はスペースなし」準拠)
+  //   - sendEmail() ヘルパー経由 (dev は /tmp/bijiyu-dev-mail に書き出し)
   try {
-    const resendApiKey = process.env.RESEND_API_KEY;
-    if (resendApiKey) {
-      const resend = new Resend(resendApiKey);
-      await resend.emails.send({
-        from: "ビジ友 <noreply@bijiyu.com>",
-        to: user.email ?? "",
-        subject: "ビジ友へようこそ！",
-        text: `${data.lastName} ${data.firstName} 様\n\nビジ友への会員登録が完了しました。\nぜひサービスをご活用ください。\n\nビジ友運営チーム`,
-      });
+    const recipientEmail = user.email;
+    if (recipientEmail) {
+      const recipientName =
+        `${data.lastName}${data.firstName}`.trim() || "ご利用者";
+      const { subject, html } = registrationCompletedEmail({ recipientName });
+      await sendEmail({ to: recipientEmail, subject, html });
     }
-  } catch {
+  } catch (err) {
     // Welcome email failure should not block registration
+    console.error("[completeRegistrationAction] welcome email failed", err);
   }
 
   return { success: true };

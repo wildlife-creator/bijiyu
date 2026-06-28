@@ -1,8 +1,28 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { sendEmailRecycleFailureAlert } from "@/lib/email/send/ops-alerts";
 import type { Database, Json } from "@/types/database";
 
 export type AdminClient = SupabaseClient<Database>;
+
+/**
+ * §9.2 OPS アラートを fire-and-forget で発火する内部 wrapper。
+ * `ops-alerts.sendEmailRecycleFailureAlert` 自身も内部例外を握り潰すが、ここでも
+ * void で呼ぶことで applyDeletedSuffix 本体が alert 失敗で詰まらないようにする。
+ */
+function notifyEmailRecycleFailure(
+  admin: AdminClient,
+  params: {
+    path: ApplyDeletedSuffixOptions["path"];
+    targetUserId: string;
+    targetEmail: string | null;
+    organizationId: string | null;
+  },
+): void {
+  void sendEmailRecycleFailureAlert(admin, params).catch((err) => {
+    console.error("[applyDeletedSuffix] notifyEmailRecycleFailure failed", err);
+  });
+}
 
 export type ApplyDeletedSuffixResult =
   | { kind: "applied"; recycledEmail: string }
@@ -15,10 +35,25 @@ export type ApplyDeletedSuffixResult =
   | { kind: "failed"; reason: "api_error"; error: string };
 
 export interface ApplyDeletedSuffixOptions {
-  /** 印付け発生経路（audit_logs.metadata.path に記録） */
-  path: "staff_delete" | "subscription_deleted" | "self_withdrawal";
+  /**
+   * 印付け発生経路（audit_logs.metadata.path に記録、§9.2 アラートの triggerLabel に使用）。
+   *   - `self_withdrawal`: 本人退会
+   *   - `admin_force_delete`: admin による強制削除 (`executeWithdrawal` から `cancelledBy='admin'` の場合)
+   *   - `staff_delete`: 担当者削除 (代理 / 通常 staff 両方)
+   *   - `subscription_deleted`: subscription 解約に伴う印付け
+   */
+  path:
+    | "staff_delete"
+    | "subscription_deleted"
+    | "self_withdrawal"
+    | "admin_force_delete";
   /** 削除を実行した actor の user id（actor_id 記録用、なければ null） */
   actorId: string | null;
+  /**
+   * §9.2 OPS アラート用の法人組織コンテキスト ID (任意)。
+   * 渡された場合のみ alert メールに【対象組織】行を含める。null / 未指定で行ごと省略。
+   */
+  organizationId?: string | null;
 }
 
 /**
@@ -133,6 +168,12 @@ export async function applyDeletedSuffix(
       targetId: userId,
       metadata: { path: options.path, reason: "api_error", date: isoDate },
     });
+    void notifyEmailRecycleFailure(admin, {
+      path: options.path,
+      targetUserId: userId,
+      targetEmail: null,
+      organizationId: options.organizationId ?? null,
+    });
     return { kind: "failed", reason: "api_error", error: message };
   }
 
@@ -143,6 +184,12 @@ export async function applyDeletedSuffix(
       action: "auth_email_recycle_failed",
       targetId: userId,
       metadata: { path: options.path, reason: "user_not_found", date: isoDate },
+    });
+    notifyEmailRecycleFailure(admin, {
+      path: options.path,
+      targetUserId: userId,
+      targetEmail: null,
+      organizationId: options.organizationId ?? null,
     });
     return {
       kind: "skipped",
@@ -164,6 +211,12 @@ export async function applyDeletedSuffix(
         reason: "invalid_format",
         date: isoDate,
       },
+    });
+    notifyEmailRecycleFailure(admin, {
+      path: options.path,
+      targetUserId: userId,
+      targetEmail: currentEmail || null,
+      organizationId: options.organizationId ?? null,
     });
     return { kind: "skipped", reason: "invalid_format" };
   }
@@ -198,6 +251,12 @@ export async function applyDeletedSuffix(
         action: "auth_email_recycle_failed",
         targetId: userId,
         metadata: { path: options.path, reason: "api_error", date: isoDate },
+      });
+      notifyEmailRecycleFailure(admin, {
+        path: options.path,
+        targetUserId: userId,
+        targetEmail: currentEmail,
+        organizationId: options.organizationId ?? null,
       });
       return { kind: "failed", reason: "api_error", error: message };
     }
@@ -242,6 +301,12 @@ export async function applyDeletedSuffix(
         targetId: userId,
         metadata: { path: options.path, reason: "api_error", date: isoDate },
       });
+      notifyEmailRecycleFailure(admin, {
+        path: options.path,
+        targetUserId: userId,
+        targetEmail: currentEmail,
+        organizationId: options.organizationId ?? null,
+      });
       return { kind: "failed", reason: "api_error", error: errObj.message };
     }
     // 衝突 → 次のランダムで再試行
@@ -257,6 +322,12 @@ export async function applyDeletedSuffix(
       reason: "max_retries_exceeded",
       date: isoDate,
     },
+  });
+  notifyEmailRecycleFailure(admin, {
+    path: options.path,
+    targetUserId: userId,
+    targetEmail: currentEmail,
+    organizationId: options.organizationId ?? null,
   });
   return {
     kind: "skipped",

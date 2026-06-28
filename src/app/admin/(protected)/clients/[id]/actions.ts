@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { writeAuditLog } from "@/lib/audit/log";
 import { requireAdmin } from "@/lib/admin/require-admin";
+import { sendEmail } from "@/lib/email/send-email";
+import { accountSuspendedByAdminEmail } from "@/lib/email/templates/account-suspended-by-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { executeWithdrawal } from "@/lib/withdrawal/execute";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -90,10 +92,11 @@ export async function deleteClientAccountAction(
 
   const admin = createAdminClient();
 
-  // 対象ガード: role='client' かつ未削除のみ削除可能
+  // 対象ガード: role='client' かつ未削除のみ削除可能。
+  // §8.4 メール本文に email + 姓名が必要なので削除前に取得 (applyDeletedSuffix で印付け後は取得不可)。
   const { data: target } = await admin
     .from("users")
-    .select("id, role, deleted_at")
+    .select("id, role, deleted_at, email, last_name, first_name")
     .eq("id", userId)
     .maybeSingle();
 
@@ -138,6 +141,21 @@ export async function deleteClientAccountAction(
     targetId: userId,
     metadata: { cascade_member_count: cascadeMemberCount },
   });
+
+  // §8.4 admin 強制削除時の本人通知 (fire-and-forget、失敗は削除自体に影響させない)。
+  // 配下メンバー (cascade) の通知は §8.5 / §8.5.5 として executeWithdrawal 側で送信済。
+  if (target.email) {
+    const recipientName =
+      `${target.last_name ?? ""}${target.first_name ?? ""}`.trim() ||
+      "ご利用者";
+    const { subject, html } = accountSuspendedByAdminEmail({ recipientName });
+    void sendEmail({ to: target.email, subject, html }).catch((err) => {
+      console.error(
+        "[deleteClientAccountAction] §8.4 account-suspended email failed",
+        err,
+      );
+    });
+  }
 
   revalidatePath("/admin/clients");
   redirect("/admin/clients");

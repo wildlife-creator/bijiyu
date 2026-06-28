@@ -1,9 +1,13 @@
 "use server";
 
 import { writeAuditLog } from "@/lib/audit/log";
+import { sendEmail } from "@/lib/email/send-email";
+import { adminPasswordChangedEmail } from "@/lib/email/templates/admin-password-changed";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { adminPasswordChangeSchema } from "@/lib/validations/auth";
 import type { ActionResult } from "@/lib/types/action-result";
+import { formatDateTime } from "@/lib/utils/format-date";
 
 /**
  * ADM-015: 管理者パスワード変更。
@@ -70,6 +74,34 @@ export async function changeAdminPasswordAction(
       targetType: "users",
       targetId: user.id,
     });
+
+    // §8.6 admin PW 変更完了通知 (fire-and-forget、admin session hijack 検知)。
+    //   - 失敗は console.error のみ (PW 更新は完了、Server Action 自体は success)
+    //   - admin は complete_registration を経由しないため last_name + first_name が空のケースあり。
+    //     その場合は「ビジ友 管理者 様」表記でフォールバック
+    void (async () => {
+      try {
+        const adminClient = createAdminClient();
+        const { data: profile } = await adminClient
+          .from("users")
+          .select("last_name, first_name")
+          .eq("id", user.id)
+          .maybeSingle();
+        const recipientName =
+          `${profile?.last_name ?? ""}${profile?.first_name ?? ""}`.trim() ||
+          "ビジ友 管理者";
+        const { subject, html } = adminPasswordChangedEmail({
+          recipientName,
+          changedAt: formatDateTime(new Date().toISOString()),
+        });
+        await sendEmail({ to: user.email!, subject, html });
+      } catch (err) {
+        console.error(
+          "[changeAdminPasswordAction] §8.6 admin-password-changed email failed",
+          err,
+        );
+      }
+    })();
 
     return { success: true };
   } catch {

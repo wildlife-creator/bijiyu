@@ -1,7 +1,11 @@
 import { getStripeClient } from "@/lib/billing/stripe";
 import { getWithdrawalReasonLabel } from "@/lib/constants/profile-options";
 import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
+import { sendEmail } from "@/lib/email/send-email";
+import { accountCascadeFrozenProxyEmail } from "@/lib/email/templates/account-cascade-frozen-proxy";
+import { accountCascadeFrozenStaffEmail } from "@/lib/email/templates/account-cascade-frozen-staff";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatDateTime } from "@/lib/utils/format-date";
 
 /**
  * C案カスケード退会の共有関数（admin spec Task 3.4 で withdrawAction から抽出）。
@@ -147,6 +151,12 @@ export async function executeWithdrawal(params: {
 
   // --- カスケード本体 ---
 
+  // §8 prereq: cancelledBy に応じて applyDeletedSuffix の path を切り替える
+  //   - contractor (本人退会) → self_withdrawal → §9.2 triggerLabel「退会」
+  //   - admin (admin 強制削除)→ admin_force_delete → §9.2 triggerLabel「管理者による強制削除」
+  const recyclePath =
+    cancelledBy === "admin" ? "admin_force_delete" : "self_withdrawal";
+
   // 対象ユーザーのソフトデリート
   await admin
     .from("users")
@@ -158,8 +168,9 @@ export async function executeWithdrawal(params: {
   // 失敗時も退会自体は継続させるため try/catch で隔離。
   try {
     await applyDeletedSuffix(admin, targetUserId, {
-      path: "self_withdrawal",
+      path: recyclePath,
       actorId: cancelledBy === "contractor" ? targetUserId : null,
+      organizationId: orgMembership?.organization_id ?? null,
     });
   } catch (e) {
     console.error("[executeWithdrawal] applyDeletedSuffix unexpected throw", {
@@ -196,56 +207,143 @@ export async function executeWithdrawal(params: {
     .eq("user_id", targetUserId)
     .eq("status", "active");
 
-  // --- 組織カスケード（C案: organization spec Task 13.4） ---
-  // Owner 退会時は組織ごとソフトデリートし、配下 Admin / Staff の
-  // users.deleted_at も連動設定してログイン不可化。
+  // --- 組織カスケード（C案: organization spec Task 13.4 + §8 prereq cascade 修正） ---
+  // Owner 退会時は組織ごとソフトデリートし、配下 Admin / Staff を本人種別に応じて処理。
+  // §8 prereq (§8.5 関連): 代理 staff は他組織で代理継続中なら凍結しない (残存件数判定)。
+  // §8.5 / §8.5.5: カスケード完了後に本人宛通知メールを fire-and-forget で送信。
   // client_profiles / scout_templates は削除せず保持（履歴）。
   if (orgMembership) {
     const orgId = orgMembership.organization_id;
 
     if (orgMembership.org_role === "owner") {
+      // 配下メンバーの本人種別判定に必要な情報を一括取得。
+      // applyDeletedSuffix 後は email が印付けで書き換わるため、ループ内ではなく
+      // **事前に email + 姓名を取得しておく** (§8.5 / §8.5.5 メール本文用)。
       const { data: memberRows } = await admin
         .from("organization_members")
-        .select("user_id")
+        .select("user_id, is_proxy_account")
         .eq("organization_id", orgId)
         .neq("user_id", targetUserId);
 
-      const memberIds = (memberRows ?? [])
-        .map((m) => m.user_id as string)
-        .filter(Boolean);
+      const members = (memberRows ?? [])
+        .filter((m): m is { user_id: string; is_proxy_account: boolean } =>
+          typeof m.user_id === "string",
+        );
 
-      if (memberIds.length > 0) {
-        await admin
+      // メンバー本人の email + 姓名を一括取得 (印付け前に保持)
+      const memberUserRows =
+        members.length > 0
+          ? (
+              await admin
+                .from("users")
+                .select("id, email, last_name, first_name")
+                .in(
+                  "id",
+                  members.map((m) => m.user_id),
+                )
+            ).data ?? []
+          : [];
+      const memberUserMap = new Map(
+        memberUserRows.map((u) => [u.id as string, u]),
+      );
+
+      // §8.5 / §8.5.5 メール本文用に Owner 自身の名前と組織名を解決
+      const [ownerUserRes, ownerProfileRes] = await Promise.all([
+        admin
           .from("users")
-          .update({ deleted_at: new Date().toISOString() })
-          .in("id", memberIds);
-      }
+          .select("last_name, first_name")
+          .eq("id", targetUserId)
+          .maybeSingle(),
+        admin
+          .from("client_profiles")
+          .select("display_name")
+          .eq("user_id", targetUserId)
+          .maybeSingle(),
+      ]);
+      const ownerName =
+        `${ownerUserRes.data?.last_name ?? ""}${ownerUserRes.data?.first_name ?? ""}`.trim() ||
+        "管理責任者";
+      const organizationName =
+        ownerProfileRes.data?.display_name?.trim() || "ご所属組織";
+      const withdrawnAt = formatDateTime(new Date().toISOString());
 
-      // Task 9: 配下メンバーごとに「印付け → ban」の順で適用。
-      // 印付けは Owner 退会カスケードの actor = targetUserId (退会する Owner)。
-      // ban は public.users.deleted_at だけでは auth 側 signin が通ってしまうため
-      // 即時ブロック用に必須。
-      for (const memberId of memberIds) {
-        try {
-          await applyDeletedSuffix(admin, memberId, {
-            path: "self_withdrawal",
-            actorId: targetUserId,
-          });
-        } catch (e) {
-          console.error(
-            "[executeWithdrawal] applyDeletedSuffix unexpected throw (org cascade)",
-            { memberId, error: e },
-          );
+      // メンバー単位で path を決定し、freeze 実行 → メール用 spec を蓄積
+      interface CascadeEmailSpec {
+        to: string;
+        recipientName: string;
+        kind: "proxy" | "staff";
+        hasRemainingMembership: boolean;
+      }
+      const emailSpecs: CascadeEmailSpec[] = [];
+
+      for (const m of members) {
+        const userRow = memberUserMap.get(m.user_id);
+        const memberEmail = (userRow?.email as string | null) ?? "";
+        const recipientName =
+          `${userRow?.last_name ?? ""}${userRow?.first_name ?? ""}`.trim() ||
+          "ご担当者";
+
+        // 代理 staff のみ残存件数判定 (proxy-account-multi-org-support の
+        // delete_staff_member v2 と同じロジック適用)。
+        // 通常 staff / admin は 1 組織のみ在籍可能なので残存判定不要 = 常に全凍結。
+        let hasRemaining = false;
+        if (m.is_proxy_account === true) {
+          const { count } = await admin
+            .from("organization_members")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", m.user_id)
+            .neq("organization_id", orgId);
+          hasRemaining = (count ?? 0) > 0;
         }
-        try {
-          await admin.auth.admin.updateUserById(memberId, {
-            ban_duration: BAN_DURATION,
+
+        if (m.is_proxy_account === true && hasRemaining) {
+          // §8.5.A-1: 代理 staff + 他組織残存 → この組織の org_members 行のみ削除、
+          // users / auth はそのまま残す (他組織で代理業務継続)
+          await admin
+            .from("organization_members")
+            .delete()
+            .eq("user_id", m.user_id)
+            .eq("organization_id", orgId);
+        } else {
+          // §8.5.A-2 (proxy + 残存なし) or §8.5.5 (regular staff/admin):
+          // users.deleted_at セット + 印付け + ban で全凍結。
+          // 通常 staff の org_members 行は既存パターンに従い保持 (admin 監査用)。
+          // proxy A-2 でも保持で OK (グローバル凍結後に行が残っても影響なし)。
+          await admin
+            .from("users")
+            .update({ deleted_at: new Date().toISOString() })
+            .eq("id", m.user_id);
+          try {
+            await applyDeletedSuffix(admin, m.user_id, {
+              path: recyclePath,
+              actorId: targetUserId,
+              organizationId: orgId,
+            });
+          } catch (e) {
+            console.error(
+              "[executeWithdrawal] applyDeletedSuffix unexpected throw (org cascade)",
+              { memberId: m.user_id, error: e },
+            );
+          }
+          try {
+            await admin.auth.admin.updateUserById(m.user_id, {
+              ban_duration: BAN_DURATION,
+            });
+          } catch (err) {
+            console.error(
+              "[executeWithdrawal] failed to ban org member (non-blocking)",
+              { memberId: m.user_id, err },
+            );
+          }
+        }
+
+        if (memberEmail) {
+          emailSpecs.push({
+            to: memberEmail,
+            recipientName,
+            kind: m.is_proxy_account === true ? "proxy" : "staff",
+            hasRemainingMembership: hasRemaining,
           });
-        } catch (err) {
-          console.error(
-            "[executeWithdrawal] failed to ban org member (non-blocking)",
-            { memberId, err },
-          );
         }
       }
 
@@ -258,6 +356,40 @@ export async function executeWithdrawal(params: {
         .from("organizations")
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", orgId);
+
+      // §8.5 / §8.5.5 メール送信 (fire-and-forget で並列、失敗はログのみ)
+      void Promise.all(
+        emailSpecs.map(async (spec) => {
+          try {
+            const { subject, html } =
+              spec.kind === "proxy"
+                ? accountCascadeFrozenProxyEmail({
+                    recipientName: spec.recipientName,
+                    organizationName,
+                    ownerName,
+                    withdrawnAt,
+                    hasRemainingMembership: spec.hasRemainingMembership,
+                  })
+                : accountCascadeFrozenStaffEmail({
+                    recipientName: spec.recipientName,
+                    organizationName,
+                    ownerName,
+                    withdrawnAt,
+                  });
+            await sendEmail({ to: spec.to, subject, html });
+          } catch (err) {
+            console.error(
+              "[executeWithdrawal] §8.5 / §8.5.5 cascade email failed (non-blocking)",
+              { to: spec.to, kind: spec.kind, err },
+            );
+          }
+        }),
+      ).catch((err) =>
+        console.error(
+          "[executeWithdrawal] cascade email Promise.all threw (non-blocking)",
+          err,
+        ),
+      );
     } else {
       // Owner 以外（現在は上部ガードで到達不可だが将来の仕様変更に備える）
       await admin

@@ -265,6 +265,15 @@ content_path = "./supabase/templates/email-change-current.html"
 subject = "【ビジ友】パスワード再設定のご案内"
 content_path = "./supabase/templates/recovery.html"
 
+# §8.1 サインアップ確認 (confirmation) 日本語カスタムテンプレ。
+# `signupAction` (/register → メアド入力) で `signUp({ emailRedirectTo: /register/verify })`
+# 経由で配信される。M-08 準拠 (ピル型ボタン + URL 直貼り)。
+# 本番 Supabase ダッシュボードの Email Templates → Confirm signup にも
+# 同 HTML / 件名を反映する必要あり（supabase/config.toml はローカル開発専用）。
+[auth.email.template.confirmation]
+subject = "【ビジ友】メールアドレスの確認をお願いします"
+content_path = "./supabase/templates/confirmation.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

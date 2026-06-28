@@ -29,6 +29,7 @@ import { proxyRemovedControlEmail } from "@/lib/email/templates/proxy-removed-co
 import { staffRemovedEmail } from "@/lib/email/templates/staff-removed";
 import { staffRemovedControlEmail } from "@/lib/email/templates/staff-removed-control";
 import { getOrganizationManagementRecipients } from "@/lib/email/recipients/organization-managers";
+import { sendOrphanAuthUserAlert } from "@/lib/email/send/ops-alerts";
 import { resolveExistingProxyReuse } from "@/lib/organization/resolve-existing-proxy-reuse";
 import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
 
@@ -292,28 +293,13 @@ export async function createMemberAction(
         rpc_error: rpcError.message,
         cleanup_error: cleanupError.message,
       });
-      // Task 14.2: 運営通知メール（孤児発生の即時アラート）
-      const opsEmail = process.env.OPS_NOTIFICATION_EMAIL;
-      if (opsEmail) {
-        sendEmail({
-          to: opsEmail,
-          subject: "【要対応】担当者作成のクリーンアップ失敗",
-          html: `<p>担当者作成で RPC 失敗 + auth.users 削除失敗が発生しました。孤児 auth.users が残っている可能性があります。</p>
-<ul>
-  <li>auth_user_id: ${newUserId}</li>
-  <li>email: ${parsed.data.email}</li>
-  <li>organization_id: ${actor.organizationId}</li>
-  <li>rpc_error: ${rpcError.message}</li>
-  <li>cleanup_error: ${cleanupError.message}</li>
-</ul>
-<p>対応手順は docs/operations/orphan-auth-users-playbook.md を参照してください。</p>`,
-        }).catch((err) => {
-          console.error(
-            "[createMemberAction] OPS notification email failed",
-            err,
-          );
-        });
-      }
+      // §9.1 運営通知アラート (旧 E-13、テンプレ化 + 件名統一)。
+      // 技術詳細 (auth_user_id / rpc_error / cleanup_error) は本文に含めず audit_logs 経由で
+      // 開発担当者が引く前提 (§9 全体方針: 技術用語ゼロ)。
+      void sendOrphanAuthUserAlert(admin, {
+        invitedEmail: parsed.data.email,
+        organizationId: actor.organizationId,
+      });
     } else {
       await logAudit(admin, actor.userId, "member_create_failed_cleanup_pending", {
         target_user_id: newUserId,
@@ -1140,13 +1126,14 @@ export async function deleteMemberAction(
   // globally_deleted=true（本 RPC で users.deleted_at が NULL → now() に遷移）の
   // ときのみ auth.users.email を印付け書き換えして元のメールアドレスを解放する。
   // 印付け失敗は削除自体の成功を維持する（audit_logs.auth_email_recycle_failed
-  // で運用が後追いできる）。
+  // で運用が後追いできる）。失敗時の §9.2 OPS アラート用に `organizationId` を渡す。
   const result = data as { user_id: string; globally_deleted: boolean } | null;
   if (result?.globally_deleted === true) {
     try {
       await applyDeletedSuffix(admin, targetUserId, {
         path: "staff_delete",
         actorId: actor.userId,
+        organizationId: actor.organizationId,
       });
     } catch (e) {
       console.error("[deleteMemberAction] applyDeletedSuffix unexpected throw", e);
