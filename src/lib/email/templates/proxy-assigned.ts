@@ -1,6 +1,6 @@
 import { listItem, paragraph, renderLayout } from "@/lib/email/components";
 
-interface ProxyAssignedExistingUserEmailProps {
+interface ProxyAssignedEmailProps {
   /** 受信者 (= 設定された ビジ友運営スタッフ) の表示名 */
   recipientName: string;
   /** 設定先の法人組織名 (client_profiles.display_name 解決済み) */
@@ -21,15 +21,13 @@ interface ProxyAssignedExistingUserEmailProps {
  * 2026-06-24 完全分離アプローチ採用後の確定形:
  *   - サインインリンク CTA を削除（本人は既にログイン可能 / CTA は §5.1-Proxy に集約）
  *   - 事実通知 + 業務上の補足説明（代理マークの可視性）に専念
- *
- * NOTE: 将来 `proxy-assigned.ts` にリネーム予定（spec §5.6 共通コード改修事項）。
  */
-export function proxyAssignedExistingUserEmail({
+export function proxyAssignedEmail({
   recipientName,
   organizationName,
   actorName,
   assignedAt,
-}: ProxyAssignedExistingUserEmailProps): { subject: string; html: string } {
+}: ProxyAssignedEmailProps): { subject: string; html: string } {
   return {
     subject: `【ビジ友 運営】「${organizationName}」の代理アカウントとして設定されました`,
     html: renderLayout({

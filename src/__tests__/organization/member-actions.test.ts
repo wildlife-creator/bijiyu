@@ -293,6 +293,27 @@ describe("createMemberAction", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
+    // §5.6.C/D bundle (sendToTarget=false): 4 並列クエリ。
+    // target users / owner client_profiles / actor users / organization_members(空)
+    // 空で early exit させて sendEmail 0 通にする。
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "山田", first_name: "太郎" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "○○建設" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "山田", first_name: "一郎" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
 
     const r = await createMemberAction({ ...validInput, isProxyAccount: true });
     expect(r.success).toBe(true);
@@ -612,7 +633,8 @@ describe("R2: createMemberAction 既存ユーザー再利用パス", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
-    // sendProxyAssignedEmail 内 3 つの SELECT (users, client_profiles, users)
+    // §5.6.C + §5.6.D sendProxyAssignedBundle: 4 並列クエリ
+    //   1. target users SELECT (recipientName 解決)
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -621,14 +643,38 @@ describe("R2: createMemberAction 既存ユーザー再利用パス", () => {
         },
       }),
     );
+    //   2. owner client_profiles SELECT (organizationName 解決)
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: { data: { display_name: "テスト株式会社" }, error: null },
       }),
     );
+    //   3. actor users SELECT (actorName 解決)
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: { data: { last_name: "佐藤", first_name: "一郎" }, error: null },
+      }),
+    );
+    //   4a. §5.6.D 受信者解決: organization_members → Owner 自身
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: { data: [{ user_id: OWNER_ID }], error: null },
+      }),
+    );
+    //   4b. §5.6.D 受信者解決: users
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [
+            {
+              id: OWNER_ID,
+              email: "owner@test.local",
+              last_name: "佐藤",
+              first_name: "一郎",
+            },
+          ],
+          error: null,
+        },
       }),
     );
 
@@ -646,14 +692,29 @@ describe("R2: createMemberAction 既存ユーザー再利用パス", () => {
         p_is_proxy_account: true,
       }),
     );
-    // 通知メールが送信される
-    expect(sendEmailMock).toHaveBeenCalledTimes(1);
-    const emailCall = sendEmailMock.mock.calls[0]?.[0] as
-      | { to: string; subject: string; html: string }
-      | undefined;
-    expect(emailCall?.to).toBe("proxy@test.local");
-    expect(emailCall?.subject).toContain("代理アカウント");
-    expect(emailCall?.subject).toContain("テスト株式会社");
+    // §5.6.C 本人宛 1 通 + §5.6.D Owner 宛 1 通 = 計 2 通
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+    const sentTos = sendEmailMock.mock.calls.map(
+      (c) => (c[0] as { to: string }).to,
+    );
+    expect(sentTos).toContain("proxy@test.local");
+    expect(sentTos).toContain("owner@test.local");
+
+    // §5.6.C 本人宛検証
+    const selfMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "proxy@test.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(selfMail?.subject).toContain("代理アカウント");
+    expect(selfMail?.subject).toContain("テスト株式会社");
+
+    // §5.6.D 法人側検証
+    const controlMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "owner@test.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(controlMail?.subject).toBe(
+      "【ビジ友】山田太郎さんを代理アカウントとして設定しました",
+    );
+    expect(controlMail?.html).toContain("(ビジ友運営スタッフ)");
   });
 
   it("既存代理 + 氏名不一致 → reject_name_mismatch エラー (応答に既存氏名を含めない)", async () => {
@@ -761,6 +822,26 @@ describe("R2: createMemberAction 既存ユーザー再利用パス", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
+    // §5.6.C/D bundle (新規招待 + 代理、sendToTarget=false): 4 並列クエリ。
+    // organization_members 空で 0 受信者 → sendEmail 0 通。
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "山田", first_name: "太郎" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "山", first_name: "田" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
 
     const r = await createMemberAction(proxyInput);
     expect(r.success).toBe(true);
@@ -770,7 +851,7 @@ describe("R2: createMemberAction 既存ユーザー再利用パス", () => {
       "insert_staff_member_with_limit",
       expect.objectContaining({ p_user_id: NEW_USER_ID }),
     );
-    // reuse パスではないため通知メールは送信されない
+    // 新規招待 + 代理: §5.1-Proxy(Supabase Auth)で本人完結、§5.6.D は受信者 0 名で send なし
     expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
@@ -1134,6 +1215,134 @@ describe("updateMemberAction", () => {
     );
     expect(controlMail?.html).toContain("発注者一郎 様");
     expect(controlMail?.html).toContain("【対象担当者】 田中");
+  });
+
+  it("§5.6.C/D: is_proxy_account 後付け切替 (false→true) で本人(§5.6.C) + 組織管理層(§5.6.D) bundle 送信", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // target SELECT (is_proxy_account=false)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            organization_id: ORG_ID,
+            org_role: "staff",
+            is_proxy_account: false,
+            user_id: STAFF_ID,
+          },
+          error: null,
+        },
+      }),
+    );
+    // 代理一意性事前チェック → 既存なし
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // memberUpdates UPDATE
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // §5.6.C/D bundle 前: target email 取得
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { email: "target@test.local" }, error: null },
+      }),
+    );
+    // §5.6.C/D bundle (sendToTarget=true): 4 並列クエリ
+    // 1. target users SELECT (recipientName)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "田", first_name: "中" }, error: null },
+      }),
+    );
+    // 2. owner client_profiles
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト株式会社" }, error: null },
+      }),
+    );
+    // 3. actor users
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "発注", first_name: "者一郎" }, error: null },
+      }),
+    );
+    // 4a. recipients: organization_members → Owner 自身
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: { data: [{ user_id: OWNER_ID }], error: null },
+      }),
+    );
+    // 4b. recipients: users
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [
+            {
+              id: OWNER_ID,
+              email: "owner@test.local",
+              last_name: "発注",
+              first_name: "者一郎",
+            },
+          ],
+          error: null,
+        },
+      }),
+    );
+
+    const r = await updateMemberAction(STAFF_ID, { isProxyAccount: true });
+    expect(r.success).toBe(true);
+
+    // §5.6.C 本人宛 1 + §5.6.D Owner 宛 1 = 計 2 通
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+    const sentTos = sendEmailMock.mock.calls.map(
+      (c) => (c[0] as { to: string }).to,
+    );
+    expect(sentTos).toContain("target@test.local");
+    expect(sentTos).toContain("owner@test.local");
+
+    // §5.6.C 本人宛
+    const selfMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "target@test.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(selfMail?.subject).toContain("代理アカウント");
+    expect(selfMail?.subject).toContain("テスト株式会社");
+
+    // §5.6.D 法人側
+    const controlMail = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "owner@test.local",
+    )?.[0] as { subject: string; html: string } | undefined;
+    expect(controlMail?.subject).toBe(
+      "【ビジ友】田中さんを代理アカウントとして設定しました",
+    );
+    expect(controlMail?.html).toContain("(ビジ友運営スタッフ)");
+  });
+
+  it("§5.6.C/D: is_proxy_account が true→false の OFF 切替では送信なし (spec §5.6 解除は通知しない)", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // target SELECT (is_proxy_account=true)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            organization_id: ORG_ID,
+            org_role: "staff",
+            is_proxy_account: true,
+            user_id: STAFF_ID,
+          },
+          error: null,
+        },
+      }),
+    );
+    // memberUpdates UPDATE
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await updateMemberAction(STAFF_ID, { isProxyAccount: false });
+    expect(r.success).toBe(true);
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
   it("§5.6.A/B: orgRole が target と同値 (変更なし) なら role-change メールは飛ばない", async () => {

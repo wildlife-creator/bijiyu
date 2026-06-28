@@ -22,7 +22,8 @@ import { emailChangedByAdminControlEmail } from "@/lib/email/templates/email-cha
 import { memberInvitedControlEmail } from "@/lib/email/templates/member-invited-control";
 import { memberRoleChangedEmail } from "@/lib/email/templates/member-role-changed";
 import { memberRoleChangedControlEmail } from "@/lib/email/templates/member-role-changed-control";
-import { proxyAssignedExistingUserEmail } from "@/lib/email/templates/proxy-assigned-existing-user";
+import { proxyAssignedEmail } from "@/lib/email/templates/proxy-assigned";
+import { proxyAssignedControlEmail } from "@/lib/email/templates/proxy-assigned-control";
 import { getOrganizationManagementRecipients } from "@/lib/email/recipients/organization-managers";
 import { resolveExistingProxyReuse } from "@/lib/organization/resolve-existing-proxy-reuse";
 import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
@@ -351,15 +352,21 @@ export async function createMemberAction(
     ...(isReusePath ? { reuse_existing_user: true } : {}),
   });
 
-  // 既存ユーザー再利用パスの通知メール送信 (proxy-assigned-existing-user)
-  // 失敗してもメイン処理はロールバックしない (DB 登録は成功済み、運用通知扱い)
-  if (isReusePath) {
-    await sendProxyAssignedEmail({
+  // §5.6.C + §5.6.D 代理アカウント設定通知 (本人 + 組織管理層 broadcast)
+  //   - reuse パス: 本人(§5.6.C) + 法人側(§5.6.D) 両方送信
+  //   - 新規招待 + 代理 (new_user + isProxyAccount=true): 本人宛は §5.1-Proxy で完結、
+  //     法人側のみ §5.6.D 送信
+  //   - 通常 staff 招待 (代理 OFF): §5.6 系は飛ばさない (§5.2.A 招待 control を発火)
+  const isProxyInvite = parsed.data.isProxyAccount === true;
+  if (isReusePath || isProxyInvite) {
+    await sendProxyAssignedBundle({
       admin,
+      organizationId: actor.organizationId,
       targetUserId: newUserId,
       recipientEmail: parsed.data.email,
       orgOwnerId: actor.orgOwnerId,
       actorUserId: actor.userId,
+      sendToTarget: isReusePath, // reuse のみ §5.6.C を本人に送る
     });
   }
 
@@ -382,20 +389,39 @@ export async function createMemberAction(
 }
 
 // ---------------------------------------------------------------------------
-// Helper: existing ユーザー再利用パスの通知メール送信
-// proxy-account-multi-org-support Phase 6 / Task 6.2 + 6.3
+// Helper: §5.6.C + §5.6.D 代理アカウント設定通知 (bundle)
+//
+// §5.6.C 本人宛 (ビジ友運営スタッフ宛) と §5.6.D 法人 Owner+admin 宛 broadcast を
+// 一括送信する共通ヘルパー。3 シナリオで使用:
+//   - createMemberAction 新規招待 + isProxyAccount=true: sendToTarget=false
+//     (本人宛は §5.1-Proxy が単独でカバー、§5.6.C は飛ばない)
+//   - createMemberAction reuse パス (既存代理が別組織に追加): sendToTarget=true
+//   - updateMemberAction 代理 ON 切替 (false→true): sendToTarget=true
+//
+// 失敗は console.error のみで握り潰す (Server Action 自体は成功)。
 // ---------------------------------------------------------------------------
-async function sendProxyAssignedEmail(params: {
+async function sendProxyAssignedBundle(params: {
   admin: ReturnType<typeof createAdminClient>;
+  organizationId: string;
   targetUserId: string;
   recipientEmail: string;
   orgOwnerId: string;
   actorUserId: string;
+  /** false で §5.6.C 本人宛を skip (新規招待時、§5.1-Proxy で完結する場合のみ) */
+  sendToTarget: boolean;
 }): Promise<void> {
-  const { admin, targetUserId, recipientEmail, orgOwnerId, actorUserId } = params;
+  const {
+    admin,
+    organizationId,
+    targetUserId,
+    recipientEmail,
+    orgOwnerId,
+    actorUserId,
+    sendToTarget,
+  } = params;
 
   try {
-    const [targetRes, ownerProfileRes, actorRes] = await Promise.all([
+    const [targetRes, ownerProfileRes, actorRes, recipients] = await Promise.all([
       admin
         .from("users")
         .select("last_name, first_name")
@@ -411,6 +437,7 @@ async function sendProxyAssignedEmail(params: {
         .select("last_name, first_name")
         .eq("id", actorUserId)
         .maybeSingle(),
+      getOrganizationManagementRecipients(admin, organizationId, [targetUserId]),
     ]);
 
     const recipientName =
@@ -421,20 +448,36 @@ async function sendProxyAssignedEmail(params: {
     const actorName =
       `${actorRes.data?.last_name ?? ""}${actorRes.data?.first_name ?? ""}`.trim() ||
       "管理者";
-    const now = new Date();
-    const assignedAt = formatJapaneseDateTime(now);
+    const assignedAt = formatJapaneseDateTime(new Date());
 
-    const { subject, html } = proxyAssignedExistingUserEmail({
-      recipientName,
-      organizationName,
-      actorName,
-      assignedAt,
-    });
+    const tasks: Promise<unknown>[] = [];
 
-    await sendEmail({ to: recipientEmail, subject, html });
+    // §5.6.C 本人宛 (sendToTarget=true のみ)
+    if (sendToTarget && recipientEmail) {
+      const { subject, html } = proxyAssignedEmail({
+        recipientName,
+        organizationName,
+        actorName,
+        assignedAt,
+      });
+      tasks.push(sendEmail({ to: recipientEmail, subject, html }));
+    }
+
+    // §5.6.D 法人 Owner + admin 宛 broadcast
+    for (const r of recipients) {
+      const { subject, html } = proxyAssignedControlEmail({
+        recipientName: r.displayName,
+        targetName: recipientName,
+        actorName,
+        assignedAt,
+      });
+      tasks.push(sendEmail({ to: r.email, subject, html }));
+    }
+
+    await Promise.all(tasks);
   } catch (err) {
     console.error(
-      "[createMemberAction] proxy-assigned-existing-user email failed",
+      "[mypage/members] §5.6.C/D proxy-assigned bundle failed",
       err,
     );
   }
@@ -891,6 +934,31 @@ export async function updateMemberAction(
       targetUserId,
       oldRoleLabel: roleLabel(target.org_role),
       newRoleLabel: roleLabel(newRole),
+    });
+  }
+
+  // §5.6.C / §5.6.D 代理アカウント設定通知 (本人 + 組織管理層 broadcast)。
+  //   - is_proxy_account が false → true に切り替わった瞬間のみ発火
+  //   - OFF (true → false) は通知しない (spec §5.6 設計判断)
+  const newProxy = parsed.data.isProxyAccount;
+  const proxyTurnedOn =
+    newProxy === true && target.is_proxy_account === false;
+  if (proxyTurnedOn) {
+    // 後付けで代理化したケース: §5.6.C 本人宛 + §5.6.D 法人側を bundle 送信
+    // 対象本人の email は users 行から取得する必要がある (target は organization_members)
+    const { data: targetUserRow } = await admin
+      .from("users")
+      .select("email")
+      .eq("id", targetUserId)
+      .maybeSingle();
+    await sendProxyAssignedBundle({
+      admin,
+      organizationId: actor.organizationId,
+      targetUserId,
+      recipientEmail: targetUserRow?.email ?? "",
+      orgOwnerId: actor.orgOwnerId,
+      actorUserId: actor.userId,
+      sendToTarget: true,
     });
   }
 
