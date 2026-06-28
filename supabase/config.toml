@@ -243,20 +243,17 @@ otp_expiry = 86400
 subject = "{{ if .Data.is_proxy_account }}【ビジ友 運営】「{{ .Data.invited_org_name }}」の代理アカウントとしてご招待{{ else }}【ビジ友】ビジ友へのご招待{{ end }}"
 content_path = "./supabase/templates/invite.html"
 
-# §5.5.A / §5.5.B セルフメール変更確認テンプレ（パターン Y = 2 ファイル分離）。
-# double_confirm_changes = true 下で旧 + 新 両方に確認メールが飛ぶ。
-# Supabase CLI バージョンによってキー名が異なる可能性あり (`email_change` 単一
-# テンプレで両方カバーするバージョンもある)。Inbucket で「両方とも日本語」を
-# 確認する。片方が英語デフォルトに戻る場合はパターン X (単一テンプレ + Go template
-# `{{ if eq .Email .NewEmail }}` 分岐) にフォールバック設計する (spec §5.5
-# 「実装着手前の検証手順」参照)。
+# §5.5 セルフメール変更確認テンプレ（パターン X = 単一テンプレ、2026-06-28 監査で fix）。
+# Supabase CLI v2.75.0 / gotrue は `[auth.email.template.email_change_current]` を
+# サイレントに無視し、`double_confirm_changes = true` 下でも `email_change` 1 テンプレを
+# 旧 + 新 両方の宛先に使う。`.Email` / `.NewEmail` は両宛先で同一値のため Go template
+# 分岐も成立せず、唯一現実的な対応は「旧・新どちらが読んでも矛盾しない中立文 + セキュリティ
+# 案内 + パスワード継続案内」を 1 テンプレに統合する形 (spec §5.5「実装着手前の検証手順」
+# Pattern X フォールバック想定)。
+# 詳細記録: .kiro/specs/notifications/email-decisions-wip.md §5.5
 [auth.email.template.email_change]
-subject = "【ビジ友】メールアドレス変更のご確認(新しいアドレス)"
+subject = "【ビジ友】メールアドレス変更のご確認"
 content_path = "./supabase/templates/email-change-new.html"
-
-[auth.email.template.email_change_current]
-subject = "【ビジ友】メールアドレス変更のご確認(現在のアドレス)"
-content_path = "./supabase/templates/email-change-current.html"
 
 # §5.8 パスワード再設定（recovery）日本語カスタムテンプレ。
 # 本番 Supabase ダッシュボードの Email Templates → Reset Password にも

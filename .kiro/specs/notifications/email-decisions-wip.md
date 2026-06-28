@@ -2028,7 +2028,21 @@ M-08 準拠。§5.1 招待メールテンプレ（`supabase/templates/invite.htm
 | 確認リンク URL | `{{ .ConfirmationURL }}` | Supabase Auth が verify エンドポイント + token + redirect_to を自動生成 |
 | 24 時間 | テンプレに直書き | Supabase email change token のデフォルト寿命 |
 
-#### 実装着手前の検証手順（B-1: テンプレキー名確定）
+#### ✅ 検証済：パターン X (単一テンプレ) 採用 (2026-06-28 runtime audit)
+
+**結論**: Supabase CLI v2.75.0 では `[auth.email.template.email_change_current]` 設定はサイレントに無視され、`double_confirm_changes = true` 下でも `email_change` 1 テンプレを旧 + 新両方の宛先に使う動作だった。`.Email` / `.NewEmail` は両宛先で同一値のため Go template `{{ if eq .Email .NewEmail }}` 分岐も成立せず、唯一現実的な対応は「旧・新どちらが読んでも矛盾しない中立文 + セキュリティ案内 + パスワード継続案内」を 1 テンプレに統合する形 (= 下記「実装結果」を参照)。
+
+**実装結果 (2026-06-28)**:
+- `supabase/templates/email-change-new.html` = 中立文版に書き換え (旧・新共通)
+- `supabase/templates/email-change-current.html` = 削除
+- `supabase/config.toml` の `[auth.email.template.email_change_current]` セクション削除
+- `[auth.email.template.email_change]` の subject = 「【ビジ友】メールアドレス変更のご確認」 (「(新しいアドレス)」サフィックス削除)
+
+**5.5.B (旧アドレス宛) の重要要素** = 統合 1 テンプレに以下の形で吸収済:
+- 「パスワードはこれまでのものをそのままご利用いただけます。」
+- 「ご本人による操作でない場合は、パスワードをすぐに再設定してください。」 (旧アドレス受信者向けセキュリティ案内 = 乗っ取り防止)
+
+#### 旧記録 (2026-06-28 以前): 実装着手前の検証手順（B-1: テンプレキー名確定）
 
 Supabase Auth のメール変更テンプレ設定キー名は CLI のバージョンによって異なる可能性がある（**パターン X = 単一テンプレ** / **パターン Y = 旧・新分離テンプレ**）。誤推測で実装すると localize が無視されて **本番で英語デフォルトに戻る事故** が起きるため、必ず以下手順で確定する。
 

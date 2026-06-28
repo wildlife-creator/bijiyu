@@ -4,85 +4,85 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * §5.5.A / §5.5.B セルフメール変更確認テンプレ (Supabase Auth カスタム HTML)。
- * Go template の rendering 自体は Supabase 側でしか確認できないため、
- * ここでは「Go template 変数の差込位置」「M-09 共通レイアウト」「§5.5.B 固有の
- * パスワード継続案内が §5.5.A には無い」等の構造リグレッション防止に絞る。
- * 実際の差し込み結果は Inbucket 手動テストでカバー (spec §5.5「実装着手前の検証手順」)。
+ * §5.5 セルフメール変更確認テンプレ (Supabase Auth カスタム HTML)。
+ *
+ * 2026-06-28 runtime audit で **パターン X (単一テンプレ) 採用に確定**:
+ * Supabase CLI v2.75.0 が `[auth.email.template.email_change_current]` 設定を
+ * サイレントに無視し、`double_confirm_changes = true` 下でも `email_change` 1 テンプレを
+ * 旧 + 新両方の宛先に使う動作のため、Pattern Y (2 テンプレ分離) は成立しない。
+ * `.Email` / `.NewEmail` は両宛先で同一値のため Go template 分岐も使えない。
+ *
+ * このテストは「旧・新どちらが読んでも矛盾しない中立文 + §5.5.B 固有の重要要素
+ * (パスワード継続案内 / セキュリティ案内) が統合されている」ことを保証する。
+ *
+ * 実際の差し込み結果は Inbucket / Mailpit 手動テストでカバー (spec §5.5 検証済記述)。
  */
 
-const NEW_HTML = readFileSync(
+const HTML = readFileSync(
   resolve(process.cwd(), "supabase/templates/email-change-new.html"),
   "utf8",
 );
-const CURRENT_HTML = readFileSync(
-  resolve(process.cwd(), "supabase/templates/email-change-current.html"),
-  "utf8",
-);
 
-describe("supabase/templates/email-change-new.html (§5.5.A)", () => {
+describe("supabase/templates/email-change-new.html (§5.5 統合 Pattern X)", () => {
   it("M-09 共通レイアウト (ロゴ + 紫太線 + 自動送信フッター)", () => {
-    expect(NEW_HTML).toContain("logo-horizontal.png");
-    expect(NEW_HTML).toContain("border-bottom:3px solid #920783");
-    expect(NEW_HTML).toContain("このメールは ビジ友 から自動送信されています");
+    expect(HTML).toContain("logo-horizontal.png");
+    expect(HTML).toContain("border-bottom:3px solid #920783");
+    expect(HTML).toContain("このメールは ビジ友 から自動送信されています");
   });
 
   it("Go template 変数 {{ .Email }} {{ .NewEmail }} {{ .ConfirmationURL }} を含む (CTA + URL 直貼り)", () => {
-    expect(NEW_HTML).toContain("{{ .Email }}");
-    expect(NEW_HTML).toContain("{{ .NewEmail }}");
+    expect(HTML).toContain("{{ .Email }}");
+    expect(HTML).toContain("{{ .NewEmail }}");
     // ConfirmationURL は CTA href + 直貼り = 2 回
-    const occurrences = NEW_HTML.match(/{{ \.ConfirmationURL }}/g) ?? [];
+    const occurrences = HTML.match(/{{ \.ConfirmationURL }}/g) ?? [];
     expect(occurrences.length).toBe(2);
   });
 
-  it("§5.5.A 固有: 「このアドレスを新しいログイン用アドレスとして登録」「現在のメールアドレス宛にも、同じ確認メール」", () => {
-    expect(NEW_HTML).toContain(
-      "このアドレスを新しいログイン用アドレスとして登録",
+  it("M-08 準拠 (CTA ピル型 + 平文 URL 再掲)", () => {
+    expect(HTML).toContain("border-radius:47px");
+    expect(HTML).toContain("変更を確定する");
+    expect(HTML).toContain(
+      "ボタンが押せない場合は、下記の URL をブラウザに貼り付けてください",
     );
-    expect(NEW_HTML).toContain("※ 現在のメールアドレス宛にも、同じ確認メールが届いています");
-    expect(NEW_HTML).toContain("変更を確定する");
-    expect(NEW_HTML).toContain("24 時間有効");
   });
 
-  it("§5.5.A 固有: パスワード継続案内は **含めない** (5.5.B との差分)", () => {
-    expect(NEW_HTML).not.toContain("パスワードはこれまでのもの");
+  it("中立文: 旧・新どちらの受信者が読んでも矛盾しない opening", () => {
+    // Pattern Y 時代の「このアドレスを新しいログイン用アドレスとして」(新宛のみ妥当) は廃止
+    expect(HTML).not.toContain("このアドレスを新しいログイン用アドレスとして");
+    // 中立な「ご本人確認のため、下記のリンクから変更を確定してください」
+    expect(HTML).toContain("ご本人確認のため、下記のリンクから変更を確定してください");
   });
 
-  it("入れないもの: アプリ内 UI deep link / お問い合わせ CTA", () => {
-    expect(NEW_HTML).not.toContain("マイページ");
-    expect(NEW_HTML).not.toContain("/contact");
-  });
-});
-
-describe("supabase/templates/email-change-current.html (§5.5.B)", () => {
-  it("M-09 共通レイアウト (ロゴ + 紫太線 + 自動送信フッター)", () => {
-    expect(CURRENT_HTML).toContain("logo-horizontal.png");
-    expect(CURRENT_HTML).toContain("border-bottom:3px solid #920783");
-    expect(CURRENT_HTML).toContain("このメールは ビジ友 から自動送信されています");
+  it("両方の宛先に送信されている旨を明示 (Pattern X 統合)", () => {
+    expect(HTML).toContain(
+      "このメールは現在のメールアドレスと新しいメールアドレスの両方にお送りしています",
+    );
+    expect(HTML).toContain(
+      "変更の完了には、両方のメールのリンクをクリックする必要があります",
+    );
   });
 
-  it("Go template 変数 {{ .Email }} {{ .NewEmail }} {{ .ConfirmationURL }} を含む (CTA + URL 直貼り)", () => {
-    expect(CURRENT_HTML).toContain("{{ .Email }}");
-    expect(CURRENT_HTML).toContain("{{ .NewEmail }}");
-    const occurrences = CURRENT_HTML.match(/{{ \.ConfirmationURL }}/g) ?? [];
-    expect(occurrences.length).toBe(2);
-  });
-
-  it("§5.5.B 固有: 「変更を有効にするため、ご本人確認をお願いします」「新しいメールアドレス宛にも、同じ確認メール」", () => {
-    expect(CURRENT_HTML).toContain("変更を有効にするため、ご本人確認をお願いします");
-    expect(CURRENT_HTML).toContain("※ 新しいメールアドレス宛にも、同じ確認メールが届いています");
-    expect(CURRENT_HTML).toContain("変更を確定する");
-    expect(CURRENT_HTML).toContain("24 時間有効");
-  });
-
-  it("§5.5.B 固有: パスワード継続案内を **含める** (5.5.A との差分、現アカウント所有者の不安解消)", () => {
-    expect(CURRENT_HTML).toContain(
+  it("§5.5.B 由来の重要要素を統合: パスワード継続案内", () => {
+    expect(HTML).toContain(
       "パスワードはこれまでのものをそのままご利用いただけます",
     );
   });
 
+  it("§5.5.B 由来の重要要素を統合: 乗っ取り対策セキュリティ案内", () => {
+    expect(HTML).toContain(
+      "ご本人による操作でない場合は、パスワードをすぐに再設定してください",
+    );
+  });
+
+  it("24 時間有効案内 + 期限切れフォールバック", () => {
+    expect(HTML).toContain("24 時間有効");
+    expect(HTML).toContain(
+      "リンクの有効期限が切れた場合は、お手数ですが再度メールアドレス変更をお申し込みください",
+    );
+  });
+
   it("入れないもの: アプリ内 UI deep link / お問い合わせ CTA", () => {
-    expect(CURRENT_HTML).not.toContain("マイページ");
-    expect(CURRENT_HTML).not.toContain("/contact");
+    expect(HTML).not.toContain("マイページ");
+    expect(HTML).not.toContain("/contact");
   });
 });
