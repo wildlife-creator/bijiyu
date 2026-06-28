@@ -909,6 +909,10 @@ describe("updateMemberAction", () => {
         maybeSingle: { data: { display_name: "テスト株式会社" }, error: null },
       }),
     );
+    // 6. §5.4.B broadcast: organization_members 空で早期終了
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
 
     const r = await updateMemberAction(STAFF_ID, { email: "new@test.local" });
     expect(r.success).toBe(true);
@@ -916,6 +920,118 @@ describe("updateMemberAction", () => {
       email: "new@test.local",
       email_confirm: true,
     });
+  });
+
+  it("§5.4.B: admin メール変更時、組織管理層 (Owner + admin) に control mail が飛び、変更対象本人は除外", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    // 1. target SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            organization_id: ORG_ID,
+            org_role: "staff",
+            is_proxy_account: false,
+            user_id: STAFF_ID,
+          },
+          error: null,
+        },
+      }),
+    );
+    // 2. oldUser SELECT
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { email: "old@test.local", last_name: "田", first_name: "太" },
+          error: null,
+        },
+      }),
+    );
+    mockAdminUpdateUserById.mockResolvedValue({ error: null });
+    // 3. audit_logs
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+    // 4. organizations
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { id: ORG_ID, owner_user: { id: OWNER_ID } },
+          error: null,
+        },
+      }),
+    );
+    // 5. client_profiles
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト" }, error: null },
+      }),
+    );
+    // 6. §5.4.B helper step 1: organization_members → Owner 自身が候補
+    //    (変更対象 = STAFF_ID は exclude されるので含まれない)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [{ user_id: OWNER_ID }],
+          error: null,
+        },
+      }),
+    );
+    // 7. §5.4.B helper step 2: users (recipients) → Owner アクティブ
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [
+            {
+              id: OWNER_ID,
+              email: "owner@test.local",
+              last_name: "発注",
+              first_name: "者一郎",
+            },
+          ],
+          error: null,
+        },
+      }),
+    );
+    // 8. §5.4.B actor lookup
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { last_name: "発注", first_name: "者一郎" },
+          error: null,
+        },
+      }),
+    );
+
+    const r = await updateMemberAction(STAFF_ID, { email: "new@test.local" });
+    expect(r.success).toBe(true);
+
+    // §5.4.A: 旧 + 新 の 2 通 + §5.4.B: Owner 宛 1 通 = 計 3 通
+    expect(sendEmailMock).toHaveBeenCalledTimes(3);
+
+    const sentTos = sendEmailMock.mock.calls.map(
+      (c) => (c[0] as { to: string }).to,
+    );
+    expect(sentTos).toContain("old@test.local");
+    expect(sentTos).toContain("new@test.local");
+    expect(sentTos).toContain("owner@test.local");
+
+    // §5.4.B 内容検証
+    const controlCall = sendEmailMock.mock.calls.find(
+      (c) => (c[0] as { to: string }).to === "owner@test.local",
+    );
+    const controlMail = controlCall?.[0] as
+      | { subject: string; html: string }
+      | undefined;
+    expect(controlMail?.subject).toBe(
+      "【ビジ友】田太さんのメールアドレスを変更しました",
+    );
+    expect(controlMail?.html).toContain("発注者一郎 様");
+    expect(controlMail?.html).toContain("【対象担当者】 田太");
+    expect(controlMail?.html).toContain("【旧メールアドレス】 old@test.local");
+    expect(controlMail?.html).toContain("【新メールアドレス】 new@test.local");
+    expect(controlMail?.html).toContain("【操作者】 発注者一郎");
   });
 
   it("自己メール変更は auth.updateUser を使う", async () => {

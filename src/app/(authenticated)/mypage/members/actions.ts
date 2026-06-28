@@ -17,6 +17,7 @@ import {
 } from "@/lib/validations/member";
 import { sendEmail } from "@/lib/email/send-email";
 import { emailChangedByAdminEmail } from "@/lib/email/templates/email-changed-by-admin";
+import { emailChangedByAdminControlEmail } from "@/lib/email/templates/email-changed-by-admin-control";
 import { memberInvitedControlEmail } from "@/lib/email/templates/member-invited-control";
 import { proxyAssignedExistingUserEmail } from "@/lib/email/templates/proxy-assigned-existing-user";
 import { getOrganizationManagementRecipients } from "@/lib/email/recipients/organization-managers";
@@ -494,6 +495,71 @@ async function sendMemberInvitedControl(params: {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: §5.4.B email-changed-by-admin control broadcast
+// updateMemberAction パターン B (admin client での強制 email 変更) 成功時、
+// 組織の Owner + admin (操作者含む、変更対象本人は除外) に控えメール送信。
+// 失敗は console.error のみで握り潰す (Server Action 自体は成功)。
+// ---------------------------------------------------------------------------
+async function sendEmailChangedByAdminControl(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  organizationId: string;
+  actorUserId: string;
+  targetUserId: string;
+  targetName: string;
+  oldEmail: string;
+  newEmail: string;
+}): Promise<void> {
+  const {
+    admin,
+    organizationId,
+    actorUserId,
+    targetUserId,
+    targetName,
+    oldEmail,
+    newEmail,
+  } = params;
+
+  try {
+    const recipients = await getOrganizationManagementRecipients(
+      admin,
+      organizationId,
+      [targetUserId],
+    );
+    if (recipients.length === 0) return;
+
+    const { data: actorRow } = await admin
+      .from("users")
+      .select("last_name, first_name")
+      .eq("id", actorUserId)
+      .maybeSingle();
+    const actorName =
+      `${actorRow?.last_name ?? ""}${actorRow?.first_name ?? ""}`.trim() ||
+      "管理者";
+
+    const changedAt = formatJapaneseDateTime(new Date());
+
+    await Promise.all(
+      recipients.map((r) => {
+        const { subject, html } = emailChangedByAdminControlEmail({
+          recipientName: r.displayName,
+          targetName,
+          oldEmail,
+          newEmail,
+          actorName,
+          changedAt,
+        });
+        return sendEmail({ to: r.email, subject, html });
+      }),
+    );
+  } catch (err) {
+    console.error(
+      "[updateMemberAction] §5.4.B email-changed-by-admin-control broadcast failed",
+      err,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // updateMemberAction
 // ---------------------------------------------------------------------------
 export async function updateMemberAction(
@@ -666,6 +732,21 @@ export async function updateMemberAction(
           }).catch(() => {});
         });
       }
+
+      // §5.4.B 組織管理層宛 control mail (変更対象本人は除外)。
+      //   - excludeUserIds に [targetUserId] を渡し §5.4.A 受信と二重にしない
+      //   - 失敗は console.error のみで握り潰す (DB 更新は完了済み)
+      await sendEmailChangedByAdminControl({
+        admin,
+        organizationId: actor.organizationId,
+        actorUserId: actor.userId,
+        targetUserId,
+        targetName:
+          `${oldUser?.last_name ?? ""}${oldUser?.first_name ?? ""}`.trim() ||
+          "ご担当者",
+        oldEmail,
+        newEmail: parsed.data.email,
+      });
     }
   }
 
