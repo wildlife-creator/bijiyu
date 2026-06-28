@@ -1,5 +1,6 @@
 "use server";
 
+import { sendVerificationEmails } from "@/lib/email/send/verification-emails";
 import { createClient } from "@/lib/supabase/server";
 import { validateDocumentFile } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -81,8 +82,8 @@ export async function submitCcusAction(
     return { success: false, error: "カード画像のアップロードに失敗しました" };
   }
 
-  // 7. Insert CCUS verification record
-  const { error: insertError } = await supabase
+  // 7. Insert CCUS verification record（id / created_at は §4 通知メールで使う）
+  const { data: inserted, error: insertError } = await supabase
     .from("identity_verifications")
     .insert({
       user_id: user.id,
@@ -90,9 +91,11 @@ export async function submitCcusAction(
       status: "pending",
       document_url_1: path,
       ccus_worker_id: ccusWorkerId.trim(),
-    });
+    })
+    .select("id, created_at")
+    .single();
 
-  if (insertError) {
+  if (insertError || !inserted) {
     return { success: false, error: "申請の登録に失敗しました" };
   }
 
@@ -104,6 +107,14 @@ export async function submitCcusAction(
     target_type: "identity_verification",
   });
 
-  // 9. Return success
+  // 9. §4.1 申請者宛控え + §4.4 運営宛通知（fire-and-forget で並列送信）
+  await sendVerificationEmails({
+    userId: user.id,
+    documentType: "ccus",
+    verificationId: inserted.id,
+    appliedAtIso: inserted.created_at,
+  });
+
+  // 10. Return success
   return { success: true };
 }
