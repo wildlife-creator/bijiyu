@@ -687,6 +687,58 @@ describe("customer.subscription.deleted", () => {
     const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
     expect(args.subject).toBe("【ビジ友】有料プランのご解約が完了しました");
     expect(args.html).toContain("法人向けプラン");
+    // §6.4: past_due_since 未設定 → reason='manual' (default)、7 日プレフィックスなし
+    expect(args.html).not.toContain("お支払い方法での決済が 7 日間");
+    expect(args.html).toContain("以下の内容で有料プランの解約が完了しました。");
+  });
+
+  it("§6.4: past_due_since が set されている → reason='auto-past-due' で送信、本文に「お支払い方法での決済が 7 日間〜」プレフィックス", async () => {
+    const sub = buildSubscription();
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-pd",
+            user_id: "user-pd",
+            plan_type: "corporate",
+            // 8 日前 = 7 日経過自動解約のトリガー条件 (Edge Function)
+            past_due_since: new Date(
+              Date.now() - 8 * 86_400_000,
+            ).toISOString(),
+          },
+        },
+        "select:users": {
+          data: {
+            email: "user-pd@test.local",
+            last_name: "佐藤",
+            first_name: "次郎",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_deleted: { data: {}, error: null },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
+    // 件名は両パターン共通
+    expect(args.subject).toBe("【ビジ友】有料プランのご解約が完了しました");
+    // §6.4: opening が 7 日プレフィックス付きに切替
+    expect(args.html).toContain(
+      "お支払い方法での決済が 7 日間確認できなかったため、有料プランの解約が完了しました。",
+    );
+    expect(args.html).not.toContain(
+      "以下の内容で有料プランの解約が完了しました。",
+    );
   });
 
   it("hits option_subscriptions only: status='cancelled' update, no client_profiles write, no email", async () => {

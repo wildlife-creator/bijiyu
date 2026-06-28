@@ -191,6 +191,51 @@ describe("subscriptionCancelledEmail", () => {
     expect(out.html).not.toContain("再度ご登録");
     expect(out.html).not.toContain("プラン案内へ");
   });
+
+  it("§6.4 reason='manual'（default）: opening は「以下の内容で〜」+ 7 日プレフィックスなし", () => {
+    const out = subscriptionCancelledEmail({
+      recipientName: "山田太郎",
+      planName: "法人向けプラン",
+      cancelledAt: "2026/04/12",
+    });
+    expect(out.html).toContain("以下の内容で有料プランの解約が完了しました。");
+    expect(out.html).not.toContain("7 日間");
+    expect(out.html).not.toContain("お支払い方法での決済が");
+  });
+
+  it("§6.4 reason='auto-past-due': opening が 7 日プレフィックス付きに切替", () => {
+    const out = subscriptionCancelledEmail({
+      recipientName: "山田太郎",
+      planName: "法人向けプラン",
+      cancelledAt: "2026/04/12",
+      reason: "auto-past-due",
+    });
+    expect(out.html).toContain(
+      "お支払い方法での決済が 7 日間確認できなかったため、有料プランの解約が完了しました。",
+    );
+    expect(out.html).not.toContain("以下の内容で有料プランの解約が完了しました。");
+    // 件名・closing は両パターン共通
+    expect(out.subject).toBe("【ビジ友】有料プランのご解約が完了しました");
+    expect(out.html).toContain("引き続き、無料プランでビジ友をご利用いただけます");
+  });
+
+  it("§6.4: reason 別関係なく 件名・closing は共通", () => {
+    const manual = subscriptionCancelledEmail({
+      recipientName: "山田太郎",
+      planName: "法人向けプラン",
+      cancelledAt: "2026/04/12",
+      reason: "manual",
+    });
+    const auto = subscriptionCancelledEmail({
+      recipientName: "山田太郎",
+      planName: "法人向けプラン",
+      cancelledAt: "2026/04/12",
+      reason: "auto-past-due",
+    });
+    expect(manual.subject).toBe(auto.subject);
+    expect(manual.html.includes("引き続き、無料プランでビジ友をご利用いただけます")).toBe(true);
+    expect(auto.html.includes("引き続き、無料プランでビジ友をご利用いただけます")).toBe(true);
+  });
 });
 
 describe("optionSubscriptionActivatedEmail §6.5.A 補償オプション申込完了", () => {

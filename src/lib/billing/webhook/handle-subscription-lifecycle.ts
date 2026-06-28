@@ -201,16 +201,22 @@ async function handleSubscriptionDeleted(
   sub: Stripe.Subscription,
   send: typeof sendEmail,
 ): Promise<void> {
-  // 1. SELECT subscriptions
+  // 1. SELECT subscriptions (§6.4 reason 判定のため past_due_since も取得)
   const existingSubscription = await admin
     .from("subscriptions")
-    .select("id, user_id, plan_type")
+    .select("id, user_id, plan_type, past_due_since")
     .eq("stripe_subscription_id", sub.id)
     .maybeSingle();
 
   if (existingSubscription.data) {
     const userId = existingSubscription.data.user_id;
     const planType = existingSubscription.data.plan_type as PlanType;
+    // §6.4: past_due_since が set されていれば 7 日経過自動解約 (Edge Function 経由)、
+    // それ以外は手動解約。spec §6.4 確定済の reason 判定軸。
+    const cancellationReason: "manual" | "auto-past-due" =
+      existingSubscription.data.past_due_since != null
+        ? "auto-past-due"
+        : "manual";
 
     // §6.5 退会フロー時の suppression: ユーザーが既に退会していれば
     // E-8 退会通知に集約し、§6.2 のメール送信は skip する（DB UPDATE は
@@ -263,8 +269,10 @@ async function handleSubscriptionDeleted(
 
     // 5. Send subscriptionCancelledEmail (basic plan path only)
     //    §6.5 退会 suppression: 退会済なら skip（E-8 退会通知に集約）。
+    //    §6.4: cancellationReason で manual / auto-past-due を区別し、
+    //    auto-past-due のときは opening 1 行プレフィックス付きで送信。
     if (!isWithdrawn) {
-      await sendCancelledEmail(admin, send, userId, planType);
+      await sendCancelledEmail(admin, send, userId, planType, cancellationReason);
     }
     return;
   }
@@ -643,6 +651,7 @@ async function sendCancelledEmail(
   send: typeof sendEmail,
   userId: string,
   planType: PlanType,
+  reason: "manual" | "auto-past-due" = "manual",
 ): Promise<void> {
   try {
     const recipient = await fetchRecipient(admin, userId);
@@ -651,6 +660,7 @@ async function sendCancelledEmail(
       recipientName: recipient.name,
       planName: PLAN_LABELS[planType],
       cancelledAt: formatDate(new Date().toISOString()),
+      reason,
     });
     await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
   } catch (err) {
