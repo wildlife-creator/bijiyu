@@ -17,7 +17,9 @@ import {
 } from "@/lib/validations/member";
 import { sendEmail } from "@/lib/email/send-email";
 import { emailChangedByAdminEmail } from "@/lib/email/templates/email-changed-by-admin";
+import { memberInvitedControlEmail } from "@/lib/email/templates/member-invited-control";
 import { proxyAssignedExistingUserEmail } from "@/lib/email/templates/proxy-assigned-existing-user";
+import { getOrganizationManagementRecipients } from "@/lib/email/recipients/organization-managers";
 import { resolveExistingProxyReuse } from "@/lib/organization/resolve-existing-proxy-reuse";
 import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
 
@@ -350,6 +352,20 @@ export async function createMemberAction(
     });
   }
 
+  // §5.2.A 担当者招待の組織管理層 broadcast (通常 staff 招待のみ)。
+  //   - 代理招待 / reuse パスは §5.6.D で別経路カバーのためここでは飛ばさない
+  //   - 失敗しても DB 登録は完了済みなので Server Action は成功扱い
+  if (!isReusePath && !parsed.data.isProxyAccount) {
+    await sendMemberInvitedControl({
+      admin,
+      organizationId: actor.organizationId,
+      actorUserId: actor.userId,
+      memberName: `${parsed.data.lastName}${parsed.data.firstName}`,
+      memberEmail: parsed.data.email,
+      roleLabel: parsed.data.orgRole === "admin" ? "管理者" : "担当者",
+    });
+  }
+
   revalidatePath("/mypage/members");
   return { success: true, data: { userId: newUserId } };
 }
@@ -420,6 +436,61 @@ function formatJapaneseDateTime(d: Date): string {
   const hh = String(d.getHours()).padStart(2, "0");
   const mi = String(d.getMinutes()).padStart(2, "0");
   return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: §5.2.A 担当者招待 control broadcast
+// 通常 staff 招待時のみ呼ばれる。組織の Owner + admin (操作者含む) 全員に
+// 1 通ずつ送信し、失敗は console.error のみで握り潰す (Server Action 自体は成功)。
+// ---------------------------------------------------------------------------
+async function sendMemberInvitedControl(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  organizationId: string;
+  actorUserId: string;
+  memberName: string;
+  memberEmail: string;
+  roleLabel: string;
+}): Promise<void> {
+  const { admin, organizationId, actorUserId, memberName, memberEmail, roleLabel } = params;
+
+  try {
+    const recipients = await getOrganizationManagementRecipients(
+      admin,
+      organizationId,
+    );
+    if (recipients.length === 0) return;
+
+    const { data: actorRow } = await admin
+      .from("users")
+      .select("last_name, first_name")
+      .eq("id", actorUserId)
+      .maybeSingle();
+    const actorName =
+      `${actorRow?.last_name ?? ""}${actorRow?.first_name ?? ""}`.trim() ||
+      "管理者";
+
+    const invitedAt = formatJapaneseDateTime(new Date());
+
+    await Promise.all(
+      recipients.map((r) => {
+        const { subject, html } = memberInvitedControlEmail({
+          recipientName: r.displayName,
+          memberName,
+          memberEmail,
+          roleLabel,
+          isProxyLabel: "いいえ",
+          actorName,
+          invitedAt,
+        });
+        return sendEmail({ to: r.email, subject, html });
+      }),
+    );
+  } catch (err) {
+    console.error(
+      "[createMemberAction] member-invited-control broadcast failed",
+      err,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

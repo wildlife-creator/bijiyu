@@ -6,8 +6,19 @@ import { z } from "zod";
 
 import { maskEmail, writeAuditLog } from "@/lib/audit/log";
 import { requireAdmin } from "@/lib/admin/require-admin";
+import { sendEmail } from "@/lib/email/send-email";
+import { adminClientInvitedControlEmail } from "@/lib/email/templates/admin-client-invited-control";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/lib/types/action-result";
+
+function formatJapaneseDateTime(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
+}
 
 const clientInviteSchema = z.object({
   companyName: z
@@ -139,6 +150,36 @@ export async function createClientInviteAction(
       company_name: input.companyName,
     },
   });
+
+  // §5.2.B 操作した ビジ友運営 admin 本人宛 control mail。
+  //   - 失敗は console.error のみで握り潰す (Server Action 自体は成功)
+  //   - admin の email / 姓名は public.users から解決 (要 admin client)
+  try {
+    const { data: adminRow } = await admin
+      .from("users")
+      .select("email, last_name, first_name")
+      .eq("id", auth.adminId)
+      .maybeSingle();
+    if (adminRow?.email) {
+      const recipientName =
+        `${adminRow.last_name ?? ""}${adminRow.first_name ?? ""}`.trim() ||
+        "ご担当者";
+      const memberName = `${input.lastName}${input.firstName}`;
+      const { subject, html } = adminClientInvitedControlEmail({
+        recipientName,
+        memberName,
+        companyName: input.companyName,
+        memberEmail: input.email,
+        invitedAt: formatJapaneseDateTime(new Date()),
+      });
+      await sendEmail({ to: adminRow.email, subject, html });
+    }
+  } catch (err) {
+    console.error(
+      "[createClientInviteAction] admin-client-invited-control mail failed",
+      err,
+    );
+  }
 
   redirect("/admin/clients");
 }

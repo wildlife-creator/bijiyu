@@ -233,6 +233,10 @@ describe("createMemberAction", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
+    // §5.2.A broadcast: organization_members を空にして 0 受信者 → early exit
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
 
     const r = await createMemberAction(validInput);
     expect(r.success).toBe(true);
@@ -323,6 +327,10 @@ describe("createMemberAction", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
+    // §5.2.A broadcast: 0 受信者で early exit
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
 
     const r = await createMemberAction(validInput);
     expect(r.success).toBe(true);
@@ -335,6 +343,124 @@ describe("createMemberAction", () => {
         }),
       }),
     );
+  });
+
+  it("§5.2.A: 通常 staff 招待成功時に組織管理層 broadcast が飛ぶ", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "テスト株式会社" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { last_name: "発注", first_name: "者一郎" },
+          error: null,
+        },
+      }),
+    );
+    mockInviteUser.mockResolvedValue({
+      data: { user: { id: NEW_USER_ID } },
+      error: null,
+    });
+    mockAdminRpc.mockResolvedValue({ data: null, error: null });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    ); // audit_logs
+    // §5.2.A: organization_members → Owner 1 名
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: { data: [{ user_id: OWNER_ID }], error: null },
+      }),
+    );
+    // §5.2.A: users (recipients filter) → Owner 1 名アクティブ
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [
+            {
+              id: OWNER_ID,
+              email: "owner@test.local",
+              last_name: "発注",
+              first_name: "者一郎",
+            },
+          ],
+          error: null,
+        },
+      }),
+    );
+    // §5.2.A: users (actor lookup) → Owner 本人
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { last_name: "発注", first_name: "者一郎" },
+          error: null,
+        },
+      }),
+    );
+
+    const r = await createMemberAction(validInput);
+    expect(r.success).toBe(true);
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const call = sendEmailMock.mock.calls[0]?.[0] as
+      | { to: string; subject: string; html: string }
+      | undefined;
+    expect(call?.to).toBe("owner@test.local");
+    expect(call?.subject).toBe(
+      "【ビジ友】山田太郎さんを担当者として招待しました",
+    );
+    expect(call?.html).toContain("発注者一郎 様");
+    expect(call?.html).toContain("【担当者氏名】 山田太郎");
+    expect(call?.html).toContain("【メールアドレス】 new@test.local");
+    expect(call?.html).toContain("【権限】 担当者");
+    expect(call?.html).toContain("【代理アカウント】 いいえ");
+    expect(call?.html).toContain("【招待操作者】 発注者一郎");
+  });
+
+  it("§5.2.A: 代理 staff 招待 (isProxyAccount=true) では broadcast は飛ばない", async () => {
+    mockAuth(OWNER_ID);
+    mockActorContext(OWNER_ID, "owner");
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { plan_type: "corporate" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { display_name: "○○建設" }, error: null },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { last_name: "山田", first_name: "一郎" }, error: null },
+      }),
+    );
+    mockInviteUser.mockResolvedValue({
+      data: { user: { id: NEW_USER_ID } },
+      error: null,
+    });
+    mockAdminRpc.mockResolvedValue({ data: null, error: null });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const r = await createMemberAction({ ...validInput, isProxyAccount: true });
+    expect(r.success).toBe(true);
+    // 代理招待では §5.2.A は発火しない (§5.6.D に委譲予定)
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
   it("RPC STAFF_LIMIT_EXCEEDED → 日本語エラー + auth cleanup", async () => {

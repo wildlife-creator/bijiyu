@@ -33,6 +33,12 @@ vi.mock("@/lib/supabase/server", () => ({
 
 const adminState = {
   existingUser: null as null | { id: string },
+  /** §5.2.B 用: admin 本人の users 行（email + 姓名） */
+  adminProfile: null as null | {
+    email: string;
+    last_name: string | null;
+    first_name: string | null;
+  },
   inviteResult: {
     data: { user: { id: "new-user-1" } } as { user: { id: string } | null },
     error: null as null | { message: string; code?: string },
@@ -51,15 +57,37 @@ vi.mock("@/lib/supabase/admin", () => ({
         deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
       },
     },
-    from: (table: string) => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn(async () => ({
-        data: table === "users" ? adminState.existingUser : null,
-        error: null,
-      })),
-    }),
+    from: (table: string) => {
+      // .eq() の col/val を保持しておき、maybeSingle で query を区別する。
+      // - .eq('email', x) → email 重複事前チェック → existingUser を返す
+      // - .eq('id', x)    → §5.2.B 用 admin 本人ルックアップ → adminProfile を返す
+      const state: { col?: string; val?: unknown } = {};
+      const chain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn(function (col: string, val: unknown) {
+          state.col = col;
+          state.val = val;
+          return chain;
+        }),
+        maybeSingle: vi.fn(async () => {
+          if (table !== "users") return { data: null, error: null };
+          if (state.col === "email") {
+            return { data: adminState.existingUser, error: null };
+          }
+          if (state.col === "id") {
+            return { data: adminState.adminProfile, error: null };
+          }
+          return { data: null, error: null };
+        }),
+      };
+      return chain;
+    },
   }),
+}));
+
+const mockSendEmail = vi.fn().mockResolvedValue({ success: true });
+vi.mock("@/lib/email/send-email", () => ({
+  sendEmail: (...args: unknown[]) => mockSendEmail(...args),
 }));
 
 const mockWriteAuditLog = vi.fn().mockResolvedValue(undefined);
@@ -104,6 +132,11 @@ beforeEach(() => {
   authState.user = { id: "admin-1" };
   authState.role = "admin";
   adminState.existingUser = null;
+  adminState.adminProfile = {
+    email: "admin@bijiyu.local",
+    last_name: "ビジ友",
+    first_name: "管理者",
+  };
   adminState.inviteResult = {
     data: { user: { id: "new-user-1" } },
     error: null,
@@ -114,6 +147,7 @@ beforeEach(() => {
   mockDeleteUser.mockReset().mockResolvedValue({ data: null, error: null });
   mockWriteAuditLog.mockClear();
   mockRedirect.mockClear();
+  mockSendEmail.mockReset().mockResolvedValue({ success: true });
 });
 
 describe("createClientInviteAction", () => {
@@ -211,5 +245,47 @@ describe("createClientInviteAction", () => {
       expect(result.error).toBe("このメールアドレスは既に登録されています");
     }
     expect(mockDeleteUser).not.toHaveBeenCalled();
+    // invite 失敗時は §5.2.B も飛ばない
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("成功時に §5.2.B 控えメールが操作した admin 本人宛に 1 通飛ぶ", async () => {
+    await expect(createClientInviteAction(buildFormData())).rejects.toThrow(
+      "NEXT_REDIRECT:/admin/clients",
+    );
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const call = mockSendEmail.mock.calls[0][0] as {
+      to: string;
+      subject: string;
+      html: string;
+    };
+    expect(call.to).toBe("admin@bijiyu.local");
+    expect(call.subject).toBe(
+      "【ビジ友 運営】田中一郎 様（テスト建設株式会社）を発注者として招待しました",
+    );
+    expect(call.html).toContain("ビジ友管理者 様");
+    expect(call.html).toContain("田中一郎");
+    expect(call.html).toContain("テスト建設株式会社");
+    expect(call.html).toContain("invite-target@test.local");
+    expect(call.html).toContain("【招待日時】");
+  });
+
+  it("admin の email が DB から取れなければ §5.2.B はサイレント skip（リダイレクトは進む）", async () => {
+    adminState.adminProfile = null;
+
+    await expect(createClientInviteAction(buildFormData())).rejects.toThrow(
+      "NEXT_REDIRECT:/admin/clients",
+    );
+
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("§5.2.B sendEmail が throw してもリダイレクトは止まらない（非ブロッキング）", async () => {
+    mockSendEmail.mockRejectedValueOnce(new Error("Resend down"));
+
+    await expect(createClientInviteAction(buildFormData())).rejects.toThrow(
+      "NEXT_REDIRECT:/admin/clients",
+    );
   });
 });
