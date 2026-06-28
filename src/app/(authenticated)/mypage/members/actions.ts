@@ -919,80 +919,85 @@ export async function updateMemberAction(
         .maybeSingle();
       const oldEmail = oldUser?.email ?? "";
 
-      const { error: emailError } = await admin.auth.admin.updateUserById(
-        targetUserId,
-        { email: parsed.data.email, email_confirm: true },
-      );
-      if (emailError) {
-        return { success: false, error: "メールアドレスの変更に失敗しました" };
-      }
-      await logAudit(admin, actor.userId, "email_changed_by_admin", {
-        target_user_id: targetUserId,
-        old_email: oldEmail,
-        new_email: parsed.data.email,
-        organization_id: actor.organizationId,
-      });
+      // 旧 = 新の no-op 保存 (氏名 / 権限だけ編集) は §5.4 通知メールを発火しない。
+      // フォームの email は initialValues から常に populate されるため、ここで弾かないと
+      // 「メールアドレスが変更されました」の虚偽通知が本人 + 組織管理層に飛ぶ。
+      if (oldEmail !== parsed.data.email) {
+        const { error: emailError } = await admin.auth.admin.updateUserById(
+          targetUserId,
+          { email: parsed.data.email, email_confirm: true },
+        );
+        if (emailError) {
+          return { success: false, error: "メールアドレスの変更に失敗しました" };
+        }
+        await logAudit(admin, actor.userId, "email_changed_by_admin", {
+          target_user_id: targetUserId,
+          old_email: oldEmail,
+          new_email: parsed.data.email,
+          organization_id: actor.organizationId,
+        });
 
-      // Task 14.3: 旧・新両方のメールに通知。失敗してもロールバックしない
-      const { data: orgRow } = await admin
-        .from("organizations")
-        .select("id, owner_user:users!owner_id(id)")
-        .eq("id", actor.organizationId)
-        .maybeSingle();
-      const ownerUserId =
-        (
-          (Array.isArray(orgRow?.owner_user)
-            ? orgRow?.owner_user[0]
-            : orgRow?.owner_user) as { id: string } | undefined
-        )?.id ?? null;
-      const { data: orgClientProfile } = ownerUserId
-        ? await admin
-            .from("client_profiles")
-            .select("display_name")
-            .eq("user_id", ownerUserId)
-            .maybeSingle()
-        : { data: null };
-      const organizationName =
-        orgClientProfile?.display_name?.trim() || "ビジ友組織";
+        // Task 14.3: 旧・新両方のメールに通知。失敗してもロールバックしない
+        const { data: orgRow } = await admin
+          .from("organizations")
+          .select("id, owner_user:users!owner_id(id)")
+          .eq("id", actor.organizationId)
+          .maybeSingle();
+        const ownerUserId =
+          (
+            (Array.isArray(orgRow?.owner_user)
+              ? orgRow?.owner_user[0]
+              : orgRow?.owner_user) as { id: string } | undefined
+          )?.id ?? null;
+        const { data: orgClientProfile } = ownerUserId
+          ? await admin
+              .from("client_profiles")
+              .select("display_name")
+              .eq("user_id", ownerUserId)
+              .maybeSingle()
+          : { data: null };
+        const organizationName =
+          orgClientProfile?.display_name?.trim() || "ビジ友組織";
 
-      const recipientName =
-        `${oldUser?.last_name ?? ""}${oldUser?.first_name ?? ""}`.trim() ||
-        "ご担当者";
-      const { subject, html } = emailChangedByAdminEmail({
-        recipientName,
-        oldEmail,
-        newEmail: parsed.data.email,
-        organizationName,
-      });
+        const recipientName =
+          `${oldUser?.last_name ?? ""}${oldUser?.first_name ?? ""}`.trim() ||
+          "ご担当者";
+        const { subject, html } = emailChangedByAdminEmail({
+          recipientName,
+          oldEmail,
+          newEmail: parsed.data.email,
+          organizationName,
+        });
 
-      const recipients = [oldEmail, parsed.data.email].filter(
-        (e) => e && e.length > 0,
-      );
-      for (const to of recipients) {
-        sendEmail({ to, subject, html }).catch((err) => {
-          console.error("[updateMemberAction] notify email failed", err, to);
-          logAudit(admin, actor.userId, "email_changed_by_admin_notify_failed", {
-            target_user_id: targetUserId,
-            recipient: to,
-            error: err instanceof Error ? err.message : String(err),
-          }).catch(() => {});
+        const recipients = [oldEmail, parsed.data.email].filter(
+          (e) => e && e.length > 0,
+        );
+        for (const to of recipients) {
+          sendEmail({ to, subject, html }).catch((err) => {
+            console.error("[updateMemberAction] notify email failed", err, to);
+            logAudit(admin, actor.userId, "email_changed_by_admin_notify_failed", {
+              target_user_id: targetUserId,
+              recipient: to,
+              error: err instanceof Error ? err.message : String(err),
+            }).catch(() => {});
+          });
+        }
+
+        // §5.4.B 組織管理層宛 control mail (変更対象本人は除外)。
+        //   - excludeUserIds に [targetUserId] を渡し §5.4.A 受信と二重にしない
+        //   - 失敗は console.error のみで握り潰す (DB 更新は完了済み)
+        await sendEmailChangedByAdminControl({
+          admin,
+          organizationId: actor.organizationId,
+          actorUserId: actor.userId,
+          targetUserId,
+          targetName:
+            `${oldUser?.last_name ?? ""}${oldUser?.first_name ?? ""}`.trim() ||
+            "ご担当者",
+          oldEmail,
+          newEmail: parsed.data.email,
         });
       }
-
-      // §5.4.B 組織管理層宛 control mail (変更対象本人は除外)。
-      //   - excludeUserIds に [targetUserId] を渡し §5.4.A 受信と二重にしない
-      //   - 失敗は console.error のみで握り潰す (DB 更新は完了済み)
-      await sendEmailChangedByAdminControl({
-        admin,
-        organizationId: actor.organizationId,
-        actorUserId: actor.userId,
-        targetUserId,
-        targetName:
-          `${oldUser?.last_name ?? ""}${oldUser?.first_name ?? ""}`.trim() ||
-          "ご担当者",
-        oldEmail,
-        newEmail: parsed.data.email,
-      });
     }
   }
 
