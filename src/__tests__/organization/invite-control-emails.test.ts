@@ -20,15 +20,15 @@ describe("memberInvitedControlEmail (§5.2.A)", () => {
     invitedAt: "2026/06/28 14:30",
   };
 
-  it("件名「【ビジ友】{memberName}さんを担当者として招待しました」", () => {
+  it("件名「【ビジ友】{memberName}さんをメンバーとして招待しました」", () => {
     const { subject } = memberInvitedControlEmail(baseProps);
-    expect(subject).toBe("【ビジ友】山田太郎さんを担当者として招待しました");
+    expect(subject).toBe("【ビジ友】山田太郎さんをメンバーとして招待しました");
   });
 
   it("本文に受信者名・全 6 項目 (担当者氏名 / メアド / 権限 / 代理アカウント / 招待操作者 / 招待日時)", () => {
     const { html } = memberInvitedControlEmail(baseProps);
     expect(html).toContain("発注者一郎 様");
-    expect(html).toContain("下記の担当者を招待しました");
+    expect(html).toContain("下記のメンバーを招待しました");
     expect(html).toContain("【担当者氏名】 山田太郎");
     expect(html).toContain("【メールアドレス】 yamada@test.local");
     expect(html).toContain("【権限】 担当者");

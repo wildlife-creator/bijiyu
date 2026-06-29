@@ -38,12 +38,12 @@ export function memberInvitedControlEmail({
   invitedAt,
 }: MemberInvitedControlEmailProps): { subject: string; html: string } {
   return {
-    subject: `【ビジ友】${memberName}さんを担当者として招待しました`,
+    subject: `【ビジ友】${memberName}さんをメンバーとして招待しました`,
     html: renderLayout({
-      title: `${memberName}さんを担当者として招待しました`,
+      title: `${memberName}さんをメンバーとして招待しました`,
       bodyContent: [
         paragraph(`${recipientName} 様`),
-        paragraph("下記の担当者を招待しました。"),
+        paragraph("下記のメンバーを招待しました。"),
         listItem("担当者氏名", memberName),
         listItem("メールアドレス", memberEmail),
         listItem("権限", roleLabel),

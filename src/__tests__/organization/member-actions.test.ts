@@ -446,7 +446,7 @@ describe("createMemberAction", () => {
       | undefined;
     expect(call?.to).toBe("owner@test.local");
     expect(call?.subject).toBe(
-      "【ビジ友】山田太郎さんを担当者として招待しました",
+      "【ビジ友】山田太郎さんをメンバーとして招待しました",
     );
     expect(call?.html).toContain("発注者一郎 様");
     expect(call?.html).toContain("【担当者氏名】 山田太郎");

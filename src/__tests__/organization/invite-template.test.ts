@@ -37,8 +37,8 @@ describe("supabase/templates/invite.html", () => {
     expect(occurrences.length).toBeGreaterThanOrEqual(6);
   });
 
-  it("§5.1-Staff: 「『…』の担当者として」「招待元の管理責任者または管理者へ」", () => {
-    expect(INVITE_HTML).toContain("」の担当者としてご招待が届いています");
+  it("§5.1-Staff: 「『…』のメンバーとして」「招待元の管理責任者または管理者へ」", () => {
+    expect(INVITE_HTML).toContain("」のメンバーとしてご招待が届いています");
     expect(INVITE_HTML).toContain("招待元の管理責任者または管理者へ");
   });
 
