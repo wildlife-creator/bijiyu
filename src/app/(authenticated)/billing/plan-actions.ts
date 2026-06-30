@@ -564,7 +564,7 @@ export async function openCustomerPortalAction(): Promise<
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: userRow.stripe_customer_id,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/billing`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000"}/billing`,
       ...(portalConfigId ? { configuration: portalConfigId } : {}),
     });
 

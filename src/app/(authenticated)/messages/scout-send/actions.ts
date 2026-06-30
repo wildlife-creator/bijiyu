@@ -15,7 +15,7 @@ import {
 } from "@/lib/utils/display-name";
 import type { ActionResult } from "@/lib/types/action-result";
 
-const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
 
 // ---------------------------------------------------------------------------
 // Helper: find or create thread for org/individual + contractor pair

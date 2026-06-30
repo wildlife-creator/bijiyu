@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const FROM_ADDRESS = process.env.EMAIL_FROM || "noreply@bijiyu.com";
+const FROM_ADDRESS = process.env.EMAIL_FROM || "noreply@bijiyuu.net";
 
 function getResendClient(): Resend | null {
   const apiKey = process.env.RESEND_API_KEY;

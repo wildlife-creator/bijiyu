@@ -40,7 +40,7 @@ function roleLabel(role: "owner" | "admin" | "staff" | string): string {
   return role;
 }
 
-const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
 
 // ---------------------------------------------------------------------------
 // Helper: actor context

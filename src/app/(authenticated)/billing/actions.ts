@@ -60,7 +60,7 @@ export type StartCheckoutInput = z.infer<typeof startCheckoutInputSchema>;
 // ---------------------------------------------------------------------------
 
 function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
 }
 
 function priceIdForPlan(planType: PaidPlanType): string {
