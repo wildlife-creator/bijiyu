@@ -28,6 +28,8 @@ export default function EmailChangeConfirmedPage() {
     if (window.location.hash) {
       const params = new URLSearchParams(window.location.hash.slice(1));
       if (params.get("error_description") || params.get("error")) {
+        // URL ハッシュ読み取りは useEffect でしか書けないため rule を意図的に無効化
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsExpired(true);
       }
       // フラグメントを URL から除去(リロード時の再処理防止)
