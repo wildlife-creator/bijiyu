@@ -525,6 +525,10 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   2. それがだめなら `organization_members` を参照して `user.id` と `job.organization_id` の関係を確認
   3. どちらも満たさない場合のみ拒否
 - **UI のプルダウン/一覧の表示範囲と Server Action の許可範囲は必ず一致させる**こと。プルダウンに出るのに Server Action で拒否される、もしくはその逆は UX 破綻になる。急募オプションで実際に発生した（プルダウンは組織全体、Server Action は owner_id のみで、スタッフ作成案件が選べても購入できなかった）
+- **page-level 認可ガード（`notFound()` / `redirect()`）にも Server Action と同じ org フォールバックを必ず入れる**。「Owner 本人しか通さない」ガードだけを書くと、親詳細画面から遷移してきた同組織 Staff / Admin が 404 で詰まる。RLS も Server Action も許可しているのにページで弾かれるため画面としてしか症状が出ず、テストが Owner ロールしかカバーしていない場合は検出できない
+- 基準実装: `src/app/(authenticated)/applications/received/[id]/page.tsx:66-82` のパターン（`owner_id === user.id` → `!organization_id` → `getActiveOrganizationContext(supabase)` の順で分岐）を丸写しする。SELECT クエリに `jobs.organization_id` を含めるのを忘れないこと
+- 実装後の確認: `grep -rn "owner_id !== user\.id\|owner_id != user\.id" src/app/` で全ページを列挙し、それぞれが org フォールバックを持っているか目視確認する
+- 2026-07-03 実例: CLI-009 発注可否（`applications/received/[id]/decide/page.tsx:50`）と CLI-010 完了報告（`applications/orders/[id]/report/page.tsx:36`）で同族バグが同時に潜んでいた。親詳細画面（`received/[id]` / `orders/[id]`）は org 対応済だったが、その先の「送信フォーム画面」だけが Owner 本人限定のまま。Staff が発注可否・完了報告を一切送れない状態だった
 
 ### Webhook タイミング対策（必ず守ること）
 - Stripe Server Action（`stripe.subscriptions.update()` 等）の直後に Webhook 由来の DB 状態へ依存する画面遷移を行う場合、**Webhook 到着前にアクセスされて race condition が発生する**

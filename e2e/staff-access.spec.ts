@@ -163,3 +163,67 @@ test.describe("対比: 受注者（contractor）は応募履歴にアクセス�
     ).toBeVisible();
   });
 });
+
+// ============================================================
+// 回帰: page-level 認可ガードの org フォールバック
+// ============================================================
+// 2026-07-03 バグ: CLI-009 発注可否（decide/page.tsx）と CLI-010 完了報告
+// （orders/[id]/report/page.tsx）が `owner_id !== user.id` で notFound() し、
+// 同組織 Staff / Admin が親詳細画面まで辿り着けても最後の送信フォームに
+// 到達できず 404 で詰まった。CLAUDE.md「組織メンバー判定のパターン」に
+// 追記した「page-level ガードにも org フォールバックを入れる」ルールの
+// 回帰防止テスト。
+//
+// 使用する seed 応募:
+//   - bbbb...bbbd  job 77777777（org 55555555 / owner 22222222） status=applied
+//     → 発注可否画面に staff（org 55555555 メンバー）が到達できるか
+//     ※ bbbb...bbbc は matching.spec.ts が rejected に書き換えるため未使用
+//   - aaaa...aaab  job 77777777（org 55555555 / owner 22222222） status=accepted
+//     → 完了報告画面に staff が到達できるか
+//     ※ matching.spec.ts が client_reviews を insert するが、seed に user_reviews が
+//        無いため application.status は accepted のまま（transition しない）
+
+const CORP_APPLIED_APPLICATION_ID =
+  "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbd";
+const CORP_ACCEPTED_APPLICATION_ID =
+  "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab";
+
+test.describe("回帰: 同組織メンバーは発注可否 / 完了報告フォームに到達できる", () => {
+  test("Staff は CLI-009 発注可否フォームに到達できる（従来 notFound だった）", async ({
+    page,
+  }) => {
+    await login(page, TEST_STAFF.email, TEST_STAFF.password);
+    await page.goto(
+      `/applications/received/${CORP_APPLIED_APPLICATION_ID}/decide`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "発注可否" }),
+    ).toBeVisible();
+    // 送信フォームの主要 UI が描画されている（=notFound() されていない）
+    await expect(page.getByRole("combobox")).toBeVisible();
+  });
+
+  test("Staff は CLI-010 完了報告フォームに到達できる（従来 notFound だった）", async ({
+    page,
+  }) => {
+    await login(page, TEST_STAFF.email, TEST_STAFF.password);
+    await page.goto(
+      `/applications/orders/${CORP_ACCEPTED_APPLICATION_ID}/report`,
+    );
+    // h1「評価入力」と form 内 h2「評価入力」が両方描画される（=notFound() されていない）
+    // ため、h1 に絞って strict mode 違反を回避する
+    await expect(page.locator("h1", { hasText: "評価入力" })).toBeVisible();
+  });
+
+  test("組織管理者（org_role=admin）も CLI-009 発注可否フォームに到達できる", async ({
+    page,
+  }) => {
+    await login(page, TEST_STAFF_ADMIN.email, TEST_STAFF_ADMIN.password);
+    await page.goto(
+      `/applications/received/${CORP_APPLIED_APPLICATION_ID}/decide`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "発注可否" }),
+    ).toBeVisible();
+  });
+});

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { ClientReportForm } from "./client-report-form";
 
@@ -22,7 +23,7 @@ export default async function ClientReportPage({ params }: Props) {
   const { data: application } = await supabase
     .from("applications")
     .select(
-      `id, status, jobs!inner(id, title, owner_id)`,
+      `id, status, jobs!inner(id, title, owner_id, organization_id)`,
     )
     .eq("id", id)
     .single();
@@ -31,10 +32,22 @@ export default async function ClientReportPage({ params }: Props) {
     notFound();
   }
 
-  const job = application.jobs as { id: string; title: string; owner_id: string };
+  const job = application.jobs as {
+    id: string;
+    title: string;
+    owner_id: string;
+    organization_id: string | null;
+  };
 
+  // Verify job owner or same-org member (法人スタッフも完了報告を送れる)
   if (job.owner_id !== user.id) {
-    notFound();
+    if (!job.organization_id) {
+      notFound();
+    }
+    const { active } = await getActiveOrganizationContext(supabase);
+    if (active?.organizationId !== job.organization_id) {
+      notFound();
+    }
   }
 
   return (

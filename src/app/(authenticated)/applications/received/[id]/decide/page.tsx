@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { CircleCheck } from "lucide-react";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { formatAreasLong } from "@/lib/utils/format-areas";
@@ -29,7 +30,7 @@ export default async function DecisionPage({ params }: Props) {
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, message,
        applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified),
-       jobs!inner(id, title, trade_types, recruit_end_date, owner_id)`,
+       jobs!inner(id, title, trade_types, recruit_end_date, owner_id, organization_id)`,
     )
     .eq("id", id)
     .single();
@@ -44,11 +45,18 @@ export default async function DecisionPage({ params }: Props) {
     trade_types: string[];
     recruit_end_date: string | null;
     owner_id: string;
+    organization_id: string | null;
   };
 
-  // Verify ownership
+  // Verify job owner or same-org member (法人スタッフも発注可否を送れる)
   if (job.owner_id !== user.id) {
-    notFound();
+    if (!job.organization_id) {
+      notFound();
+    }
+    const { active } = await getActiveOrganizationContext(supabase);
+    if (active?.organizationId !== job.organization_id) {
+      notFound();
+    }
   }
 
   const applicant = application.applicant as {
