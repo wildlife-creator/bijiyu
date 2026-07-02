@@ -179,7 +179,7 @@ export function ClientReportForm({ applicationId }: ClientReportFormProps) {
       <div className="mx-auto flex w-full max-w-xs flex-col gap-3">
         <Button
           type="submit"
-          className="w-full rounded-pill text-body-md border-primary"
+          className="w-full rounded-pill text-body-md text-white border-primary"
           disabled={isLoading || !canSubmit}
         >
           {isLoading ? "送信中..." : "評価を登録する"}

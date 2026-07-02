@@ -305,7 +305,7 @@ export function DecisionForm({
 
         <div className="mx-auto flex w-full max-w-xs flex-col gap-3">
           <Button
-            className="w-full rounded-pill text-body-md border-primary"
+            className="w-full rounded-pill text-body-md text-white border-primary"
             disabled={!canSubmit || isLoading}
             onClick={handleSubmit}
           >
