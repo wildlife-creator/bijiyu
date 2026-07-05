@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Zen_Kaku_Gothic_New } from "next/font/google";
+import { NavigationDim } from "@/components/shared/navigation-dim";
 import "./globals.css";
 
 const zenKakuGothicNew = Zen_Kaku_Gothic_New({
@@ -21,7 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className={`${zenKakuGothicNew.className} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        {children}
+        <NavigationDim />
+      </body>
     </html>
   );
 }
