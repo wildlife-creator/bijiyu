@@ -1,29 +1,13 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
 export const BRAND_COLOR = "#920783";
 
-/**
- * ロゴを Base64 data URI として埋め込む。
- *
- * 理由: Gmail 等の外部画像プロキシが Vercel Preview URL からの画像 fetch に
- * 失敗するケース（cold start タイムアウト・Bot 検知等）を回避するため。
- * data URI 化することで受信メールクライアント側で fetch 不要となり、
- * どのメールクライアントでも確実にロゴが表示される。
- *
- * トレードオフ: メール 1 通あたり +3KB 程度サイズ増だが、
- * ロゴ画像が確実に届く価値の方が大きい。
- */
-function loadLogoDataUri(): string {
-  try {
-    const logoPath = join(process.cwd(), "public", "images", "logo-horizontal.png");
-    const buffer = readFileSync(logoPath);
-    return `data:image/png;base64,${buffer.toString("base64")}`;
-  } catch {
-    // ファイル読み込み失敗時は外部 URL にフォールバック
-    return `${APP_URL}/images/logo-horizontal.png`;
-  }
-}
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
 
-export const LOGO_URL = loadLogoDataUri();
+/**
+ * メール用ロゴは Supabase Storage の公開バケット `email-assets` に配置。
+ * Vercel Preview URL / 埋め込み Base64 はいずれも Gmail 側で表示不可（前者は
+ * 画像プロキシが fetch を諦める、後者は data URI レンダリング拒否）だったため、
+ * Gmail が信頼する安定した公開 URL（Supabase Storage）に統一する。
+ */
+export const LOGO_URL = `${SUPABASE_URL}/storage/v1/object/public/email-assets/logo-horizontal.png`;
