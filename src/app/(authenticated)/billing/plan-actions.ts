@@ -12,7 +12,10 @@ import {
   type PlanType,
 } from "@/lib/constants/plans";
 import { sendEmail } from "@/lib/email/send-email";
-import { subscriptionChangedEmail } from "@/lib/email/templates/subscription-changed";
+import {
+  subscriptionChangedEmail,
+  type SubscriptionChangedEventType,
+} from "@/lib/email/templates/subscription-changed";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
@@ -218,7 +221,11 @@ async function upgradePlanAction(
   // 「snapshot.plan_type と after.planType の差分」でメール送信を判定するため、
   // 上記の先行 UPDATE で snapshot が新プランに揃うと差分が消えて自然に skip される
   // ＝ 二重送信にはならない。詳細は handle-subscription-lifecycle.ts の (a) 分岐コメント参照。
-  await sendUpgradeCompletedEmail(admin, subscription, targetPlan);
+  await sendSubscriptionChangedEmail(admin, subscription.user_id, {
+    eventType: "upgrade-immediate",
+    oldPlanName: PLAN_LABELS[subscription.plan_type as PlanType],
+    newPlanName: PLAN_LABELS[targetPlan],
+  });
 
   return {
     success: true,
@@ -230,22 +237,37 @@ async function upgradePlanAction(
 }
 
 /**
- * A5: プラン変更完了メールを同期送信する。
- * 失敗しても Server Action の成功可否には影響させない（メール送信は
- * Webhook 側にフォールバックがあるためベストエフォート）。
+ * A5 / A5-follow-up: subscriptionChangedEmail の 4 バリアント
+ * （upgrade-immediate / cancel-reserved / reservation-removed-downgrade
+ *   / reservation-removed-cancel）を Server Action から同期送信するための共通ヘルパー。
+ *
+ * 背景: Webhook (handle_subscription_lifecycle_updated) の (a)/(c)/(d-1)/(d-2)
+ * 分岐は「snapshot と after の差分」でメール送信を判定するが、対応する
+ * Server Action が先行 UPDATE で DB を新状態に書き換えるため、Webhook 到着時には
+ * 差分が消えて skip されてしまう。よって Server Action 側で送信するのが正規経路、
+ * Webhook 側は先行 UPDATE 失敗時のフォールバックという位置付け。
+ *
+ * 失敗しても Server Action の成功可否には影響させない（try/catch でログのみ）。
  * 受信者名の解決ルールは handle-subscription-lifecycle.ts の fetchRecipient と同じ:
  * client_profiles.display_name → 姓+名（スペースなし結合）→ "お客様"。
  */
-async function sendUpgradeCompletedEmail(
+async function sendSubscriptionChangedEmail(
   admin: SupabaseClient<Database>,
-  subscription: ActiveSubscription,
-  targetPlan: PaidPlanType,
+  userId: string,
+  params: {
+    eventType: SubscriptionChangedEventType;
+    oldPlanName?: string;
+    newPlanName?: string;
+    planName?: string;
+    scheduledDate?: string;
+    endDate?: string;
+  },
 ): Promise<void> {
   try {
     const { data } = await admin
       .from("users")
       .select("email, last_name, first_name, client_profiles(display_name)")
-      .eq("id", subscription.user_id)
+      .eq("id", userId)
       .maybeSingle();
     if (!data) return;
 
@@ -255,19 +277,25 @@ async function sendUpgradeCompletedEmail(
     const personalName = `${data.last_name ?? ""}${data.first_name ?? ""}`;
     const recipientName = displayName || personalName || "お客様";
 
-    const tpl = subscriptionChangedEmail({
-      recipientName,
-      eventType: "upgrade-immediate",
-      oldPlanName: PLAN_LABELS[subscription.plan_type as PlanType],
-      newPlanName: PLAN_LABELS[targetPlan],
-    });
+    const tpl = subscriptionChangedEmail({ recipientName, ...params });
     await sendEmail({ to: data.email, subject: tpl.subject, html: tpl.html });
   } catch (err) {
     console.error(
-      "[upgradePlanAction] sendUpgradeCompletedEmail failed",
-      err,
+      "[plan-actions] sendSubscriptionChangedEmail failed",
+      { userId, eventType: params.eventType, err },
     );
   }
+}
+
+/** ISO 日時を YYYY/MM/DD 形式に整形するローカルヘルパー。null 時は "—"。 */
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}/${mm}/${dd}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -403,6 +431,14 @@ export async function cancelDowngradeReservationAction(): Promise<
         metadata: { cancelled_schedule_id: scheduleId },
       });
 
+      // A5 と同構造の対策: 先行 UPDATE で Webhook (d-1) 分岐の diff が消えるため
+      // Server Action 側で「【ビジ友】ご予約を取り消しました」（プラン変更予約取消）
+      // メールを同期送信する。
+      await sendSubscriptionChangedEmail(admin, subscription.user_id, {
+        eventType: "reservation-removed-downgrade",
+        planName: PLAN_LABELS[subscription.plan_type as PlanType],
+      });
+
       return {
         success: true,
         data: {
@@ -441,6 +477,14 @@ export async function cancelDowngradeReservationAction(): Promise<
         target_type: "subscription",
         target_id: subscription.id,
         metadata: { cancelled_type: "cancel_at_period_end" },
+      });
+
+      // A5 と同構造の対策: 先行 UPDATE で Webhook (d-2) 分岐の diff が消えるため
+      // Server Action 側で「【ビジ友】ご予約を取り消しました」（解約予約取消）
+      // メールを同期送信する。
+      await sendSubscriptionChangedEmail(admin, subscription.user_id, {
+        eventType: "reservation-removed-cancel",
+        planName: PLAN_LABELS[subscription.plan_type as PlanType],
       });
 
       return { success: true, data: { cancelledType: "cancel" } };
@@ -533,6 +577,13 @@ export async function scheduleCancelAction(): Promise<ActionResult> {
     );
     // Webhook で再度更新されるため続行
   }
+
+  // A5 と同構造の対策: 先行 UPDATE で Webhook (c) 分岐の diff が消えるため
+  // Server Action 側で「【ビジ友】解約をご予約いただきました」メールを同期送信する。
+  await sendSubscriptionChangedEmail(admin, subscription.user_id, {
+    eventType: "cancel-reserved",
+    endDate: formatDate(subscription.current_period_end),
+  });
 
   return { success: true };
 }

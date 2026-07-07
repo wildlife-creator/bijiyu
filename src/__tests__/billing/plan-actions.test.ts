@@ -35,7 +35,8 @@ const stripeMock = {
     retrieve: vi.fn(async () => ({
       id: "sub_1",
       items: { data: [{ id: "si_1", price: { id: "price_individual" } }] },
-      schedule: null,
+      // 型を string | null に広げる（mockResolvedValueOnce で "sub_sched_xxx" を返せるように）
+      schedule: null as string | null,
       cancel_at_period_end: false,
     })),
     update: vi.fn(async () => ({})),
@@ -431,6 +432,162 @@ describe("changePlanAction", () => {
     const result = await changePlanAction({ targetPlan: "corporate" });
     expect(result.success).toBe(true);
     expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+});
+
+// ---- A5-follow-up: 予約系メール（cancel-reserved / reservation-removed-*） ----
+//
+// scheduleCancelAction / cancelDowngradeReservationAction にも A5 と同構造の
+// 「先行 UPDATE で Webhook diff が消える」問題があり、Server Action 自身が
+// メールを送る必要がある。Webhook (c) / (d-1) / (d-2) 分岐は fallback。
+
+describe("scheduleCancelAction (A5-follow-up: cancel-reserved メール)", () => {
+  it("解約予約成功時に「【ビジ友】解約をご予約いただきました」メールを送信する", async () => {
+    subState.row!.plan_type = "corporate";
+    subState.row!.current_period_end = "2026-08-15T00:00:00Z";
+
+    const result = await scheduleCancelAction();
+    expect(result.success).toBe(true);
+
+    // Stripe API 呼ばれた
+    expect(stripeMock.subscriptions.update).toHaveBeenCalledWith("sub_1", {
+      cancel_at_period_end: true,
+    });
+    // 先行 UPDATE が入った
+    const preUpdate = adminUpdates.find(
+      (u) =>
+        u.table === "subscriptions" &&
+        (u.payload as { cancel_at_period_end?: boolean }).cancel_at_period_end === true,
+    );
+    expect(preUpdate).toBeDefined();
+
+    // メール送信
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const call = sendEmailMock.mock.calls[0]![0];
+    expect(call.to).toBe("user1@test.local");
+    expect(call.subject).toBe("【ビジ友】解約をご予約いただきました");
+    expect(call.html).toContain("田中太郎 様");
+    expect(call.html).toContain("ビジ友の解約をご予約いただきました");
+    // endDate = formatDate("2026-08-15T00:00:00Z") = "2026/08/15"
+    expect(call.html).toContain("2026/08/15");
+    expect(call.html).toContain("有料プランでのご利用が終了します");
+  });
+
+  it("current_period_end が null なら endDate は「—」で送信される", async () => {
+    subState.row!.current_period_end = null;
+    await scheduleCancelAction();
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const call = sendEmailMock.mock.calls[0]![0];
+    expect(call.html).toContain("— をもって");
+  });
+
+  it("past_due 時は Stripe 呼ばず、メールも送らない", async () => {
+    subState.row!.status = "past_due";
+    const result = await scheduleCancelAction();
+    expect(result.success).toBe(false);
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("validateDowngradePrerequisites が NG なら Stripe 呼ばずメールも送らない", async () => {
+    validateMock.mockResolvedValueOnce({
+      ok: false as const,
+      errors: ["未完了の案件があります"],
+    });
+    const result = await scheduleCancelAction();
+    expect(result.success).toBe(false);
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("メール送信が例外を投げても Server Action は成功を返す", async () => {
+    sendEmailMock.mockRejectedValueOnce(new Error("resend down"));
+    const result = await scheduleCancelAction();
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("cancelDowngradeReservationAction (A5-follow-up: reservation-removed-* メール)", () => {
+  it("ダウングレード予約取消時に「【ビジ友】ご予約を取り消しました」（プラン変更予約取消）メールを送信する", async () => {
+    subState.row!.plan_type = "corporate";
+    subState.row!.schedule_id = "sub_sched_existing";
+    // Stripe API はまだ Schedule を持っている状態を返す
+    stripeMock.subscriptions.retrieve.mockResolvedValueOnce({
+      id: "sub_1",
+      items: { data: [{ id: "si_1", price: { id: "price_corporate" } }] },
+      schedule: "sub_sched_existing",
+      cancel_at_period_end: false,
+    });
+
+    const result = await cancelDowngradeReservationAction();
+    expect(result.success).toBe(true);
+    expect(stripeMock.subscriptionSchedules.release).toHaveBeenCalledWith(
+      "sub_sched_existing",
+    );
+
+    // メール送信
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const call = sendEmailMock.mock.calls[0]![0];
+    expect(call.subject).toBe("【ビジ友】ご予約を取り消しました");
+    expect(call.html).toContain("田中太郎 様");
+    expect(call.html).toContain("先日ご予約いただいたプラン変更を取り消しました");
+    // planName = 現プラン（corporate）
+    expect(call.html).toContain("法人向けプラン");
+  });
+
+  it("解約予約取消時に「【ビジ友】ご予約を取り消しました」（解約予約取消）メールを送信する", async () => {
+    subState.row!.plan_type = "individual";
+    subState.row!.cancel_at_period_end = true;
+    stripeMock.subscriptions.retrieve.mockResolvedValueOnce({
+      id: "sub_1",
+      items: { data: [{ id: "si_1", price: { id: "price_individual" } }] },
+      schedule: null,
+      cancel_at_period_end: true,
+    });
+
+    const result = await cancelDowngradeReservationAction();
+    expect(result.success).toBe(true);
+    expect(stripeMock.subscriptions.update).toHaveBeenCalledWith("sub_1", {
+      cancel_at_period_end: false,
+    });
+
+    // メール送信
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const call = sendEmailMock.mock.calls[0]![0];
+    expect(call.subject).toBe("【ビジ友】ご予約を取り消しました");
+    expect(call.html).toContain("先日ご予約いただいた解約を取り消しました");
+    // planName = 現プラン（individual）
+    expect(call.html).toContain("個人発注者様向けプラン");
+    expect(call.html).toContain("今後も引き続き");
+  });
+
+  it("予約が何もない状態（idempotent path）ではメール送信しない", async () => {
+    // subState は schedule_id: null / cancel_at_period_end: false（デフォルト）
+    stripeMock.subscriptions.retrieve.mockResolvedValueOnce({
+      id: "sub_1",
+      items: { data: [{ id: "si_1", price: { id: "price_individual" } }] },
+      schedule: null,
+      cancel_at_period_end: false,
+    });
+
+    const result = await cancelDowngradeReservationAction();
+    expect(result.success).toBe(true);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("メール送信が例外を投げても Server Action は成功を返す", async () => {
+    subState.row!.plan_type = "corporate";
+    subState.row!.schedule_id = "sub_sched_existing";
+    stripeMock.subscriptions.retrieve.mockResolvedValueOnce({
+      id: "sub_1",
+      items: { data: [{ id: "si_1", price: { id: "price_corporate" } }] },
+      schedule: "sub_sched_existing",
+      cancel_at_period_end: false,
+    });
+    sendEmailMock.mockRejectedValueOnce(new Error("resend down"));
+
+    const result = await cancelDowngradeReservationAction();
+    expect(result.success).toBe(true);
   });
 });
 

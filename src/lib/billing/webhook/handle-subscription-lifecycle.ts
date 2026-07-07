@@ -601,7 +601,11 @@ async function maybeSendChangedEmail(
     return;
   }
 
-  // (c) Cancel reservation appeared
+  // (c) Cancel reservation appeared.
+  // A5-follow-up: 通常はここで送らない。scheduleCancelAction が cancel_at_period_end
+  // を先行 UPDATE してから「【ビジ友】解約をご予約いただきました」を同期送信するため、
+  // Webhook 到着時には before.cancel_at_period_end === after.cancelAtPeriodEnd === true
+  // になっていてここに入らない。先行 UPDATE 失敗時のフォールバックとしてのみ発火する。
   if (!before.cancel_at_period_end && after.cancelAtPeriodEnd) {
     await sendChangedEmail(admin, send, before.user_id, {
       eventType: "cancel-reserved",
@@ -610,7 +614,11 @@ async function maybeSendChangedEmail(
     return;
   }
 
-  // (d-1) Downgrade reservation removed (schedule_id non-null → null)
+  // (d-1) Downgrade reservation removed (schedule_id non-null → null).
+  // A5-follow-up: 通常はここで送らない。cancelDowngradeReservationAction が
+  // schedule_id / scheduled_plan_type / scheduled_at を先行 UPDATE で null にしてから
+  // 「【ビジ友】ご予約を取り消しました」を同期送信するため、Webhook 到着時には
+  // before.schedule_id も null になっていてここに入らない。フォールバック分岐。
   if (before.schedule_id != null && after.scheduleId == null) {
     await sendChangedEmail(admin, send, before.user_id, {
       eventType: "reservation-removed-downgrade",
@@ -619,7 +627,11 @@ async function maybeSendChangedEmail(
     return;
   }
 
-  // (d-2) Cancel reservation removed (cancel_at_period_end true → false)
+  // (d-2) Cancel reservation removed (cancel_at_period_end true → false).
+  // A5-follow-up: 通常はここで送らない。cancelDowngradeReservationAction が
+  // cancel_at_period_end を先行 UPDATE で false にしてから「【ビジ友】ご予約を取り消しました」
+  // を同期送信するため、Webhook 到着時には before.cancel_at_period_end も false に
+  // なっていてここに入らない。フォールバック分岐。
   if (before.cancel_at_period_end && !after.cancelAtPeriodEnd) {
     await sendChangedEmail(admin, send, before.user_id, {
       eventType: "reservation-removed-cancel",
