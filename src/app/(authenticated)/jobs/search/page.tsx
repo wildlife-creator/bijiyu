@@ -264,6 +264,28 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
 
   const favoritedIds = new Set((favorites ?? []).map((f) => f.target_id));
 
+  // A9: ソート切替時に配列パラメータ (?municipality=A&municipality=B 等) が
+  // 落ちて絞り込みが解除される問題対策。URLSearchParams を append で組み立てる。
+  const nextSort =
+    sort === "newest"
+      ? "reward_high"
+      : sort === "reward_high"
+        ? "reward_low"
+        : "newest";
+  const sortLinkParams = new URLSearchParams();
+  for (const [key, val] of Object.entries(sp)) {
+    if (key === "sort") continue;
+    if (typeof val === "string") {
+      sortLinkParams.append(key, val);
+    } else if (Array.isArray(val)) {
+      for (const item of val) {
+        if (typeof item === "string") sortLinkParams.append(key, item);
+      }
+    }
+  }
+  sortLinkParams.set("sort", nextSort);
+  const sortLinkHref = `/jobs/search?${sortLinkParams.toString()}`;
+
   return (
     <div className="min-h-dvh bg-muted">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
@@ -279,12 +301,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
           </p>
           <div className="flex items-center gap-2">
             <Link
-              href={`/jobs/search?${new URLSearchParams({
-                ...Object.fromEntries(
-                  Object.entries(sp).filter(([, v]) => typeof v === "string") as [string, string][],
-                ),
-                sort: sort === "newest" ? "reward_high" : sort === "reward_high" ? "reward_low" : "newest",
-              }).toString()}`}
+              href={sortLinkHref}
               className="flex items-center gap-1 text-body-sm text-foreground"
             >
               <img
