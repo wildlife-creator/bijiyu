@@ -8,6 +8,9 @@ const mockFrom = vi.fn();
 const mockStorageFrom = vi.fn();
 const mockRpc = vi.fn();
 const mockGetActiveOrgContext = vi.fn();
+// Admin client の from() は Staff/Admin (org_role) が実効サブスクを引くための
+// resolveEffectiveSubscription 経路で使われる。テストごとにモック実装を差し替える。
+const mockAdminFrom = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -27,6 +30,7 @@ vi.mock("@/lib/organization/active-org-context", () => ({
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn().mockReturnValue({
+    from: (...args: unknown[]) => mockAdminFrom(...args),
     storage: {
       from: vi.fn().mockReturnValue({
         remove: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -450,6 +454,174 @@ describe("createJobAction", () => {
       buildValidFormData({ status: "open" })
     );
     expect(result.success).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Staff / Admin (org_role) の実効サブスク解決（resolveEffectiveSubscription）
+  //
+  // 法人プランの Staff は自分の subscription を持たない設計のため、
+  // Owner の subscription を admin client 経由で引く必要がある
+  // （CLAUDE.md「Staff ユーザーの subscription 参照」）。
+  // -------------------------------------------------------------------------
+
+  const STAFF_ID = "33333333-3333-3333-3333-333333333333";
+  const OWNER_ID = "22222222-2222-2222-2222-222222222222";
+  const ORG_ID = "55555555-5555-5555-5555-555555555555";
+
+  function mockStaffContext(orgRole: "staff" | "admin") {
+    mockGetActiveOrgContext.mockResolvedValue({
+      active: {
+        organizationId: ORG_ID,
+        orgRole,
+        isProxyAccount: orgRole === "staff",
+        orgOwnerId: OWNER_ID,
+        isCorporate: true,
+      },
+      all: [
+        {
+          organizationId: ORG_ID,
+          orgRole,
+          isProxyAccount: orgRole === "staff",
+          displayName: "テスト法人",
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+    });
+  }
+
+  it("普通の担当者（org_role=staff）は Owner のサブスクに相乗りして下書き作成成功", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: STAFF_ID } } });
+    mockStaffContext("staff");
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "users") {
+        return createQueryMock({
+          single: { data: { role: "staff" }, error: null },
+        });
+      }
+      if (table === "jobs") {
+        return createQueryMock({
+          single: { data: { id: "job-staff-1" }, error: null },
+        });
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    const adminSubEqCalls: Array<{ column: string; value: unknown }> = [];
+    mockAdminFrom.mockImplementation((table: string) => {
+      if (table === "subscriptions") {
+        const chain: Record<string, unknown> = {};
+        const self = () => chain;
+        chain.select = vi.fn(self);
+        chain.eq = vi.fn((column: string, value: unknown) => {
+          adminSubEqCalls.push({ column, value });
+          return chain;
+        });
+        chain.in = vi.fn(self);
+        chain.maybeSingle = vi.fn().mockResolvedValue({
+          data: { status: "active", plan_type: "corporate" },
+          error: null,
+        });
+        return chain;
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    const result = await createJobAction(buildValidFormData());
+
+    expect(result.success).toBe(true);
+    // 実効サブスクは admin client 経由で Owner の user_id を key に引かれる
+    expect(adminSubEqCalls).toEqual([
+      { column: "user_id", value: OWNER_ID },
+    ]);
+    if (result.success) {
+      expect(result.data?.id).toBe("job-staff-1");
+    }
+  });
+
+  it("強い担当者（org_role=admin）も Owner のサブスクに相乗りして下書き作成成功", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "ee111111-1111-1111-1111-111111111111" } },
+    });
+    mockStaffContext("admin");
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "users") {
+        return createQueryMock({
+          single: { data: { role: "staff" }, error: null },
+        });
+      }
+      if (table === "jobs") {
+        return createQueryMock({
+          single: { data: { id: "job-admin-1" }, error: null },
+        });
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    const adminSubEqCalls: Array<{ column: string; value: unknown }> = [];
+    mockAdminFrom.mockImplementation((table: string) => {
+      if (table === "subscriptions") {
+        const chain: Record<string, unknown> = {};
+        const self = () => chain;
+        chain.select = vi.fn(self);
+        chain.eq = vi.fn((column: string, value: unknown) => {
+          adminSubEqCalls.push({ column, value });
+          return chain;
+        });
+        chain.in = vi.fn(self);
+        chain.maybeSingle = vi.fn().mockResolvedValue({
+          data: { status: "active", plan_type: "corporate_premium" },
+          error: null,
+        });
+        return chain;
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    const result = await createJobAction(buildValidFormData());
+
+    expect(result.success).toBe(true);
+    expect(adminSubEqCalls).toEqual([
+      { column: "user_id", value: OWNER_ID },
+    ]);
+  });
+
+  it("担当者だが Owner のサブスクが解約済みの場合は『有効なサブスクリプションがありません』", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: STAFF_ID } } });
+    mockStaffContext("staff");
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "users") {
+        return createQueryMock({
+          single: { data: { role: "staff" }, error: null },
+        });
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    mockAdminFrom.mockImplementation((table: string) => {
+      if (table === "subscriptions") {
+        const chain: Record<string, unknown> = {};
+        const self = () => chain;
+        chain.select = vi.fn(self);
+        chain.eq = vi.fn(self);
+        chain.in = vi.fn(self);
+        chain.maybeSingle = vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        });
+        return chain;
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    const result = await createJobAction(buildValidFormData());
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("サブスクリプション");
+    }
   });
 });
 

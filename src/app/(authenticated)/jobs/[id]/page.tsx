@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
+import { resolveEffectiveSubscription } from "@/lib/billing/resolve-effective-subscription";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -148,12 +149,15 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
 
   const isOwner = job.owner_id === user.id;
 
+  // 組織コンテキストを 1 回だけ解決し、下流の (1) 同組織メンバー判定と
+  // (2) 実効サブスク解決の両方で使い回す。Owner でも Staff/Admin でも同じ。
+  const { active } = await getActiveOrganizationContext(supabase);
+
   // Check if user belongs to the same organization as the job
-  let isOrganizationMember = false;
-  if (!isOwner && job.organization_id) {
-    const { active } = await getActiveOrganizationContext(supabase);
-    isOrganizationMember = active?.organizationId === job.organization_id;
-  }
+  const isOrganizationMember =
+    !isOwner &&
+    !!job.organization_id &&
+    active?.organizationId === job.organization_id;
 
   const canManage = isOwner || isOrganizationMember;
 
@@ -399,14 +403,18 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
     .maybeSingle();
 
   // Check application eligibility
-  const { data: subscription } = await supabase
-    .from("subscriptions")
-    .select("status")
-    .eq("user_id", user.id)
-    .in("status", ["active", "past_due"])
-    .maybeSingle();
+  // Staff / Admin (org_role) は Owner のサブスクに相乗りするため
+  // resolveEffectiveSubscription 経由で解決する。
+  // 従来は `role === "staff"` を isPaidUser に直接混ぜて補正していたが、
+  // ヘルパー化により Owner のサブスクを実データで引けるようになったため撤去
+  // （CLAUDE.md「isPaidUser の判定に role === 'staff' を含めてはならない」）。
+  const subscription = await resolveEffectiveSubscription(
+    supabase,
+    user.id,
+    active,
+  );
 
-  const isPaidUser = !!subscription || userData?.role === "staff" || userData?.role === "client";
+  const isPaidUser = !!subscription || userData?.role === "client";
 
   let applyCheck: { canApply: boolean; reason?: string } = { canApply: true };
 

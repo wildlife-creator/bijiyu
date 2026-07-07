@@ -1,3 +1,5 @@
+import { resolveEffectiveSubscription } from "@/lib/billing/resolve-effective-subscription";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
@@ -17,14 +19,17 @@ export default async function SupportLayout({ children }: SupportLayoutProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Staff / Admin (org_role) は Owner のサブスクに相乗りするため
+  // resolveEffectiveSubscription で操作者にとっての実効サブスクを解決する。
+  // これを怠るとお問い合わせ画面のヘッダーが担当者に対して「未加入」表示になる。
   let hasActiveSubscription = false;
   if (user) {
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("status")
-      .eq("user_id", user.id)
-      .in("status", ["active", "past_due"])
-      .maybeSingle();
+    const { active } = await getActiveOrganizationContext(supabase);
+    const subscription = await resolveEffectiveSubscription(
+      supabase,
+      user.id,
+      active,
+    );
     hasActiveSubscription = !!subscription;
   }
 

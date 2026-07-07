@@ -355,6 +355,8 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - `.eq('user_id', user.id)` で自分の subscription を引く書き方を Staff に適用すると常に null になり、「発注者向けメニューが Staff では一切表示されない」バグが発生する（2026-04-21 実例）
 - 基準実装: `src/app/(authenticated)/mypage/page.tsx` の subscription 分岐
 - 支払い系 Server Action（billing 配下）のロールチェックは `'owner'` / `'admin'` のみ許可し、`'staff'` を許可リストに含めない（契約主体を Owner 単一に固定する設計判断。詳細は organization spec REQ-ORG-011）
+- **実効サブスク解決は共通ヘルパー `resolveEffectiveSubscription()` を使う**（`src/lib/billing/resolve-effective-subscription.ts`）。呼び出し側は `getActiveOrganizationContext(supabase)` の `active` を渡すだけ。`.eq('user_id', user.id)` で subscriptions を直接引く実装を Staff が到達する経路（案件作成・応募 eligibility・料金プラン画面・(support)/(auth) layout 等）に新しく書かないこと。2026-07-07 実例: `createJobAction` が本人 user_id で subscription を引いていて Staff が案件を保存できなかった（「有効なサブスクリプションがありません」エラー）
+- **RLS も `is_paid_user()` 経由で組織対応済み**: `jobs.jobs_insert` ポリシーで使う `is_paid_user(auth.uid())` は「本人サブスク OR 組織 Owner のサブスク（Staff/Admin org_role の相乗り）」を評価する（`20260707120000_is_paid_user_org_aware.sql`）。この関数を参照する新しい RLS ポリシーを追加する場合、Staff / Admin (org_role) が意図せず弾かれないか確認すること。Server Action 側だけ `resolveEffectiveSubscription` で通しても DB の RLS で INSERT が失敗するケースを見落とさないこと
 
 ### organization 機能実装時の必須リファクタリング（必ず守ること）
 - organization の spec-impl を開始する際、**CLI-016〜025 の画面実装（Task 9 以降）より先に**、付録 A のリファクタリング全 8 ステップを完了すること

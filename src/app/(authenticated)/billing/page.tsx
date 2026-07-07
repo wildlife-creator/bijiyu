@@ -26,6 +26,18 @@ export default async function BillingPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Staff / Admin (org_role) は Owner のサブスク・オプション・プロフィールに
+  // 相乗りするため、subscription / option_subscriptions / client_profiles の
+  // SELECT ターゲットを Owner の user_id に切り替える。
+  // これを怠ると Staff の画面で「現在プラン: 無料」と誤って表示される。
+  // なお、Staff は本ページで購入ボタンを一律 disabled にする（下記 isStaff 分岐）
+  // ため、Owner のデータが見えても誤操作の心配は無い。
+  const { active } = await getActiveOrganizationContext(supabase);
+  const billingOwnerId =
+    active !== null && active.orgRole !== "owner"
+      ? active.orgOwnerId
+      : user.id;
+
   // Single query for user + subscription + options + client_profiles
   const admin = createAdminClient();
 
@@ -33,18 +45,18 @@ export default async function BillingPage({
     admin.from("users").select("id, role, email, last_name, first_name").eq("id", user.id).single(),
     admin.from("subscriptions")
       .select("id, plan_type, status, schedule_id, scheduled_plan_type, scheduled_at, cancel_at_period_end, current_period_end, stripe_subscription_id")
-      .eq("user_id", user.id)
+      .eq("user_id", billingOwnerId)
       .in("status", ["active", "past_due"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
     admin.from("option_subscriptions")
       .select("id, option_type, status, job_id, stripe_subscription_id, end_date")
-      .eq("user_id", user.id)
+      .eq("user_id", billingOwnerId)
       .eq("status", "active"),
     admin.from("client_profiles")
       .select("is_urgent_option")
-      .eq("user_id", user.id)
+      .eq("user_id", billingOwnerId)
       .maybeSingle(),
   ]);
 
@@ -123,8 +135,7 @@ export default async function BillingPage({
   // Jobs eligible for urgent option dropdown
   // - 法人プラン（組織所属）: 組織全体の案件
   // - 個人プラン: 自分がオーナーの案件のみ
-  const { active } = await getActiveOrganizationContext(supabase);
-
+  // active は上部で解決済み（billingOwnerId の判定と共用）
   let jobsQuery = admin
     .from("jobs")
     .select("id, title, is_urgent")

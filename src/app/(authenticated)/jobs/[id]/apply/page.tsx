@@ -1,5 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 
+import { resolveEffectiveSubscription } from "@/lib/billing/resolve-effective-subscription";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { canApplyJob } from "@/lib/matching";
 import {
@@ -69,14 +71,18 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     .eq("id", user.id)
     .single();
 
-  const { data: subscription } = await supabase
-    .from("subscriptions")
-    .select("status")
-    .eq("user_id", user.id)
-    .in("status", ["active", "past_due"])
-    .maybeSingle();
+  // Staff / Admin (org_role) は Owner のサブスクに相乗りするため
+  // resolveEffectiveSubscription 経由で解決する（従来の role === 'staff'
+  // ハードコードを撤去）。実質、Staff は middleware で /jobs/[id]/apply を
+  // ブロックされるため到達しないが、応急処置に頼らない書き方に統一する。
+  const { active } = await getActiveOrganizationContext(supabase);
+  const subscription = await resolveEffectiveSubscription(
+    supabase,
+    user.id,
+    active,
+  );
 
-  const isPaidUser = !!subscription || userData?.role === "staff" || userData?.role === "client";
+  const isPaidUser = !!subscription || userData?.role === "client";
 
   if (!isPaidUser) {
     const { data: skills } = await supabase

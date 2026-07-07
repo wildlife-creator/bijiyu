@@ -1,3 +1,5 @@
+import { resolveEffectiveSubscription } from "@/lib/billing/resolve-effective-subscription";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
@@ -18,14 +20,16 @@ export default async function AuthLayout({ children }: AuthLayoutProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // /reset-password をログイン中の Staff / Admin が踏むケースに備え
+  // resolveEffectiveSubscription で実効サブスクを解決する（B の是正）。
   let hasActiveSubscription = false;
   if (user) {
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("status")
-      .eq("user_id", user.id)
-      .in("status", ["active", "past_due"])
-      .maybeSingle();
+    const { active } = await getActiveOrganizationContext(supabase);
+    const subscription = await resolveEffectiveSubscription(
+      supabase,
+      user.id,
+      active,
+    );
     hasActiveSubscription = !!subscription;
   }
 

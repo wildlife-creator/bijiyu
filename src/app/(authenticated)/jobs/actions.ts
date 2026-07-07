@@ -1,5 +1,6 @@
 "use server";
 
+import { resolveEffectiveSubscription } from "@/lib/billing/resolve-effective-subscription";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -106,12 +107,14 @@ export async function createJobAction(
     const { active } = await getActiveOrganizationContext(supabase);
 
     // Check subscription
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("status, plan_type")
-      .eq("user_id", user.id)
-      .in("status", ["active", "past_due"])
-      .maybeSingle();
+    // Staff / Admin (org_role) は自分の subscription を持たず Owner のサブスクに
+    // 相乗りする設計のため、resolveEffectiveSubscription で「操作者にとっての
+    // 実効サブスク」を解決する（CLAUDE.md「Staff ユーザーの subscription 参照」）。
+    const subscription = await resolveEffectiveSubscription(
+      supabase,
+      user.id,
+      active,
+    );
 
     if (!subscription) {
       return {
@@ -360,19 +363,24 @@ export async function updateJobAction(
       }
 
       // Check individual plan limit on draft -> open transition
+      // Staff / Admin (org_role) は Owner のサブスクに相乗りするため
+      // resolveEffectiveSubscription で実効サブスクを引く。
+      // 掲載上限は個人プランのみが対象 (checkOpenJobLimit 内で早期 return) のため、
+      // 法人 Staff から呼ばれても副作用は無いが、plan_type を正しく解決しないと
+      // 上限チェック自体がスキップされる問題を防ぐ。
       if (currentStatus === "draft" && newStatus === "open") {
-        const { data: subscription } = await supabase
-          .from("subscriptions")
-          .select("plan_type")
-          .eq("user_id", user.id)
-          .in("status", ["active", "past_due"])
-          .maybeSingle();
+        const { active } = await getActiveOrganizationContext(supabase);
+        const subscription = await resolveEffectiveSubscription(
+          supabase,
+          user.id,
+          active,
+        );
 
         if (subscription) {
           const canOpen = await checkOpenJobLimit(
             supabase,
             user.id,
-            subscription.plan_type
+            subscription.plan_type,
           );
           if (!canOpen) {
             return {
