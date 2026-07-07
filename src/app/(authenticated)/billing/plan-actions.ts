@@ -324,6 +324,23 @@ export async function cancelDowngradeReservationAction(): Promise<
       // Downgrade reservation → release the Schedule
       await stripe.subscriptionSchedules.release(scheduleId);
 
+      // A6: Webhook 到着前の再描画で予約解除状態が反映されるように DB を先行更新。
+      // schedule_id 系 3 カラムを null に戻す（Webhook でも同じ更新が入る＝冪等）。
+      const { error: preClearError } = await admin
+        .from("subscriptions")
+        .update({
+          schedule_id: null,
+          scheduled_plan_type: null,
+          scheduled_at: null,
+        })
+        .eq("id", subscription.id);
+      if (preClearError) {
+        console.error(
+          "[cancelDowngradeReservationAction] pre-clear schedule fields failed",
+          preClearError,
+        );
+      }
+
       // audit_logs
       await admin.from("audit_logs").insert({
         actor_id: auth.userId,
@@ -352,6 +369,18 @@ export async function cancelDowngradeReservationAction(): Promise<
         subscription.stripe_subscription_id,
         { cancel_at_period_end: false },
       );
+
+      // A6: Webhook 到着前の再描画で予約解除状態が反映されるように DB を先行更新。
+      const { error: preUpdateError } = await admin
+        .from("subscriptions")
+        .update({ cancel_at_period_end: false })
+        .eq("id", subscription.id);
+      if (preUpdateError) {
+        console.error(
+          "[cancelDowngradeReservationAction] pre-update cancel_at_period_end failed",
+          preUpdateError,
+        );
+      }
 
       await admin.from("audit_logs").insert({
         actor_id: auth.userId,
@@ -437,6 +466,21 @@ export async function scheduleCancelAction(): Promise<ActionResult> {
     };
   }
 
+  // A6: Webhook 到着前の再描画で解約予約状態が反映されるように DB を先行更新。
+  // Webhook（handle_subscription_lifecycle_updated）でも同じ値が入るため冪等。
+  // アップグレード側（upgradePlanAction）と同じ対策パターン。
+  const { error: preUpdateError } = await admin
+    .from("subscriptions")
+    .update({ cancel_at_period_end: true })
+    .eq("id", subscription.id);
+  if (preUpdateError) {
+    console.error(
+      "[scheduleCancelAction] pre-update cancel_at_period_end failed",
+      preUpdateError,
+    );
+    // Webhook で再度更新されるため続行
+  }
+
   return { success: true };
 }
 
@@ -460,6 +504,24 @@ export async function cancelImmediatelyAction(): Promise<ActionResult> {
 
   const stripe = getStripeClient();
   try {
+    // A8: Webhook 側で「手動即時解約」と「7日経過による自動解約」を
+    // 区別できるよう、cancel 前に metadata フラグを付ける。
+    // handle-subscription-lifecycle.ts はこの metadata を優先して
+    // cancellationReason を判定する（設定できていれば "manual" 固定、
+    // 設定失敗時は従来ロジック past_due_since フォールバック）。
+    try {
+      await stripe.subscriptions.update(
+        subscription.stripe_subscription_id,
+        { metadata: { bijiyu_cancel_source: "manual_immediate" } },
+      );
+    } catch (metaErr) {
+      // metadata 更新失敗は解約自体を止めない。フォールバックで past_due_since
+      // ベースの判定になる（= 従来挙動）。ログだけ残す。
+      console.error(
+        "[cancelImmediatelyAction] metadata update failed (fallback to legacy detection)",
+        metaErr,
+      );
+    }
     await stripe.subscriptions.cancel(
       subscription.stripe_subscription_id,
     );

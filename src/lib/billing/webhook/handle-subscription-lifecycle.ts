@@ -213,8 +213,15 @@ async function handleSubscriptionDeleted(
     const planType = existingSubscription.data.plan_type as PlanType;
     // §6.4: past_due_since が set されていれば 7 日経過自動解約 (Edge Function 経由)、
     // それ以外は手動解約。spec §6.4 確定済の reason 判定軸。
-    const cancellationReason: "manual" | "auto-past-due" =
-      existingSubscription.data.past_due_since != null
+    // A8: 「即時解約（cancelImmediatelyAction）」は past_due 中しか実行できないため
+    // past_due_since が常に non-null で誤って "auto-past-due" 判定になっていた。
+    // Server Action 側で Stripe metadata に "manual_immediate" フラグを付けているので
+    // ここで metadata を優先して判定する（設定なければ従来ロジックにフォールバック）。
+    const isManualImmediate =
+      sub.metadata?.bijiyu_cancel_source === "manual_immediate";
+    const cancellationReason: "manual" | "auto-past-due" = isManualImmediate
+      ? "manual"
+      : existingSubscription.data.past_due_since != null
         ? "auto-past-due"
         : "manual";
 
