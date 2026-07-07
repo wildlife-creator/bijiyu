@@ -22,6 +22,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const errorFromParams = searchParams.get("error");
   const expiredFromParams = searchParams.get("expired");
+  const messageFromParams = searchParams.get("message");
 
   const {
     register,
@@ -72,6 +73,13 @@ export default function LoginPage() {
       {displayError && (
         <p className="text-center text-body-sm text-destructive">
           {displayError}
+        </p>
+      )}
+
+      {/* S2: パスワード再設定完了時の完了メッセージ */}
+      {messageFromParams === "password_updated" && !displayError && (
+        <p className="text-center text-body-sm text-secondary">
+          パスワードを変更しました。新しいパスワードでログインしてください。
         </p>
       )}
 

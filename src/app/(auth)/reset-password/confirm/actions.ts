@@ -68,5 +68,18 @@ export async function updatePasswordAction(
     }
   }
 
-  return { success: true, data: { redirectTo: "/login" } };
+  // S2: パスワード更新後にサインアウトしないと、middleware が「認証済みユーザーの
+  // /login アクセス」を検出して /mypage にバウンスしてしまい、
+  // 「新パスワードでログインし直す」体験が破綻する。
+  // signOut のエラーはリダイレクト自体を止めない（クライアント側で再サインアウトも可能）。
+  try {
+    await supabase.auth.signOut();
+  } catch (signOutError) {
+    console.error(
+      "[updatePasswordAction] signOut failed after password update (non-blocking)",
+      signOutError,
+    );
+  }
+
+  return { success: true, data: { redirectTo: "/login?message=password_updated" } };
 }

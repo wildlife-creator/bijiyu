@@ -76,10 +76,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Determine redirect destination based on flow type
-  const flowType = type ?? next ?? "";
+  // Determine redirect destination based on flow type.
+  // S2: エラー側は `recovery` と `reset-password` の両方を判定していたのに、
+  // 成功パスは `recovery` しか見ておらず、`reset-password/actions.ts` が渡す
+  // `next=/reset-password/confirm` を拾えずデフォルトの /register/profile へ
+  // 落ちて middleware で /mypage にバウンスしていた。
+  // 判定軸をエラーパスと揃える（type or next のどちらでも拾える）。
+  const flowType = `${type ?? ""} ${next ?? ""}`;
 
-  if (flowType.includes("recovery")) {
+  if (
+    flowType.includes("recovery") ||
+    flowType.includes("reset-password")
+  ) {
     // Password reset flow → redirect to reset password confirmation
     return NextResponse.redirect(new URL("/reset-password/confirm", origin));
   }

@@ -168,7 +168,7 @@ describe("updatePasswordAction (§5.8.A)", () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data).toEqual({ redirectTo: "/login" });
+      expect(result.data).toEqual({ redirectTo: "/login?message=password_updated" });
     }
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     const sendCall = mockSendEmail.mock.calls[0][0] as {
@@ -215,7 +215,7 @@ describe("updatePasswordAction (§5.8.A)", () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data).toEqual({ redirectTo: "/login" });
+      expect(result.data).toEqual({ redirectTo: "/login?message=password_updated" });
     }
   });
 

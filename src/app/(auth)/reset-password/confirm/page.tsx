@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { EmailLandingCard } from "@/components/auth-landing/email-landing-card";
@@ -16,7 +15,6 @@ import {
 import { updatePasswordAction } from "@/app/(auth)/reset-password/confirm/actions";
 
 export default function ResetPasswordConfirmPage() {
-  const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [isExpired, setIsExpired] = useState(false);
 
@@ -33,7 +31,9 @@ export default function ResetPasswordConfirmPage() {
     const result = await updatePasswordAction(data);
 
     if (result.success) {
-      router.push("/login?message=password_updated");
+      // S2: サーバー側で signOut 済み。Router Cache を回避するためハードナビゲーション。
+      // router.push だと middleware が古い session cookie を掴んで /mypage に流す可能性がある。
+      window.location.href = result.data?.redirectTo ?? "/login?message=password_updated";
     } else {
       setServerError(result.error);
       if (result.error.includes("有効期限")) {
