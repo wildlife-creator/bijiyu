@@ -10,14 +10,23 @@ import {
   MONTHLY_NEW_THREAD_LIMIT,
   isMonthlyNewThreadLimitExceeded,
 } from "@/lib/messaging/rate-limits";
+import {
+  areIdentityPairsEqual,
+  type ThreadActorIdentity,
+} from "@/lib/messaging/identity";
 
 interface Props {
   searchParams: Promise<{ to?: string }>;
 }
 
 /**
- * CLI-013 entry point: "メッセージを送る" from CLI-006 (user detail).
- * Finds or creates a thread with the target user, then redirects to the thread detail page.
+ * CLI-013 entry point: "メッセージを送る" from CLI-006 (user detail) など。
+ *
+ * Phase 2 (A1 修正):
+ *   従来の「席2 = 受注者」ルールを廃止し、identity ペアでスレッドを一意化する。
+ *   creator は必ず participant_1 (逆転バグ根絶)、相手は participant_2。
+ *   organization_1_id / organization_2_id に各 identity の組織を格納。
+ *   これにより受注者⇔受注者・発注者⇔発注者・組織⇔組織も同一ロジックで扱える。
  */
 export default async function NewMessagePage({ searchParams }: Props) {
   const params = await searchParams;
@@ -36,55 +45,66 @@ export default async function NewMessagePage({ searchParams }: Props) {
     redirect("/login");
   }
 
-  // Get BOTH users' organizations
-  // Use admin client for targetUserId because organization_members RLS restricts SELECT to same-org members only
+  // Get BOTH sides' organizations.
+  // Use admin client for targetUserId because organization_members RLS
+  // restricts SELECT to same-org members only.
   const admin = createAdminClient();
 
   // Actor: use multi-org-aware helper (Cookie-resolved active org)
   const { active } = await getActiveOrganizationContext(supabase);
   const myOrgId = active?.organizationId ?? null;
 
-  const { data: targetOrg } = await admin
+  const { data: targetOrgRow } = await admin
     .from("organization_members")
     .select("organization_id")
     .eq("user_id", targetUserId)
     .maybeSingle();
+  const targetOrgId = targetOrgRow?.organization_id ?? null;
 
-  // Determine organization_id: use whichever side has an org
-  // (in a contractor <-> org thread, one side has org, the other doesn't)
-  const organizationId = myOrgId ?? targetOrg?.organization_id ?? null;
+  // Identity pair (Phase 2 統一モデル): 相手が組織所属なら組織 ID、
+  // そうでなければ user ID を一意化キーとして扱う。
+  const myIdentity: ThreadActorIdentity = {
+    userId: user.id,
+    organizationId: myOrgId,
+  };
+  const targetIdentity: ThreadActorIdentity = {
+    userId: targetUserId,
+    organizationId: targetOrgId,
+  };
 
-  // Search for existing thread
-  let threadId: string | null = null;
-
-  if (organizationId) {
-    // Org-based: search by org + contractor (participant_2)
-    // The contractor is whichever user does NOT belong to the org
-    const contractorId = myOrgId ? targetUserId : user.id;
-    const { data: existing } = await supabase
-      .from("message_threads")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .eq("participant_2_id", contractorId)
-      .limit(1)
-      .maybeSingle();
-    threadId = existing?.id ?? null;
-  } else {
-    // No org: search by participant pair
-    const { data: existing } = await supabase
-      .from("message_threads")
-      .select("id")
-      .or(
-        `and(participant_1_id.eq.${user.id},participant_2_id.eq.${targetUserId}),and(participant_1_id.eq.${targetUserId},participant_2_id.eq.${user.id})`,
-      )
-      .limit(1)
-      .maybeSingle();
-    threadId = existing?.id ?? null;
+  // 自分 (もしくは自組織) が絡む既存スレッドを候補として取得し、
+  // JS 側で identity ペア (順序無関係) で目的の相手側とマッチするものを選ぶ。
+  // RLS により自分がアクセス権を持つ threads だけ返る。
+  const involvementOr = [
+    `participant_1_id.eq.${user.id}`,
+    `participant_2_id.eq.${user.id}`,
+  ];
+  if (myOrgId) {
+    involvementOr.push(`organization_1_id.eq.${myOrgId}`);
+    involvementOr.push(`organization_2_id.eq.${myOrgId}`);
   }
+  const { data: candidates } = await supabase
+    .from("message_threads")
+    .select(
+      "id, participant_1_id, participant_2_id, organization_1_id, organization_2_id",
+    )
+    .or(involvementOr.join(","));
 
-  // Q2: 新規スレッド作成時のみ月次上限判定を適用。既存スレッド返信は無制限。
-  // 判定は既存スレッドが見つからなかった場合にのみ実行する（既存への返信は
-  // 影響しない仕様）。
+  const existing = (candidates ?? []).find((t) => {
+    const p1: ThreadActorIdentity = {
+      userId: t.participant_1_id,
+      organizationId: t.organization_1_id,
+    };
+    const p2: ThreadActorIdentity = {
+      userId: t.participant_2_id,
+      organizationId: t.organization_2_id,
+    };
+    return areIdentityPairsEqual([myIdentity, targetIdentity], [p1, p2]);
+  });
+
+  let threadId: string | null = existing?.id ?? null;
+
+  // Q2 (Phase 1 済): 新規スレッド作成時のみ月次上限判定。既存スレッド返信は無制限。
   if (!threadId) {
     if (await isMonthlyNewThreadLimitExceeded(supabase, user.id)) {
       return (
@@ -115,20 +135,27 @@ export default async function NewMessagePage({ searchParams }: Props) {
       );
     }
 
-    // participant_2 = contractor side (the one without org, or the target if neither has org)
-    const contractorId = organizationId
-      ? (myOrgId ? targetUserId : user.id)
-      : targetUserId;
-    const creatorId = user.id;
-
-    // Use admin client: contractor creating a thread with organization_id
-    // would fail RLS (not an org member), so bypass with service_role
+    // Phase 2 の一般化ルール:
+    //   participant_1_id = creator (自分)。participant_2_id = 相手。
+    //   organization_1/2_id にはそれぞれの identity の組織を格納。
+    //   旧 organization_id は後方互換のため COALESCE で set (移行完了後 drop 予定)。
+    // これにより:
+    //   - 受注者⇔発注者: 従来通り
+    //   - 受注者⇔受注者 / 発注者⇔発注者: 新規パターンも自然にサポート
+    //   - 組織⇔組織: 両 org カラムに値が入る
+    //
+    // Use admin client: 参加 or 同一組織でないと RLS で INSERT 拒否されうるため。
     const { data: newThread, error } = await admin
       .from("message_threads")
       .insert({
-        participant_1_id: creatorId,
-        participant_2_id: contractorId,
-        organization_id: organizationId,
+        participant_1_id: user.id,
+        participant_2_id: targetUserId,
+        organization_1_id: myOrgId,
+        organization_2_id: targetOrgId,
+        // 後方互換: 旧クエリ (admin/messages, bulk-send etc.) は
+        // organization_id を単一値として参照するため、片側の org を代表値として置く
+        // (両側 org の org⇔org の場合は myOrgId を代表とする)。
+        organization_id: myOrgId ?? targetOrgId,
         thread_type: "message",
       })
       .select("id")

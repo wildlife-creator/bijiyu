@@ -6,11 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ThreadListItem } from "@/components/messaging/thread-list-item";
 import { BackButton } from "@/components/shared/back-button";
-import {
-  getUserDisplayName,
-  resolveClientProfileForRow,
-  resolveParticipantName,
-} from "@/lib/utils/display-name";
+import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display";
 
 interface Props {
   searchParams: Promise<{ type?: string }>;
@@ -45,21 +41,29 @@ export default async function MessagesPage({ searchParams }: Props) {
 
   const threadTypeFilter = params.type || "all";
 
-  // Fetch threads: RLS handles access (participant OR org member)
-  // standard query pattern on organization で B3 対応（法人プラン Staff が
-  // 相手のスレッドでも社長 client_profiles に到達）
+  // Phase 2: 新 org カラム + 両側 organization owner nested を取得。
+  // 旧 organization_id も後方互換で残っており、下記の active org 絞り込みで使う。
   let query = supabase
     .from("message_threads")
     .select(
       `id, thread_type, organization_id, updated_at,
+       participant_1_id, participant_2_id,
+       organization_1_id, organization_2_id,
        participant_1:users!message_threads_participant_1_id_fkey(
-         id, last_name, first_name, deleted_at,
+         id, last_name, first_name, company_name, avatar_url, deleted_at,
          client_profiles(display_name, image_url)
        ),
        participant_2:users!message_threads_participant_2_id_fkey(
-         id, last_name, first_name, company_name, avatar_url, deleted_at
+         id, last_name, first_name, company_name, avatar_url, deleted_at,
+         client_profiles(display_name, image_url)
        ),
-       organization:organizations(
+       organization_1:organizations!organization_1_id(
+         owner_user:users!owner_id(
+           last_name, first_name, deleted_at,
+           client_profiles(display_name, image_url)
+         )
+       ),
+       organization_2:organizations!organization_2_id(
          owner_user:users!owner_id(
            last_name, first_name, deleted_at,
            client_profiles(display_name, image_url)
@@ -78,69 +82,34 @@ export default async function MessagesPage({ searchParams }: Props) {
   // N 組織兼任スタッフ対応: active org のスレッドに絞る。
   // organization_id IS NULL（昇格前の個人スレッド）は本人参加 RLS で
   // 別途見える状態のため、ここでは「active org or NULL」を OR で許可する。
+  // Phase 2: 新 org カラム (organization_1_id / organization_2_id) にも一致
+  // することを許可し、org⇔org スレッドを取りこぼさない (現時点で UI 導線は
+  // ないが、将来の org⇔org 対応時にも filter が破綻しない設計)。
   if (isClientOrStaff && active) {
     query = query.or(
-      `organization_id.eq.${active.organizationId},organization_id.is.null`,
+      [
+        `organization_id.eq.${active.organizationId}`,
+        `organization_id.is.null`,
+        `organization_1_id.eq.${active.organizationId}`,
+        `organization_2_id.eq.${active.organizationId}`,
+      ].join(","),
     );
   }
 
   const { data: threads } = await query;
 
+  const viewerOrgId = active?.organizationId ?? null;
+
   // Process threads for display
   const threadItems = (threads ?? []).map((thread) => {
-    const participant1 = thread.participant_1 as unknown as {
-      id: string;
-      last_name: string | null;
-      first_name: string | null;
-      deleted_at: string | null;
-      client_profiles:
-        | Array<{ display_name: string | null; image_url: string | null }>
-        | null;
-    } | null;
-    const participant2 = thread.participant_2 as unknown as {
-      id: string;
-      last_name: string | null;
-      first_name: string | null;
-      company_name: string | null;
-      avatar_url: string | null;
-      deleted_at: string | null;
-    } | null;
-
-    // Determine which side the user is on:
-    // - contractor side: user is participant_2（受注者が発注者を見る）
-    // - org/client side: user is participant_1, or user is org member
-    const isContractorSide = participant2?.id === user.id;
-    let participantName: string;
-    let participantAvatarUrl: string | null;
-
-    if (isContractorSide) {
-      // 受注者が見る発注者: standard query pattern + resolveParticipantName
-      const resolution = resolveClientProfileForRow({
-        organization_id: thread.organization_id,
-        owner: participant1, // 個人プラン時の直接経路
-        organization: thread.organization,
-      });
-      participantName = resolveParticipantName({
-        displayName: resolution.displayName,
-        lastName: resolution.lastName,
-        firstName: resolution.firstName,
-        deletedAt: resolution.deletedAt,
-      });
-      // Task 5.1: アバターも client_profiles.image_url を優先
-      participantAvatarUrl = resolution.imageUrl;
-    } else {
-      // 発注者/担当者が見る受注者: 屋号優先
-      participantName = getUserDisplayName(
-        {
-          lastName: participant2?.last_name,
-          firstName: participant2?.first_name,
-          companyName: participant2?.company_name,
-          deletedAt: participant2?.deleted_at,
-        },
-        "prefer-company",
-      );
-      participantAvatarUrl = participant2?.avatar_url ?? null;
-    }
+    // Phase 2: identity ベースで counterparty の表示情報を解決 (席の意味撤廃)
+    const counterparty = resolveCounterpartyDisplay(
+      thread as unknown as Parameters<typeof resolveCounterpartyDisplay>[0],
+      user.id,
+      viewerOrgId,
+    );
+    const participantName = counterparty.name;
+    const participantAvatarUrl = counterparty.avatarUrl;
 
     const messages = (thread.messages ?? []) as Array<{
       id: string; body: string; sender_id: string; read_at: string | null; created_at: string;

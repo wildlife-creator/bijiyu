@@ -5,11 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MessageThreadView } from "@/components/messaging/message-thread-view";
 import type { Message, ScoutJobInfo } from "@/components/messaging/message-list";
 import { MessageHeader } from "@/components/messaging/message-header";
-import {
-  getUserDisplayName,
-  resolveClientProfileForRow,
-  resolveParticipantName,
-} from "@/lib/utils/display-name";
+import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display";
 
 interface Props {
   params: Promise<{ threadId: string }>;
@@ -26,19 +22,28 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch thread (RLS handles access: participant OR org member)
+  // Phase 2: 新 org カラム + 両側 organization の owner nested を取得
   const { data: thread, error: threadError } = await supabase
     .from("message_threads")
     .select(
-      `id, thread_type, participant_1_id, participant_2_id, organization_id,
+      `id, thread_type,
+       participant_1_id, participant_2_id,
+       organization_1_id, organization_2_id,
        participant_1:users!message_threads_participant_1_id_fkey(
-         id, last_name, first_name, deleted_at,
+         id, last_name, first_name, company_name, avatar_url, deleted_at,
          client_profiles(display_name, image_url)
        ),
        participant_2:users!message_threads_participant_2_id_fkey(
-         id, last_name, first_name, company_name, avatar_url, deleted_at
+         id, last_name, first_name, company_name, avatar_url, deleted_at,
+         client_profiles(display_name, image_url)
        ),
-       organization:organizations(
+       organization_1:organizations!organization_1_id(
+         owner_user:users!owner_id(
+           last_name, first_name, deleted_at,
+           client_profiles(display_name, image_url)
+         )
+       ),
+       organization_2:organizations!organization_2_id(
          owner_user:users!owner_id(
            last_name, first_name, deleted_at,
            client_profiles(display_name, image_url)
@@ -50,89 +55,52 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
 
   if (threadError || !thread) redirect("/messages");
 
-  // Determine "other" participant display
-  const participant1 = thread.participant_1 as unknown as {
-    id: string;
-    last_name: string | null;
-    first_name: string | null;
-    deleted_at: string | null;
-    client_profiles:
-      | Array<{ display_name: string | null; image_url: string | null }>
-      | null;
-  } | null;
-  const participant2 = thread.participant_2 as unknown as {
-    id: string;
-    last_name: string | null;
-    first_name: string | null;
-    company_name: string | null;
-    avatar_url: string | null;
-    deleted_at: string | null;
-  } | null;
-
-  // From contractor's perspective: resolveClientProfileForRow で B3 対応
-  // From org member's perspective: 受注者の屋号優先表示
-  const isContractorSide = thread.participant_2_id === user.id;
-  let otherName: string;
-  let otherAvatarUrl: string | null;
-
-  if (isContractorSide) {
-    const resolution = resolveClientProfileForRow({
-      organization_id: thread.organization_id,
-      owner: participant1,
-      organization: thread.organization,
-    });
-    otherName = resolveParticipantName({
-      displayName: resolution.displayName,
-      lastName: resolution.lastName,
-      firstName: resolution.firstName,
-      deletedAt: resolution.deletedAt,
-    });
-    // Task 5.2: アバターも client_profiles.image_url を優先
-    otherAvatarUrl = resolution.imageUrl;
-  } else {
-    otherName = getUserDisplayName(
-      {
-        lastName: participant2?.last_name,
-        firstName: participant2?.first_name,
-        companyName: participant2?.company_name,
-        deletedAt: participant2?.deleted_at,
-      },
-      "prefer-company",
-    );
-    otherAvatarUrl = participant2?.avatar_url ?? null;
-  }
-
-  // Scout actions: only show for contractor (participant_2), not for org side
-  const showScoutActions =
-    sp.showScoutActions !== "false" && thread.participant_2_id === user.id;
-
-  // Check if current user is a proxy account (for optimistic UI)
+  // viewer の active org + 代理アカウント判定
   const { active } = await getActiveOrganizationContext(supabase);
+  const myOrgId = active?.organizationId ?? null;
   const isProxyAccount = active?.isProxyAccount === true;
 
-  // A7: 相手が退会済みなら入力欄を無効化してその旨を表示する。
-  //   - 受注者側から見た相手 = 組織 Owner（org スレッド） or participant_1（1対1）
-  //   - 発注者側から見た相手 = participant_2（受注者）
-  const orgObj = Array.isArray(thread.organization)
-    ? thread.organization[0]
-    : thread.organization;
-  const orgOwner = Array.isArray(orgObj?.owner_user)
-    ? orgObj?.owner_user[0]
-    : orgObj?.owner_user;
-  const isCounterpartDeleted = isContractorSide
-    ? thread.organization_id && orgOwner
-      ? orgOwner.deleted_at !== null
-      : participant1?.deleted_at !== null
-    : participant2?.deleted_at !== null;
+  // Phase 2: identity ベースで counterparty の表示情報を解決 (席の意味撤廃)
+  const counterparty = resolveCounterpartyDisplay(
+    // 型の後方互換のため as で通す (SELECT の nested 型を厳密に書くと大きくなる)
+    thread as unknown as Parameters<typeof resolveCounterpartyDisplay>[0],
+    user.id,
+    myOrgId,
+  );
 
-  // Fetch messages
+  // Scout actions: 個人 identity 側 + 相手が組織側 のときのみ表示
+  const viewerCounterpartIsOrgSide = counterparty.viewerOnSide2
+    ? thread.organization_1_id !== null
+    : thread.organization_2_id !== null;
+  const viewerIsIndividualParticipant =
+    (thread.participant_1_id === user.id ||
+      thread.participant_2_id === user.id) &&
+    !counterparty.viewerIsOrgSide;
+  const showScoutActions =
+    sp.showScoutActions !== "false" &&
+    viewerIsIndividualParticipant &&
+    viewerCounterpartIsOrgSide;
+
+  // 代理バッジは viewer が組織側 (送信元組織メンバー) のときのみ表示
+  const showProxyBadge = counterparty.viewerIsOrgSide;
+
+  // MessageThreadView が期待する contractorId (個人 identity 側の participant)
+  const contractorId = counterparty.viewerOnSide2
+    ? thread.participant_1_id
+    : thread.participant_2_id;
+
+  // MessageBubble の isMine 判定用 isContractorSide フラグ:
+  // 「viewer が個人 identity (組織所属していない) 側」のとき true
+  const isContractorSide = !counterparty.viewerIsOrgSide;
+
+  const isCounterpartDeleted = counterparty.deletedAt !== null;
+
   const { data: rawMessages } = await supabase
     .from("messages")
     .select("*")
     .eq("thread_id", threadId)
     .order("created_at", { ascending: true });
 
-  // For scout messages, fetch job info and generate signed URLs
   const messages: Message[] = await Promise.all(
     (rawMessages ?? []).map(async (m) => {
       let signedImageUrl: string | null = null;
@@ -147,11 +115,12 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
       if (m.is_scout && m.job_id) {
         const { data: job } = await supabase
           .from("jobs")
-          .select("id, title, trade_types, headcount, recruit_end_date, reward_lower, reward_upper, recruit_start_date")
+          .select(
+            "id, title, trade_types, headcount, recruit_end_date, reward_lower, reward_upper, recruit_start_date",
+          )
           .eq("id", m.job_id)
           .single();
         if (job) {
-          // master-area: fetch job_areas for scout card display
           const { data: jobAreaRows } = await supabase
             .from("job_areas")
             .select("prefecture, municipality")
@@ -194,23 +163,22 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
   return (
     <div className="flex min-h-screen flex-col bg-[#F0F0F0]">
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-6 md:px-8 md:py-8">
-        {/* Header */}
-        <MessageHeader name={otherName} />
+        <MessageHeader name={counterparty.name} />
 
-        {/* Message thread: list + input (connected via optimistic updates) */}
         <MessageThreadView
           threadId={threadId}
           currentUserId={user.id}
-          contractorId={thread.participant_2_id}
+          contractorId={contractorId}
           initialMessages={messages}
-          participantAvatarUrl={otherAvatarUrl}
-          participantName={otherName}
+          participantAvatarUrl={counterparty.avatarUrl}
+          participantName={counterparty.name}
           showScoutActions={showScoutActions}
           isContractorSide={isContractorSide}
           isProxyAccount={isProxyAccount}
           disabledMessage={
             isCounterpartDeleted ? "このユーザーは退会されました" : null
           }
+          showProxyBadge={showProxyBadge}
         />
       </div>
     </div>

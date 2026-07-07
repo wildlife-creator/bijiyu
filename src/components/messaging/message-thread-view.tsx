@@ -24,6 +24,9 @@ interface MessageThreadViewProps {
   isProxyAccount: boolean;
   /** A7: 相手が退会済みの場合の入力欄無効化メッセージ */
   disabledMessage?: string | null;
+  /** Phase 2 (A4): 「代理」バッジを表示するかを親コンポーネントから明示する。
+   *  未指定の場合は !isContractorSide の旧挙動（発注者側のみ表示）を継続。 */
+  showProxyBadge?: boolean;
 }
 
 /**
@@ -48,7 +51,9 @@ export function MessageThreadView({
   isContractorSide,
   isProxyAccount,
   disabledMessage,
+  showProxyBadge,
 }: MessageThreadViewProps) {
+  const resolvedShowProxyBadge = showProxyBadge ?? !isContractorSide;
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const scrollRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -225,7 +230,7 @@ export function MessageThreadView({
               scoutStatus={message.scout_status}
               scoutJob={message.scout_job}
               showScoutActions={showScoutActions}
-              showProxyBadge={!isContractorSide}
+              showProxyBadge={resolvedShowProxyBadge}
               senderAvatarUrl={!messageIsMine ? participantAvatarUrl : undefined}
               senderName={!messageIsMine ? participantName : undefined}
             />
