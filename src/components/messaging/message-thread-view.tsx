@@ -30,14 +30,31 @@ interface MessageThreadViewProps {
 }
 
 /**
- * 送信者がどちら側の発信か（受注者 1 人 vs 発注者側オーナー+スタッフ複数）。
- * 受注者の id と一致すれば受注者側、それ以外（オーナー、組織スタッフ、代理スタッフ）は発注者側。
+ * メッセージが「自分側の発信」かを判定する。
+ *
+ * 個人 identity 側 (isContractorSide=true): 側が 1 人しかいないので
+ *   単純に `sender_id === currentUserId` で判定。個人⇔個人スレッドは
+ *   両側個人 identity なので双方向でこの分岐を使う。
+ * 組織 identity 側 (isContractorSide=false): 代理送信 (法人スタッフの
+ *   sender_id で送られる) を吸収するため、"contractor side ではない"
+ *   (= senderId !== contractorId) を「自分側」とする。組織 Owner が自社
+ *   代理スタッフのメッセージを「相手側」と誤認しない。
+ *
+ * Phase 2 で「席2=受注者」を廃止した結果、旧 `contractorId` 比較 shim は
+ *   個人⇔個人ケースで対称性が崩れるため上記に切り替えた。
  */
-function isMessageOnContractorSide(
+function computeIsMine(
   senderId: string,
+  currentUserId: string,
   contractorId: string,
+  isContractorSide: boolean,
 ): boolean {
-  return senderId === contractorId;
+  if (isContractorSide) {
+    // 個人 identity 側は 1 人しかいないので直判定
+    return senderId === currentUserId;
+  }
+  // 組織 identity 側: contractor でなければ全員自分側 (代理送信 shim)
+  return senderId !== contractorId;
 }
 
 export function MessageThreadView({
@@ -74,8 +91,12 @@ export function MessageThreadView({
       const unreadIds = messages
         .filter(
           (m) =>
-            isMessageOnContractorSide(m.sender_id, contractorId) !==
-              isContractorSide && !m.read_at,
+            !computeIsMine(
+              m.sender_id,
+              currentUserId,
+              contractorId,
+              isContractorSide,
+            ) && !m.read_at,
         )
         .map((m) => m.id);
 
@@ -213,9 +234,12 @@ export function MessageThreadView({
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {messages.map((message) => {
           // side ベースで自分側判定（代理メッセージも自社=自分側として扱う）
-          const messageIsMine =
-            isMessageOnContractorSide(message.sender_id, contractorId) ===
-            isContractorSide;
+          const messageIsMine = computeIsMine(
+            message.sender_id,
+            currentUserId,
+            contractorId,
+            isContractorSide,
+          );
           return (
             <MessageBubble
               key={message.id}
