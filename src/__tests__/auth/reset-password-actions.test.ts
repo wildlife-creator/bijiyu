@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockGetUser = vi.fn();
 const mockUpdateUser = vi.fn();
 const mockResetPasswordForEmail = vi.fn();
+const mockSignOut = vi.fn().mockResolvedValue({ error: null });
 const mockAdminFrom = vi.fn();
 const mockSendEmail = vi.fn().mockResolvedValue({ success: true });
 const mockHeaders = vi.fn();
@@ -20,10 +21,20 @@ vi.mock("@/lib/supabase/server", () => ({
     auth: {
       getUser: (...args: unknown[]) => mockGetUser(...args),
       updateUser: (...args: unknown[]) => mockUpdateUser(...args),
+      signOut: (...args: unknown[]) => mockSignOut(...args),
+    },
+  }),
+}));
+
+// S2 fix: resetPasswordAction は @supabase/supabase-js の createClient を直接使う
+// (implicit flow 強制のため。@supabase/ssr の PKCE flow を避ける)
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: vi.fn(() => ({
+    auth: {
       resetPasswordForEmail: (...args: unknown[]) =>
         mockResetPasswordForEmail(...args),
     },
-  }),
+  })),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -94,7 +105,7 @@ describe("resetPasswordAction (§5.8)", () => {
       "user@test.local",
       expect.objectContaining({
         redirectTo:
-          "http://127.0.0.1:3000/auth/callback?next=/reset-password/confirm",
+          "http://127.0.0.1:3000/reset-password/confirm",
       }),
     );
   });
@@ -113,7 +124,7 @@ describe("resetPasswordAction (§5.8)", () => {
       "user@test.local",
       expect.objectContaining({
         redirectTo:
-          "https://bijiyu.com/auth/callback?next=/reset-password/confirm",
+          "https://bijiyu.com/reset-password/confirm",
       }),
     );
   });
