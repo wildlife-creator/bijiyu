@@ -27,11 +27,14 @@ async function canAccessThread(
 ) {
   // RLS handles this, but we also return the thread data.
   // A7: 相手 participant の deleted_at も一緒に取得して退会済み判定に使う
-  // （追加クエリを増やさず、既存テストのモック消費数も維持する）。
+  //     （追加クエリを増やさず、既存テストのモック消費数も維持する）。
+  // Phase 2 (A2/A4): identity ベースメール通知に必要な organization_1_id /
+  //     organization_2_id も同時に取得する。
   const { data, error } = await supabase
     .from("message_threads")
     .select(
-      `id, participant_1_id, participant_2_id, organization_id, thread_type,
+      `id, participant_1_id, participant_2_id,
+       organization_id, organization_1_id, organization_2_id, thread_type,
        participant_1:users!message_threads_participant_1_id_fkey(deleted_at),
        participant_2:users!message_threads_participant_2_id_fkey(deleted_at)`,
     )

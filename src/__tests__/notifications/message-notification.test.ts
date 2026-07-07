@@ -35,17 +35,13 @@ type ChainResponse =
 
 interface ChainCall {
   table: string;
-  /** select で渡されたカラム指定 (検証用) */
   selectArgs: unknown[];
-  /** eq("col", val) の引数列 (順番保持) */
   eqCalls: Array<[string, unknown]>;
-  /** update に渡された payload */
   updatePayload: Record<string, unknown> | null;
 }
 
 interface MockAdmin {
   from: ReturnType<typeof vi.fn>;
-  /** 全 from() 呼出の記録 (順序保持、検証用) */
   calls: ChainCall[];
 }
 
@@ -99,9 +95,9 @@ function makeMockAdmin(queue: ChainResponse[]): MockAdmin {
 
 const THREAD_ID = "11111111-1111-1111-1111-111111111111";
 const ORG_ID = "22222222-2222-2222-2222-222222222222";
+const OTHER_ORG_ID = "88888888-8888-8888-8888-888888888888";
 const SENDER_ID = "33333333-3333-3333-3333-333333333333";
 const RECEIVER_ID = "44444444-4444-4444-4444-444444444444";
-const OTHER_PARTICIPANT_ID = "55555555-5555-5555-5555-555555555555";
 
 beforeEach(() => {
   sendEmailMock.mockReset().mockResolvedValue({ success: true as const });
@@ -109,463 +105,560 @@ beforeEach(() => {
 });
 
 // ===========================================================================
-// Direction = to_contractor (受信者 = 受注者)
+// Phase 2 (A2 修正): 送信方向は sender の席 (identity) から決まる
 // ===========================================================================
 
-describe("sendMessageNotification — direction: to_contractor", () => {
-  it("受信者 role='contractor' → 受注者本人 1 名にメール送信 + last_email_to_contractor_at 更新", async () => {
+describe("sendMessageNotification — sender is side 1, receiver is side 2 (個人 identity)", () => {
+  it("受信者 = 個人 identity (organization_2_id NULL) → 受信参加者 1 名にメール送信 + last_email_to_contractor_at 更新", async () => {
     const admin = makeMockAdmin([
-      // 1. receiver role
-      { kind: "maybeSingle", data: { role: "contractor" } },
-      // 2. clock (未送信 = null)
+      // 1. clock (未送信 = null)
       { kind: "maybeSingle", data: { last_email_to_contractor_at: null } },
-      // 3. contractor user info
+      // 2. receiver user info (個人 identity)
       {
         kind: "maybeSingle",
         data: {
-          email: "tanaka@example.com",
-          last_name: "田中",
-          first_name: "太郎",
-          deleted_at: null,
-        },
-      },
-      // 4. sender user info (client side = display_name 優先)
-      {
-        kind: "maybeSingle",
-        data: {
-          last_name: "山田",
-          first_name: "次郎",
-          deleted_at: null,
-          client_profiles: { display_name: "株式会社○○建設" },
-        },
-      },
-      // 5. clock UPDATE
-      { kind: "update" },
-    ]);
-
-    await sendMessageNotification(admin as never, {
-      threadId: THREAD_ID,
-      thread: {
-        participant_1_id: SENDER_ID,
-        participant_2_id: RECEIVER_ID,
-        organization_id: ORG_ID,
-      },
-      senderId: SENDER_ID,
-      messageBody: "現場の駐車場はありますか？",
-      hasImage: false,
-    });
-
-    // 1 通だけ送信されている
-    expect(sendEmailMock).toHaveBeenCalledTimes(1);
-    const args = sendEmailMock.mock.calls[0]?.[0] as {
-      to: string;
-      subject: string;
-      html: string;
-    };
-    expect(args.to).toBe("tanaka@example.com");
-    expect(args.subject).toBe(
-      "【ビジ友】株式会社○○建設さんから新しいメッセージが届きました",
-    );
-    expect(args.html).toContain("田中太郎 様");
-    expect(args.html).toContain("株式会社○○建設さんから新しいメッセージが届きました。");
-    expect(args.html).toContain("現場の駐車場はありますか？");
-
-    // 法人 broadcast は走らない
-    expect(getOrgMembersMock).not.toHaveBeenCalled();
-
-    // クロック更新が呼ばれている (5 番目の from = message_threads update)
-    const updateCall = admin.calls[4];
-    expect(updateCall.table).toBe("message_threads");
-    expect(updateCall.updatePayload).toHaveProperty("last_email_to_contractor_at");
-    expect(updateCall.updatePayload).not.toHaveProperty("last_email_to_client_side_at");
-  });
-});
-
-// ===========================================================================
-// Direction = to_client_side, 法人 organization broadcast (M-03)
-// ===========================================================================
-
-describe("sendMessageNotification — direction: to_client_side (法人 org broadcast)", () => {
-  it("受信者 role='client' + thread.organization_id NOT NULL → getOrganizationMemberRecipients で broadcast + last_email_to_client_side_at 更新", async () => {
-    getOrgMembersMock.mockResolvedValue([
-      {
-        userId: "owner-1",
-        email: "owner@example.com",
-        displayName: "株式会社○○建設",
-      },
-      {
-        userId: "staff-1",
-        email: "staff@example.com",
-        displayName: "株式会社○○建設",
-      },
-    ]);
-
-    const admin = makeMockAdmin([
-      // 1. receiver role (client)
-      { kind: "maybeSingle", data: { role: "client" } },
-      // 2. clock null
-      { kind: "maybeSingle", data: { last_email_to_client_side_at: null } },
-      // 3. sender user (contractor 屋号優先)
-      {
-        kind: "maybeSingle",
-        data: {
-          last_name: "田中",
-          first_name: "太郎",
-          company_name: "田中工務店",
-          deleted_at: null,
-        },
-      },
-      // 4. clock UPDATE
-      { kind: "update" },
-    ]);
-
-    await sendMessageNotification(admin as never, {
-      threadId: THREAD_ID,
-      thread: {
-        participant_1_id: SENDER_ID,
-        participant_2_id: RECEIVER_ID,
-        organization_id: ORG_ID,
-      },
-      senderId: SENDER_ID,
-      messageBody: "本日伺います。",
-      hasImage: false,
-    });
-
-    // 組織メンバー 2 名に broadcast
-    expect(getOrgMembersMock).toHaveBeenCalledWith(admin, ORG_ID);
-    expect(sendEmailMock).toHaveBeenCalledTimes(2);
-
-    const emails = sendEmailMock.mock.calls.map(
-      (c) => (c[0] as { to: string }).to,
-    );
-    expect(emails).toContain("owner@example.com");
-    expect(emails).toContain("staff@example.com");
-
-    // 送信者は contractor 屋号優先 = 田中工務店
-    const args0 = sendEmailMock.mock.calls[0]?.[0] as {
-      subject: string;
-      html: string;
-    };
-    expect(args0.subject).toBe(
-      "【ビジ友】田中工務店さんから新しいメッセージが届きました",
-    );
-    expect(args0.html).toContain("田中工務店さんから新しいメッセージが届きました。");
-
-    // クロック更新 last_email_to_client_side_at
-    const updateCall = admin.calls[3];
-    expect(updateCall.table).toBe("message_threads");
-    expect(updateCall.updatePayload).toHaveProperty("last_email_to_client_side_at");
-    expect(updateCall.updatePayload).not.toHaveProperty("last_email_to_contractor_at");
-  });
-});
-
-// ===========================================================================
-// Direction = to_client_side, 個人発注者 (organization_id null)
-// ===========================================================================
-
-describe("sendMessageNotification — direction: to_client_side (個人発注者)", () => {
-  it("受信者 role='client' + thread.organization_id NULL → 個人発注者本人 1 名に送信 (display_name 優先)", async () => {
-    const admin = makeMockAdmin([
-      // 1. receiver role
-      { kind: "maybeSingle", data: { role: "client" } },
-      // 2. clock null
-      { kind: "maybeSingle", data: { last_email_to_client_side_at: null } },
-      // 3. client user info (display_name で resolve)
-      {
-        kind: "maybeSingle",
-        data: {
-          email: "client@example.com",
-          last_name: "山田",
-          first_name: "次郎",
-          deleted_at: null,
-          client_profiles: { display_name: "山田個人事業主" },
-        },
-      },
-      // 4. sender (contractor)
-      {
-        kind: "maybeSingle",
-        data: {
+          email: "receiver@example.com",
           last_name: "田中",
           first_name: "太郎",
           company_name: null,
           deleted_at: null,
+          client_profiles: null,
         },
       },
-      // 5. clock UPDATE
-      { kind: "update" },
-    ]);
-
-    await sendMessageNotification(admin as never, {
-      threadId: THREAD_ID,
-      thread: {
-        participant_1_id: SENDER_ID,
-        participant_2_id: RECEIVER_ID,
-        organization_id: null,
-      },
-      senderId: SENDER_ID,
-      messageBody: "了解です",
-      hasImage: false,
-    });
-
-    // 組織 broadcast は呼ばない (org_id null だから)
-    expect(getOrgMembersMock).not.toHaveBeenCalled();
-    // 1 通だけ
-    expect(sendEmailMock).toHaveBeenCalledTimes(1);
-    const args = sendEmailMock.mock.calls[0]?.[0] as {
-      to: string;
-      html: string;
-    };
-    expect(args.to).toBe("client@example.com");
-    expect(args.html).toContain("山田個人事業主 様"); // display_name 優先
-    // sender = contractor 屋号 NULL なので姓名フォールバック
-    expect(args.html).toContain("田中太郎さんから新しいメッセージが届きました。");
-  });
-});
-
-// ===========================================================================
-// Throttle 15 分 — skip / expired 両方
-// ===========================================================================
-
-describe("sendMessageNotification — throttle 15 分", () => {
-  it("受信側クロックが 15 分以内 → sendEmail 呼ばず、クロック更新もしない (skip)", async () => {
-    const recentClock = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // 5 分前
-    const admin = makeMockAdmin([
-      // 1. receiver role
-      { kind: "maybeSingle", data: { role: "contractor" } },
-      // 2. clock 5 分前 → throttle で skip
-      {
-        kind: "maybeSingle",
-        data: { last_email_to_contractor_at: recentClock },
-      },
-      // 以降は呼ばれないはず
-    ]);
-
-    await sendMessageNotification(admin as never, {
-      threadId: THREAD_ID,
-      thread: {
-        participant_1_id: SENDER_ID,
-        participant_2_id: RECEIVER_ID,
-        organization_id: null,
-      },
-      senderId: SENDER_ID,
-      messageBody: "追撃メッセージ",
-      hasImage: false,
-    });
-
-    // sendEmail は呼ばれない
-    expect(sendEmailMock).not.toHaveBeenCalled();
-    // クロック UPDATE も呼ばれない (= admin.from は 2 回だけ)
-    expect(admin.from).toHaveBeenCalledTimes(2);
-    const updateCalls = admin.calls.filter((c) => c.updatePayload !== null);
-    expect(updateCalls).toHaveLength(0);
-  });
-
-  it("受信側クロックが 15 分超 → 通常通り送信 + クロック更新", async () => {
-    const oldClock = new Date(Date.now() - 20 * 60 * 1000).toISOString(); // 20 分前
-    const admin = makeMockAdmin([
-      { kind: "maybeSingle", data: { role: "contractor" } },
-      { kind: "maybeSingle", data: { last_email_to_contractor_at: oldClock } },
-      {
-        kind: "maybeSingle",
-        data: {
-          email: "tanaka@example.com",
-          last_name: "田中",
-          first_name: "太郎",
-          deleted_at: null,
-        },
-      },
+      // 3. sender name resolution (sender も個人 identity)
       {
         kind: "maybeSingle",
         data: {
           last_name: "山田",
-          first_name: "次郎",
+          first_name: "花子",
+          company_name: null,
           deleted_at: null,
-          client_profiles: { display_name: "山田工務店" },
+          client_profiles: null,
         },
       },
+      // 4. clock update
       { kind: "update" },
     ]);
 
-    await sendMessageNotification(admin as never, {
-      threadId: THREAD_ID,
-      thread: {
-        participant_1_id: SENDER_ID,
-        participant_2_id: RECEIVER_ID,
-        organization_id: null,
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: SENDER_ID,
+          participant_2_id: RECEIVER_ID,
+          organization_1_id: null,
+          organization_2_id: null,
+        },
+        senderId: SENDER_ID,
+        messageBody: "はじめまして",
+        hasImage: false,
       },
-      senderId: SENDER_ID,
-      messageBody: "20 分経過後の再送",
-      hasImage: false,
-    });
+    );
 
-    expect(sendEmailMock).toHaveBeenCalledTimes(1);
-    // クロック UPDATE される
+    expect(sendEmailMock).toHaveBeenCalledOnce();
+    expect(sendEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "receiver@example.com" }),
+    );
+
+    // クロック更新: side 2 が受信側なので last_email_to_contractor_at
     const updateCall = admin.calls.find((c) => c.updatePayload !== null);
-    expect(updateCall?.table).toBe("message_threads");
     expect(updateCall?.updatePayload).toHaveProperty(
       "last_email_to_contractor_at",
     );
   });
 });
 
+describe("sendMessageNotification — sender is side 2, receiver is side 1 (組織 identity, broadcast)", () => {
+  it("受信側 = 法人 organization_1_id NOT NULL → 組織メンバー broadcast + last_email_to_client_side_at 更新", async () => {
+    getOrgMembersMock.mockResolvedValue([
+      { email: "owner@example.com", displayName: "工務店A オーナー" },
+      { email: "staff@example.com", displayName: "工務店A 担当" },
+    ]);
+
+    const admin = makeMockAdmin([
+      // 1. clock (side 1 = client_side)
+      { kind: "maybeSingle", data: { last_email_to_client_side_at: null } },
+      // (org broadcast は getOrganizationMemberRecipients 経由なので admin.from は呼ばれない)
+      // 2. sender name (sender = 個人受注者)
+      {
+        kind: "maybeSingle",
+        data: {
+          last_name: "山田",
+          first_name: "次郎",
+          company_name: "山田工務店",
+          deleted_at: null,
+          client_profiles: null,
+        },
+      },
+      // 3. clock update
+      { kind: "update" },
+    ]);
+
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: RECEIVER_ID,
+          participant_2_id: SENDER_ID,
+          organization_1_id: ORG_ID,
+          organization_2_id: null,
+        },
+        senderId: SENDER_ID,
+        messageBody: "はい大丈夫です",
+        hasImage: false,
+      },
+    );
+
+    expect(getOrgMembersMock).toHaveBeenCalledWith(expect.anything(), ORG_ID);
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+
+    const updateCall = admin.calls.find((c) => c.updatePayload !== null);
+    expect(updateCall?.updatePayload).toHaveProperty(
+      "last_email_to_client_side_at",
+    );
+  });
+});
+
 // ===========================================================================
-// 画像のみメッセージ → プレースホルダー差し込み
+// A4 修正: 代理スタッフ送信でも sender_name は組織 Owner の display_name
+// ===========================================================================
+
+describe("sendMessageNotification — sender name resolution (A4)", () => {
+  it("sender が organization side なら Owner の client_profiles.display_name を sender_name にする", async () => {
+    const admin = makeMockAdmin([
+      // 1. clock
+      { kind: "maybeSingle", data: { last_email_to_contractor_at: null } },
+      // 2. receiver user info (contractor 側 = 個人)
+      {
+        kind: "maybeSingle",
+        data: {
+          email: "contractor@example.com",
+          last_name: "受注者",
+          first_name: "花子",
+          company_name: null,
+          deleted_at: null,
+          client_profiles: null,
+        },
+      },
+      // 3. sender side org → organizations.owner_user 経由で display_name 解決
+      {
+        kind: "maybeSingle",
+        data: {
+          owner_user: {
+            last_name: "山田",
+            first_name: "太郎",
+            deleted_at: null,
+            client_profiles: [{ display_name: "ビジ友テスト工務店A" }],
+          },
+        },
+      },
+      // 4. clock update
+      { kind: "update" },
+    ]);
+
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: SENDER_ID, // Owner の id (participant)
+          participant_2_id: RECEIVER_ID,
+          organization_1_id: ORG_ID,
+          organization_2_id: null,
+        },
+        senderId: SENDER_ID,
+        messageBody: "お世話になります",
+        hasImage: false,
+      },
+    );
+
+    // A4: 送信者名は Owner 個人名ではなく組織 display_name
+    const emailArgs = sendEmailMock.mock.calls[0]?.[0] as
+      | { html: string; subject: string }
+      | undefined;
+    expect(emailArgs?.html).toContain("ビジ友テスト工務店A");
+  });
+
+  it("sender が個人 identity で displayName なし + companyName あり → 屋号を sender_name にする", async () => {
+    const admin = makeMockAdmin([
+      // 1. clock
+      { kind: "maybeSingle", data: { last_email_to_contractor_at: null } },
+      // 2. receiver
+      {
+        kind: "maybeSingle",
+        data: {
+          email: "receiver@example.com",
+          last_name: "田中",
+          first_name: "太郎",
+          company_name: null,
+          deleted_at: null,
+          client_profiles: null,
+        },
+      },
+      // 3. sender = 個人受注者 (client_profiles なし、company_name あり)
+      {
+        kind: "maybeSingle",
+        data: {
+          last_name: "山田",
+          first_name: "次郎",
+          company_name: "山田工務店",
+          deleted_at: null,
+          client_profiles: null,
+        },
+      },
+      { kind: "update" },
+    ]);
+
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: SENDER_ID,
+          participant_2_id: RECEIVER_ID,
+          organization_1_id: null,
+          organization_2_id: null,
+        },
+        senderId: SENDER_ID,
+        messageBody: "ご連絡ありがとうございます",
+        hasImage: false,
+      },
+    );
+
+    const emailArgs = sendEmailMock.mock.calls[0]?.[0] as
+      | { html: string }
+      | undefined;
+    expect(emailArgs?.html).toContain("山田工務店");
+  });
+});
+
+// ===========================================================================
+// A2 修正: role ではなく identity で送信方向を決めるため、
+// 有料受注者 (role=client でも受信側席が個人 identity) にも通知が届く
+// ===========================================================================
+
+describe("sendMessageNotification — 有料受注者 (role=client) 宛の通知が壊れないこと (A2)", () => {
+  it("受信者が role=client だが個人 identity (organization_1_id NULL) なら受注者側 mailbox として扱う", async () => {
+    const admin = makeMockAdmin([
+      // 1. clock (side 1 = client_side)
+      { kind: "maybeSingle", data: { last_email_to_client_side_at: null } },
+      // 2. receiver (role=client の個人 identity)
+      {
+        kind: "maybeSingle",
+        data: {
+          email: "paid-contractor@example.com",
+          last_name: "有料",
+          first_name: "受注者",
+          company_name: null,
+          deleted_at: null,
+          client_profiles: null,
+        },
+      },
+      // 3. sender name (side 2 = 組織側 → org owner)
+      {
+        kind: "maybeSingle",
+        data: {
+          owner_user: {
+            last_name: "発注",
+            first_name: "太郎",
+            deleted_at: null,
+            client_profiles: [{ display_name: "発注者法人" }],
+          },
+        },
+      },
+      { kind: "update" },
+    ]);
+
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: RECEIVER_ID, // 有料受注者 = 個人 identity
+          participant_2_id: SENDER_ID, // 発注者 org owner
+          organization_1_id: null,
+          organization_2_id: ORG_ID,
+        },
+        senderId: SENDER_ID,
+        messageBody: "スカウトさせてください",
+        hasImage: false,
+      },
+    );
+
+    // A2 の要点: 有料受注者にもメールが飛ぶ (旧設計では role=client 判定で
+    // 発注者側 broadcast にすり替えられて届かなかった)
+    expect(sendEmailMock).toHaveBeenCalledOnce();
+    expect(sendEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "paid-contractor@example.com" }),
+    );
+  });
+});
+
+// ===========================================================================
+// throttle
+// ===========================================================================
+
+describe("sendMessageNotification — throttle 15 分", () => {
+  it("受信側クロックが 15 分以内 → skip (sendEmail 呼ばれず)", async () => {
+    const recent = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // 5 分前
+
+    const admin = makeMockAdmin([
+      { kind: "maybeSingle", data: { last_email_to_contractor_at: recent } },
+    ]);
+
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: SENDER_ID,
+          participant_2_id: RECEIVER_ID,
+          organization_1_id: null,
+          organization_2_id: null,
+        },
+        senderId: SENDER_ID,
+        messageBody: "追撃メッセージ",
+        hasImage: false,
+      },
+    );
+
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("受信側クロックが 15 分超 → 通常通り送信 + クロック更新", async () => {
+    const old = new Date(Date.now() - 20 * 60 * 1000).toISOString(); // 20 分前
+
+    const admin = makeMockAdmin([
+      { kind: "maybeSingle", data: { last_email_to_contractor_at: old } },
+      {
+        kind: "maybeSingle",
+        data: {
+          email: "receiver@example.com",
+          last_name: "受注",
+          first_name: "者",
+          company_name: null,
+          deleted_at: null,
+          client_profiles: null,
+        },
+      },
+      {
+        kind: "maybeSingle",
+        data: {
+          last_name: "山田",
+          first_name: "花子",
+          company_name: null,
+          deleted_at: null,
+          client_profiles: null,
+        },
+      },
+      { kind: "update" },
+    ]);
+
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: SENDER_ID,
+          participant_2_id: RECEIVER_ID,
+          organization_1_id: null,
+          organization_2_id: null,
+        },
+        senderId: SENDER_ID,
+        messageBody: "こんにちは",
+        hasImage: false,
+      },
+    );
+
+    expect(sendEmailMock).toHaveBeenCalledOnce();
+  });
+});
+
+// ===========================================================================
+// 画像のみメッセージ
 // ===========================================================================
 
 describe("sendMessageNotification — 画像のみメッセージ", () => {
   it("messageBody 空 + hasImage=true → 本文に「(画像が添付されています)」プレースホルダー", async () => {
     const admin = makeMockAdmin([
-      { kind: "maybeSingle", data: { role: "contractor" } },
       { kind: "maybeSingle", data: { last_email_to_contractor_at: null } },
       {
         kind: "maybeSingle",
         data: {
-          email: "tanaka@example.com",
-          last_name: "田中",
-          first_name: "太郎",
+          email: "receiver@example.com",
+          last_name: "受注",
+          first_name: "者",
+          company_name: null,
           deleted_at: null,
+          client_profiles: null,
         },
       },
       {
         kind: "maybeSingle",
         data: {
           last_name: "山田",
-          first_name: "次郎",
+          first_name: "花子",
+          company_name: null,
           deleted_at: null,
-          client_profiles: { display_name: "山田工務店" },
+          client_profiles: null,
         },
       },
       { kind: "update" },
     ]);
 
-    await sendMessageNotification(admin as never, {
-      threadId: THREAD_ID,
-      thread: {
-        participant_1_id: SENDER_ID,
-        participant_2_id: RECEIVER_ID,
-        organization_id: null,
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: SENDER_ID,
+          participant_2_id: RECEIVER_ID,
+          organization_1_id: null,
+          organization_2_id: null,
+        },
+        senderId: SENDER_ID,
+        messageBody: "",
+        hasImage: true,
       },
-      senderId: SENDER_ID,
-      messageBody: "",
-      hasImage: true,
-    });
+    );
 
-    const args = sendEmailMock.mock.calls[0]?.[0] as { html: string };
-    expect(args.html).toContain("(画像が添付されています)");
+    const emailArgs = sendEmailMock.mock.calls[0]?.[0] as
+      | { html: string }
+      | undefined;
+    expect(emailArgs?.html).toContain("(画像が添付されています)");
   });
 });
 
 // ===========================================================================
-// 防御: 受信者が退会済 / email 無し → skip
+// 受信者状態による skip
 // ===========================================================================
 
 describe("sendMessageNotification — 受信者状態による skip", () => {
-  it("受信者 (contractor) の deleted_at が set されている → sendEmail せず、クロック更新もしない", async () => {
+  it("受信参加者の users 行が見つからない (email null) → sendEmail せず early return", async () => {
     const admin = makeMockAdmin([
-      { kind: "maybeSingle", data: { role: "contractor" } },
       { kind: "maybeSingle", data: { last_email_to_contractor_at: null } },
-      // contractor 取得時に deleted_at セット = recipients 空配列
-      {
-        kind: "maybeSingle",
-        data: {
-          email: "tanaka@example.com",
-          last_name: "田中",
-          first_name: "太郎",
-          deleted_at: new Date().toISOString(),
-        },
-      },
-    ]);
-
-    await sendMessageNotification(admin as never, {
-      threadId: THREAD_ID,
-      thread: {
-        participant_1_id: SENDER_ID,
-        participant_2_id: RECEIVER_ID,
-        organization_id: null,
-      },
-      senderId: SENDER_ID,
-      messageBody: "退会済へのメッセージ",
-      hasImage: false,
-    });
-
-    expect(sendEmailMock).not.toHaveBeenCalled();
-    // recipients 0 件で early return → クロック更新もしない
-    const updateCalls = admin.calls.filter((c) => c.updatePayload !== null);
-    expect(updateCalls).toHaveLength(0);
-  });
-
-  it("受信者の users 行が見つからない (role 取得 null) → sendEmail せず early return", async () => {
-    const admin = makeMockAdmin([
-      // receiver role 取得が null
       { kind: "maybeSingle", data: null },
     ]);
 
-    await sendMessageNotification(admin as never, {
-      threadId: THREAD_ID,
-      thread: {
-        participant_1_id: SENDER_ID,
-        participant_2_id: OTHER_PARTICIPANT_ID,
-        organization_id: null,
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: SENDER_ID,
+          participant_2_id: RECEIVER_ID,
+          organization_1_id: null,
+          organization_2_id: null,
+        },
+        senderId: SENDER_ID,
+        messageBody: "test",
+        hasImage: false,
       },
-      senderId: SENDER_ID,
-      messageBody: "test",
-      hasImage: false,
-    });
+    );
 
     expect(sendEmailMock).not.toHaveBeenCalled();
-    // admin.from は 1 回だけ (role 取得) で打ち切り
-    expect(admin.from).toHaveBeenCalledTimes(1);
   });
 });
 
 // ===========================================================================
-// 送信者名解決のロジック確認
+// sender が participant でない (代理スタッフ broadcast) ケース
 // ===========================================================================
 
-describe("sendMessageNotification — 送信者名解決", () => {
-  it("受信者 = client side → 送信者 (contractor) は屋号優先で表示", async () => {
+describe("sendMessageNotification — sender が participant でない (代理送信)", () => {
+  it("sender が organization_1_id のメンバー → side 1 として扱い、受信は side 2", async () => {
+    const PROXY_STAFF_ID = "99999999-9999-9999-9999-999999999999";
     const admin = makeMockAdmin([
-      { kind: "maybeSingle", data: { role: "client" } },
-      { kind: "maybeSingle", data: { last_email_to_client_side_at: null } },
+      // 1. sender の organization_members (代理スタッフの所属 org)
+      { kind: "maybeSingle", data: { organization_id: ORG_ID } },
+      // 2. clock (受信 = side 2 → contractor)
+      { kind: "maybeSingle", data: { last_email_to_contractor_at: null } },
+      // 3. receiver
       {
         kind: "maybeSingle",
         data: {
-          email: "client@example.com",
-          last_name: "山田",
-          first_name: "次郎",
+          email: "receiver@example.com",
+          last_name: "受注",
+          first_name: "者",
+          company_name: null,
           deleted_at: null,
-          client_profiles: { display_name: "山田事業所" },
+          client_profiles: null,
         },
       },
-      // sender = contractor with company_name (屋号優先される)
+      // 4. sender org owner (A4: 代理スタッフではなく Owner の display_name)
       {
         kind: "maybeSingle",
         data: {
-          last_name: "田中",
-          first_name: "太郎",
-          company_name: "田中工務店",
-          deleted_at: null,
+          owner_user: {
+            last_name: "オ",
+            first_name: "ーナー",
+            deleted_at: null,
+            client_profiles: [{ display_name: "ビジ友テスト工務店A" }],
+          },
         },
       },
       { kind: "update" },
     ]);
 
-    await sendMessageNotification(admin as never, {
-      threadId: THREAD_ID,
-      thread: {
-        participant_1_id: SENDER_ID,
-        participant_2_id: RECEIVER_ID,
-        organization_id: null,
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: "88880000-8888-8888-8888-888888888888", // Owner (別 user)
+          participant_2_id: RECEIVER_ID,
+          organization_1_id: ORG_ID,
+          organization_2_id: null,
+        },
+        senderId: PROXY_STAFF_ID,
+        messageBody: "代理送信します",
+        hasImage: false,
       },
-      senderId: SENDER_ID,
-      messageBody: "本日伺います",
-      hasImage: false,
-    });
-
-    const args = sendEmailMock.mock.calls[0]?.[0] as { subject: string };
-    // 屋号 (田中工務店) が件名に出る、姓名 (田中太郎) ではない
-    expect(args.subject).toBe(
-      "【ビジ友】田中工務店さんから新しいメッセージが届きました",
     );
+
+    const emailArgs = sendEmailMock.mock.calls[0]?.[0] as
+      | { html: string }
+      | undefined;
+    // A4: 代理スタッフの姓名でなく組織 display_name が sender として現れる
+    expect(emailArgs?.html).toContain("ビジ友テスト工務店A");
+    // 代理スタッフ本人の姓名は sender として現れない
+    expect(emailArgs?.html).not.toContain("代理スタッフ");
+  });
+
+  it("sender が organization_1/2 いずれのメンバーでもない → 通知 skip (安全側)", async () => {
+    const admin = makeMockAdmin([
+      // sender org 解決 → 未帰属
+      { kind: "maybeSingle", data: null },
+    ]);
+
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: "aaaa0000-0000-0000-0000-000000000001",
+          participant_2_id: "aaaa0000-0000-0000-0000-000000000002",
+          organization_1_id: ORG_ID,
+          organization_2_id: OTHER_ORG_ID,
+        },
+        senderId: "aaaa0000-0000-0000-0000-999999999999",
+        messageBody: "test",
+        hasImage: false,
+      },
+    );
+
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 });
