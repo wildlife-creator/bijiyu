@@ -10,9 +10,17 @@ interface MessageInputProps {
   threadId: string;
   onOptimisticSend?: (body: string) => void;
   onSendComplete?: (messageId: string) => void;
+  /** A7: 退会済み相手など、送信不能な理由がある場合の表示メッセージ。
+   *  設定されている場合、入力欄を隠してメッセージのみ表示する。 */
+  disabledMessage?: string | null;
 }
 
-export function MessageInput({ threadId, onOptimisticSend, onSendComplete }: MessageInputProps) {
+export function MessageInput({
+  threadId,
+  onOptimisticSend,
+  onSendComplete,
+  disabledMessage,
+}: MessageInputProps) {
   const [body, setBody] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -70,6 +78,14 @@ export function MessageInput({ threadId, onOptimisticSend, onSendComplete }: Mes
         toast.error(result.error);
       }
     });
+  }
+
+  if (disabledMessage) {
+    return (
+      <div className="sticky bottom-0 border-t border-border bg-muted p-4 text-center">
+        <p className="text-body-sm text-muted-foreground">{disabledMessage}</p>
+      </div>
+    );
   }
 
   return (

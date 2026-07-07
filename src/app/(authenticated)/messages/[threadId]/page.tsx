@@ -110,6 +110,21 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
   const { active } = await getActiveOrganizationContext(supabase);
   const isProxyAccount = active?.isProxyAccount === true;
 
+  // A7: 相手が退会済みなら入力欄を無効化してその旨を表示する。
+  //   - 受注者側から見た相手 = 組織 Owner（org スレッド） or participant_1（1対1）
+  //   - 発注者側から見た相手 = participant_2（受注者）
+  const orgObj = Array.isArray(thread.organization)
+    ? thread.organization[0]
+    : thread.organization;
+  const orgOwner = Array.isArray(orgObj?.owner_user)
+    ? orgObj?.owner_user[0]
+    : orgObj?.owner_user;
+  const isCounterpartDeleted = isContractorSide
+    ? thread.organization_id && orgOwner
+      ? orgOwner.deleted_at !== null
+      : participant1?.deleted_at !== null
+    : participant2?.deleted_at !== null;
+
   // Fetch messages
   const { data: rawMessages } = await supabase
     .from("messages")
@@ -193,6 +208,9 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
           showScoutActions={showScoutActions}
           isContractorSide={isContractorSide}
           isProxyAccount={isProxyAccount}
+          disabledMessage={
+            isCounterpartDeleted ? "このユーザーは退会されました" : null
+          }
         />
       </div>
     </div>

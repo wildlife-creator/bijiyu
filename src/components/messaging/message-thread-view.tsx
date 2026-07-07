@@ -22,6 +22,8 @@ interface MessageThreadViewProps {
   showScoutActions: boolean;
   isContractorSide: boolean;
   isProxyAccount: boolean;
+  /** A7: 相手が退会済みの場合の入力欄無効化メッセージ */
+  disabledMessage?: string | null;
 }
 
 /**
@@ -45,6 +47,7 @@ export function MessageThreadView({
   showScoutActions,
   isContractorSide,
   isProxyAccount,
+  disabledMessage,
 }: MessageThreadViewProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -233,6 +236,7 @@ export function MessageThreadView({
         threadId={threadId}
         onOptimisticSend={handleOptimisticSend}
         onSendComplete={handleSendComplete}
+        disabledMessage={disabledMessage}
       />
     </>
   );

@@ -19,22 +19,59 @@ import type { ActionResult } from "@/lib/types/action-result";
 // ---------------------------------------------------------------------------
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 3;
-const MONTHLY_NEW_THREAD_LIMIT = 5;
 
 async function canAccessThread(
   supabase: Awaited<ReturnType<typeof createClient>>,
   threadId: string,
   userId: string,
 ) {
-  // RLS handles this, but we also return the thread data
+  // RLS handles this, but we also return the thread data.
+  // A7: 相手 participant の deleted_at も一緒に取得して退会済み判定に使う
+  // （追加クエリを増やさず、既存テストのモック消費数も維持する）。
   const { data, error } = await supabase
     .from("message_threads")
-    .select("id, participant_1_id, participant_2_id, organization_id, thread_type")
+    .select(
+      `id, participant_1_id, participant_2_id, organization_id, thread_type,
+       participant_1:users!message_threads_participant_1_id_fkey(deleted_at),
+       participant_2:users!message_threads_participant_2_id_fkey(deleted_at)`,
+    )
     .eq("id", threadId)
     .single();
 
   if (error || !data) return null;
   return data;
+}
+
+/**
+ * A7: 相手 participant のいずれかが退会済みかを判定する。
+ * nested 参加者が未取得（テストモック等）の場合は false を返す = 非ブロック。
+ */
+function isCounterpartWithdrawn(
+  thread: {
+    participant_1_id: string | null;
+    participant_2_id: string | null;
+    participant_1?:
+      | { deleted_at?: string | null }
+      | Array<{ deleted_at?: string | null }>
+      | null;
+    participant_2?:
+      | { deleted_at?: string | null }
+      | Array<{ deleted_at?: string | null }>
+      | null;
+  },
+  userId: string,
+): boolean {
+  const p1 = Array.isArray(thread.participant_1)
+    ? thread.participant_1[0]
+    : thread.participant_1;
+  const p2 = Array.isArray(thread.participant_2)
+    ? thread.participant_2[0]
+    : thread.participant_2;
+  const p1Withdrawn =
+    thread.participant_1_id !== userId && p1?.deleted_at != null;
+  const p2Withdrawn =
+    thread.participant_2_id !== userId && p2?.deleted_at != null;
+  return Boolean(p1Withdrawn || p2Withdrawn);
 }
 
 async function isRateLimited(
@@ -48,39 +85,6 @@ async function isRateLimited(
     .eq("sender_id", senderId)
     .gte("created_at", oneMinuteAgo);
   return (count ?? 0) >= RATE_LIMIT_MAX;
-}
-
-async function isMonthlyLimitExceeded(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-): Promise<boolean> {
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("id")
-    .eq("user_id", userId)
-    .in("status", ["active", "past_due"])
-    .limit(1)
-    .maybeSingle();
-  if (sub) return false;
-
-  const { data: userData } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", userId)
-    .single();
-  if (userData?.role === "staff" || userData?.role === "client") return false;
-
-  const { count } = await supabase
-    .from("message_threads")
-    .select("*", { count: "exact", head: true })
-    .eq("participant_1_id", userId)
-    .gte(
-      "created_at",
-      new Date(
-        new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tokyo" }).slice(0, 7) + "-01T00:00:00+09:00",
-      ).toISOString(),
-    );
-  return (count ?? 0) >= MONTHLY_NEW_THREAD_LIMIT;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +106,13 @@ export async function sendMessageAction(
     // Thread access check (RLS + explicit)
     const thread = await canAccessThread(supabase, threadId, user.id);
     if (!thread) return { success: false, error: "スレッドが見つかりません" };
+
+    // A7: 退会済み相手へのメッセージ送信をブロック。scout / job-inquiry には
+    // 既にガードがあるが通常メッセージだけ抜けていた。canAccessThread が nested
+    // で取得した participant の deleted_at を使う（追加クエリ不要）。
+    if (isCounterpartWithdrawn(thread, user.id)) {
+      return { success: false, error: "相手のユーザーは退会されました" };
+    }
 
     // Rate limit
     if (await isRateLimited(supabase, user.id)) {
