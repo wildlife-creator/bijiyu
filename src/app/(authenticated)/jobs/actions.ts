@@ -702,15 +702,27 @@ export async function deleteJobImageAction(
     }
 
     // Delete DB record
-    const { error: deleteError } = await supabase
+    // RLS で silent block されると PostgREST は error を返さず影響 0 行になるため
+    // .select() で削除された行を返してもらい、0 件なら権限不足として扱う
+    // （2026-07-07 実例: job_images_delete RLS が組織対応前は Owner が Staff 作成案件の
+    //  画像を削除しようとして silent block → toast success なのに画像が残る症状が発生）
+    const { data: deletedRows, error: deleteError } = await supabase
       .from("job_images")
       .delete()
-      .eq("id", imageId);
+      .eq("id", imageId)
+      .select("id");
 
     if (deleteError) {
       return {
         success: false,
         error: "画像の削除に失敗しました。時間をおいて再度お試しください",
+      };
+    }
+
+    if (!deletedRows || deletedRows.length === 0) {
+      return {
+        success: false,
+        error: "この画像を削除する権限がありません",
       };
     }
 
