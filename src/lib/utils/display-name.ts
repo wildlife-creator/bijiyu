@@ -93,6 +93,60 @@ export function resolveParticipantName(participant: {
 }
 
 // ============================================================
+// resolveActorDisplayName — Phase 2 統一名前解決関数
+// ============================================================
+
+/**
+ * メッセージ機能の "actor" (participant or 組織) の表示名を統一手順で解決する。
+ *
+ * Phase 2 (message-thread-org-pair) の設計改修に伴い、既存の
+ * `resolveParticipantName` を拡張して受注者側の `users.company_name` も
+ * フォールバック候補に含めるための新関数。
+ *
+ * 優先順位:
+ *   1. `displayName`（= `client_profiles.display_name`）
+ *      - 発注者側の屋号/社名を最優先
+ *      - C 案退会で `users.deleted_at` が set されていても、保持された社名を優先表示
+ *   2. 退会済み（`deletedAt` 非 NULL）→ "退会済みユーザー"
+ *   3. `companyName`（= `users.company_name`）
+ *      - 受注者側の屋号（プロフィール入力の任意欄）
+ *   4. `${lastName}${firstName}`（スペース無し結合）
+ *   5. "未設定"
+ *
+ * 呼び出し側は「どの `displayName` を渡すか」を先に決める:
+ *   - 相手が組織所属 → その組織 Owner の `client_profiles.display_name`
+ *   - 相手が個人発注者 → 本人の `client_profiles.display_name`
+ *   - 相手が個人受注者 → NULL（displayName は該当なし。companyName / 姓名 に落ちる）
+ */
+export function resolveActorDisplayName(actor: {
+  displayName?: string | null;
+  companyName?: string | null;
+  lastName?: string | null;
+  firstName?: string | null;
+  deletedAt?: string | null;
+}): string {
+  const displayName = actor.displayName?.trim() ?? "";
+  if (displayName) {
+    return displayName;
+  }
+
+  if (actor.deletedAt) {
+    return "退会済みユーザー";
+  }
+
+  const companyName = actor.companyName?.trim() ?? "";
+  if (companyName) {
+    return companyName;
+  }
+
+  const last = actor.lastName?.trim() ?? "";
+  const first = actor.firstName?.trim() ?? "";
+  const fullName = last || first ? `${last}${first}` : "";
+
+  return fullName || "未設定";
+}
+
+// ============================================================
 // resolveClientProfileForRow（B3 対応）
 // ============================================================
 

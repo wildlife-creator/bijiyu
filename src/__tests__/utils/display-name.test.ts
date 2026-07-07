@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getUserDisplayName,
+  resolveActorDisplayName,
   resolveClientProfileForRow,
   resolveParticipantName,
 } from "@/lib/utils/display-name";
@@ -346,5 +347,108 @@ describe("resolveClientProfileForRow", () => {
       firstName: "花子",
       deletedAt: null,
     });
+  });
+});
+
+// ------------------------------------------------------------
+// resolveActorDisplayName — Phase 2 統一名前解決関数
+// ------------------------------------------------------------
+describe("resolveActorDisplayName", () => {
+  it("displayName 最優先: 退会済みでも displayName があれば返す (C 案退会の意図)", () => {
+    expect(
+      resolveActorDisplayName({
+        displayName: "ビジ友テスト工務店",
+        lastName: "田中",
+        firstName: "太郎",
+        deletedAt: "2026-01-01",
+      }),
+    ).toBe("ビジ友テスト工務店");
+  });
+
+  it("displayName 無し + 退会済み → '退会済みユーザー' (companyName / 姓名 より優先)", () => {
+    expect(
+      resolveActorDisplayName({
+        displayName: null,
+        companyName: "山田工務店",
+        lastName: "山田",
+        firstName: "次郎",
+        deletedAt: "2026-01-01",
+      }),
+    ).toBe("退会済みユーザー");
+  });
+
+  it("displayName 無し + 未退会 + companyName あり → companyName を返す (受注者側屋号)", () => {
+    expect(
+      resolveActorDisplayName({
+        displayName: null,
+        companyName: "山田工務店",
+        lastName: "山田",
+        firstName: "次郎",
+        deletedAt: null,
+      }),
+    ).toBe("山田工務店");
+  });
+
+  it("displayName 無し + 未退会 + companyName 無し → 姓名 (スペース無し結合)", () => {
+    expect(
+      resolveActorDisplayName({
+        displayName: null,
+        companyName: null,
+        lastName: "山田",
+        firstName: "次郎",
+        deletedAt: null,
+      }),
+    ).toBe("山田次郎");
+  });
+
+  it("全部空 → '未設定'", () => {
+    expect(
+      resolveActorDisplayName({
+        displayName: null,
+        companyName: null,
+        lastName: null,
+        firstName: null,
+        deletedAt: null,
+      }),
+    ).toBe("未設定");
+  });
+
+  it("displayName の空白のみは無視して次段に流れる", () => {
+    expect(
+      resolveActorDisplayName({
+        displayName: "   ",
+        companyName: "山田工務店",
+        deletedAt: null,
+      }),
+    ).toBe("山田工務店");
+  });
+
+  it("companyName の空白のみも無視: 姓名 に流れる", () => {
+    expect(
+      resolveActorDisplayName({
+        displayName: null,
+        companyName: "   ",
+        lastName: "田中",
+        firstName: "花子",
+        deletedAt: null,
+      }),
+    ).toBe("田中花子");
+  });
+
+  it("firstName のみ / lastName のみでも姓名結合が成立する", () => {
+    expect(
+      resolveActorDisplayName({
+        lastName: "田中",
+        firstName: null,
+        deletedAt: null,
+      }),
+    ).toBe("田中");
+    expect(
+      resolveActorDisplayName({
+        lastName: null,
+        firstName: "花子",
+        deletedAt: null,
+      }),
+    ).toBe("花子");
   });
 });
