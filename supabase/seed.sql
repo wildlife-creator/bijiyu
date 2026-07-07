@@ -2127,3 +2127,38 @@ INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_a
   ('ee110aa1-aaaa-4aaa-8aaa-111111111111', 'ee110099-9999-4999-8999-111111111111', 'staff', true, '2026-01-01 00:00:00+00'),
   -- 11.2 normal staff target: ER-C のみ
   ('ee220aa1-aaaa-4aaa-8aaa-111111111111', 'ee220099-9999-4999-8999-111111111111', 'staff', false, '2026-01-01 00:00:00+00');
+
+-- ============================================================
+-- Phase 2 Step 1: message_threads の organization_1_id / organization_2_id
+-- を organization_id + organization_members から backfill
+-- (migration 20260707150000_message_threads_identity_pair.sql と同一ロジック。
+-- seed は migration の後に走るため、migration の backfill は空 table 相手で
+-- ノーオペになり、seed insert 済みの行に対して改めてここで backfill する)
+-- ============================================================
+
+UPDATE message_threads t
+SET organization_1_id = t.organization_id
+WHERE t.organization_id IS NOT NULL
+  AND t.organization_1_id IS NULL
+  AND EXISTS (
+    SELECT 1 FROM organization_members m
+    WHERE m.organization_id = t.organization_id
+      AND m.user_id = t.participant_1_id
+  );
+
+UPDATE message_threads t
+SET organization_2_id = t.organization_id
+WHERE t.organization_id IS NOT NULL
+  AND t.organization_1_id IS NULL
+  AND t.organization_2_id IS NULL
+  AND EXISTS (
+    SELECT 1 FROM organization_members m
+    WHERE m.organization_id = t.organization_id
+      AND m.user_id = t.participant_2_id
+  );
+
+UPDATE message_threads t
+SET organization_1_id = t.organization_id
+WHERE t.organization_id IS NOT NULL
+  AND t.organization_1_id IS NULL
+  AND t.organization_2_id IS NULL;
