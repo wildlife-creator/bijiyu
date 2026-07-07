@@ -405,6 +405,104 @@ describe("saveClientProfileAction", () => {
     // added が空のため getAllMasterRows は呼ばれない（最適化）
     expect(mockedGetAllMasterRows).not.toHaveBeenCalled();
   });
+
+  // --- 組織 Admin セッション（client_recruit_areas RLS 組織対応 / 2026-07-07 修正） ---
+
+  it("組織 Admin セッション: profileUserId が Owner に解決され upsert / RPC が Owner の user_id で呼ばれる", async () => {
+    const ADMIN_USER_ID = "ee111111-1111-1111-1111-111111111111";
+    mockAuth(ADMIN_USER_ID);
+    mockGetActiveOrgContext.mockResolvedValueOnce({
+      active: {
+        organizationId: "55555555-5555-5555-5555-555555555555",
+        orgRole: "admin",
+        isProxyAccount: false,
+        orgOwnerId: OWNER_ID,
+        isCorporate: true,
+      },
+      all: [],
+    });
+    // getPlanType (admin client 経由で Owner の subscription を引く)
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { plan_type: "corporate", status: "active" },
+          error: null,
+        },
+      }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: { recruit_job_types: [] }, error: null } }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
+    const upsertChain = createQueryMock({ thenable: { data: null, error: null } });
+    mockFrom.mockReturnValueOnce(upsertChain);
+
+    const r = await saveClientProfileAction(
+      { ...basePersonalInput, displayName: "鈴木工務店株式会社" },
+      { mode: "edit" },
+    );
+    expect(r.success).toBe(true);
+    // Admin セッションでも書き込み対象は Owner の user_id
+    expect(upsertChain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: OWNER_ID }),
+      expect.objectContaining({ onConflict: "user_id" }),
+    );
+    expect(mockRpc).toHaveBeenCalledWith("replace_client_recruit_areas", {
+      p_client_id: OWNER_ID,
+      p_areas: [{ prefecture: "東京都", municipality: null }],
+    });
+  });
+
+  it("組織 Admin セッション: replace_client_recruit_areas RPC が RLS violation を返すと「募集エリアの保存に失敗しました」を返す（部分更新検出）", async () => {
+    const ADMIN_USER_ID = "ee111111-1111-1111-1111-111111111111";
+    mockAuth(ADMIN_USER_ID);
+    mockGetActiveOrgContext.mockResolvedValueOnce({
+      active: {
+        organizationId: "55555555-5555-5555-5555-555555555555",
+        orgRole: "admin",
+        isProxyAccount: false,
+        orgOwnerId: OWNER_ID,
+        isCorporate: true,
+      },
+      all: [],
+    });
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { plan_type: "corporate", status: "active" },
+          error: null,
+        },
+      }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: { recruit_job_types: [] }, error: null } }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
+    const upsertChain = createQueryMock({ thenable: { data: null, error: null } });
+    mockFrom.mockReturnValueOnce(upsertChain);
+    // 20260707140000 migration 適用前に本番で発生していた RLS violation を再現
+    mockRpc.mockReset();
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message: "new row violates row-level security policy for table \"client_recruit_areas\"",
+        code: "42501",
+      },
+    });
+
+    const r = await saveClientProfileAction(
+      { ...basePersonalInput, displayName: "鈴木工務店株式会社" },
+      { mode: "edit" },
+    );
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toBe("募集エリアの保存に失敗しました");
+    // profiles の upsert は既に commit 済（＝部分更新の既知挙動）
+    expect(upsertChain.upsert).toHaveBeenCalled();
+  });
 });
 
 describe("uploadClientProfileImageAction", () => {

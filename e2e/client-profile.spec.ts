@@ -7,6 +7,7 @@ import {
   TEST_CONTRACTOR,
   TEST_INDIVIDUAL_CLIENT,
   TEST_STAFF,
+  TEST_STAFF_ADMIN,
 } from "./helpers";
 
 /**
@@ -152,6 +153,39 @@ test.describe("CLI-021 発注者情報編集（編集モード）", () => {
       page.getByRole("heading", { name: "発注者情報詳細" }),
     ).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(original)).toBeVisible();
+  });
+
+  // 2026-07-07: client_recruit_areas RLS を組織対応に修正
+  // (20260707140000_client_recruit_areas_org_aware_rls.sql)
+  // 組織 Admin が CLI-021 で保存すると replace_client_recruit_areas RPC が
+  // Owner の client_recruit_areas に対して INSERT/DELETE を実行する。
+  // RLS 修正前は Admin セッションで RPC が RLS violation で失敗し、
+  // 「募集エリアの保存に失敗しました」トーストで保存できなかった。
+  test("組織 Admin (staff-admin@test.local) が CLI-021 の保存を完了できる", async ({
+    page,
+  }) => {
+    await login(page, TEST_STAFF_ADMIN.email, TEST_STAFF_ADMIN.password);
+    await page.goto("/mypage/client-profile/edit");
+    await expect(
+      page.getByRole("heading", { name: "発注者情報編集" }),
+    ).toBeVisible();
+
+    // Admin セッションでも seed Owner (client@test.local) の情報が編集フォームに表示される
+    const displayNameInput = page.getByLabel("会社名・氏名");
+    await expect(displayNameInput).toHaveValue("鈴木工務店株式会社");
+
+    // 何も変更せずに保存 → replace_client_recruit_areas RPC が DELETE + INSERT する
+    // (RLS 修正前は Admin セッションで DELETE 0 行 + INSERT が RLS violation)
+    await page.getByRole("button", { name: "保存する" }).click();
+
+    // 詳細画面 (CLI-020) に到達すれば RPC が Admin セッションでも成功
+    await expect(
+      page.getByRole("heading", { name: "発注者情報詳細" }),
+    ).toBeVisible({ timeout: 15000 });
+    // 「募集エリアの保存に失敗しました」トーストが出ていないことを明示的に確認
+    await expect(
+      page.getByText("募集エリアの保存に失敗しました"),
+    ).toHaveCount(0);
   });
 });
 
