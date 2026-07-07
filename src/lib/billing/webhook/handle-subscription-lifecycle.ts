@@ -573,7 +573,13 @@ async function maybeSendChangedEmail(
   after: PostUpdateState,
   send: typeof sendEmail,
 ): Promise<void> {
-  // (a) Upgrade — plan_type changed
+  // (a) Upgrade — plan_type changed.
+  // A5: 通常はここで送らない。upgradePlanAction (Server Action) が
+  // Stripe 呼び出し成功直後に subscriptions.plan_type を先行 UPDATE してから
+  // 「【ビジ友】プラン変更を承りました」メールを同期送信するため、
+  // Webhook 到着時には before.plan_type === after.planType になっていて
+  // ここに入らない。フォールバック（先行 UPDATE の失敗など）では
+  // Webhook 側でもこの分岐で送信され、ユーザーが一切メールを受け取らない事態を防ぐ。
   if (before.plan_type !== after.planType) {
     await sendChangedEmail(admin, send, before.user_id, {
       eventType: "upgrade-immediate",

@@ -89,6 +89,21 @@ const adminUserState = {
   stripe_customer_id: "cus_test_1" as string | null,
 };
 
+interface RecipientRow {
+  email: string;
+  last_name: string | null;
+  first_name: string | null;
+  client_profiles: { display_name: string | null } | { display_name: string | null }[] | null;
+}
+const adminRecipientState = {
+  row: {
+    email: "user1@test.local",
+    last_name: "田中",
+    first_name: "太郎",
+    client_profiles: null,
+  } as RecipientRow | null,
+};
+
 const adminUpdates: Array<{ table: string; payload: unknown; eqArgs: unknown[] }> = [];
 const adminRpcCalls: Array<{ fn: string; args: unknown }> = [];
 
@@ -101,6 +116,11 @@ vi.mock("@/lib/supabase/admin", () => ({
             return {
               single: async () => ({
                 data: { stripe_customer_id: adminUserState.stripe_customer_id },
+                error: null,
+              }),
+              // A5: upgradePlanAction のメール受信者取得は maybeSingle を使う
+              maybeSingle: async () => ({
+                data: adminRecipientState.row,
                 error: null,
               }),
             };
@@ -135,6 +155,18 @@ vi.mock("@/lib/supabase/admin", () => ({
       return { error: null };
     },
   }),
+}));
+
+interface SendEmailParams {
+  to: string;
+  subject: string;
+  html: string;
+}
+const sendEmailMock = vi.fn(
+  async (_params: SendEmailParams) => ({ success: true as const }),
+);
+vi.mock("@/lib/email/send-email", () => ({
+  sendEmail: (params: SendEmailParams) => sendEmailMock(params),
 }));
 
 vi.mock("@/lib/billing/stripe", () => ({
@@ -179,7 +211,14 @@ beforeEach(() => {
   adminInserts.length = 0;
   adminUpdates.length = 0;
   adminRpcCalls.length = 0;
+  adminRecipientState.row = {
+    email: "user1@test.local",
+    last_name: "田中",
+    first_name: "太郎",
+    client_profiles: null,
+  };
   vi.clearAllMocks();
+  sendEmailMock.mockResolvedValue({ success: true as const });
   validateMock.mockResolvedValue({ ok: true } as ValidationResult);
 });
 
@@ -304,6 +343,94 @@ describe("changePlanAction", () => {
     if (!result.success) {
       expect(result.error).toContain("掲載中の案件");
     }
+  });
+
+  // ---- A5: プラン変更完了メール（upgrade-immediate） ----
+  //
+  // Webhook 側の差分判定は先行 UPDATE により「差分なし」となりメール送信を skip する。
+  // このため upgradePlanAction 自身が同期送信する必要がある（案 A / 案 B 非採用）。
+  //
+  // 参考: `修正指示書_テスト前修正まとめ.md` A5 節、`A5_upgrade_email_briefing.md`
+  //
+  it("A5: アップグレード時に「【ビジ友】プラン変更を承りました」メールを Server Action から送信する", async () => {
+    const result = await changePlanAction({ targetPlan: "corporate" });
+    expect(result.success).toBe(true);
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const call = sendEmailMock.mock.calls[0]![0] as {
+      to: string;
+      subject: string;
+      html: string;
+    };
+    expect(call.to).toBe("user1@test.local");
+    expect(call.subject).toBe("【ビジ友】プラン変更を承りました");
+    // 姓名スペースなし結合 + 旧プラン + 新プランがテンプレに埋め込まれる
+    expect(call.html).toContain("田中太郎");
+    expect(call.html).toContain("個人発注者様向けプラン");
+    expect(call.html).toContain("法人向けプラン");
+  });
+
+  it("A5: 受信者名は client_profiles.display_name を優先する", async () => {
+    adminRecipientState.row = {
+      email: "biz@test.local",
+      last_name: "田中",
+      first_name: "太郎",
+      client_profiles: { display_name: "鈴木工務店株式会社" },
+    };
+    await changePlanAction({ targetPlan: "corporate" });
+    const call = sendEmailMock.mock.calls[0]![0] as { html: string; to: string };
+    expect(call.to).toBe("biz@test.local");
+    expect(call.html).toContain("鈴木工務店株式会社 様");
+    expect(call.html).not.toContain("田中太郎 様");
+  });
+
+  it("A5: display_name が空文字なら姓名フォールバック", async () => {
+    adminRecipientState.row = {
+      email: "user2@test.local",
+      last_name: "山田",
+      first_name: "花子",
+      client_profiles: { display_name: "   " }, // trim すると空
+    };
+    await changePlanAction({ targetPlan: "corporate" });
+    const call = sendEmailMock.mock.calls[0]![0] as { html: string };
+    expect(call.html).toContain("山田花子 様");
+  });
+
+  it("A5: client_profiles が配列でも先頭を採用する（Supabase nested select 挙動）", async () => {
+    adminRecipientState.row = {
+      email: "user3@test.local",
+      last_name: "田中",
+      first_name: "太郎",
+      client_profiles: [{ display_name: "配列プロフィール株式会社" }],
+    };
+    await changePlanAction({ targetPlan: "corporate" });
+    const call = sendEmailMock.mock.calls[0]![0] as { html: string };
+    expect(call.html).toContain("配列プロフィール株式会社 様");
+  });
+
+  it("A5: ダウングレードでは A5 のアップグレード完了メールを送らない", async () => {
+    subState.row!.plan_type = "corporate";
+    await changePlanAction({ targetPlan: "individual" });
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("A5: 同プラン・エラー系ではメール送信されない", async () => {
+    // schedule_id あり → 予約チェックで弾かれる
+    subState.row!.schedule_id = "sub_sched_999";
+    await changePlanAction({ targetPlan: "corporate" });
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("A5: メール送信が例外を投げても Server Action は成功を返す（fire-and-forget）", async () => {
+    sendEmailMock.mockRejectedValueOnce(new Error("resend down"));
+    const result = await changePlanAction({ targetPlan: "corporate" });
+    expect(result.success).toBe(true);
+  });
+
+  it("A5: 受信者行が取れない場合はメール送信を skip する", async () => {
+    adminRecipientState.row = null;
+    const result = await changePlanAction({ targetPlan: "corporate" });
+    expect(result.success).toBe(true);
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 });
 

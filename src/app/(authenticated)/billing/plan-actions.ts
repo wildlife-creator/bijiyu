@@ -1,5 +1,7 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { comparePlans } from "@/lib/billing/compare-plans";
 import { getStripeClient } from "@/lib/billing/stripe";
 import { validateDowngradePrerequisites } from "@/lib/billing/validate-downgrade";
@@ -9,9 +11,12 @@ import {
   type PaidPlanType,
   type PlanType,
 } from "@/lib/constants/plans";
+import { sendEmail } from "@/lib/email/send-email";
+import { subscriptionChangedEmail } from "@/lib/email/templates/subscription-changed";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
+import type { Database } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -208,6 +213,13 @@ async function upgradePlanAction(
     }
   }
 
+  // A5: 「【ビジ友】プラン変更を承りました」メールを Server Action から同期送信する。
+  // Webhook 側（handle_subscription_lifecycle_updated (a) 分岐）は
+  // 「snapshot.plan_type と after.planType の差分」でメール送信を判定するため、
+  // 上記の先行 UPDATE で snapshot が新プランに揃うと差分が消えて自然に skip される
+  // ＝ 二重送信にはならない。詳細は handle-subscription-lifecycle.ts の (a) 分岐コメント参照。
+  await sendUpgradeCompletedEmail(admin, subscription, targetPlan);
+
   return {
     success: true,
     data: {
@@ -215,6 +227,47 @@ async function upgradePlanAction(
       newPlanName: PLAN_LABELS[targetPlan],
     },
   };
+}
+
+/**
+ * A5: プラン変更完了メールを同期送信する。
+ * 失敗しても Server Action の成功可否には影響させない（メール送信は
+ * Webhook 側にフォールバックがあるためベストエフォート）。
+ * 受信者名の解決ルールは handle-subscription-lifecycle.ts の fetchRecipient と同じ:
+ * client_profiles.display_name → 姓+名（スペースなし結合）→ "お客様"。
+ */
+async function sendUpgradeCompletedEmail(
+  admin: SupabaseClient<Database>,
+  subscription: ActiveSubscription,
+  targetPlan: PaidPlanType,
+): Promise<void> {
+  try {
+    const { data } = await admin
+      .from("users")
+      .select("email, last_name, first_name, client_profiles(display_name)")
+      .eq("id", subscription.user_id)
+      .maybeSingle();
+    if (!data) return;
+
+    const profiles = data.client_profiles;
+    const profile = Array.isArray(profiles) ? profiles[0] : profiles;
+    const displayName = profile?.display_name?.trim() ?? "";
+    const personalName = `${data.last_name ?? ""}${data.first_name ?? ""}`;
+    const recipientName = displayName || personalName || "お客様";
+
+    const tpl = subscriptionChangedEmail({
+      recipientName,
+      eventType: "upgrade-immediate",
+      oldPlanName: PLAN_LABELS[subscription.plan_type as PlanType],
+      newPlanName: PLAN_LABELS[targetPlan],
+    });
+    await sendEmail({ to: data.email, subject: tpl.subject, html: tpl.html });
+  } catch (err) {
+    console.error(
+      "[upgradePlanAction] sendUpgradeCompletedEmail failed",
+      err,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
