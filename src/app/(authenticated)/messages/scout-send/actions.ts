@@ -156,6 +156,18 @@ export async function sendScoutAction(
       .update({ updated_at: new Date().toISOString() })
       .eq("id", thread.id);
 
+    // A3: 案件タイトル（jobs.title）を取得。以前はメール本文で
+    // parsed.data.title（スカウトタイトル入力欄）を「案件名」として使っていたため、
+    // 控えメール件名と受信者メール本文の【案件名】欄が不正になっていた。
+    // 辞退通知（respondToScoutAction 経由）は jobs.title を取得できていたのに
+    // 送信側だけ非対称だった。ここで一元的に案件タイトルを解決する。
+    const { data: scoutJob } = await supabase
+      .from("jobs")
+      .select("title")
+      .eq("id", parsed.data.jobId)
+      .single();
+    const jobTitle = scoutJob?.title ?? parsed.data.title;
+
     // Email notification (don't rollback on failure)
     const { data: targetUser } = await supabase
       .from("users")
@@ -207,7 +219,7 @@ export async function sendScoutAction(
       const { subject, html } = scoutNotificationEmail({
         recipientName,
         senderName,
-        jobTitle: parsed.data.title,
+        jobTitle,
         messageExcerpt: parsed.data.body,
       });
 
@@ -222,7 +234,7 @@ export async function sendScoutAction(
       senderId: user.id,
       organizationId,
       targetUserId: parsed.data.userId,
-      jobTitle: parsed.data.title,
+      jobTitle,
       messageBody: parsed.data.body,
     }).catch((err) => {
       console.error("[sendScoutAction] scout-sent-broadcast failed:", err);

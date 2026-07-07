@@ -547,7 +547,13 @@ describe("sendScoutAction", () => {
     mockFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
-    // 7. users.select(email).eq.single (target user) → email なしで email ブロックをスキップ
+    // 7. jobs.select(title).eq.single (A3: 案件タイトル解決) → title 取得
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        single: { data: { title: "テスト案件" }, error: null },
+      }),
+    );
+    // 8. users.select(email).eq.single (target user) → email なしで email ブロックをスキップ
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: { data: { email: null }, error: null },
@@ -649,7 +655,13 @@ describe("sendScoutAction", () => {
     mockFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
-    // 8. users.select(email) → email なしでスキップ
+    // 8. jobs.select(title).eq.single (A3: 案件タイトル解決)
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        single: { data: { title: "テスト案件" }, error: null },
+      }),
+    );
+    // 9. users.select(email) → email なしでスキップ
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: { data: { email: null }, error: null },
