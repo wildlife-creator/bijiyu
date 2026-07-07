@@ -19,11 +19,16 @@ const HEADER_PAST_DUE_SINCE = "x-past-due-since";
 const BILLING_PATH = "/billing";
 
 // Public routes that skip authentication checks entirely
+// /robots.txt / /sitemap.xml は未認証クローラー（Googlebot 等）が /login に
+// リダイレクトされないためここに含める。レスポンス本体は Next.js Metadata Route
+// (src/app/robots.ts) が APP_ENV に応じて生成する。
 const PUBLIC_PATH_PREFIXES = [
   "/auth/callback",
   "/api/webhooks",
   "/_next",
   "/favicon.ico",
+  "/robots.txt",
+  "/sitemap.xml",
 ] as const;
 
 // Static file extensions that should be skipped
@@ -76,8 +81,10 @@ export const CLIENT_ONLY_PREFIXES = [
 
 /**
  * Check if the path is a public route that should skip all middleware logic
+ * NOTE: export しているのは middleware-routing.test.ts で本体判定を再利用するため
+ * （テスト内コピー禁止ルール準拠。2026-04-21 実例参照）
  */
-function isPublicRoute(pathname: string): boolean {
+export function isPublicRoute(pathname: string): boolean {
   // Check public path prefixes
   if (
     PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))

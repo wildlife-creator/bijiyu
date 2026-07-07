@@ -9,6 +9,7 @@ import {
   isPublicPage,
   isAdminRoute,
   isClientOnlyRoute,
+  isPublicRoute,
 } from "@/middleware";
 
 /**
@@ -34,6 +35,12 @@ function getRoutingResult(
   pathname: string,
   isAuthenticated: boolean,
 ): RoutingResult {
+  // Public routes (static assets / metadata routes) skip all auth checks —
+  // 本体 middleware の先頭ゲートと同じ順序で判定する
+  if (isPublicRoute(pathname)) {
+    return { allowed: true };
+  }
+
   // Unauthenticated routing
   if (!isAuthenticated) {
     if (isAuthPage(pathname) || isPublicPage(pathname)) {
@@ -304,5 +311,41 @@ describe("authenticated admin routing", () => {
     const result = getRoutingResult(role, "/jobs", true);
     expect(result.allowed).toBe(false);
     expect(result.redirectTo).toBe("/admin/dashboard");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Public routes (metadata routes / static assets)
+// ---------------------------------------------------------------------------
+// 2026-07-07 回帰: staging.bijiyuu.net/robots.txt が未認証で /login に 302 されて
+// いた（Googlebot が LP を index できない状態）。PUBLIC_PATH_PREFIXES に
+// /robots.txt / /sitemap.xml を追加した修正の回帰防止テスト。
+describe("public routes (metadata routes / static assets)", () => {
+  it("allows unauthenticated access to /robots.txt (crawler entry)", () => {
+    const result = getRoutingResult("contractor", "/robots.txt", false);
+    expect(result.allowed).toBe(true);
+  });
+
+  it("allows unauthenticated access to /sitemap.xml (future crawler entry)", () => {
+    const result = getRoutingResult("contractor", "/sitemap.xml", false);
+    expect(result.allowed).toBe(true);
+  });
+
+  it("isPublicRoute() recognizes /robots.txt", () => {
+    expect(isPublicRoute("/robots.txt")).toBe(true);
+  });
+
+  it("isPublicRoute() recognizes /sitemap.xml", () => {
+    expect(isPublicRoute("/sitemap.xml")).toBe(true);
+  });
+
+  it("isPublicRoute() still recognizes existing /_next asset paths", () => {
+    expect(isPublicRoute("/_next/static/chunks/main.js")).toBe(true);
+  });
+
+  it("isPublicRoute() does NOT match arbitrary paths", () => {
+    expect(isPublicRoute("/mypage")).toBe(false);
+    // 拡張子なしの /robots は対象外（startsWith が長さ不足で false）
+    expect(isPublicRoute("/robots")).toBe(false);
   });
 });
