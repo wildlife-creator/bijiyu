@@ -128,7 +128,9 @@ export default async function NewMessagePage({ searchParams }: Props) {
               >
                 <Link href="/billing">料金プランを見る</Link>
               </Button>
-              <BackButton />
+              {/* 親が flex flex-col items-center のため、外側 wrapper に
+                  幅指定を渡さないと BackButton が「もどる」文字幅に縮む */}
+              <BackButton className="mt-0 w-full max-w-xs" />
             </div>
           </div>
         </div>
