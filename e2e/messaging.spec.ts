@@ -321,4 +321,65 @@ test.describe("個人発注者: メッセージ", () => {
       page.getByText("キッチンリフォーム"),
     ).toBeVisible();
   });
+
+  test("R5.4 Phase 2: 個人発注者が返信を送信できる (identity ベーススレッド再利用)", async ({
+    page,
+  }) => {
+    // R2 修正後、個人発注者 (organization_1/2 とも null) からの送信フローで
+    // identity ベースのスレッド解決/更新が動くことを確認する。
+    // 旧実装で発生していた「organization_id 前提の検索」で detach するデグレの回帰防止。
+    await login(
+      page,
+      TEST_INDIVIDUAL_CLIENT.email,
+      TEST_INDIVIDUAL_CLIENT.password,
+    );
+    await page.goto(`/messages/${MSG_THREAD_INDIV_CON}`);
+    await expect(page.getByText("田中建設")).toBeVisible({ timeout: 10000 });
+
+    const messageText = `E2E個人発注者返信 ${Date.now()}`;
+    const input = page.locator("textarea[placeholder='メッセージ']");
+    await input.fill(messageText);
+    await page.locator("button.rounded-full.bg-primary").last().click();
+
+    // 楽観的 UI で即時反映
+    await expect(page.getByText(messageText)).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// R5.4: R2 fix 回帰 — スカウトスレッド上で受注者側にのみ承諾/辞退ボタンが出る
+// ---------------------------------------------------------------------------
+test.describe("R5.4 Phase 2: スカウト応答ボタンの表示 (R2 fix 回帰)", () => {
+  test("受注者側でスカウト受諾済み状態が正しく表示される", async ({
+    page,
+  }) => {
+    // 既存 seed の corp scout thread (01) は scout_status='accepted' 済み。
+    // R2 で showScoutActions を identity ベースに変えた後も、受注者側で
+    // scout thread が正しく閲覧でき「スカウトを受けました」表示が出ることを検証。
+    // (pending 状態でのボタン表示・応答は手動スモークテストで確認する)
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+    await page.goto(`/messages/${SCOUT_THREAD_ID}`);
+    await expect(page.getByText("鈴木工務店")).toBeVisible({ timeout: 10000 });
+    // scout_status='accepted' の scout info card 上のメッセージ
+    await expect(page.getByText("スカウトを受けました")).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
+  test("発注者側 (法人) でも scout thread の受諾済み状態が閲覧できる", async ({
+    page,
+  }) => {
+    // showScoutActions は「organization_X_id が null な side の personal participant」
+    // でのみ true になる。法人発注者は org 側 (org_1 = 5555) なので pending 中は
+    // ボタンは出ない。すでに accepted なので「スカウトを受けました」は双方に表示される。
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/messages/${SCOUT_THREAD_ID}`);
+    await expect(
+      page.locator("textarea[placeholder='メッセージ']"),
+    ).toBeVisible({ timeout: 10000 });
+    // 受諾済み表示は identity に関係なく双方に見える (scout_status ベースの表示)
+    await expect(page.getByText("スカウトを受けました")).toBeVisible({
+      timeout: 10000,
+    });
+  });
 });

@@ -26,8 +26,11 @@ async function canAccessThread(
   userId: string,
 ) {
   // RLS handles this, but we also return the thread data.
-  // A7: 相手 participant の deleted_at も一緒に取得して退会済み判定に使う
-  //     （追加クエリを増やさず、既存テストのモック消費数も維持する）。
+  // A7 (R5.2): 退会判定に必要な情報を nested 取得。
+  //   - counterpart が個人 identity なら participant.deleted_at
+  //   - counterpart が組織 identity なら organizations.deleted_at
+  //     (組織メンバー入れ替わりで元 participant が退会しても、組織が
+  //      生きていればスレッドは継続する Phase 2 設計を反映する)
   // Phase 2 (A2/A4): identity ベースメール通知に必要な organization_1_id /
   //     organization_2_id も同時に取得する。
   const { data, error } = await supabase
@@ -36,7 +39,9 @@ async function canAccessThread(
       `id, participant_1_id, participant_2_id,
        organization_id, organization_1_id, organization_2_id, thread_type,
        participant_1:users!message_threads_participant_1_id_fkey(deleted_at),
-       participant_2:users!message_threads_participant_2_id_fkey(deleted_at)`,
+       participant_2:users!message_threads_participant_2_id_fkey(deleted_at),
+       organization_1:organizations!organization_1_id(deleted_at),
+       organization_2:organizations!organization_2_id(deleted_at)`,
     )
     .eq("id", threadId)
     .single();
@@ -45,14 +50,34 @@ async function canAccessThread(
   return data;
 }
 
+function firstOrObj<T>(v: T | T[] | null | undefined): T | null {
+  if (v == null) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
 /**
- * A7: 相手 participant のいずれかが退会済みかを判定する。
- * nested 参加者が未取得（テストモック等）の場合は false を返す = 非ブロック。
+ * A7 (R5.2): 相手 identity が退会 / 解散済みかを identity ベースで判定する。
+ *
+ * 旧実装は participant slot ごとの deleted_at を見ていたため、Phase 2 で
+ * 「組織スレッドの元 participant staff が退会したが、組織自体は生きている」
+ * ケースでも組織メンバー全員が誤ってブロックされる問題があった。
+ *
+ * 新実装:
+ *   1. viewer がどちらの席 (identity) にいるかを判定
+ *      (personal participant 一致 → その席、org 一致 → その席)
+ *   2. counterpart 側 (反対側) の identity:
+ *      - 組織 identity なら organizations.deleted_at のみを見る
+ *        (元 participant staff の退会は無視 = 組織スレッド継続)
+ *      - 個人 identity なら participant.deleted_at を見る
+ *   3. viewer 側が特定できない (fallback) または nested が取れない場合は
+ *      false を返す = 非ブロック
  */
 function isCounterpartWithdrawn(
   thread: {
     participant_1_id: string | null;
     participant_2_id: string | null;
+    organization_1_id?: string | null;
+    organization_2_id?: string | null;
     participant_1?:
       | { deleted_at?: string | null }
       | Array<{ deleted_at?: string | null }>
@@ -61,20 +86,49 @@ function isCounterpartWithdrawn(
       | { deleted_at?: string | null }
       | Array<{ deleted_at?: string | null }>
       | null;
+    organization_1?:
+      | { deleted_at?: string | null }
+      | Array<{ deleted_at?: string | null }>
+      | null;
+    organization_2?:
+      | { deleted_at?: string | null }
+      | Array<{ deleted_at?: string | null }>
+      | null;
   },
   userId: string,
+  userOrgId: string | null,
 ): boolean {
-  const p1 = Array.isArray(thread.participant_1)
-    ? thread.participant_1[0]
-    : thread.participant_1;
-  const p2 = Array.isArray(thread.participant_2)
-    ? thread.participant_2[0]
-    : thread.participant_2;
-  const p1Withdrawn =
-    thread.participant_1_id !== userId && p1?.deleted_at != null;
-  const p2Withdrawn =
-    thread.participant_2_id !== userId && p2?.deleted_at != null;
-  return Boolean(p1Withdrawn || p2Withdrawn);
+  // 1. viewer がどちらの席にいるかを identity ベースで判定
+  let viewerOnSide2: boolean | null = null;
+  if (thread.participant_1_id === userId) {
+    viewerOnSide2 = false;
+  } else if (thread.participant_2_id === userId) {
+    viewerOnSide2 = true;
+  } else if (userOrgId && thread.organization_1_id === userOrgId) {
+    viewerOnSide2 = false;
+  } else if (userOrgId && thread.organization_2_id === userOrgId) {
+    viewerOnSide2 = true;
+  }
+  if (viewerOnSide2 === null) return false;
+
+  // 2. counterpart 側の identity 種別で判定基準を切り替え
+  const counterOrgId = viewerOnSide2
+    ? thread.organization_1_id
+    : thread.organization_2_id;
+
+  if (counterOrgId) {
+    const counterOrg = firstOrObj(
+      viewerOnSide2 ? thread.organization_1 : thread.organization_2,
+    );
+    // 組織側 counterpart は組織自身の解散状態のみを見る
+    // (組織メンバー入れ替えでの participant 退会は無視 = 組織スレッド継続)
+    return counterOrg?.deleted_at != null;
+  } else {
+    const counterParticipant = firstOrObj(
+      viewerOnSide2 ? thread.participant_1 : thread.participant_2,
+    );
+    return counterParticipant?.deleted_at != null;
+  }
 }
 
 async function isRateLimited(
@@ -110,10 +164,16 @@ export async function sendMessageAction(
     const thread = await canAccessThread(supabase, threadId, user.id);
     if (!thread) return { success: false, error: "スレッドが見つかりません" };
 
-    // A7: 退会済み相手へのメッセージ送信をブロック。scout / job-inquiry には
-    // 既にガードがあるが通常メッセージだけ抜けていた。canAccessThread が nested
-    // で取得した participant の deleted_at を使う（追加クエリ不要）。
-    if (isCounterpartWithdrawn(thread, user.id)) {
+    // R5.2 (A7 identity-based): viewer の active org を先に解決し、
+    // isCounterpartWithdrawn / isProxy 判定で使い回す。
+    const { active } = await getActiveOrganizationContext(supabase);
+    const isProxy = active?.isProxyAccount === true;
+    const viewerOrgId = active?.organizationId ?? null;
+
+    // A7 (R5.2): 退会/解散済み相手へのメッセージ送信をブロック。identity ベースで
+    // counterpart が組織なら organizations.deleted_at のみを見る (組織メンバー
+    // 入れ替えでの participant 退会は無視 = 組織スレッド継続)。
+    if (isCounterpartWithdrawn(thread, user.id, viewerOrgId)) {
       return { success: false, error: "相手のユーザーは退会されました" };
     }
 
@@ -121,10 +181,6 @@ export async function sendMessageAction(
     if (await isRateLimited(supabase, user.id)) {
       return { success: false, error: "送信頻度が高すぎます。しばらく待ってから再送信してください" };
     }
-
-    // Check if sender is a proxy account
-    const { active } = await getActiveOrganizationContext(supabase);
-    const isProxy = active?.isProxyAccount === true;
 
     // Validate body
     const body = formData.get("body") as string | null;

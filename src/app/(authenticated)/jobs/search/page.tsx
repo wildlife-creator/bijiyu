@@ -7,6 +7,7 @@ import {
   getMunicipalitiesByPrefecture,
 } from "@/lib/master/fetch";
 import { buildAreaFilterIds } from "@/lib/utils/area-search-clauses";
+import { buildSortLinkHref } from "@/lib/utils/build-sort-link";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -265,26 +266,15 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
   const favoritedIds = new Set((favorites ?? []).map((f) => f.target_id));
 
   // A9: ソート切替時に配列パラメータ (?municipality=A&municipality=B 等) が
-  // 落ちて絞り込みが解除される問題対策。URLSearchParams を append で組み立てる。
+  // 落ちて絞り込みが解除される問題対策。共通ヘルパー buildSortLinkHref で
+  // append 復元する (回帰テストは src/__tests__/utils/build-sort-link.test.ts)。
   const nextSort =
     sort === "newest"
       ? "reward_high"
       : sort === "reward_high"
         ? "reward_low"
         : "newest";
-  const sortLinkParams = new URLSearchParams();
-  for (const [key, val] of Object.entries(sp)) {
-    if (key === "sort") continue;
-    if (typeof val === "string") {
-      sortLinkParams.append(key, val);
-    } else if (Array.isArray(val)) {
-      for (const item of val) {
-        if (typeof item === "string") sortLinkParams.append(key, item);
-      }
-    }
-  }
-  sortLinkParams.set("sort", nextSort);
-  const sortLinkHref = `/jobs/search?${sortLinkParams.toString()}`;
+  const sortLinkHref = buildSortLinkHref("/jobs/search", sp, nextSort);
 
   return (
     <div className="min-h-dvh bg-muted">

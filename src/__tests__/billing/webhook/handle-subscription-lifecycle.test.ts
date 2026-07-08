@@ -231,6 +231,7 @@ function buildSubscription(
     cancel_at_period_end: boolean;
     period_start: number;
     period_end: number;
+    metadata: Record<string, string>;
   }> = {},
 ): Stripe.Subscription {
   const {
@@ -241,12 +242,14 @@ function buildSubscription(
     cancel_at_period_end = false,
     period_start = 1_700_000_000,
     period_end = 1_702_592_000,
+    metadata = {},
   } = overrides;
   return {
     id,
     status,
     schedule,
     cancel_at_period_end,
+    metadata,
     items: {
       data: [
         {
@@ -737,6 +740,60 @@ describe("customer.subscription.deleted", () => {
       "お支払い方法での決済が 7 日間確認できなかったため、有料プランの解約が完了しました。",
     );
     expect(args.html).not.toContain(
+      "以下の内容で有料プランの解約が完了しました。",
+    );
+  });
+
+  it("A8 (R5.3): past_due_since が set でも sub.metadata.bijiyu_cancel_source='manual_immediate' なら reason='manual' で送信、7 日プレフィックスは付かない", async () => {
+    // A8: 「即時解約 (cancelImmediatelyAction)」は past_due 中しか実行できないため
+    // past_due_since が常に non-null になる。metadata を優先しないと誤って
+    // "auto-past-due" と判定されて 7 日プレフィックス付きメールが送られてしまう。
+    const sub = buildSubscription({
+      metadata: { bijiyu_cancel_source: "manual_immediate" },
+    });
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-mi",
+            user_id: "user-mi",
+            plan_type: "individual",
+            // past_due_since は set (即時解約前段の past_due 状態を想定)
+            past_due_since: new Date(
+              Date.now() - 8 * 86_400_000,
+            ).toISOString(),
+          },
+        },
+        "select:users": {
+          data: {
+            email: "user-mi@test.local",
+            last_name: "山田",
+            first_name: "太郎",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_deleted: { data: {}, error: null },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
+    expect(args.subject).toBe("【ビジ友】有料プランのご解約が完了しました");
+    // A8: manual 判定なので 7 日プレフィックス「お支払い方法での決済が…」は付かない
+    expect(args.html).not.toContain(
+      "お支払い方法での決済が 7 日間確認できなかったため、有料プランの解約が完了しました。",
+    );
+    // manual 用の従来 opening が使われる
+    expect(args.html).toContain(
       "以下の内容で有料プランの解約が完了しました。",
     );
   });

@@ -8,6 +8,7 @@ import {
   areIdentityPairsEqual,
   type ThreadActorIdentity,
 } from "@/lib/messaging/identity";
+import { fetchAllRows } from "@/lib/admin/proxy-threads";
 import type { ActionResult } from "@/lib/types/action-result";
 
 // ---------------------------------------------------------------------------
@@ -88,14 +89,30 @@ export async function sendBulkMessagesAction(
           involvementOr.push(`organization_1_id.eq.${organizationId}`);
           involvementOr.push(`organization_2_id.eq.${organizationId}`);
         }
-        const { data: candidates } = await supabase
-          .from("message_threads")
-          .select(
-            "id, participant_1_id, participant_2_id, organization_1_id, organization_2_id",
-          )
-          .or(involvementOr.join(","));
+        // R5.1: 1000 件上限による静かな打ち切りを避けるため range ページネーション。
+        let candidates: Array<{
+          id: string;
+          participant_1_id: string;
+          participant_2_id: string;
+          organization_1_id: string | null;
+          organization_2_id: string | null;
+        }> = [];
+        try {
+          candidates = await fetchAllRows((from, to) =>
+            supabase
+              .from("message_threads")
+              .select(
+                "id, participant_1_id, participant_2_id, organization_1_id, organization_2_id",
+              )
+              .or(involvementOr.join(","))
+              .order("id", { ascending: true })
+              .range(from, to),
+          );
+        } catch {
+          candidates = [];
+        }
 
-        const existing = (candidates ?? []).find((t) => {
+        const existing = candidates.find((t) => {
           const p1: ThreadActorIdentity = {
             userId: t.participant_1_id,
             organizationId: t.organization_1_id,
