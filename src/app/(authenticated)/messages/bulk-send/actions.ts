@@ -2,7 +2,12 @@
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { bulkMessageSchema } from "@/lib/validations/message";
+import {
+  areIdentityPairsEqual,
+  type ThreadActorIdentity,
+} from "@/lib/messaging/identity";
 import type { ActionResult } from "@/lib/types/action-result";
 
 // ---------------------------------------------------------------------------
@@ -50,43 +55,73 @@ export async function sendBulkMessagesAction(
     const organizationId = active?.organizationId ?? null;
     const isProxy = active?.isProxyAccount === true;
 
+    // Phase 2: identity ベース検索用の admin client (相手 org 解決に必要)
+    const admin = createAdminClient();
+    const myIdentity: ThreadActorIdentity = {
+      userId: user.id,
+      organizationId,
+    };
+
     let sent = 0;
     let failed = 0;
 
     for (const recipientId of parsed.data.recipientIds) {
       try {
-        // Find existing thread (org-aware)
-        let threadId: string | null = null;
+        // 相手 (受信者) の組織 identity を admin 経由で解決
+        const { data: recipientOrgRow } = await admin
+          .from("organization_members")
+          .select("organization_id")
+          .eq("user_id", recipientId)
+          .maybeSingle();
+        const recipientOrgId = recipientOrgRow?.organization_id ?? null;
+        const targetIdentity: ThreadActorIdentity = {
+          userId: recipientId,
+          organizationId: recipientOrgId,
+        };
 
+        // 自分 (または自組織) が絡む候補を identity 列で拾い、identity ペア照合
+        const involvementOr = [
+          `participant_1_id.eq.${user.id}`,
+          `participant_2_id.eq.${user.id}`,
+        ];
         if (organizationId) {
-          const { data: existing } = await supabase
-            .from("message_threads")
-            .select("id")
-            .eq("organization_id", organizationId)
-            .eq("participant_2_id", recipientId)
-            .limit(1)
-            .maybeSingle();
-          threadId = existing?.id ?? null;
-        } else {
-          const { data: existing } = await supabase
-            .from("message_threads")
-            .select("id")
-            .or(
-              `and(participant_1_id.eq.${user.id},participant_2_id.eq.${recipientId}),and(participant_1_id.eq.${recipientId},participant_2_id.eq.${user.id})`,
-            )
-            .eq("thread_type", "message")
-            .limit(1)
-            .maybeSingle();
-          threadId = existing?.id ?? null;
+          involvementOr.push(`organization_1_id.eq.${organizationId}`);
+          involvementOr.push(`organization_2_id.eq.${organizationId}`);
         }
+        const { data: candidates } = await supabase
+          .from("message_threads")
+          .select(
+            "id, participant_1_id, participant_2_id, organization_1_id, organization_2_id",
+          )
+          .or(involvementOr.join(","));
+
+        const existing = (candidates ?? []).find((t) => {
+          const p1: ThreadActorIdentity = {
+            userId: t.participant_1_id,
+            organizationId: t.organization_1_id,
+          };
+          const p2: ThreadActorIdentity = {
+            userId: t.participant_2_id,
+            organizationId: t.organization_2_id,
+          };
+          return areIdentityPairsEqual(
+            [myIdentity, targetIdentity],
+            [p1, p2],
+          );
+        });
+
+        let threadId: string | null = existing?.id ?? null;
 
         if (!threadId) {
+          // 新規作成: identity 列を明示 set
           const { data: newThread, error: threadError } = await supabase
             .from("message_threads")
             .insert({
               participant_1_id: user.id,
               participant_2_id: recipientId,
-              organization_id: organizationId,
+              organization_1_id: organizationId,
+              organization_2_id: recipientOrgId,
+              organization_id: organizationId ?? recipientOrgId,
               thread_type: "message",
             })
             .select("id")

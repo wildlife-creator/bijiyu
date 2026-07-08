@@ -266,15 +266,37 @@ export async function respondToScoutAction(
       return { success: false, error: "このスカウトには既に応答済みです" };
     }
 
-    // Check that current user is the scout recipient (participant_2)
+    // Phase 2: スカウト受信者 = 個人 identity 側 (organization_X_id が null な side に居る
+    // personal participant)。受注者は必ず個人 identity という業務ルールに基づく。
+    // 「発注者 → 受注者」の方向は sender の側と反対側で決まるため、
+    // 「organization_X_id が null な side の participant_X_id が user.id」で判定する。
+    // これにより ①受注者起点スレッド (受注者 = participant_1) ②個人発注者スカウト
+    // の両ケースで正しく承諾/辞退できる。
     const { data: thread } = await supabase
       .from("message_threads")
-      .select("participant_2_id")
+      .select(
+        "participant_1_id, participant_2_id, organization_1_id, organization_2_id",
+      )
       .eq("id", scoutMessage.thread_id)
       .single();
 
-    if (!thread || thread.participant_2_id !== user.id) {
+    if (!thread) {
       return { success: false, error: "スカウトへの応答権限がありません" };
+    }
+
+    const isRecipientOnSide1 =
+      thread.organization_1_id === null &&
+      thread.participant_1_id === user.id;
+    const isRecipientOnSide2 =
+      thread.organization_2_id === null &&
+      thread.participant_2_id === user.id;
+    if (!isRecipientOnSide1 && !isRecipientOnSide2) {
+      return { success: false, error: "スカウトへの応答権限がありません" };
+    }
+
+    // 送信者本人による自分のスカウトへの応答は二重防御でブロック
+    if (scoutMessage.sender_id === user.id) {
+      return { success: false, error: "自身のスカウトには応答できません" };
     }
 
     // Update scout_status via admin client (no UPDATE RLS on messages)

@@ -9,6 +9,10 @@ import { scoutNotificationEmail } from "@/lib/email/templates/scout-notification
 import { scoutSentBroadcastEmail } from "@/lib/email/templates/scout-sent-broadcast";
 import { getOrganizationMemberRecipients } from "@/lib/email/recipients/organization-members";
 import {
+  areIdentityPairsEqual,
+  type ThreadActorIdentity,
+} from "@/lib/messaging/identity";
+import {
   getUserDisplayName,
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -18,45 +22,78 @@ import type { ActionResult } from "@/lib/types/action-result";
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
 
 // ---------------------------------------------------------------------------
-// Helper: find or create thread for org/individual + contractor pair
+// Helper: find or create thread by identity pair (Phase 2)
+// 相手 (受注者) の組織所属 identity も含めた identity ペアでスレッドを一意化。
+// 受注者起点スレッドや受注者⇔受注者などにも同一ロジックが通る。
 // ---------------------------------------------------------------------------
 async function findOrCreateThread(
   supabase: Awaited<ReturnType<typeof createClient>>,
+  admin: ReturnType<typeof createAdminClient>,
   userId: string,
   targetUserId: string,
   organizationId: string | null,
 ) {
-  // Search for existing thread
+  // 相手 (target) の組織 identity を admin 経由で解決
+  // (organization_members は同一組織メンバーのみ SELECT 可という RLS のため)
+  const { data: targetOrgRow } = await admin
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", targetUserId)
+    .maybeSingle();
+  const targetOrgId = targetOrgRow?.organization_id ?? null;
+
+  const myIdentity: ThreadActorIdentity = {
+    userId,
+    organizationId,
+  };
+  const targetIdentity: ThreadActorIdentity = {
+    userId: targetUserId,
+    organizationId: targetOrgId,
+  };
+
+  // 自分 (または自組織) が絡む候補を identity 列で拾い、JS で identity ペア照合
+  const involvementOr = [
+    `participant_1_id.eq.${userId}`,
+    `participant_2_id.eq.${userId}`,
+  ];
   if (organizationId) {
-    // Corporate: search by org + contractor
-    const { data: existing } = await supabase
-      .from("message_threads")
-      .select("id, thread_type")
-      .eq("organization_id", organizationId)
-      .eq("participant_2_id", targetUserId)
-      .limit(1)
-      .maybeSingle();
-    if (existing) return existing;
-  } else {
-    // Individual: search by participant pair
-    const { data: existing } = await supabase
-      .from("message_threads")
-      .select("id, thread_type")
-      .or(
-        `and(participant_1_id.eq.${userId},participant_2_id.eq.${targetUserId}),and(participant_1_id.eq.${targetUserId},participant_2_id.eq.${userId})`,
-      )
-      .limit(1)
-      .maybeSingle();
-    if (existing) return existing;
+    involvementOr.push(`organization_1_id.eq.${organizationId}`);
+    involvementOr.push(`organization_2_id.eq.${organizationId}`);
+  }
+  const { data: candidates } = await supabase
+    .from("message_threads")
+    .select(
+      "id, thread_type, participant_1_id, participant_2_id, organization_1_id, organization_2_id",
+    )
+    .or(involvementOr.join(","));
+
+  const existing = (candidates ?? []).find((t) => {
+    const p1: ThreadActorIdentity = {
+      userId: t.participant_1_id,
+      organizationId: t.organization_1_id,
+    };
+    const p2: ThreadActorIdentity = {
+      userId: t.participant_2_id,
+      organizationId: t.organization_2_id,
+    };
+    return areIdentityPairsEqual([myIdentity, targetIdentity], [p1, p2]);
+  });
+
+  if (existing) {
+    return { id: existing.id, thread_type: existing.thread_type };
   }
 
-  // Create new thread
+  // 新規作成: identity 列 (organization_1/2_id) を明示 set し、
+  // identity UNIQUE 制約 (idx_message_threads_identity_pair_unique) と整合させる。
+  // 旧 organization_id は片側 org を代表値として維持 (後方互換のため)。
   const { data: newThread, error } = await supabase
     .from("message_threads")
     .insert({
       participant_1_id: userId,
       participant_2_id: targetUserId,
-      organization_id: organizationId,
+      organization_1_id: organizationId,
+      organization_2_id: targetOrgId,
+      organization_id: organizationId ?? targetOrgId,
       thread_type: "scout",
     })
     .select("id, thread_type")
@@ -105,8 +142,9 @@ export async function sendScoutAction(
     const organizationId = active?.organizationId ?? null;
     const isProxy = active?.isProxyAccount === true;
 
-    // Find or create thread
-    const thread = await findOrCreateThread(supabase, user.id, parsed.data.userId, organizationId);
+    // Find or create thread (Phase 2: identity ベース)
+    const admin = createAdminClient();
+    const thread = await findOrCreateThread(supabase, admin, user.id, parsed.data.userId, organizationId);
     if (!thread) return { success: false, error: "スレッドの作成に失敗しました" };
 
     // Duplicate scout check: same job in same thread

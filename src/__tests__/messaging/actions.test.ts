@@ -112,7 +112,12 @@ function createQueryMock(terminator: Terminator = {}) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // `vi.clearAllMocks()` は mockReturnValueOnce の onceValues queue を残すため、
+  // 明示的に mockReset で queue 込みでクリアする (CLAUDE.md「Vitest モック関連」)。
+  mockGetUser.mockReset();
+  mockFrom.mockReset();
+  mockStorageFrom.mockReset();
+  mockAdminFrom.mockReset();
 });
 
 // ===========================================================================
@@ -357,11 +362,17 @@ describe("respondToScoutAction", () => {
         },
       }),
     );
-    // 2. message_threads.select (participant_2 = someone else)
+    // 2. message_threads.select (Phase 2: identity 4 列) — USER_ID はどちらの
+    //    「organization_X_id が null な side の participant」にも該当しない
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: {
-          data: { participant_2_id: OTHER_USER_ID },
+          data: {
+            participant_1_id: "99999999-0000-0000-0000-999999999999",
+            participant_2_id: OTHER_USER_ID,
+            organization_1_id: null,
+            organization_2_id: null,
+          },
           error: null,
         },
       }),
@@ -391,11 +402,16 @@ describe("respondToScoutAction", () => {
         },
       }),
     );
-    // 2. message_threads.select (current user is participant_2 = recipient)
+    // 2. message_threads.select (Phase 2: 4 列で organization_2_id=null な side に USER_ID)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: {
-          data: { participant_2_id: USER_ID },
+          data: {
+            participant_1_id: OTHER_USER_ID,
+            participant_2_id: USER_ID,
+            organization_1_id: null,
+            organization_2_id: null,
+          },
           error: null,
         },
       }),
@@ -435,10 +451,18 @@ describe("respondToScoutAction", () => {
         },
       }),
     );
-    // 2. message_threads.select
+    // 2. message_threads.select (Phase 2: 4 列)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
-        single: { data: { participant_2_id: USER_ID }, error: null },
+        single: {
+          data: {
+            participant_1_id: OTHER_USER_ID,
+            participant_2_id: USER_ID,
+            organization_1_id: null,
+            organization_2_id: null,
+          },
+          error: null,
+        },
       }),
     );
     // 3. admin.messages.update
@@ -513,7 +537,7 @@ describe("sendScoutAction", () => {
         single: { data: { role: "client" }, error: null },
       }),
     );
-    // 2. organization_members.select.maybeSingle → organization_id あり
+    // 2. organization_members.select.maybeSingle → organization_id あり (自分の active org)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -522,16 +546,32 @@ describe("sendScoutAction", () => {
         },
       }),
     );
-    // 3. findOrCreateThread: message_threads.select by organization_id.eq(org).eq(part2).limit(1).maybeSingle → 既存スレッド
+    // 3. Phase 2 findOrCreateThread: admin.organization_members で相手 (受注者) の
+    //    組織所属を解決 → 受注者は org 無し
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 4. message_threads.select.or(...) (thenable) → identity ペアが一致する既存スレッド
+    //    注: getActiveOrganizationContext は本テストの浅いモック配下では active=null を返し
+    //    実効 organizationId は null になる (個人プラン相当)。identity 一致は個人ペアで成立させる。
     mockFrom.mockReturnValueOnce(
       createQueryMock({
-        maybeSingle: {
-          data: { id: THREAD_ID, thread_type: "scout" },
+        thenable: {
+          data: [
+            {
+              id: THREAD_ID,
+              thread_type: "scout",
+              participant_1_id: USER_ID,
+              participant_2_id: CONTRACTOR_ID,
+              organization_1_id: null,
+              organization_2_id: null,
+            },
+          ],
           error: null,
         },
       }),
     );
-    // 4. messages.select (duplicate scout check).maybeSingle → なし
+    // 5. messages.select (duplicate scout check).maybeSingle → なし
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: { data: null, error: null },
@@ -576,7 +616,7 @@ describe("sendScoutAction", () => {
         single: { data: { role: "client" }, error: null },
       }),
     );
-    // 2. org member
+    // 2. org member (自分の active org)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -585,16 +625,30 @@ describe("sendScoutAction", () => {
         },
       }),
     );
-    // 3. findOrCreateThread: 既存スレッド取得
+    // 3. Phase 2 findOrCreateThread: admin で相手 (受注者) の org 解決 → 無し
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 4. message_threads.select.or → identity ペア一致で既存スレッド
+    //    (getActiveOrganizationContext モック上 active=null → 個人プラン相当)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
-        maybeSingle: {
-          data: { id: THREAD_ID, thread_type: "scout" },
+        thenable: {
+          data: [
+            {
+              id: THREAD_ID,
+              thread_type: "scout",
+              participant_1_id: USER_ID,
+              participant_2_id: CONTRACTOR_ID,
+              organization_1_id: null,
+              organization_2_id: null,
+            },
+          ],
           error: null,
         },
       }),
     );
-    // 4. messages.select (duplicate scout check) → 既存あり
+    // 5. messages.select (duplicate scout check) → 既存あり
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -618,19 +672,23 @@ describe("sendScoutAction", () => {
         single: { data: { role: "client" }, error: null },
       }),
     );
-    // 2. org member → なし
+    // 2. org member → なし (個人プラン)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: { data: null, error: null },
       }),
     );
-    // 3. findOrCreateThread: 個人プラン既存検索 .or(...).limit(1).maybeSingle → なし
+    // 3. Phase 2 findOrCreateThread: admin で相手 (受注者) の org 解決 → 無し
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 4. message_threads.select.or → identity ペア一致無し (candidates 空)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
-        maybeSingle: { data: null, error: null },
+        thenable: { data: [], error: null },
       }),
     );
-    // 4. findOrCreateThread: message_threads.insert.select.single → 新規作成成功
+    // 5. findOrCreateThread: message_threads.insert.select.single → 新規作成成功
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: {
@@ -736,7 +794,7 @@ describe("sendBulkMessagesAction", () => {
     expect(result.success).toBe(false);
   });
 
-  it("正常系: 法人プランで organization_id ベースの既存スレッドを再利用して送信", async () => {
+  it("正常系: 法人プランで identity ペア一致の既存スレッドを再利用して送信", async () => {
     mockAuth(USER_ID);
     // 1. role check → client
     mockFrom.mockReturnValueOnce(
@@ -744,7 +802,7 @@ describe("sendBulkMessagesAction", () => {
         single: { data: { role: "client" }, error: null },
       }),
     );
-    // 2. org member → organization あり
+    // 2. org member → organization あり (自分の active org)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: {
@@ -753,20 +811,33 @@ describe("sendBulkMessagesAction", () => {
         },
       }),
     );
-    // 3. message_threads.select.eq(org_id).eq(participant_2).limit.maybeSingle → 既存
+    // 3. Phase 2: admin で相手 (受注者) の org 解決 → 無し
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 4. message_threads.select.or → identity ペア一致で既存スレッド
+    //    (getActiveOrganizationContext モック上 active=null → 個人プラン相当)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
-        maybeSingle: {
-          data: { id: THREAD_ID },
+        thenable: {
+          data: [
+            {
+              id: THREAD_ID,
+              participant_1_id: USER_ID,
+              participant_2_id: CONTRACTOR_ID,
+              organization_1_id: null,
+              organization_2_id: null,
+            },
+          ],
           error: null,
         },
       }),
     );
-    // 4. messages.insert (no terminator) → 成功
+    // 5. messages.insert (no terminator) → 成功
     mockFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
-    // 5. message_threads.update.eq (updated_at)
+    // 6. message_threads.update.eq (updated_at)
     mockFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
@@ -796,23 +867,27 @@ describe("sendBulkMessagesAction", () => {
         },
       }),
     );
-    // 3. 既存スレッド検索 → なし
+    // 3. Phase 2: admin で相手 (受注者) の org 解決 → 無し
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 4. 既存スレッド検索 (thenable) → identity ペア一致無し
     mockFrom.mockReturnValueOnce(
       createQueryMock({
-        maybeSingle: { data: null, error: null },
+        thenable: { data: [], error: null },
       }),
     );
-    // 4. message_threads.insert.select.single → 新規作成
+    // 5. message_threads.insert.select.single → 新規作成
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: { data: { id: THREAD_ID }, error: null },
       }),
     );
-    // 5. messages.insert → 成功
+    // 6. messages.insert → 成功
     mockFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
-    // 6. message_threads.update.eq
+    // 7. message_threads.update.eq
     mockFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );

@@ -68,18 +68,18 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
     myOrgId,
   );
 
-  // Scout actions: 個人 identity 側 + 相手が組織側 のときのみ表示
-  const viewerCounterpartIsOrgSide = counterparty.viewerOnSide2
-    ? thread.organization_1_id !== null
-    : thread.organization_2_id !== null;
-  const viewerIsIndividualParticipant =
-    (thread.participant_1_id === user.id ||
-      thread.participant_2_id === user.id) &&
-    !counterparty.viewerIsOrgSide;
+  // Phase 2: スカウト応答ボタンは「個人 identity 側 (organization_X_id が null な side に
+  // 居る personal participant)」なら表示。受注者は必ず個人 identity という業務ルールに基づく。
+  // 旧実装は「counterpart が組織側」を追加要件にしていたため、個人発注者スカウトを
+  // 受け取った受注者側でボタンが出ない (R2 ②) バグがあった。
+  // 送信者本人の重複表示は respondToScoutAction 側で二重防御でブロックする。
+  const viewerIsPersonalIndividualParticipant =
+    (thread.participant_1_id === user.id &&
+      thread.organization_1_id === null) ||
+    (thread.participant_2_id === user.id &&
+      thread.organization_2_id === null);
   const showScoutActions =
-    sp.showScoutActions !== "false" &&
-    viewerIsIndividualParticipant &&
-    viewerCounterpartIsOrgSide;
+    sp.showScoutActions !== "false" && viewerIsPersonalIndividualParticipant;
 
   // 代理バッジは viewer が組織側 (送信元組織メンバー) のときのみ表示
   const showProxyBadge = counterparty.viewerIsOrgSide;
