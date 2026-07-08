@@ -868,6 +868,10 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          last_email_to_client_side_at: string | null
+          last_email_to_contractor_at: string | null
+          organization_1_id: string | null
+          organization_2_id: string | null
           organization_id: string | null
           participant_1_id: string
           participant_2_id: string
@@ -877,6 +881,10 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          last_email_to_client_side_at?: string | null
+          last_email_to_contractor_at?: string | null
+          organization_1_id?: string | null
+          organization_2_id?: string | null
           organization_id?: string | null
           participant_1_id: string
           participant_2_id: string
@@ -886,6 +894,10 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          last_email_to_client_side_at?: string | null
+          last_email_to_contractor_at?: string | null
+          organization_1_id?: string | null
+          organization_2_id?: string | null
           organization_id?: string | null
           participant_1_id?: string
           participant_2_id?: string
@@ -893,6 +905,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "message_threads_organization_1_id_fkey"
+            columns: ["organization_1_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_threads_organization_2_id_fkey"
+            columns: ["organization_2_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "message_threads_organization_id_fkey"
             columns: ["organization_id"]
@@ -1901,4 +1927,3 @@ export const Constants = {
     },
   },
 } as const
-
