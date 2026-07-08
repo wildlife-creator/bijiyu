@@ -540,6 +540,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   - 例: 法人プランへのアップグレード時、`stripe.subscriptions.update()` の直後に `subscriptions.plan_type` を先行 UPDATE し、`ensure_organization_exists` を先行 RPC で呼ぶ
   - Webhook（`handle_subscription_lifecycle_updated`）で同じ更新が再実行されるが、冪等な操作なので二重実行しても安全
 - 該当 Webhook ハンドラのロジックはできるだけ冪等に保つ。Server Action の先行更新とぶつかっても問題ないように設計する
+- **先行 UPDATE を追加したら Webhook 側の diff ベースメール送信が黙って skip されないか必ず確認する（必ず守ること）**: `handle-subscription-lifecycle.ts` の `maybeSendChangedEmail` は (a) `plan_type` / (c) `cancel_at_period_end false→true` / (d-1) `schedule_id non-null→null` / (d-2) `cancel_at_period_end true→false` の 4 分岐を **「snapshot と after の差分」** で判定してメール送信する。Server Action で先行 UPDATE を入れると snapshot がすでに新状態になっていて diff が消え、**メールがサイレントに飛ばなくなる**。対策: 先行 UPDATE を入れる Server Action は該当メールも **Server Action 側で同期送信** し、Webhook 側は先行 UPDATE 失敗時のフォールバックにする。実装基準: `plan-actions.ts` の `sendSubscriptionChangedEmail(admin, userId, params)` ヘルパー。**2026-07-07 A5 (upgrade-immediate) + 2026-07-08 A5-follow-up (cancel-reserved / reservation-removed-downgrade / reservation-removed-cancel) で連続再発**。新しい billing Server Action で先行 UPDATE を追加する際は、それが `maybeSendChangedEmail` のどの分岐の diff を潰すか目視でチェックし、潰す場合はセットでメール送信も足すこと
 
 ### Next.js Router Cache とリダイレクトキャッシュ（必ず守ること）
 - Next.js の App Router は Server Component のレスポンス（redirect 含む）をクライアント側 Router Cache に保持することがある
