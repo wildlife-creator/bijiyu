@@ -4,7 +4,7 @@
 -- - anon / authenticated cannot SELECT (service_role only)
 -- ============================================================
 BEGIN;
-SELECT plan(7);
+SELECT plan(9);
 
 -- ============================================================
 -- Test UUIDs (unique to this test, not in seed.sql)
@@ -88,12 +88,61 @@ SELECT is(
 );
 
 -- ============================================================
--- Test 5: contractor_id maps to participant_2_id
+-- Test 5: contractor_id = organization_X_id が null な side の participant_X_id
+-- (通常方向スレッド: participant_2 = 受注者 = 個人 identity)
 -- ============================================================
 SELECT is(
   (SELECT contractor_id FROM admin_proxy_threads WHERE thread_id = 'fade6666-6666-6666-6666-666666666666'),
   'fade2222-2222-2222-2222-222222222222'::uuid,
-  'contractor_id maps to participant_2_id'
+  'contractor_id maps to participant_2 side when organization_2 is null'
+);
+
+-- ============================================================
+-- Test 5b (R4): 受注者起点スレッド (participant_1 = 受注者、
+-- organization_1_id = null、organization_2_id = org) でも
+-- contractor_id が participant_1 側に解決されること。
+-- 旧設計では participant_2 決め打ちで職人/発注者欄が逆転していた。
+-- ============================================================
+
+-- 新規 contractor (identity ペア重複回避用)
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES ('fade4444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-proxy-con-init@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+VALUES ('fade4444-4444-4444-4444-444444444444', 'fade4444-4444-4444-4444-444444444444', 'test-proxy-con-init@test.local', '{"sub":"fade4444-4444-4444-4444-444444444444","email":"test-proxy-con-init@test.local"}', 'email', now(), now(), now());
+UPDATE public.users SET role = 'contractor', last_name = '受注者', first_name = '起点' WHERE id = 'fade4444-4444-4444-4444-444444444444';
+
+INSERT INTO message_threads (
+  id, organization_id, organization_1_id, organization_2_id,
+  participant_1_id, participant_2_id, thread_type
+) VALUES (
+  'fadeaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  'fade5555-5555-5555-5555-555555555555',
+  NULL,
+  'fade5555-5555-5555-5555-555555555555',
+  'fade4444-4444-4444-4444-444444444444', -- 受注者 (個人 identity、participant_1)
+  'fade1111-1111-1111-1111-111111111111', -- 発注者オーナー (participant_2)
+  'message'
+);
+INSERT INTO messages (id, thread_id, sender_id, body, is_proxy)
+VALUES (
+  'fadebbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+  'fadeaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  'fade1111-1111-1111-1111-111111111111',
+  '代理メッセ (受注者起点スレッド)',
+  true
+);
+
+SELECT is(
+  (SELECT contractor_id FROM admin_proxy_threads WHERE thread_id = 'fadeaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'fade4444-4444-4444-4444-444444444444'::uuid,
+  'R4: 受注者起点スレッドでも contractor_id が participant_1 (個人 identity 側) に解決される'
+);
+
+-- Bonus: organization_id も新カラムベースで解決される (COALESCE)
+SELECT is(
+  (SELECT organization_id FROM admin_proxy_threads WHERE thread_id = 'fadeaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'fade5555-5555-5555-5555-555555555555'::uuid,
+  'R4: 受注者起点スレッドの organization_id が organization_2_id から COALESCE で解決される'
 );
 
 -- ============================================================
