@@ -31,7 +31,10 @@ import { sendMessageNotification } from "@/lib/email/send/message-notification";
 
 type ChainResponse =
   | { kind: "maybeSingle"; data: unknown; error?: unknown }
-  | { kind: "update"; data?: unknown; error?: unknown };
+  | { kind: "update"; data?: unknown; error?: unknown }
+  // R3 fix (兼任スタッフ対応): terminator なしで .eq() 後に直接 await するクエリ用。
+  // 現行は sender の全 org 所属 SELECT (organization_members.select.eq(user_id) → 配列)
+  | { kind: "list"; data: unknown[]; error?: unknown };
 
 interface ChainCall {
   table: string;
@@ -71,12 +74,13 @@ function makeMockAdmin(queue: ChainResponse[]): MockAdmin {
       }),
       eq: vi.fn((col: string, val: unknown) => {
         callRecord.eqCalls.push([col, val]);
-        return response.kind === "update"
-          ? Promise.resolve({
-              data: response.data ?? null,
-              error: response.error ?? null,
-            })
-          : chain;
+        if (response.kind === "update" || response.kind === "list") {
+          return Promise.resolve({
+            data: response.data ?? null,
+            error: response.error ?? null,
+          });
+        }
+        return chain;
       }),
       update: vi.fn((payload: Record<string, unknown>) => {
         callRecord.updatePayload = payload;
@@ -579,8 +583,10 @@ describe("sendMessageNotification — sender が participant でない (代理�
   it("sender が organization_1_id のメンバー → side 1 として扱い、受信は side 2", async () => {
     const PROXY_STAFF_ID = "99999999-9999-9999-9999-999999999999";
     const admin = makeMockAdmin([
-      // 1. sender の organization_members (代理スタッフの所属 org)
-      { kind: "maybeSingle", data: { organization_id: ORG_ID } },
+      // 1. sender の organization_members (代理スタッフの所属 org 全件)
+      //    R3: maybeSingle → 全件配列に変更。兼任スタッフでも multi-row error に
+      //    ならず正しく thread の org 側と Set 突き合わせできる。
+      { kind: "list", data: [{ organization_id: ORG_ID }] },
       // 2. clock (受信 = side 2 → contractor)
       { kind: "maybeSingle", data: { last_email_to_contractor_at: null } },
       // 3. receiver
@@ -638,8 +644,8 @@ describe("sendMessageNotification — sender が participant でない (代理�
 
   it("sender が organization_1/2 いずれのメンバーでもない → 通知 skip (安全側)", async () => {
     const admin = makeMockAdmin([
-      // sender org 解決 → 未帰属
-      { kind: "maybeSingle", data: null },
+      // sender org 解決 → 未帰属 (list 空)
+      { kind: "list", data: [] },
     ]);
 
     await sendMessageNotification(
@@ -660,5 +666,74 @@ describe("sendMessageNotification — sender が participant でない (代理�
     );
 
     expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("R3: 兼任スタッフ (2 組織所属) が自分の担当スレッドに返信 → 通知が正しく飛ぶ", async () => {
+    // 兼任スタッフが ORG_ID と OTHER_ORG_ID の 2 組織に所属している状況で
+    // ORG_ID 側のスレッドに返信する。旧実装 (.maybeSingle) では multi-row エラーで
+    // 通知が消えていた。R3 fix で全件取得 + Set 突き合わせに変更したことで、
+    // 正しく side 1 と判定されて side 2 (受注者) に通知が飛ぶことを検証。
+    const MULTI_ORG_STAFF_ID = "cccc0000-cccc-cccc-cccc-cccccccccccc";
+    const admin = makeMockAdmin([
+      // 1. sender の organization_members: 2 行返す (兼任)
+      {
+        kind: "list",
+        data: [
+          { organization_id: ORG_ID },
+          { organization_id: OTHER_ORG_ID },
+        ],
+      },
+      // 2. clock (受信側 = side 2 = contractor)
+      { kind: "maybeSingle", data: { last_email_to_contractor_at: null } },
+      // 3. receiver
+      {
+        kind: "maybeSingle",
+        data: {
+          email: "receiver@example.com",
+          last_name: "受注",
+          first_name: "者",
+          company_name: null,
+          deleted_at: null,
+          client_profiles: null,
+        },
+      },
+      // 4. sender org owner (組織側 display_name 解決)
+      {
+        kind: "maybeSingle",
+        data: {
+          owner_user: {
+            last_name: "オ",
+            first_name: "ーナー",
+            deleted_at: null,
+            client_profiles: [{ display_name: "兼任テスト工務店" }],
+          },
+        },
+      },
+      { kind: "update" },
+    ]);
+
+    await sendMessageNotification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      admin as any,
+      {
+        threadId: THREAD_ID,
+        thread: {
+          participant_1_id: "88880000-8888-8888-8888-888888888888",
+          participant_2_id: RECEIVER_ID,
+          organization_1_id: ORG_ID,
+          organization_2_id: null,
+        },
+        senderId: MULTI_ORG_STAFF_ID,
+        messageBody: "兼任スタッフからの返信",
+        hasImage: false,
+      },
+    );
+
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const emailArgs = sendEmailMock.mock.calls[0]?.[0] as
+      | { html: string; to: string }
+      | undefined;
+    expect(emailArgs?.to).toBe("receiver@example.com");
+    expect(emailArgs?.html).toContain("兼任テスト工務店");
   });
 });

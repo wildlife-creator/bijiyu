@@ -79,17 +79,26 @@ export async function sendMessageNotification(
   } else if (thread.participant_2_id === senderId) {
     senderOnSide2 = true;
   } else {
-    // sender が participant でない場合 = 送信元組織の他メンバー (Staff/Admin)
-    // sender の active org を organization_1_id / organization_2_id と突き合わせる
-    const { data: senderOrg } = await admin
+    // sender が participant でない場合 = 送信元組織の他メンバー (Staff/Admin)。
+    // 兼任スタッフ (2 組織以上に所属) が来ても .maybeSingle() で
+    // multi-row error になって通知が消える (R3) のを避けるため、
+    // 所属全 org を取得して thread の org 側と Set で突き合わせる。
+    const { data: senderOrgRows } = await admin
       .from("organization_members")
       .select("organization_id")
-      .eq("user_id", senderId)
-      .maybeSingle();
-    const senderOrgId = senderOrg?.organization_id ?? null;
-    if (senderOrgId && senderOrgId === thread.organization_1_id) {
+      .eq("user_id", senderId);
+    const senderOrgIds = new Set(
+      (senderOrgRows ?? []).map((r) => r.organization_id),
+    );
+    if (
+      thread.organization_1_id &&
+      senderOrgIds.has(thread.organization_1_id)
+    ) {
       senderOnSide2 = false;
-    } else if (senderOrgId && senderOrgId === thread.organization_2_id) {
+    } else if (
+      thread.organization_2_id &&
+      senderOrgIds.has(thread.organization_2_id)
+    ) {
       senderOnSide2 = true;
     } else {
       // sender の帰属が判定できないケースは通知を諦める (安全側)
