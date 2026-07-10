@@ -22,6 +22,12 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     ).toBeVisible();
     await expect(page.getByText("タイトル 必須")).toBeVisible();
     await expect(page.getByText("募集職種 必須")).toBeVisible();
+    // 発注者からのメッセージは必須（UI マークと Zod schema を整合）
+    await expect(
+      page.getByText("発注者からのメッセージ 必須")
+    ).toBeVisible();
+    // 稼働時間は任意（「必須」マークを付けない）
+    await expect(page.getByText("稼働時間 必須")).toHaveCount(0);
   });
 
   test("案件を下書き保存できる", async ({ page }) => {
@@ -153,6 +159,11 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     await page.locator('input[type="date"]').nth(3).fill(format(endMonth));
     await page.locator('input[type="date"]').nth(4).fill(format(today));
     await page.locator('input[type="date"]').nth(5).fill(format(nextMonth));
+
+    // 発注者からのメッセージ（必須）— エリア件数エラーのみを分離するため埋める
+    await page
+      .getByPlaceholder("応募者へのメッセージを入力")
+      .fill("ご応募お待ちしております。");
 
     const publishBtn = page.getByRole("button", { name: "公開する" });
     await expect(publishBtn).toBeEnabled();

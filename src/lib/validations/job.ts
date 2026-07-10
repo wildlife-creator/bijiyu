@@ -7,6 +7,25 @@ import {
 } from "@/lib/validations/area";
 
 // ---------------------------------------------------------------------------
+// 日付の許容範囲（年の桁あふれ・非常識な値を防ぐ。UI の min/max と一致させる）
+// ---------------------------------------------------------------------------
+export const JOB_DATE_MIN = "2020-01-01";
+export const JOB_DATE_MAX = "2099-12-31";
+const JOB_DATE_RANGE_MESSAGE = "日付は2020年〜2099年の範囲で入力してください";
+
+/**
+ * 日付文字列が YYYY-MM-DD 形式かつ許容範囲内かを判定する。
+ * 空欄 / undefined は「未入力」として true を返す（必須判定は min(1) 側が担う）。
+ * 年が5桁以上（例: date input への 6 桁入力 "123456-01-01"）は正規表現で弾く。
+ * ISO 形式はゼロ埋めのため辞書順比較がそのまま日付比較として成立する。
+ */
+function isJobDateInRange(value: string | undefined): boolean {
+  if (!value) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  return value >= JOB_DATE_MIN && value <= JOB_DATE_MAX;
+}
+
+// ---------------------------------------------------------------------------
 // Job form validation schema
 // ---------------------------------------------------------------------------
 export const jobSchema = z
@@ -38,12 +57,32 @@ export const jobSchema = z
       message: "エリアを1つ以上選択してください",
     }),
     // 工事全体の工期は任意入力
-    projectStartDate: z.string().optional().or(z.literal("")),
-    projectEndDate: z.string().optional().or(z.literal("")),
-    workStartDate: z.string().min(1, "稼働期間の開始日を選択してください"),
-    workEndDate: z.string().min(1, "稼働期間の終了日を選択してください"),
-    recruitStartDate: z.string().min(1, "応募受付の開始日を選択してください"),
-    recruitEndDate: z.string().min(1, "応募受付の終了日を選択してください"),
+    projectStartDate: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+    projectEndDate: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+    workStartDate: z
+      .string()
+      .min(1, "稼働期間の開始日を選択してください")
+      .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+    workEndDate: z
+      .string()
+      .min(1, "稼働期間の終了日を選択してください")
+      .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+    recruitStartDate: z
+      .string()
+      .min(1, "応募受付の開始日を選択してください")
+      .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+    recruitEndDate: z
+      .string()
+      .min(1, "応募受付の終了日を選択してください")
+      .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
     headcount: z
       .number({ message: "募集人数は数値で入力してください" })
       .int()
@@ -57,7 +96,11 @@ export const jobSchema = z
     items: z.string().max(500).optional().or(z.literal("")),
     scheduleDetail: z.string().max(2000).optional().or(z.literal("")),
     projectDetails: z.string().max(2000).optional().or(z.literal("")),
-    ownerMessage: z.string().max(2000).optional().or(z.literal("")),
+    // 発注者からのメッセージは必須（UI の「必須」マーク・デザインカンプ CLI-004 と整合）
+    ownerMessage: z
+      .string()
+      .min(1, "発注者からのメッセージを入力してください")
+      .max(2000, "発注者からのメッセージは2000文字以内で入力してください"),
     status: z.enum(["draft", "open", "closed"]),
   })
   .refine(
@@ -131,12 +174,36 @@ export const jobDraftSchema = z.object({
     .refine((arr) => expandAreasForDb(arr).length <= 10, {
       message: areaErrorMessages.tooManyAreasForJob,
     }),
-  projectStartDate: z.string().optional().or(z.literal("")),
-  projectEndDate: z.string().optional().or(z.literal("")),
-  workStartDate: z.string().optional().or(z.literal("")),
-  workEndDate: z.string().optional().or(z.literal("")),
-  recruitStartDate: z.string().optional().or(z.literal("")),
-  recruitEndDate: z.string().optional().or(z.literal("")),
+  projectStartDate: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+  projectEndDate: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+  workStartDate: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+  workEndDate: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+  recruitStartDate: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
+  recruitEndDate: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(isJobDateInRange, JOB_DATE_RANGE_MESSAGE),
   headcount: z.number().int().positive().optional().or(z.nan()),
   workHours: z.string().max(200).optional().or(z.literal("")),
   experienceYears: z.string().max(100).optional().or(z.literal("")),

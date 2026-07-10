@@ -44,7 +44,7 @@ describe("jobSchema", () => {
     items: "",
     scheduleDetail: "",
     projectDetails: "",
-    ownerMessage: "",
+    ownerMessage: "ご応募お待ちしております。",
     location: "",
     etcMessage: "",
     status: "draft" as const,
@@ -70,10 +70,68 @@ describe("jobSchema", () => {
       recruitStartDate: "2026-03-01",
       recruitEndDate: "2026-03-31",
       headcount: 1,
+      ownerMessage: "ご応募お待ちしております。",
       language: [],
       status: "draft" as const,
     };
     const result = jobSchema.safeParse(minimalInput);
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects when ownerMessage is empty (発注者からのメッセージは必須)", () => {
+    const result = jobSchema.safeParse({ ...validInput, ownerMessage: "" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const error = result.error.issues.find((i) =>
+        i.path.includes("ownerMessage")
+      );
+      expect(error?.message).toBe(
+        "発注者からのメッセージを入力してください"
+      );
+    }
+  });
+
+  it("rejects a date with a 5+ digit year (年の桁あふれ)", () => {
+    const result = jobSchema.safeParse({
+      ...validInput,
+      workStartDate: "123456-04-01",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const error = result.error.issues.find((i) =>
+        i.path.includes("workStartDate")
+      );
+      expect(error?.message).toBe(
+        "日付は2020年〜2099年の範囲で入力してください"
+      );
+    }
+  });
+
+  it("rejects a date after the allowed range (2100年以降)", () => {
+    const result = jobSchema.safeParse({
+      ...validInput,
+      workStartDate: "2100-01-01",
+      workEndDate: "2100-02-01",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a date before the allowed range (2019年以前)", () => {
+    const result = jobSchema.safeParse({
+      ...validInput,
+      recruitStartDate: "2019-12-31",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts the boundary dates 2020-01-01 / 2099-12-31", () => {
+    const result = jobSchema.safeParse({
+      ...validInput,
+      recruitStartDate: "2020-01-01",
+      recruitEndDate: "2020-01-02",
+      workStartDate: "2099-12-30",
+      workEndDate: "2099-12-31",
+    });
     expect(result.success).toBe(true);
   });
 

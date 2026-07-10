@@ -96,7 +96,7 @@ function buildValidFormData(overrides: Record<string, string> = {}): FormData {
     items: "",
     scheduleDetail: "",
     projectDetails: "",
-    ownerMessage: "",
+    ownerMessage: "ご応募お待ちしております。",
     location: "",
     etcMessage: "",
     status: "draft",

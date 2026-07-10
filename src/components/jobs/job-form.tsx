@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
@@ -18,7 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { jobSchema, type JobFormValues } from "@/lib/validations/job";
+import {
+  jobSchema,
+  JOB_DATE_MIN,
+  JOB_DATE_MAX,
+  type JobFormValues,
+} from "@/lib/validations/job";
 import {
   uploadFilesDirect,
   IMAGE_UPLOAD_RULE_10MB,
@@ -56,6 +61,35 @@ interface JobFormProps {
   existingDeprecatedMunicipalitiesByPrefecture?: Record<string, string[]>;
 }
 
+// 数値入力のスピナー（上下矢印）を非表示にし、誤操作を防ぐ Tailwind ユーティリティ。
+// カスタム CSS を増やさず arbitrary variant で完結させる。
+const NUMBER_INPUT_CLASS =
+  "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+
+// マウスホイールによる値の誤変更（30000 → 30001 等）を防ぐ。
+function blurOnWheel(e: React.WheelEvent<HTMLInputElement>) {
+  e.currentTarget.blur();
+}
+
+// 公開バリデーション失敗時に「最初の不備箇所」へスクロールするための DOM 順序。
+// 各フィールドのラッパーに data-field={name} を付与し、この順で先頭の不備を探す。
+const FIELD_ORDER = [
+  "title",
+  "description",
+  "rewardUpper",
+  "rewardLower",
+  "areas",
+  "tradeTypes",
+  "headcount",
+  "projectStartDate",
+  "projectEndDate",
+  "workStartDate",
+  "workEndDate",
+  "recruitStartDate",
+  "recruitEndDate",
+  "ownerMessage",
+] as const;
+
 export function JobForm({
   mode,
   defaultValues,
@@ -70,6 +104,7 @@ export function JobForm({
   const [isPending, startTransition] = useTransition();
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState(initialExistingImages);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const {
     register,
@@ -125,6 +160,19 @@ export function JobForm({
     },
     [jobId]
   );
+
+  // バリデーション失敗時: 内部フィールド名を出さず単一行トースト + 最初の不備へスクロール
+  // （会員登録フォームと同じ「各項目直下の赤字 + 先頭エラーへ誘導」方式）
+  const onInvalid = useCallback((fieldErrors: FieldErrors<JobFormValues>) => {
+    toast.error("入力内容に不備があります");
+    const firstKey = FIELD_ORDER.find((key) => key in fieldErrors);
+    if (firstKey) {
+      const el = formRef.current?.querySelector<HTMLElement>(
+        `[data-field="${firstKey}"]`,
+      );
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
 
   function onSubmit(data: JobFormValues) {
     startTransition(async () => {
@@ -205,19 +253,18 @@ export function JobForm({
         (data as JobFormValues).status = "open";
         onSubmit(data as JobFormValues);
       },
-      (fieldErrors) => {
-        const errorFields = Object.entries(fieldErrors)
-          .map(([key, err]) => `${key}: ${err?.message}`)
-          .join(", ");
-        toast.error(`入力内容に不備があります: ${errorFields}`);
-      },
+      onInvalid,
     )();
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
+      className="space-y-8"
+    >
       {/* タイトル */}
-      <div className="space-y-1">
+      <div className="space-y-1" data-field="title">
         <Label>
           タイトル <span className="text-destructive">必須</span>
         </Label>
@@ -230,7 +277,7 @@ export function JobForm({
       </div>
 
       {/* 案件詳細 */}
-      <div className="space-y-1">
+      <div className="space-y-1" data-field="description">
         <Label>
           案件詳細 <span className="text-destructive">必須</span>
         </Label>
@@ -251,13 +298,15 @@ export function JobForm({
         <h2 className="text-heading-md font-bold text-secondary">条件</h2>
 
         {/* 報酬上限（人工） */}
-        <div className="space-y-1">
+        <div className="space-y-1" data-field="rewardUpper">
           <Label>
             報酬上限（人工） <span className="text-destructive">必須</span>
           </Label>
           <div className="flex items-center gap-2">
             <Input
               type="number"
+              className={NUMBER_INPUT_CLASS}
+              onWheel={blurOnWheel}
               {...register("rewardUpper", { valueAsNumber: true })}
               placeholder="上限"
             />
@@ -271,11 +320,13 @@ export function JobForm({
         </div>
 
         {/* 報酬下限（人工） */}
-        <div className="space-y-1">
+        <div className="space-y-1" data-field="rewardLower">
           <Label>報酬下限（人工）</Label>
           <div className="flex items-center gap-2">
             <Input
               type="number"
+              className={NUMBER_INPUT_CLASS}
+              onWheel={blurOnWheel}
               {...register("rewardLower", { valueAsNumber: true })}
               placeholder="下限"
             />
@@ -289,7 +340,7 @@ export function JobForm({
         </div>
 
         {/* エリア (1案件最大 10 件、県跨ぎ可、市区町村未指定 = 全域/現場未定 可) */}
-        <div className="space-y-1">
+        <div className="space-y-1" data-field="areas">
           <Label>
             エリア <span className="text-destructive">必須</span>
           </Label>
@@ -313,7 +364,7 @@ export function JobForm({
         </div>
 
         {/* 募集職種 (MasterCombobox multi, 1 件以上必須 / 下書きは 0 件可) */}
-        <div className="space-y-1">
+        <div className="space-y-1" data-field="tradeTypes">
           <Label>
             募集職種 <span className="text-destructive">必須</span>
           </Label>
@@ -341,12 +392,14 @@ export function JobForm({
         </div>
 
         {/* 募集人数 */}
-        <div className="space-y-1">
+        <div className="space-y-1" data-field="headcount">
           <Label>
             募集人数（人） <span className="text-destructive">必須</span>
           </Label>
           <Input
             type="number"
+            className={NUMBER_INPUT_CLASS}
+            onWheel={blurOnWheel}
             {...register("headcount", { valueAsNumber: true })}
             placeholder="人数"
           />
@@ -360,19 +413,38 @@ export function JobForm({
         {/* 工事全体の工期（任意） */}
         <div className="space-y-1">
           <Label>工事全体の工期</Label>
-          <div className="flex items-center gap-2">
-            <Input type="date" {...register("projectStartDate")} />
-            <span className="text-body-md">〜</span>
-            <Input type="date" {...register("projectEndDate")} />
+          <div className="flex items-start gap-2">
+            <div className="flex-1 space-y-1" data-field="projectStartDate">
+              <Input
+                type="date"
+                min={JOB_DATE_MIN}
+                max={JOB_DATE_MAX}
+                {...register("projectStartDate")}
+              />
+              {errors.projectStartDate && (
+                <p className="text-body-sm text-destructive">
+                  {errors.projectStartDate.message}
+                </p>
+              )}
+            </div>
+            <span className="mt-2 text-body-md">〜</span>
+            <div className="flex-1 space-y-1" data-field="projectEndDate">
+              <Input
+                type="date"
+                min={JOB_DATE_MIN}
+                max={JOB_DATE_MAX}
+                {...register("projectEndDate")}
+              />
+              {errors.projectEndDate && (
+                <p className="text-body-sm text-destructive">
+                  {errors.projectEndDate.message}
+                </p>
+              )}
+            </div>
           </div>
           <p className="text-body-xs text-muted-foreground">
             工事プロジェクト全体の期間です（着工〜竣工の予定）
           </p>
-          {errors.projectEndDate && (
-            <p className="text-body-sm text-destructive">
-              {errors.projectEndDate.message}
-            </p>
-          )}
         </div>
 
         {/* 稼働期間 */}
@@ -380,24 +452,38 @@ export function JobForm({
           <Label>
             稼働期間 <span className="text-destructive">必須</span>
           </Label>
-          <div className="flex items-center gap-2">
-            <Input type="date" {...register("workStartDate")} />
-            <span className="text-body-md">〜</span>
-            <Input type="date" {...register("workEndDate")} />
+          <div className="flex items-start gap-2">
+            <div className="flex-1 space-y-1" data-field="workStartDate">
+              <Input
+                type="date"
+                min={JOB_DATE_MIN}
+                max={JOB_DATE_MAX}
+                {...register("workStartDate")}
+              />
+              {errors.workStartDate && (
+                <p className="text-body-sm text-destructive">
+                  {errors.workStartDate.message}
+                </p>
+              )}
+            </div>
+            <span className="mt-2 text-body-md">〜</span>
+            <div className="flex-1 space-y-1" data-field="workEndDate">
+              <Input
+                type="date"
+                min={JOB_DATE_MIN}
+                max={JOB_DATE_MAX}
+                {...register("workEndDate")}
+              />
+              {errors.workEndDate && (
+                <p className="text-body-sm text-destructive">
+                  {errors.workEndDate.message}
+                </p>
+              )}
+            </div>
           </div>
           <p className="text-body-xs text-muted-foreground">
             募集する職人の方に実際に働いてもらう期間です
           </p>
-          {errors.workStartDate && (
-            <p className="text-body-sm text-destructive">
-              {errors.workStartDate.message}
-            </p>
-          )}
-          {errors.workEndDate && (
-            <p className="text-body-sm text-destructive">
-              {errors.workEndDate.message}
-            </p>
-          )}
         </div>
 
         {/* 応募受付期間 */}
@@ -405,31 +491,43 @@ export function JobForm({
           <Label>
             応募受付期間 <span className="text-destructive">必須</span>
           </Label>
-          <div className="flex items-center gap-2">
-            <Input type="date" {...register("recruitStartDate")} />
-            <span className="text-body-md">〜</span>
-            <Input type="date" {...register("recruitEndDate")} />
+          <div className="flex items-start gap-2">
+            <div className="flex-1 space-y-1" data-field="recruitStartDate">
+              <Input
+                type="date"
+                min={JOB_DATE_MIN}
+                max={JOB_DATE_MAX}
+                {...register("recruitStartDate")}
+              />
+              {errors.recruitStartDate && (
+                <p className="text-body-sm text-destructive">
+                  {errors.recruitStartDate.message}
+                </p>
+              )}
+            </div>
+            <span className="mt-2 text-body-md">〜</span>
+            <div className="flex-1 space-y-1" data-field="recruitEndDate">
+              <Input
+                type="date"
+                min={JOB_DATE_MIN}
+                max={JOB_DATE_MAX}
+                {...register("recruitEndDate")}
+              />
+              {errors.recruitEndDate && (
+                <p className="text-body-sm text-destructive">
+                  {errors.recruitEndDate.message}
+                </p>
+              )}
+            </div>
           </div>
           <p className="text-body-xs text-muted-foreground">
             応募を受け付ける期間です。終了日がそのまま応募締め切りになります
           </p>
-          {errors.recruitStartDate && (
-            <p className="text-body-sm text-destructive">
-              {errors.recruitStartDate.message}
-            </p>
-          )}
-          {errors.recruitEndDate && (
-            <p className="text-body-sm text-destructive">
-              {errors.recruitEndDate.message}
-            </p>
-          )}
         </div>
 
-        {/* 稼働時間 */}
+        {/* 稼働時間（任意） */}
         <div className="space-y-1">
-          <Label>
-            稼働時間 <span className="text-destructive">必須</span>
-          </Label>
+          <Label>稼働時間</Label>
           <Input
             {...register("workHours")}
             placeholder="例: 8:00〜17:00"
@@ -532,7 +630,7 @@ export function JobForm({
         <h2 className="text-heading-md font-bold text-secondary">その他</h2>
 
         {/* 発注者からのメッセージ */}
-        <div className="space-y-1">
+        <div className="space-y-1" data-field="ownerMessage">
           <Label>
             発注者からのメッセージ <span className="text-destructive">必須</span>
           </Label>
@@ -541,6 +639,11 @@ export function JobForm({
             placeholder="応募者へのメッセージを入力"
             rows={3}
           />
+          {errors.ownerMessage && (
+            <p className="text-body-sm text-destructive">
+              {errors.ownerMessage.message}
+            </p>
+          )}
         </div>
       </section>
 

@@ -447,6 +447,11 @@ test.describe("9.3e CLI-004 案件作成 → CON-002 検索ヒット", () => {
 
     await page.locator('input[name="workHours"]').fill("8:00〜17:00");
 
+    // 発注者からのメッセージ（必須）
+    await page
+      .locator('textarea[name="ownerMessage"]')
+      .fill("ご応募お待ちしております。");
+
     // ─── 公開する ─────────────────────────────────────────────────────
     await page.getByRole("button", { name: "公開する" }).click();
     // /jobs/{id}?manage=true に遷移

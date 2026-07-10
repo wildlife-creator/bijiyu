@@ -561,7 +561,7 @@ export const jobSchema = z.object({
   items: z.string().max(500).optional().or(z.literal("")),
   scheduleDetail: z.string().max(2000).optional().or(z.literal("")),
   projectDetails: z.string().max(2000).optional().or(z.literal("")),
-  ownerMessage: z.string().max(2000).optional().or(z.literal("")),
+  ownerMessage: z.string().min(1, "発注者からのメッセージを入力してください").max(2000, "発注者からのメッセージは2000文字以内で入力してください"),
   status: z.enum(["draft", "open", "closed"]),
 }).refine(
   (data) => data.rewardUpper >= data.rewardLower,
