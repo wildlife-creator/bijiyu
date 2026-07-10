@@ -150,6 +150,7 @@ export default async function ClientProfileEditPage({
       <div className="mt-6">
         <ClientProfileEditForm
           planType={planType}
+          profileUserId={profileUserId}
           initialValues={initialValues}
           mode={isSetup ? "setup" : "edit"}
           activeTradeTypes={activeTradeTypes}

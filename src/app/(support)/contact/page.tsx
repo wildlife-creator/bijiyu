@@ -27,7 +27,8 @@ import {
 import {
   SUPPORT_ATTACHMENT_RULES,
   SUPPORT_ATTACHMENTS_BUCKET,
-} from "@/lib/support/attachments";
+} from "@/lib/support/attachment-rules";
+import { uploadSupportFilesViaSignedUrls } from "@/lib/support/upload-client";
 import { contactSchema, type ContactInput } from "@/lib/validations/contact";
 import { submitContactAction } from "./actions";
 
@@ -125,8 +126,15 @@ export default function ContactPage() {
     formData.set("projectArea", data.projectArea ?? "");
     formData.set("videoConsultation", data.videoConsultation ?? "");
     formData.set("detail", data.detail);
-    for (const file of files) {
-      formData.append("attachments", file);
+    // 添付はブラウザから署名付き URL で直接アップロードし、パスだけ渡す
+    // (Server Action 経由の File 送信は Vercel の 4.5MB 上限で 413 になる)
+    const uploaded = await uploadSupportFilesViaSignedUrls(files, "contact");
+    if (!uploaded.success) {
+      toast.error(uploaded.error);
+      return;
+    }
+    for (const path of uploaded.paths) {
+      formData.append("attachmentPaths", path);
     }
 
     const result = await submitContactAction(formData);

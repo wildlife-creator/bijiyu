@@ -3,6 +3,10 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
+import {
+  uploadFilesDirect,
+  DOCUMENT_UPLOAD_RULE_10MB,
+} from "@/lib/storage/direct-upload";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -100,9 +104,21 @@ export function DecisionForm({
       formData.set("clientNotes", clientNotes);
       formData.set("firstWorkDate", firstWorkDate);
 
-      // Append document files
-      uploadedFiles.forEach((file) => {
-        formData.append("documents", file);
+      // 書類はブラウザから Storage へ直接アップロードし、パスだけ渡す
+      // (Server Action 経由の File 送信は Vercel の 4.5MB 上限で 413 になる)
+      const uploaded = await uploadFilesDirect({
+        bucket: "application-documents",
+        files: uploadedFiles,
+        rule: DOCUMENT_UPLOAD_RULE_10MB,
+        subdir: applicationId,
+      });
+      if (!uploaded.success) {
+        setError(uploaded.error);
+        setIsLoading(false);
+        return;
+      }
+      uploaded.paths.forEach((path) => {
+        formData.append("documentPaths", path);
       });
 
       const result = await acceptApplicationAction(formData);
@@ -210,7 +226,7 @@ export function DecisionForm({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,.pdf"
+                accept="image/jpeg,image/png,application/pdf"
                 multiple
                 className="hidden"
                 onChange={handleFileSelect}

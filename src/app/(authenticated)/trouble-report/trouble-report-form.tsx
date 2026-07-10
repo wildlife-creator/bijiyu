@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TROUBLE_CATEGORIES } from "@/lib/constants/trouble-options";
-import { SUPPORT_ATTACHMENT_RULES } from "@/lib/support/attachments";
+import { SUPPORT_ATTACHMENT_RULES } from "@/lib/support/attachment-rules";
+import { uploadSupportFilesViaSignedUrls } from "@/lib/support/upload-client";
 import {
   troubleReportSchema,
   type TroubleReportInput,
@@ -112,8 +113,15 @@ export function TroubleReportForm({
     formData.set("email", data.email);
     formData.set("category", data.category ?? "");
     formData.set("content", data.content);
-    for (const file of files) {
-      formData.append("attachments", file);
+    // 添付はブラウザから署名付き URL で直接アップロードし、パスだけ渡す
+    // (Server Action 経由の File 送信は Vercel の 4.5MB 上限で 413 になる)
+    const uploaded = await uploadSupportFilesViaSignedUrls(files, "trouble");
+    if (!uploaded.success) {
+      toast.error(uploaded.error);
+      return;
+    }
+    for (const path of uploaded.paths) {
+      formData.append("attachmentPaths", path);
     }
 
     const result = await submitTroubleReportAction(formData);

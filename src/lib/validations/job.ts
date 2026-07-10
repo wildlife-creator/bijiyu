@@ -149,6 +149,8 @@ export const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 // ---------------------------------------------------------------------------
 const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png"] as const;
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"] as const;
+/** direct-upload 後のストレージパス検証用 (ドット無し小文字) */
+export const JOB_IMAGE_PATH_EXTENSIONS = ["jpg", "jpeg", "png"] as const;
 const MAX_FILE_SIZE = 10_000_000; // 10MB
 const MAX_IMAGES_PER_JOB = 10;
 

@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/lib/types/action-result";
 import {
-  CLIENT_PROFILE_IMAGE_CONSTRAINTS,
   selectClientProfileSchema,
   type ClientProfileFormInput,
 } from "@/lib/validations/client-profile";
@@ -230,74 +229,4 @@ export async function saveClientProfileAction(
   const redirectTo =
     opts.mode === "setup" ? "/mypage" : "/mypage/client-profile";
   return { success: true, data: { redirectTo } };
-}
-
-// ---------------------------------------------------------------------------
-// 画像アップロード
-// ---------------------------------------------------------------------------
-export async function uploadClientProfileImageAction(
-  formData: FormData,
-): Promise<ActionResult<{ imageUrl: string }>> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "認証が必要です" };
-  }
-
-  // 担当者（org_role='staff'）は画像アップロード不可（REQ-ORG-002: 閲覧のみ）。
-  // Admin（org_role='admin'）は編集可。
-  const { active } = await getActiveOrganizationContext(supabase);
-  if (active?.orgRole === "staff") {
-    return {
-      success: false,
-      error: "担当者は発注者情報を編集できません",
-    };
-  }
-
-  const file = formData.get("image");
-  if (!(file instanceof File) || file.size === 0) {
-    return { success: false, error: "画像ファイルを選択してください" };
-  }
-
-  if (file.size > CLIENT_PROFILE_IMAGE_CONSTRAINTS.maxSize) {
-    return { success: false, error: "画像は5MB以下にしてください" };
-  }
-
-  if (
-    !CLIENT_PROFILE_IMAGE_CONSTRAINTS.allowedTypes.includes(
-      file.type as (typeof CLIENT_PROFILE_IMAGE_CONSTRAINTS.allowedTypes)[number],
-    )
-  ) {
-    return {
-      success: false,
-      error: "画像はJPEGまたはPNG形式のみ対応しています",
-    };
-  }
-
-  const profileUserId = await resolveProfileUserId(supabase, user.id);
-  const ext = file.type === "image/png" ? "png" : "jpg";
-  const storagePath = `${profileUserId}/client-profile.${ext}`;
-
-  // Storage は RLS で Owner/Admin のみ書き込み可（Task 2.5 の
-  // avatars_client_profile_write_* ポリシー + is_org_admin_or_owner_of 関数）
-  const { error: uploadError } = await supabase.storage
-    .from("avatars")
-    .upload(storagePath, file, { upsert: true, contentType: file.type });
-
-  if (uploadError) {
-    return { success: false, error: "画像のアップロードに失敗しました" };
-  }
-
-  const admin = createAdminClient();
-  const {
-    data: { publicUrl },
-  } = admin.storage.from("avatars").getPublicUrl(storagePath);
-
-  // Storage パスが `{uid}/client-profile.{ext}` で固定されるため、同一 URL が返り
-  // ブラウザキャッシュで古い画像が表示されたままになる。cache buster を付与して
-  // React state と DOM の画像を確実に差し替える。
-  return { success: true, data: { imageUrl: `${publicUrl}?t=${Date.now()}` } };
 }

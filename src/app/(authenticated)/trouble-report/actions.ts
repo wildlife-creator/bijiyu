@@ -10,10 +10,11 @@ import { troubleReportReceiptEmail } from "@/lib/email/templates/trouble-report-
 import { sendEmail } from "@/lib/email/send-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { removeSupportAttachments } from "@/lib/support/attachments";
 import {
-  removeSupportAttachments,
-  uploadSupportAttachments,
-} from "@/lib/support/attachments";
+  SUPPORT_ATTACHMENT_RULES,
+  isValidSupportAttachmentPath,
+} from "@/lib/support/attachment-rules";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { formatDateTime } from "@/lib/utils/format-date";
 import { troubleReportSchema } from "@/lib/validations/trouble";
@@ -92,24 +93,35 @@ export async function submitTroubleReportAction(
     return { success: false, error: GENERIC_ERROR };
   }
 
-  // 5. 添付アップロード（service role）。失敗時はレコードを削除して中断
-  //    UPDATE/DELETE は一般ユーザー不許可のため、削除・添付更新は admin クライアント
-  const files = formData.getAll("attachments") as File[];
-  const uploaded = await uploadSupportAttachments(files, `trouble/${user.id}`);
-  if (!uploaded.success) {
+  // 5. 添付パスの検証（ブラウザから署名付き URL で direct-upload 済み）。
+  //    サーバー採番形式 (trouble/{userId}/{uuid}.{ext}) 以外は拒否
+  const attachmentPaths = formData
+    .getAll("attachmentPaths")
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+
+  if (attachmentPaths.length > SUPPORT_ATTACHMENT_RULES.maxFiles) {
     await admin.from("trouble_reports").delete().eq("id", reportId);
-    return { success: false, error: uploaded.error };
+    return {
+      success: false,
+      error: `添付できるファイルは最大${SUPPORT_ATTACHMENT_RULES.maxFiles}件です`,
+    };
+  }
+  for (const path of attachmentPaths) {
+    if (!isValidSupportAttachmentPath(path, "trouble", user.id)) {
+      await admin.from("trouble_reports").delete().eq("id", reportId);
+      return { success: false, error: GENERIC_ERROR };
+    }
   }
 
   // 6. 添付があれば添付パスを更新。失敗時はファイル削除＋レコード削除で中断
-  if (uploaded.paths.length > 0) {
+  if (attachmentPaths.length > 0) {
     const { error: updateError } = await admin
       .from("trouble_reports")
-      .update({ attachments: uploaded.paths })
+      .update({ attachments: attachmentPaths })
       .eq("id", reportId);
 
     if (updateError) {
-      await removeSupportAttachments(uploaded.paths);
+      await removeSupportAttachments(attachmentPaths);
       await admin.from("trouble_reports").delete().eq("id", reportId);
       console.error("trouble attachment update failed:", updateError.message);
       return { success: false, error: GENERIC_ERROR };

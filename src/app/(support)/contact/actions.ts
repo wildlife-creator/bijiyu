@@ -7,10 +7,11 @@ import { contactReceiptEmail } from "@/lib/email/templates/contact-receipt";
 import { sendEmail } from "@/lib/email/send-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { removeSupportAttachments } from "@/lib/support/attachments";
 import {
-  removeSupportAttachments,
-  uploadSupportAttachments,
-} from "@/lib/support/attachments";
+  SUPPORT_ATTACHMENT_RULES,
+  isValidSupportAttachmentPath,
+} from "@/lib/support/attachment-rules";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { formatDateTime } from "@/lib/utils/format-date";
 import { contactSchema } from "@/lib/validations/contact";
@@ -104,23 +105,35 @@ export async function submitContactAction(
     return { success: false, error: GENERIC_ERROR };
   }
 
-  // 6. 添付アップロード（service role）。失敗時はレコードを削除して中断
-  const files = formData.getAll("attachments") as File[];
-  const uploaded = await uploadSupportAttachments(files, "contact");
-  if (!uploaded.success) {
+  // 6. 添付パスの検証（ブラウザから署名付き URL で direct-upload 済み）。
+  //    サーバー採番形式 (contact/{uuid}.{ext}) 以外は拒否
+  const attachmentPaths = formData
+    .getAll("attachmentPaths")
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+
+  if (attachmentPaths.length > SUPPORT_ATTACHMENT_RULES.maxFiles) {
     await admin.from("contacts").delete().eq("id", inserted.id);
-    return { success: false, error: uploaded.error };
+    return {
+      success: false,
+      error: `添付できるファイルは最大${SUPPORT_ATTACHMENT_RULES.maxFiles}件です`,
+    };
+  }
+  for (const path of attachmentPaths) {
+    if (!isValidSupportAttachmentPath(path, "contact")) {
+      await admin.from("contacts").delete().eq("id", inserted.id);
+      return { success: false, error: GENERIC_ERROR };
+    }
   }
 
   // 7. 添付があれば添付パスを更新。失敗時はファイル削除＋レコード削除で中断
-  if (uploaded.paths.length > 0) {
+  if (attachmentPaths.length > 0) {
     const { error: updateError } = await admin
       .from("contacts")
-      .update({ attachments: uploaded.paths })
+      .update({ attachments: attachmentPaths })
       .eq("id", inserted.id);
 
     if (updateError) {
-      await removeSupportAttachments(uploaded.paths);
+      await removeSupportAttachments(attachmentPaths);
       await admin.from("contacts").delete().eq("id", inserted.id);
       console.error("contact attachment update failed:", updateError.message);
       return { success: false, error: GENERIC_ERROR };

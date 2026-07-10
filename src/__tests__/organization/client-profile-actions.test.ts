@@ -57,10 +57,7 @@ vi.mock("@/lib/master/fetch", () => {
   };
 });
 
-import {
-  saveClientProfileAction,
-  uploadClientProfileImageAction,
-} from "@/app/(authenticated)/mypage/client-profile/actions";
+import { saveClientProfileAction } from "@/app/(authenticated)/mypage/client-profile/actions";
 import { getAllMasterRows } from "@/lib/master/fetch";
 
 const mockedGetAllMasterRows = vi.mocked(getAllMasterRows);
@@ -502,63 +499,5 @@ describe("saveClientProfileAction", () => {
     if (!r.success) expect(r.error).toBe("募集エリアの保存に失敗しました");
     // profiles の upsert は既に commit 済（＝部分更新の既知挙動）
     expect(upsertChain.upsert).toHaveBeenCalled();
-  });
-});
-
-describe("uploadClientProfileImageAction", () => {
-  it("ファイル未選択はエラー", async () => {
-    mockAuth(OWNER_ID);
-    const fd = new FormData();
-    const r = await uploadClientProfileImageAction(fd);
-    expect(r.success).toBe(false);
-  });
-
-  it("5MB 超過はエラー", async () => {
-    mockAuth(OWNER_ID);
-    const big = new File([new Uint8Array(6 * 1024 * 1024)], "a.jpg", {
-      type: "image/jpeg",
-    });
-    const fd = new FormData();
-    fd.set("image", big);
-    const r = await uploadClientProfileImageAction(fd);
-    expect(r.success).toBe(false);
-    if (!r.success) expect(r.error).toContain("5MB");
-  });
-
-  it("MIME 不正はエラー", async () => {
-    mockAuth(OWNER_ID);
-    const bad = new File([new Uint8Array(10)], "a.gif", { type: "image/gif" });
-    const fd = new FormData();
-    fd.set("image", bad);
-    const r = await uploadClientProfileImageAction(fd);
-    expect(r.success).toBe(false);
-    if (!r.success) expect(r.error).toContain("JPEGまたはPNG");
-  });
-
-  it("正常系: Storage upload + getPublicUrl で URL を返す", async () => {
-    mockAuth(OWNER_ID);
-    // resolveProfileUserId
-    mockFrom.mockReturnValueOnce(
-      createQueryMock({ maybeSingle: { data: null, error: null } }),
-    );
-    const uploadMock = vi.fn().mockResolvedValue({ data: { path: "x" }, error: null });
-    mockStorageFrom.mockReturnValue({ upload: uploadMock });
-    mockAdminStorageFrom.mockReturnValue({
-      getPublicUrl: () => ({ data: { publicUrl: "https://example.com/a.jpg" } }),
-    });
-
-    const good = new File([new Uint8Array(10)], "a.jpg", { type: "image/jpeg" });
-    const fd = new FormData();
-    fd.set("image", good);
-    const r = await uploadClientProfileImageAction(fd);
-    expect(r.success).toBe(true);
-    // cache buster `?t=<timestamp>` が付与されることを想定（React state 差し替え検知）
-    if (r.success)
-      expect(r.data?.imageUrl).toMatch(/^https:\/\/example\.com\/a\.jpg\?t=\d+$/);
-    expect(uploadMock).toHaveBeenCalledWith(
-      `${OWNER_ID}/client-profile.jpg`,
-      good,
-      expect.objectContaining({ upsert: true, contentType: "image/jpeg" }),
-    );
   });
 });

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * submitContactAction の統合テスト（support Task 6.1、書き込み+権限系のためフル）。
  * Server Action 自体はモックせず内部ロジックを実行。createClient/createAdminClient/
- * アップローダをモックし {data,error} 形状で正常・異常の両系を再現する。
+ * クリーンアップをモックし {data,error} 形状で正常・異常の両系を再現する。
  */
 
 const authState = { user: null as null | { id: string } };
@@ -19,9 +19,6 @@ const adminState = {
 };
 
 const uploaderState = {
-  result: { success: true, paths: [] as string[] } as
-    | { success: true; paths: string[] }
-    | { success: false; error: string },
   removed: [] as string[][],
 };
 
@@ -72,13 +69,14 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 vi.mock("@/lib/support/attachments", () => ({
-  uploadSupportAttachments: async () => uploaderState.result,
   removeSupportAttachments: async (paths: string[]) => {
     uploaderState.removed.push(paths);
   },
 }));
 
 const { submitContactAction } = await import("@/app/(support)/contact/actions");
+
+const VALID_UUID = "123e4567-e89b-42d3-a456-426614174000";
 
 function validForm(): FormData {
   const f = new FormData();
@@ -106,7 +104,6 @@ beforeEach(() => {
   adminState.inserts = [];
   adminState.updates = [];
   adminState.deletes = [];
-  uploaderState.result = { success: true, paths: [] };
   uploaderState.removed = [];
 });
 
@@ -152,29 +149,53 @@ describe("submitContactAction", () => {
     expect(adminState.inserts).toHaveLength(0);
   });
 
-  it("添付アップロード失敗時はレコードを削除して中断する（部分保存なし）", async () => {
-    uploaderState.result = { success: false, error: "ファイルのアップロードに失敗しました" };
-    const result = await submitContactAction(validForm());
+  it("サーバー採番形式でない添付パスはレコードを削除して拒否する", async () => {
+    const f = validForm();
+    f.append("attachmentPaths", "contact/../evil.png");
+    const result = await submitContactAction(f);
     expect(result.success).toBe(false);
     expect(adminState.inserts).toHaveLength(1);
     expect(adminState.deletes).toHaveLength(1);
     expect(adminState.deletes[0].val).toBe("contact-1");
   });
 
-  it("添付パス更新失敗時はファイル削除＋レコード削除で中断する", async () => {
-    uploaderState.result = { success: true, paths: ["contact/a.png"] };
-    adminState.updateError = { message: "update failed" };
-    const result = await submitContactAction(validForm());
+  it("他ユーザー領域 (trouble/...) の添付パスは拒否する", async () => {
+    const f = validForm();
+    f.append("attachmentPaths", `trouble/user-1/${VALID_UUID}.png`);
+    const result = await submitContactAction(f);
     expect(result.success).toBe(false);
-    expect(uploaderState.removed).toEqual([["contact/a.png"]]);
+    expect(adminState.deletes).toHaveLength(1);
+  });
+
+  it("添付パスが6件以上ならレコードを削除して拒否する", async () => {
+    const f = validForm();
+    for (let i = 0; i < 6; i++) {
+      f.append("attachmentPaths", `contact/${VALID_UUID}.png`);
+    }
+    const result = await submitContactAction(f);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("最大5件");
+    expect(adminState.deletes).toHaveLength(1);
+  });
+
+  it("添付パス更新失敗時はファイル削除＋レコード削除で中断する", async () => {
+    const f = validForm();
+    f.append("attachmentPaths", `contact/${VALID_UUID}.png`);
+    adminState.updateError = { message: "update failed" };
+    const result = await submitContactAction(f);
+    expect(result.success).toBe(false);
+    expect(uploaderState.removed).toEqual([[`contact/${VALID_UUID}.png`]]);
     expect(adminState.deletes).toHaveLength(1);
   });
 
   it("添付ありで成功時は attachments を更新する", async () => {
-    uploaderState.result = { success: true, paths: ["contact/a.png"] };
-    const result = await submitContactAction(validForm());
+    const f = validForm();
+    f.append("attachmentPaths", `contact/${VALID_UUID}.png`);
+    const result = await submitContactAction(f);
     expect(result.success).toBe(true);
     expect(adminState.updates).toHaveLength(1);
-    expect(adminState.updates[0].payload.attachments).toEqual(["contact/a.png"]);
+    expect(adminState.updates[0].payload.attachments).toEqual([
+      `contact/${VALID_UUID}.png`,
+    ]);
   });
 });

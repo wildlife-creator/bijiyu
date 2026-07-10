@@ -40,6 +40,10 @@ import {
 } from "@/lib/validations/profile";
 import { createClient } from "@/lib/supabase/client";
 import {
+  uploadFilesDirect,
+  IMAGE_UPLOAD_RULE_5MB,
+} from "@/lib/storage/direct-upload";
+import {
   updateProfileAction,
   uploadAvatarAction,
 } from "@/app/(authenticated)/profile/edit/actions";
@@ -290,11 +294,22 @@ export function ProfileEditForm({
     setAvatarUploading(true);
     setServerError("");
 
-    const formData = new FormData();
-    formData.append("avatar", file);
-
     startTransition(async () => {
       try {
+        // 画像はブラウザから Storage へ直接アップロードし、パスだけ渡す
+        // (Server Action 経由の File 送信は Vercel の 4.5MB 上限で 413 になる)
+        const uploaded = await uploadFilesDirect({
+          bucket: "avatars",
+          files: [file],
+          rule: IMAGE_UPLOAD_RULE_5MB,
+        });
+        if (!uploaded.success) {
+          setServerError(uploaded.error);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("avatarPath", uploaded.paths[0]);
         const result = await uploadAvatarAction(formData);
         if (result.success && result.data) {
           setAvatarUrl(result.data.avatarUrl);

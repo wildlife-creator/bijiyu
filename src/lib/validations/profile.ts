@@ -17,6 +17,10 @@ const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png"] as const;
 const ALLOWED_DOCUMENT_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"] as const;
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png"] as const;
 
+// direct-upload 後のストレージパス検証用 (ドット無し小文字)
+export const DOCUMENT_PATH_EXTENSIONS = ["jpg", "jpeg", "png", "pdf"] as const;
+export const AVATAR_PATH_EXTENSIONS = ["jpg", "jpeg", "png"] as const;
+
 function getFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
   if (lastDot === -1) return "";

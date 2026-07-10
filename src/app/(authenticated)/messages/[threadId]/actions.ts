@@ -9,6 +9,7 @@ import { scoutDeclinedControlEmail } from "@/lib/email/templates/scout-declined-
 import { getJobClientRecipients } from "@/lib/email/recipients/organization-members";
 import { sendMessageNotification } from "@/lib/email/send/message-notification";
 import { getUserDisplayName } from "@/lib/utils/display-name";
+import { isOwnedStoragePath } from "@/lib/storage/storage-path";
 import { formatDateTime } from "@/lib/utils/format-date";
 // messageSchema is not used here; validation is done inline to avoid
 // File instanceof issues across server/client boundary
@@ -184,9 +185,10 @@ export async function sendMessageAction(
 
     // Validate body
     const body = formData.get("body") as string | null;
-    const imageFile = formData.get("image") as File | null;
-    const hasImage = imageFile && imageFile.size > 0;
+    const rawImagePath = formData.get("imagePath");
     const bodyText = body?.trim() ?? "";
+    const hasImage =
+      typeof rawImagePath === "string" && rawImagePath.length > 0;
 
     if (!bodyText && !hasImage) {
       return { success: false, error: "メッセージを入力してください" };
@@ -195,25 +197,17 @@ export async function sendMessageAction(
       return { success: false, error: "メッセージは5000文字以内で入力してください" };
     }
 
-    // Image upload (validate and upload separately from Zod)
+    // 画像はブラウザから direct-upload 済み (Vercel の 4.5MB 上限回避)。
+    // 本人フォルダ配下のパスのみ許可
     let imagePath: string | null = null;
     if (hasImage) {
-      if (imageFile.size > 10 * 1024 * 1024) {
-        return { success: false, error: "画像は10MB以下にしてください" };
+      if (!isOwnedStoragePath(rawImagePath, user.id, ["jpg", "jpeg", "png"])) {
+        return {
+          success: false,
+          error: "画像データが不正です。画面を再読み込みして再度お試しください",
+        };
       }
-      if (!["image/jpeg", "image/png"].includes(imageFile.type)) {
-        return { success: false, error: "画像はJPEGまたはPNG形式のみ対応しています" };
-      }
-      const ext = imageFile.name.split(".").pop() || "jpg";
-      const fileName = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("message-attachments")
-        .upload(fileName, imageFile);
-      if (uploadError) {
-        console.error("[sendMessageAction] Upload error:", uploadError);
-        return { success: false, error: "画像のアップロードに失敗しました" };
-      }
-      imagePath = fileName;
+      imagePath = rawImagePath;
     }
 
     // Insert message

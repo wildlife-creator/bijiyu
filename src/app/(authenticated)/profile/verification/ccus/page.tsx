@@ -11,6 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BackButton } from "@/components/shared/back-button";
 
+import {
+  uploadFilesDirect,
+  DOCUMENT_UPLOAD_RULE_10MB,
+} from "@/lib/storage/direct-upload";
+
 import { submitCcusAction } from "./actions";
 
 export default function CcusUploadPage() {
@@ -45,16 +50,32 @@ export default function CcusUploadPage() {
     }
 
     setError(null);
-    const formData = new FormData();
-    formData.append("document", file);
-    formData.append("ccusWorkerId", ccusWorkerId.trim());
 
     startTransition(async () => {
-      const result = await submitCcusAction(formData);
-      if (result.success) {
-        router.push("/profile/verification");
-      } else {
-        setError(result.error);
+      try {
+        // ファイルはブラウザから Storage へ直接アップロードし、パスだけ渡す
+        // (Server Action 経由の File 送信は Vercel の 4.5MB 上限で 413 になる)
+        const uploaded = await uploadFilesDirect({
+          bucket: "ccus-documents",
+          files: [file],
+          rule: DOCUMENT_UPLOAD_RULE_10MB,
+        });
+        if (!uploaded.success) {
+          setError(uploaded.error);
+          return;
+        }
+
+        const result = await submitCcusAction({
+          documentPath: uploaded.paths[0],
+          ccusWorkerId: ccusWorkerId.trim(),
+        });
+        if (result.success) {
+          router.push("/profile/verification");
+        } else {
+          setError(result.error);
+        }
+      } catch {
+        setError("送信に失敗しました。通信環境をご確認のうえ再度お試しください");
       }
     });
   }

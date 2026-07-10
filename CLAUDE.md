@@ -206,7 +206,11 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 画像表示に next/image を使う場合、next.config の remotePatterns に
   Supabase Storage のホストを追加すること（ローカル: localhost:54321、本番: xxxx.supabase.co）
 - Storage バケットの作成と RLS ポリシー設定を実装タスクに含めること
-- ファイルアップロードの Server Action は FormData で受け取ること
+- **ファイル本体を Server Action (FormData) で送ってはならない（必ず守ること）**: Vercel はリクエストボディ約 4.5MB 超を 413 で即拒否する（プラットフォーム制限。`bodySizeLimit` では回避不能・ローカルでは再現しない）。ファイルは**ブラウザから Storage へ直接アップロード**し、Server Action にはストレージパスのみ渡す
+  - 認証済み画面: `uploadFilesDirect()`（`src/lib/storage/direct-upload.ts`）でアップロード → Server Action 側で `isOwnedStoragePath()`（`src/lib/storage/storage-path.ts`）でパスを検証してから DB 保存
+  - 匿名可のフォーム（お問い合わせ等）: 署名付きアップロード URL 方式（`src/lib/support/prepare-upload-action.ts` + `upload-client.ts`）
+  - サイズ・MIME のサーバー側強制はバケットの `file_size_limit` / `allowed_mime_types` が担う（`20260710120000_bucket_upload_limits.sql`）。新バケット作成時も必ず設定し、アプリ側バリデーションと一致させること
+  - 2026-07-10 実例: staging 社内テストで数 MB の写真添付が全 8 機能で無言失敗（成功していた添付は 62KB〜360KB の小サイズのみ）。5.5MB POST → 413 / 3MB → 通過を実測して確定
 - アップロード後の URL 取得: 公開バケットは `getPublicUrl()` を使用。非公開バケット（`application-documents` 等）はファイルパスのみ DB に保存し、表示時に `createSignedUrl()` で Signed URL を生成すること（`getPublicUrl()` は非公開バケットでは機能しない）
 - **Storage RLS ポリシーとアップロードパスの整合**: `(storage.foldername(name))[1] = auth.uid()::text` のようなRLSポリシーの場合、`.upload(path, file)` の `path` はユーザーIDで始める必要がある（例: `${user.id}/filename.ext`）。バケット名をパスに含めないこと（`.from("bucket")` が既にバケットを指定している）
 - **ユーザーアップロード画像の表示**: Supabase Storage から取得した画像を表示する際は `<img>` タグを使うこと。`next/image` の `<Image>` はリモートパターン設定の問題が起きやすく、サーバー再起動が必要になる場合がある

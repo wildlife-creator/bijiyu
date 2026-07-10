@@ -9,6 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
 
+import {
+  uploadFilesDirect,
+  DOCUMENT_UPLOAD_RULE_10MB,
+} from "@/lib/storage/direct-upload";
+
 import { submitIdentityAction } from "./actions";
 
 export default function IdentityUploadPage() {
@@ -51,16 +56,32 @@ export default function IdentityUploadPage() {
     }
 
     setError(null);
-    const formData = new FormData();
-    formData.append("document1", file1);
-    formData.append("document2", file2);
 
     startTransition(async () => {
-      const result = await submitIdentityAction(formData);
-      if (result.success) {
-        router.push("/profile/verification");
-      } else {
-        setError(result.error);
+      try {
+        // ファイルはブラウザから Storage へ直接アップロードし、パスだけ渡す
+        // (Server Action 経由の File 送信は Vercel の 4.5MB 上限で 413 になる)
+        const uploaded = await uploadFilesDirect({
+          bucket: "identity-documents",
+          files: [file1, file2],
+          rule: DOCUMENT_UPLOAD_RULE_10MB,
+        });
+        if (!uploaded.success) {
+          setError(uploaded.error);
+          return;
+        }
+
+        const result = await submitIdentityAction({
+          document1Path: uploaded.paths[0],
+          document2Path: uploaded.paths[1],
+        });
+        if (result.success) {
+          router.push("/profile/verification");
+        } else {
+          setError(result.error);
+        }
+      } catch {
+        setError("送信に失敗しました。通信環境をご確認のうえ再度お試しください");
       }
     });
   }

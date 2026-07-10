@@ -21,9 +21,6 @@ const adminState = {
 };
 
 const uploaderState = {
-  result: { success: true, paths: [] as string[] } as
-    | { success: true; paths: string[] }
-    | { success: false; error: string },
   removed: [] as string[][],
 };
 
@@ -69,7 +66,6 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 vi.mock("@/lib/support/attachments", () => ({
-  uploadSupportAttachments: async () => uploaderState.result,
   removeSupportAttachments: async (paths: string[]) => {
     uploaderState.removed.push(paths);
   },
@@ -78,6 +74,8 @@ vi.mock("@/lib/support/attachments", () => ({
 const { submitTroubleReportAction } = await import(
   "@/app/(authenticated)/trouble-report/actions"
 );
+
+const VALID_UUID = "123e4567-e89b-42d3-a456-426614174000";
 
 function validForm(): FormData {
   const f = new FormData();
@@ -98,7 +96,6 @@ beforeEach(() => {
   adminState.updateError = null;
   adminState.updates = [];
   adminState.deletes = [];
-  uploaderState.result = { success: true, paths: [] };
   uploaderState.removed = [];
 });
 
@@ -143,24 +140,43 @@ describe("submitTroubleReportAction", () => {
     expect(userState.inserts[0].category).toBeNull();
   });
 
-  it("添付アップロード失敗時はレコードを削除して中断する", async () => {
-    uploaderState.result = {
-      success: false,
-      error: "ファイルのアップロードに失敗しました",
-    };
-    const result = await submitTroubleReportAction(validForm());
+  it("サーバー採番形式でない添付パスはレコードを削除して拒否する", async () => {
+    const f = validForm();
+    f.append("attachmentPaths", "trouble/user-1/../evil.png");
+    const result = await submitTroubleReportAction(f);
     expect(result.success).toBe(false);
     expect(userState.inserts).toHaveLength(1);
     expect(adminState.deletes).toHaveLength(1);
   });
 
+  it("他ユーザー領域の添付パスは拒否する", async () => {
+    const f = validForm();
+    f.append("attachmentPaths", `trouble/user-2/${VALID_UUID}.png`);
+    const result = await submitTroubleReportAction(f);
+    expect(result.success).toBe(false);
+    expect(adminState.deletes).toHaveLength(1);
+  });
+
+  it("添付パス更新失敗時はファイル削除＋レコード削除で中断する", async () => {
+    const f = validForm();
+    f.append("attachmentPaths", `trouble/user-1/${VALID_UUID}.png`);
+    adminState.updateError = { message: "update failed" };
+    const result = await submitTroubleReportAction(f);
+    expect(result.success).toBe(false);
+    expect(uploaderState.removed).toEqual([
+      [`trouble/user-1/${VALID_UUID}.png`],
+    ]);
+    expect(adminState.deletes).toHaveLength(1);
+  });
+
   it("添付ありで成功時は attachments を admin クライアントで更新する", async () => {
-    uploaderState.result = { success: true, paths: ["trouble/user-1/a.png"] };
-    const result = await submitTroubleReportAction(validForm());
+    const f = validForm();
+    f.append("attachmentPaths", `trouble/user-1/${VALID_UUID}.png`);
+    const result = await submitTroubleReportAction(f);
     expect(result.success).toBe(true);
     expect(adminState.updates).toHaveLength(1);
     expect(adminState.updates[0].attachments).toEqual([
-      "trouble/user-1/a.png",
+      `trouble/user-1/${VALID_UUID}.png`,
     ]);
   });
 });

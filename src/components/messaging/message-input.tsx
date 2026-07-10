@@ -4,6 +4,10 @@ import { useRef, useState, useTransition } from "react";
 import { Camera, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { sendMessageAction } from "@/app/(authenticated)/messages/[threadId]/actions";
+import {
+  uploadFilesDirect,
+  IMAGE_UPLOAD_RULE_10MB,
+} from "@/lib/storage/direct-upload";
 import { toast } from "sonner";
 
 interface MessageInputProps {
@@ -62,20 +66,39 @@ export function MessageInput({
     const formData = new FormData();
     formData.set("threadId", threadId);
     formData.set("body", body.trim());
-    if (imageFile) {
-      formData.set("image", imageFile);
-    }
+    const fileToUpload = imageFile;
 
     onOptimisticSend?.(body.trim());
     setBody("");
     clearImage();
 
     startTransition(async () => {
-      const result = await sendMessageAction(formData);
-      if (result.success && result.data?.messageId) {
-        onSendComplete?.(result.data.messageId);
-      } else if (!result.success) {
-        toast.error(result.error);
+      try {
+        // 画像はブラウザから Storage へ直接アップロードし、パスだけ渡す
+        // (Server Action 経由の File 送信は Vercel の 4.5MB 上限で 413 になる)
+        if (fileToUpload) {
+          const uploaded = await uploadFilesDirect({
+            bucket: "message-attachments",
+            files: [fileToUpload],
+            rule: IMAGE_UPLOAD_RULE_10MB,
+          });
+          if (!uploaded.success) {
+            toast.error(uploaded.error);
+            return;
+          }
+          formData.set("imagePath", uploaded.paths[0]);
+        }
+
+        const result = await sendMessageAction(formData);
+        if (result.success && result.data?.messageId) {
+          onSendComplete?.(result.data.messageId);
+        } else if (!result.success) {
+          toast.error(result.error);
+        }
+      } catch {
+        toast.error(
+          "送信に失敗しました。通信環境をご確認のうえ再度お試しください"
+        );
       }
     });
   }

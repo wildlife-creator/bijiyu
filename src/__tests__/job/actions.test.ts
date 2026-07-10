@@ -281,6 +281,101 @@ describe("createJobAction", () => {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // direct-upload 化した画像パス (imagePaths) の検証
+  // -------------------------------------------------------------------------
+  function mockHappyPathTables(jobImagesTerminator: {
+    default: unknown;
+  }): Record<string, unknown>[] {
+    const jobImageInserts: Record<string, unknown>[] = [];
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "users") {
+        return createQueryMock({
+          single: { data: { role: "client" }, error: null },
+        });
+      }
+      if (table === "subscriptions") {
+        return createQueryMock({
+          maybeSingle: {
+            data: { status: "active", plan_type: "individual" },
+            error: null,
+          },
+        });
+      }
+      if (table === "jobs") {
+        return createQueryMock({
+          single: { data: { id: "job-1" }, error: null },
+        });
+      }
+      if (table === "job_images") {
+        const chain = createQueryMock(jobImagesTerminator);
+        const originalInsert = chain.insert as ReturnType<typeof vi.fn>;
+        originalInsert.mockImplementation((rows: Record<string, unknown>[]) => {
+          jobImageInserts.push(...(Array.isArray(rows) ? rows : [rows]));
+          return chain;
+        });
+        return chain;
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+    mockStorageFrom.mockReturnValue({
+      getPublicUrl: (path: string) => ({
+        data: { publicUrl: `https://cdn.example.com/job-attachments/${path}` },
+      }),
+    });
+    return jobImageInserts;
+  }
+
+  it("本人フォルダ外の imagePaths は『画像データが不正』で拒否する", async () => {
+    mockHappyPathTables({ default: { error: null } });
+    const fd = buildValidFormData();
+    fd.append("imagePaths", "other-user/evil.png");
+
+    const result = await createJobAction(fd);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("画像データが不正");
+  });
+
+  it("imagePaths を publicUrl に解決して job_images に登録する", async () => {
+    const inserts = mockHappyPathTables({ default: { error: null } });
+    const fd = buildValidFormData();
+    fd.append("imagePaths", "user-1/aaa.png");
+    fd.append("imagePaths", "user-1/bbb.jpg");
+
+    const result = await createJobAction(fd);
+    expect(result.success).toBe(true);
+    expect(inserts).toHaveLength(2);
+    expect(inserts[0]).toMatchObject({
+      job_id: "job-1",
+      image_url: "https://cdn.example.com/job-attachments/user-1/aaa.png",
+      sort_order: 0,
+    });
+    expect(inserts[1]).toMatchObject({ sort_order: 1 });
+  });
+
+  it("job_images の insert 失敗は黙殺せずエラーを返す", async () => {
+    mockHappyPathTables({ default: { error: { message: "rls block" } } });
+    const fd = buildValidFormData();
+    fd.append("imagePaths", "user-1/aaa.png");
+
+    const result = await createJobAction(fd);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("画像の保存に失敗");
+  });
+
+  it("11枚以上の imagePaths は上限エラーを返す（旧実装は黙って成功していた）", async () => {
+    mockHappyPathTables({ default: { error: null } });
+    const fd = buildValidFormData();
+    for (let i = 0; i < 11; i++) {
+      fd.append("imagePaths", `user-1/img-${i}.png`);
+    }
+
+    const result = await createJobAction(fd);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("最大10枚");
+  });
+
   it("returns error for individual plan when open job limit reached", async () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: "user-1" } },

@@ -10,6 +10,8 @@ import {
   rejectApplicationSchema,
   mapOperatingStatusToApplicationStatus,
 } from "@/lib/validations/matching";
+import { isOwnedStoragePath } from "@/lib/storage/storage-path";
+import { DOCUMENT_PATH_EXTENSIONS } from "@/lib/validations/profile";
 import { sendEmail } from "@/lib/email/send-email";
 import { matchingAcceptedEmail } from "@/lib/email/templates/matching-accepted";
 import { matchingRejectedEmail } from "@/lib/email/templates/matching-rejected";
@@ -479,22 +481,19 @@ export async function acceptApplicationAction(
       return { success: false, error: "応募中の案件のみ発注できます" };
     }
 
-    // Upload documents to Supabase Storage
-    const documentFiles = formData.getAll("documents") as File[];
-    const documentUrls: string[] = [];
+    // 書類 (direct-upload 済みパス) の検証。本人フォルダ配下のみ許可
+    const documentUrls = formData
+      .getAll("documentPaths")
+      .filter((v): v is string => typeof v === "string" && v.length > 0);
 
-    for (const file of documentFiles) {
-      if (file.size === 0) continue;
-      const filePath = `${user.id}/${input.applicationId}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("application-documents")
-        .upload(filePath, file);
-
-      if (uploadError) {
-        return { success: false, error: "書類のアップロードに失敗しました" };
+    for (const path of documentUrls) {
+      if (!isOwnedStoragePath(path, user.id, DOCUMENT_PATH_EXTENSIONS)) {
+        return {
+          success: false,
+          error:
+            "書類データが不正です。画面を再読み込みして再度お試しください",
+        };
       }
-
-      documentUrls.push(filePath);
     }
 
     // Update via RLS-protected client

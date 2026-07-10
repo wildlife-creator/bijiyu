@@ -200,6 +200,68 @@ describe("sendMessageAction", () => {
     if (!result.success) expect(result.error).toContain("メッセージを入力");
   });
 
+  // -------------------------------------------------------------------------
+  // direct-upload 化した添付画像パス (imagePath) の検証
+  // -------------------------------------------------------------------------
+  function queueSendHappyPath(messagesChain: ReturnType<typeof createQueryMock>) {
+    mockAuth(USER_ID);
+    // 1. canAccessThread
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        single: {
+          data: {
+            id: THREAD_ID,
+            participant_1_id: USER_ID,
+            participant_2_id: CONTRACTOR_ID,
+            organization_id: null,
+            thread_type: "message",
+          },
+          error: null,
+        },
+      }),
+    );
+    // 2. rate limit count
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null, count: 0 } }),
+    );
+    // 3. organization_members.select (is_proxy check)
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 4. messages.insert.select.single
+    mockFrom.mockReturnValueOnce(messagesChain);
+    // 5. message_threads.update.eq (thenable)
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+  }
+
+  it("本人フォルダ外の imagePath は『画像データが不正』で拒否する", async () => {
+    queueSendHappyPath(
+      createQueryMock({ single: { data: { id: MESSAGE_ID }, error: null } }),
+    );
+
+    const result = await sendMessageAction(
+      buildFormData({ imagePath: "other-user/evil.png" }),
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("画像データが不正");
+  });
+
+  it("正常な imagePath は messages.image_url にそのまま保存する", async () => {
+    const messagesChain = createQueryMock({
+      single: { data: { id: MESSAGE_ID }, error: null },
+    });
+    queueSendHappyPath(messagesChain);
+
+    const imagePath = `${USER_ID}/abc.png`;
+    const result = await sendMessageAction(buildFormData({ imagePath }));
+    expect(result.success).toBe(true);
+    expect(messagesChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ image_url: imagePath }),
+    );
+  });
+
   it("組織メンバー（participant ではない）でも送信できる", async () => {
     mockAuth(USER_ID);
     // 1. canAccessThread: thread with organization_id, user is neither participant

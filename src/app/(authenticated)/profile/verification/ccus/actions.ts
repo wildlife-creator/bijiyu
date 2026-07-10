@@ -2,17 +2,18 @@
 
 import { sendVerificationEmails } from "@/lib/email/send/verification-emails";
 import { createClient } from "@/lib/supabase/server";
-import { validateDocumentFile } from "@/lib/validations/profile";
+import { isOwnedStoragePath } from "@/lib/storage/storage-path";
+import { DOCUMENT_PATH_EXTENSIONS } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
 
-function getFileExtension(filename: string): string {
-  const lastDot = filename.lastIndexOf(".");
-  if (lastDot === -1) return "";
-  return filename.slice(lastDot + 1).toLowerCase();
+interface SubmitCcusInput {
+  /** direct-upload 済みのカード画像パス (ccus-documents バケット) */
+  documentPath: string;
+  ccusWorkerId: string;
 }
 
 export async function submitCcusAction(
-  formData: FormData,
+  input: SubmitCcusInput,
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
@@ -51,35 +52,16 @@ export async function submitCcusAction(
     return { success: false, error: "審査中の申請があります" };
   }
 
-  // 4. Get file and ccusWorkerId from formData
-  const document = formData.get("document") as File | null;
-  const ccusWorkerId = formData.get("ccusWorkerId") as string | null;
+  // 4. Validate inputs (パスは direct-upload 済み。本人フォルダ配下のみ許可)
+  const path = input.documentPath;
+  const ccusWorkerId = input.ccusWorkerId;
 
-  if (!document || document.size === 0) {
+  if (!path || !isOwnedStoragePath(path, user.id, DOCUMENT_PATH_EXTENSIONS)) {
     return { success: false, error: "カード画像を選択してください" };
   }
 
   if (!ccusWorkerId || ccusWorkerId.trim() === "") {
     return { success: false, error: "技能者IDを入力してください" };
-  }
-
-  // 5. Validate file
-  const docError = validateDocumentFile(document);
-  if (docError) {
-    return { success: false, error: docError };
-  }
-
-  // 6. Generate upload path and upload
-  const timestamp = Date.now();
-  const ext = getFileExtension(document.name);
-  const path = `${user.id}/${ccusWorkerId}_${timestamp}.${ext}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("ccus-documents")
-    .upload(path, document);
-
-  if (uploadError) {
-    return { success: false, error: "カード画像のアップロードに失敗しました" };
   }
 
   // 7. Insert CCUS verification record（id / created_at は §4 通知メールで使う）

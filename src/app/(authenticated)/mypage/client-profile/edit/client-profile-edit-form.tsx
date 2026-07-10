@@ -30,15 +30,20 @@ import {
   type ClientProfileFormInput,
 } from "@/lib/validations/client-profile";
 
+import { createClient } from "@/lib/supabase/client";
 import {
-  saveClientProfileAction,
-  uploadClientProfileImageAction,
-} from "../actions";
+  validateFileAgainstRule,
+  IMAGE_UPLOAD_RULE_5MB,
+} from "@/lib/storage/direct-upload";
+
+import { saveClientProfileAction } from "../actions";
 
 type PlanType = "individual" | "small" | "corporate" | "corporate_premium";
 
 interface Props {
   planType: PlanType | null;
+  /** 画像の保存先フォルダ (Owner 本人 or 組織 Admin が編集する Owner の uid) */
+  profileUserId: string;
   initialValues: ClientProfileFormInput;
   mode: "edit" | "setup";
   activeTradeTypes: string[];
@@ -63,6 +68,7 @@ function RequiredBadge() {
 
 export function ClientProfileEditForm({
   planType,
+  profileUserId,
   initialValues,
   mode,
   activeTradeTypes,
@@ -108,16 +114,39 @@ export function ClientProfileEditForm({
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const fd = new FormData();
-    fd.set("image", file);
     startUpload(async () => {
-      const result = await uploadClientProfileImageAction(fd);
-      if (!result.success) {
-        toast.error(result.error);
-        return;
+      try {
+        // ブラウザから Storage へ直接アップロードする (Vercel の 4.5MB 上限回避)。
+        // 認可は avatars バケットの RLS (Owner 本人 or 組織 Admin) が担う
+        const validationError = validateFileAgainstRule(
+          file,
+          IMAGE_UPLOAD_RULE_5MB,
+        );
+        if (validationError) {
+          toast.error(validationError);
+          return;
+        }
+        const supabase = createClient();
+        const ext = file.type === "image/png" ? "png" : "jpg";
+        const path = `${profileUserId}/client-profile.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(path, file, { upsert: true, contentType: file.type });
+        if (uploadError) {
+          toast.error("画像のアップロードに失敗しました");
+          return;
+        }
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("avatars").getPublicUrl(path);
+        // パスが固定のためブラウザキャッシュ対策の cache buster を付与
+        setImageUrl(`${publicUrl}?t=${Date.now()}`);
+        toast.success("画像をアップロードしました");
+      } catch {
+        toast.error(
+          "画像のアップロードに失敗しました。通信環境をご確認のうえ再度お試しください",
+        );
       }
-      setImageUrl(result.data?.imageUrl ?? null);
-      toast.success("画像をアップロードしました");
     });
     e.target.value = "";
   }

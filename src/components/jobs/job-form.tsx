@@ -19,6 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { jobSchema, type JobFormValues } from "@/lib/validations/job";
+import {
+  uploadFilesDirect,
+  IMAGE_UPLOAD_RULE_10MB,
+} from "@/lib/storage/direct-upload";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { AreaListEditor } from "@/components/area/area-list-editor";
@@ -122,47 +126,65 @@ export function JobForm({
 
   function onSubmit(data: JobFormValues) {
     startTransition(async () => {
-      const formData = new FormData();
+      try {
+        const formData = new FormData();
 
-      // areas は AreaTuple[] のため JSON.stringify でシリアライズ
-      // (Server Action 側で JSON.parse で復元)
-      const { areas: areasData, ...restData } = data;
-      formData.set("areas", JSON.stringify(areasData ?? []));
+        // areas は AreaTuple[] のため JSON.stringify でシリアライズ
+        // (Server Action 側で JSON.parse で復元)
+        const { areas: areasData, ...restData } = data;
+        formData.set("areas", JSON.stringify(areasData ?? []));
 
-      // 残りのフィールド: 配列は append、それ以外は set
-      Object.entries(restData).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
-        if (Array.isArray(value)) {
-          for (const item of value) {
-            formData.append(key, String(item));
+        // 残りのフィールド: 配列は append、それ以外は set
+        Object.entries(restData).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              formData.append(key, String(item));
+            }
+          } else {
+            formData.set(key, String(value));
           }
-        } else {
-          formData.set(key, String(value));
+        });
+
+        // Add job ID for edit mode
+        if (mode === "edit" && jobId) {
+          formData.set("jobId", jobId);
         }
-      });
 
-      // Add job ID for edit mode
-      if (mode === "edit" && jobId) {
-        formData.set("jobId", jobId);
-      }
+        // 画像はブラウザから Storage へ直接アップロードし、パスだけ渡す
+        // (Server Action 経由の File 送信は Vercel の 4.5MB 上限で 413 になる)
+        const uploaded = await uploadFilesDirect({
+          bucket: "job-attachments",
+          files: newFiles,
+          rule: IMAGE_UPLOAD_RULE_10MB,
+        });
+        if (!uploaded.success) {
+          toast.error(uploaded.error);
+          return;
+        }
+        for (const path of uploaded.paths) {
+          formData.append("imagePaths", path);
+        }
 
-      // Add image files
-      for (const file of newFiles) {
-        formData.append("images", file);
-      }
+        const result =
+          mode === "create"
+            ? await createJobAction(formData)
+            : await updateJobAction(formData);
 
-      const result =
-        mode === "create"
-          ? await createJobAction(formData)
-          : await updateJobAction(formData);
-
-      if (result.success && result.data) {
-        toast.success(
-          mode === "create" ? "案件を作成しました" : "案件を更新しました"
+        if (result.success && result.data) {
+          toast.success(
+            mode === "create" ? "案件を作成しました" : "案件を更新しました"
+          );
+          router.push(`/jobs/${result.data.id}?manage=true`);
+        } else if (!result.success) {
+          toast.error(result.error);
+        }
+      } catch {
+        // Server Action の呼び出し自体が失敗した場合 (通信断・413 等) も
+        // 無反応にせず必ずユーザーに伝える
+        toast.error(
+          "保存に失敗しました。通信環境をご確認のうえ再度お試しください"
         );
-        router.push(`/jobs/${result.data.id}?manage=true`);
-      } else if (!result.success) {
-        toast.error(result.error);
       }
     });
   }

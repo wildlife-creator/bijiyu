@@ -5,8 +5,9 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import {
   profileEditSchema,
-  validateAvatarFile,
+  AVATAR_PATH_EXTENSIONS,
 } from "@/lib/validations/profile";
+import { isOwnedStoragePath } from "@/lib/storage/storage-path";
 import type { ActionResult } from "@/lib/types/action-result";
 import { validateLabelChanges } from "@/lib/master/validate";
 import { validateAreaChanges } from "@/lib/master/validate-area";
@@ -279,31 +280,12 @@ export async function uploadAvatarAction(
     };
   }
 
-  const file = formData.get("avatar");
-  if (!file || !(file instanceof File)) {
+  // 画像はブラウザから direct-upload 済み (Vercel の 4.5MB 上限回避)。
+  // 本人フォルダ配下のパスのみ許可
+  const rawPath = formData.get("avatarPath");
+  const path = typeof rawPath === "string" ? rawPath : "";
+  if (!path || !isOwnedStoragePath(path, user.id, AVATAR_PATH_EXTENSIONS)) {
     return { success: false, error: "ファイルを選択してください" };
-  }
-
-  // Validate MIME type and extension
-  const validationError = validateAvatarFile(file);
-  if (validationError) {
-    return { success: false, error: validationError };
-  }
-
-  // Generate unique filename
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-
-  // Upload to avatars bucket
-  const { error: uploadError } = await supabase.storage
-    .from("avatars")
-    .upload(path, file);
-
-  if (uploadError) {
-    return {
-      success: false,
-      error: "アバター画像のアップロードに失敗しました。もう一度お試しください。",
-    };
   }
 
   // Get public URL

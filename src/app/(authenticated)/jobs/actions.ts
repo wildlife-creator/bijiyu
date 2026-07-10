@@ -7,10 +7,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   jobSchema,
   jobDraftSchema,
-  validateJobImageFile,
   validateJobImageCount,
   ALLOWED_TRANSITIONS,
+  JOB_IMAGE_PATH_EXTENSIONS,
 } from "@/lib/validations/job";
+import { isOwnedStoragePath } from "@/lib/storage/storage-path";
 import type { ActionResult } from "@/lib/types/action-result";
 import { validateLabelChanges } from "@/lib/master/validate";
 import { validateAreaChanges } from "@/lib/master/validate-area";
@@ -19,6 +20,56 @@ import { expandAreasForDb } from "@/lib/master/area-conversion";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** direct-upload 済みの画像パスを FormData から取り出す */
+function parseUploadedImagePaths(formData: FormData): string[] {
+  return formData
+    .getAll("imagePaths")
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+}
+
+/**
+ * direct-upload 済みの画像パスを検証して job_images に登録する。
+ * 成功時は null、失敗時はユーザー向けエラーメッセージを返す。
+ * 旧実装の「失敗を continue で無視して成功を返す」パターンは
+ * 「画像だけ静かに消える」バグの温床だったため、必ずエラーを返すこと。
+ */
+async function registerJobImages(opts: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  jobId: string;
+  userId: string;
+  formData: FormData;
+  existingCount: number;
+}): Promise<string | null> {
+  const { supabase, jobId, userId, formData, existingCount } = opts;
+  const imagePaths = parseUploadedImagePaths(formData);
+  if (imagePaths.length === 0) return null;
+
+  const countError = validateJobImageCount(existingCount, imagePaths.length);
+  if (countError) return countError;
+
+  for (const path of imagePaths) {
+    if (!isOwnedStoragePath(path, userId, JOB_IMAGE_PATH_EXTENSIONS)) {
+      return "画像データが不正です。画面を再読み込みして再度お試しください";
+    }
+  }
+
+  const rows = imagePaths.map((path, i) => ({
+    job_id: jobId,
+    image_url: supabase.storage.from("job-attachments").getPublicUrl(path).data
+      .publicUrl,
+    image_type: "photo",
+    sort_order: existingCount + i,
+  }));
+
+  const { error: insertError } = await supabase
+    .from("job_images")
+    .insert(rows);
+  if (insertError) {
+    return "画像の保存に失敗しました。案件の内容は保存されています。編集画面から画像を再度追加してください";
+  }
+  return null;
+}
 
 function parseFormDataToJobInput(formData: FormData) {
   return {
@@ -245,47 +296,16 @@ export async function createJobAction(
       }
     }
 
-    // Upload images
-    const imageFiles = formData.getAll("images") as File[];
-    const validImages = imageFiles.filter(
-      (f) => f instanceof File && f.size > 0
-    );
-
-    if (validImages.length > 0) {
-      const countError = validateJobImageCount(0, validImages.length);
-      if (countError) {
-        return { success: true, data: { id: job.id } };
-      }
-
-      for (let i = 0; i < validImages.length; i++) {
-        const file = validImages[i];
-        const fileError = validateJobImageFile(file);
-        if (fileError) {
-          continue;
-        }
-
-        const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-        const path = `${user.id}/${job.id}/${crypto.randomUUID()}.${ext}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("job-attachments")
-          .upload(path, file);
-
-        if (uploadError) {
-          continue;
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("job-attachments").getPublicUrl(path);
-
-        await supabase.from("job_images").insert({
-          job_id: job.id,
-          image_url: publicUrl,
-          image_type: "photo",
-          sort_order: i,
-        });
-      }
+    // 画像 (direct-upload 済みパス) の登録。失敗は握りつぶさずエラーで返す
+    const imageError = await registerJobImages({
+      supabase,
+      jobId: job.id,
+      userId: user.id,
+      formData,
+      existingCount: 0,
+    });
+    if (imageError) {
+      return { success: false, error: imageError };
     }
 
     return { success: true, data: { id: job.id } };
@@ -490,60 +510,23 @@ export async function updateJobAction(
       }
     }
 
-    // Upload new images
-    const imageFiles = formData.getAll("images") as File[];
-    const validImages = imageFiles.filter(
-      (f) => f instanceof File && f.size > 0
-    );
-
-    if (validImages.length > 0) {
-      // Get existing image count
+    // 新規画像 (direct-upload 済みパス) の登録。失敗は握りつぶさずエラーで返す
+    const imagePaths = parseUploadedImagePaths(formData);
+    if (imagePaths.length > 0) {
       const { count: existingCount } = await supabase
         .from("job_images")
         .select("*", { count: "exact", head: true })
         .eq("job_id", jobId);
 
-      const countError = validateJobImageCount(
-        existingCount ?? 0,
-        validImages.length
-      );
-      if (countError) {
-        return {
-          success: false,
-          error: countError,
-        };
-      }
-
-      const startOrder = existingCount ?? 0;
-
-      for (let i = 0; i < validImages.length; i++) {
-        const file = validImages[i];
-        const fileError = validateJobImageFile(file);
-        if (fileError) {
-          continue;
-        }
-
-        const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-        const path = `${user.id}/${jobId}/${crypto.randomUUID()}.${ext}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("job-attachments")
-          .upload(path, file);
-
-        if (uploadError) {
-          continue;
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("job-attachments").getPublicUrl(path);
-
-        await supabase.from("job_images").insert({
-          job_id: jobId,
-          image_url: publicUrl,
-          image_type: "photo",
-          sort_order: startOrder + i,
-        });
+      const imageError = await registerJobImages({
+        supabase,
+        jobId,
+        userId: user.id,
+        formData,
+        existingCount: existingCount ?? 0,
+      });
+      if (imageError) {
+        return { success: false, error: imageError };
       }
     }
 

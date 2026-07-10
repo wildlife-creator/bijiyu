@@ -2,17 +2,19 @@
 
 import { sendVerificationEmails } from "@/lib/email/send/verification-emails";
 import { createClient } from "@/lib/supabase/server";
-import { validateDocumentFile } from "@/lib/validations/profile";
+import { isOwnedStoragePath } from "@/lib/storage/storage-path";
+import { DOCUMENT_PATH_EXTENSIONS } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
 
-function getFileExtension(filename: string): string {
-  const lastDot = filename.lastIndexOf(".");
-  if (lastDot === -1) return "";
-  return filename.slice(lastDot + 1).toLowerCase();
+interface SubmitIdentityInput {
+  /** direct-upload 済みの書類パス (identity-documents バケット) */
+  document1Path: string;
+  /** direct-upload 済みの顔写真パス (identity-documents バケット) */
+  document2Path: string;
 }
 
 export async function submitIdentityAction(
-  formData: FormData,
+  input: SubmitIdentityInput,
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
@@ -25,30 +27,18 @@ export async function submitIdentityAction(
     return { success: false, error: "認証されていません" };
   }
 
-  // 2. Get files from formData
-  const document1 = formData.get("document1") as File | null;
-  const document2 = formData.get("document2") as File | null;
+  // 2. Validate uploaded paths (direct-upload 後のパスは本人フォルダ配下のみ許可)
+  const path1 = input.document1Path;
+  const path2 = input.document2Path;
 
-  if (!document1 || document1.size === 0) {
+  if (!path1 || !isOwnedStoragePath(path1, user.id, DOCUMENT_PATH_EXTENSIONS)) {
     return { success: false, error: "書類を選択してください" };
   }
-
-  if (!document2 || document2.size === 0) {
+  if (!path2 || !isOwnedStoragePath(path2, user.id, DOCUMENT_PATH_EXTENSIONS)) {
     return { success: false, error: "顔写真を選択してください" };
   }
 
-  // 3. Validate both files
-  const doc1Error = validateDocumentFile(document1);
-  if (doc1Error) {
-    return { success: false, error: doc1Error };
-  }
-
-  const doc2Error = validateDocumentFile(document2);
-  if (doc2Error) {
-    return { success: false, error: doc2Error };
-  }
-
-  // 4. Check no pending identity verification exists
+  // 3. Check no pending identity verification exists
   const { data: existingPending } = await supabase
     .from("identity_verifications")
     .select("id")
@@ -59,30 +49,6 @@ export async function submitIdentityAction(
 
   if (existingPending) {
     return { success: false, error: "審査中の申請があります" };
-  }
-
-  // 5. Generate upload paths
-  const timestamp = Date.now();
-  const ext1 = getFileExtension(document1.name);
-  const ext2 = getFileExtension(document2.name);
-  const path1 = `${user.id}/identity_${timestamp}_1.${ext1}`;
-  const path2 = `${user.id}/identity_${timestamp}_2.${ext2}`;
-
-  // 6. Upload both files
-  const { error: uploadError1 } = await supabase.storage
-    .from("identity-documents")
-    .upload(path1, document1);
-
-  if (uploadError1) {
-    return { success: false, error: "書類のアップロードに失敗しました" };
-  }
-
-  const { error: uploadError2 } = await supabase.storage
-    .from("identity-documents")
-    .upload(path2, document2);
-
-  if (uploadError2) {
-    return { success: false, error: "顔写真のアップロードに失敗しました" };
   }
 
   // 7-8. Insert identity verification record（id / created_at は §4 通知メールで使う）
