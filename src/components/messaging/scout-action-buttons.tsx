@@ -86,19 +86,19 @@ export function ScoutActionButtons({
     <>
       <div className="flex flex-row gap-2 md:flex-col">
         <Button
+          className="flex-1 rounded-full bg-primary text-white hover:bg-primary/90 md:flex-none"
+          onClick={handleAccept}
+          disabled={isPending}
+        >
+          スカウトを受ける
+        </Button>
+        <Button
           variant="outline"
           className="flex-1 rounded-full border-primary text-primary hover:bg-primary/5 md:flex-none"
           onClick={() => setShowRejectDialog(true)}
           disabled={isPending}
         >
           スカウトを断る
-        </Button>
-        <Button
-          className="flex-1 rounded-full bg-primary text-white hover:bg-primary/90 md:flex-none"
-          onClick={handleAccept}
-          disabled={isPending}
-        >
-          スカウトを受ける
         </Button>
       </div>
 
