@@ -187,5 +187,8 @@ export default async function NewMessagePage({ searchParams }: Props) {
     threadId = newThread.id;
   }
 
-  redirect(`/messages/${threadId}?showScoutActions=false`);
+  // NOTE: 旧 `?showScoutActions=false` は廃止。この経路で開いた受注者が
+  // 後から届くスカウトに応答できなくなるため (2026-07-10 staging で実例発生)。
+  // 送信者本人へのボタン抑止は MessageThreadView の isMine 判定で行う
+  redirect(`/messages/${threadId}`);
 }

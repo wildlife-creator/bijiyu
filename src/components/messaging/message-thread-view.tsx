@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { MessageBubble } from "./message-bubble";
 import { MessageInput } from "./message-input";
 import { markAsReadAction } from "@/app/(authenticated)/messages/[threadId]/actions";
+import { fetchScoutJobInfo } from "@/lib/messaging/fetch-scout-job";
 import type { Message } from "./message-list";
 
 interface MessageThreadViewProps {
@@ -150,6 +151,16 @@ export function MessageThreadView({
             newMessage.signed_image_url = signedData?.signedUrl ?? null;
           }
 
+          // Realtime payload には join 済みの案件情報が無いので別途取得する。
+          // これを省くと ScoutInfoCard (承諾/辞退ボタン含む) がリロードまで
+          // 描画されない (2026-07-10 staging で実例発生)
+          if (newMessage.is_scout && newMessage.job_id) {
+            newMessage.scout_job = await fetchScoutJobInfo(
+              supabase,
+              newMessage.job_id,
+            );
+          }
+
           setMessages((prev) => {
             if (prev.some((m) => m.id === newMessage.id)) return prev;
             return [...prev, newMessage];
@@ -253,7 +264,10 @@ export function MessageThreadView({
               isRead={message.read_at !== null}
               scoutStatus={message.scout_status}
               scoutJob={message.scout_job}
-              showScoutActions={showScoutActions}
+              // 自分 (自分側) が送ったスカウトには応答ボタンを出さない。
+              // 個人発注者⇔受注者スレッドでは両側が個人 identity のため、
+              // ページ単位の showScoutActions だけでは送信者側を除外できない
+              showScoutActions={showScoutActions && !messageIsMine}
               showProxyBadge={resolvedShowProxyBadge}
               senderAvatarUrl={!messageIsMine ? participantAvatarUrl : undefined}
               senderName={!messageIsMine ? participantName : undefined}

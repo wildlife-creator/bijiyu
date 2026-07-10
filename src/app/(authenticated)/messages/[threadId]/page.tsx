@@ -6,15 +6,14 @@ import { MessageThreadView } from "@/components/messaging/message-thread-view";
 import type { Message, ScoutJobInfo } from "@/components/messaging/message-list";
 import { MessageHeader } from "@/components/messaging/message-header";
 import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display";
+import { fetchScoutJobInfo } from "@/lib/messaging/fetch-scout-job";
 
 interface Props {
   params: Promise<{ threadId: string }>;
-  searchParams: Promise<{ showScoutActions?: string }>;
 }
 
-export default async function ThreadDetailPage({ params, searchParams }: Props) {
+export default async function ThreadDetailPage({ params }: Props) {
   const { threadId } = await params;
-  const sp = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -72,14 +71,15 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
   // 居る personal participant)」なら表示。受注者は必ず個人 identity という業務ルールに基づく。
   // 旧実装は「counterpart が組織側」を追加要件にしていたため、個人発注者スカウトを
   // 受け取った受注者側でボタンが出ない (R2 ②) バグがあった。
-  // 送信者本人の重複表示は respondToScoutAction 側で二重防御でブロックする。
-  const viewerIsPersonalIndividualParticipant =
+  // 自分が送ったスカウトへのボタン抑止はメッセージ単位の isMine 判定で行う
+  // (MessageThreadView 側)。旧 `?showScoutActions=false` パラメータは、/messages/new
+  // 経由で開いた受注者が正当なスカウトに応答できなくなる副作用があったため廃止。
+  // respondToScoutAction 側の送信者ブロックは二重防御として維持する。
+  const showScoutActions =
     (thread.participant_1_id === user.id &&
       thread.organization_1_id === null) ||
     (thread.participant_2_id === user.id &&
       thread.organization_2_id === null);
-  const showScoutActions =
-    sp.showScoutActions !== "false" && viewerIsPersonalIndividualParticipant;
 
   // 代理バッジは viewer が組織側 (送信元組織メンバー) のときのみ表示
   const showProxyBadge = counterparty.viewerIsOrgSide;
@@ -113,33 +113,7 @@ export default async function ThreadDetailPage({ params, searchParams }: Props) 
 
       let scoutJob: ScoutJobInfo | null = null;
       if (m.is_scout && m.job_id) {
-        const { data: job } = await supabase
-          .from("jobs")
-          .select(
-            "id, title, trade_types, headcount, recruit_end_date, reward_lower, reward_upper, recruit_start_date",
-          )
-          .eq("id", m.job_id)
-          .single();
-        if (job) {
-          const { data: jobAreaRows } = await supabase
-            .from("job_areas")
-            .select("prefecture, municipality")
-            .eq("job_id", job.id);
-          scoutJob = {
-            id: job.id,
-            title: job.title,
-            tradeTypes: job.trade_types ?? [],
-            headcount: job.headcount,
-            recruitEndDate: job.recruit_end_date,
-            rewardLower: job.reward_lower,
-            rewardUpper: job.reward_upper,
-            areas: (jobAreaRows ?? []).map((a) => ({
-              prefecture: a.prefecture,
-              municipality: a.municipality,
-            })),
-            recruitStartDate: job.recruit_start_date,
-          };
-        }
+        scoutJob = await fetchScoutJobInfo(supabase, m.job_id);
       }
 
       return {
