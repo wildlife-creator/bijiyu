@@ -13,7 +13,9 @@ interface ScoutJobInfo {
   rewardUpper: number | null;
   /** master-area: scout 対象案件のエリア配列 */
   areas: AreaForDisplay[];
-  recruitStartDate: string | null;
+  /** 稼働期間（職人が実際に働く期間） */
+  workStartDate: string | null;
+  workEndDate: string | null;
 }
 
 interface MessageBubbleProps {
@@ -134,7 +136,8 @@ export function MessageBubble({
           rewardLower={scoutJob.rewardLower}
           rewardUpper={scoutJob.rewardUpper}
           areas={scoutJob.areas}
-          recruitStartDate={scoutJob.recruitStartDate}
+          workStartDate={scoutJob.workStartDate}
+          workEndDate={scoutJob.workEndDate}
           showScoutActions={showScoutActions}
           scoutStatus={scoutStatus ?? null}
           messageId={messageId}

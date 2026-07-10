@@ -17,7 +17,7 @@ export async function fetchScoutJobInfo(
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      "id, title, trade_types, headcount, recruit_end_date, reward_lower, reward_upper, recruit_start_date",
+      "id, title, trade_types, headcount, recruit_end_date, reward_lower, reward_upper, work_start_date, work_end_date",
     )
     .eq("id", jobId)
     .single();
@@ -41,6 +41,7 @@ export async function fetchScoutJobInfo(
       prefecture: a.prefecture,
       municipality: a.municipality,
     })),
-    recruitStartDate: job.recruit_start_date,
+    workStartDate: job.work_start_date,
+    workEndDate: job.work_end_date,
   };
 }

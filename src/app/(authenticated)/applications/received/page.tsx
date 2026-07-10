@@ -252,7 +252,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
                   <p className="text-body-md font-bold text-foreground">
                     {job?.title ?? "不明"}
                   </p>
-                  <div className="mt-1 flex items-center justify-between text-body-xs text-muted-foreground">
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-body-xs text-muted-foreground">
                     <span>
                       <SummaryWithOthers
                         items={job?.trade_types ?? []}
@@ -260,8 +260,9 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
                       />
                       {job?.headcount ? `・${job.headcount}人` : ""}
                     </span>
-                    <span>
-                      締め切り: {formatDate(job?.recruit_end_date, "未定")}
+                    {/* 職種が長い場合は折り返して次の行に右寄せで表示（重なり防止） */}
+                    <span className="ml-auto shrink-0 whitespace-nowrap">
+                      応募締め切り: {formatDate(job?.recruit_end_date, "未定")}
                     </span>
                   </div>
                 </div>

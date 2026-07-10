@@ -55,7 +55,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
       `id, status, created_at, applicant_id, scout_message_id,
        jobs(id, title, owner_id, organization_id, trade_types, headcount,
             reward_lower, reward_upper,
-            recruit_start_date, recruit_end_date,
+            work_start_date, work_end_date,
             owner:users!owner_id(
               last_name, first_name, deleted_at,
               client_profiles(display_name, image_url)
@@ -177,8 +177,8 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
             headcount: number | null;
             reward_lower: number | null;
             reward_upper: number | null;
-            recruit_start_date: string | null;
-            recruit_end_date: string | null;
+            work_start_date: string | null;
+            work_end_date: string | null;
             owner: {
               last_name: string | null;
               first_name: string | null;
@@ -220,9 +220,9 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
             { emptyLabel: "未定" },
           );
 
-          const recruitPeriod =
-            job?.recruit_start_date && job?.recruit_end_date
-              ? `${formatDate(job.recruit_start_date)}〜${formatDate(job.recruit_end_date)}`
+          const workPeriod =
+            job?.work_start_date && job?.work_end_date
+              ? `${formatDate(job.work_start_date)}〜${formatDate(job.work_end_date)}`
               : "";
 
           return (
@@ -278,11 +278,11 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
                       />
                     </div>
                   )}
-                  {recruitPeriod && (
+                  {workPeriod && (
                     <div className="flex items-center">
                       <img src="/images/icons/icon-calendar.png" alt="" className="size-4" />
-                      <span className="ml-2 w-16 shrink-0 font-semibold">募集期間</span>
-                      <span>{recruitPeriod}</span>
+                      <span className="ml-2 w-16 shrink-0 font-semibold">稼働期間</span>
+                      <span>{workPeriod}</span>
                     </div>
                   )}
                 </div>

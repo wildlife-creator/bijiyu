@@ -157,9 +157,9 @@ export default async function OrderDetailPage({ params }: Props) {
     emptyLabel: "未定",
   });
 
-  const recruitPeriod =
-    job.recruit_start_date && job.recruit_end_date
-      ? `${formatDate(job.recruit_start_date)}〜${formatDate(job.recruit_end_date)}`
+  const workPeriod =
+    job.work_start_date && job.work_end_date
+      ? `${formatDate(job.work_start_date)}〜${formatDate(job.work_end_date)}`
       : "未定";
 
   const headcountText = job.headcount ? `${job.headcount}人` : null;
@@ -230,8 +230,8 @@ export default async function OrderDetailPage({ params }: Props) {
           </div>
           <div className="flex items-center gap-2">
             <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
-            <span className="min-w-[6rem] shrink-0 font-semibold">募集期間</span>
-            <span>{recruitPeriod}</span>
+            <span className="min-w-[6rem] shrink-0 font-semibold">稼働期間</span>
+            <span>{workPeriod}</span>
           </div>
           <div className="flex items-start gap-2">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary/70" />

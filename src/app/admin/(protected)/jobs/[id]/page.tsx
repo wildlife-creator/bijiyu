@@ -185,11 +185,15 @@ export default async function AdminJobDetailPage({
             value={formatRewardRange(job.reward_lower, job.reward_upper)}
           />
           <DetailRow
-            label="募集期間"
+            label="応募受付期間"
             value={formatDateRange(job.recruit_start_date, job.recruit_end_date)}
           />
           <DetailRow
-            label="工事期間"
+            label="工事全体の工期"
+            value={formatDateRange(job.project_start_date, job.project_end_date)}
+          />
+          <DetailRow
+            label="稼働期間"
             value={formatDateRange(job.work_start_date, job.work_end_date)}
           />
           <DetailRow

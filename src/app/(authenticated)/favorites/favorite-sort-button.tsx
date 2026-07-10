@@ -30,7 +30,7 @@ export function FavoriteSortButton() {
         alt="並び替え"
         className="size-5"
       />
-      <span>{isAsc ? "締切が近い順" : "締切が遠い順"}</span>
+      <span>{isAsc ? "応募締め切りが近い順" : "応募締め切りが遠い順"}</span>
     </button>
   );
 }

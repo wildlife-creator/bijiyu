@@ -130,7 +130,7 @@ describe("jobSchema", () => {
         i.path.includes("workEndDate")
       );
       expect(error?.message).toBe(
-        "工期終了日は開始日以降を選択してください"
+        "稼働期間の終了日は開始日以降を選択してください"
       );
     }
   });
@@ -147,7 +147,7 @@ describe("jobSchema", () => {
         i.path.includes("recruitEndDate")
       );
       expect(error?.message).toBe(
-        "募集終了日は開始日以降を選択してください"
+        "応募受付の終了日は開始日以降を選択してください"
       );
     }
   });

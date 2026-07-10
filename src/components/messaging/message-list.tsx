@@ -17,7 +17,9 @@ export interface ScoutJobInfo {
   rewardUpper: number | null;
   /** master-area: scout 対象案件のエリア配列 */
   areas: AreaForDisplay[];
-  recruitStartDate: string | null;
+  /** 稼働期間（職人が実際に働く期間） */
+  workStartDate: string | null;
+  workEndDate: string | null;
 }
 
 export interface Message {

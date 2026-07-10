@@ -48,10 +48,10 @@
   1. ステータスバッジ（カード左上）— 表示ラベルはフィルター選択肢と同じ5種類を使用
   2. 案件タイトル
   3. 発注者の社名・氏名（※ `client_profiles.display_name`（CLI-021 で入力した名前）を表示。フォールバック: `users.last_name + first_name`）
-  4. 募集職種・人数（左寄せ）、募集締め切り日（右寄せ）— 同じ行に横並び
+  4. 募集職種・人数（左寄せ）、応募締め切り日（右寄せ）— 同じ行に横並び
   5. 報酬（例: 20,000円（人工））— `assets/icons/icon-coin.png`（コインアイコン）付き
   6. エリア（例: 東京都、埼玉県）— `assets/icons/icon-pin.png`（ピンアイコン）付き
-  7. 募集期間（例: 20XX/XX/XX〜20XX/XX/XX）— `assets/icons/icon-calendar.png`（カレンダーアイコン）付き
+  7. 稼働期間（例: 20XX/XX/XX〜20XX/XX/XX。旧: 募集期間）— `assets/icons/icon-calendar.png`（カレンダーアイコン）付き
 - **カード内ボタン**: 各カードの下部に以下のカプセル型（ピル型）ボタンを配置
   - 「メッセージを確認」（アウトライン）— 当該応募に関連するメッセージスレッドへ遷移
   - 「応募詳細を見る」（塗りつぶし）— CON-012 へ遷移
@@ -74,7 +74,7 @@
      - 募集職種・人数
      - 報酬 — `assets/icons/icon-coin.png`（コインアイコン）付き
      - エリア — `assets/icons/icon-pin.png`（ピンアイコン）付き
-     - 募集期間 — `assets/icons/icon-calendar.png`（カレンダーアイコン）付き
+     - 稼働期間 — `assets/icons/icon-calendar.png`（カレンダーアイコン）付き
      - 稼働時間（例: 8:00〜17:00（残業無）休日：○曜日）— lucide-react `Clock` アイコン付き（`className="w-4 h-4 text-primary/70"`）
   4. **「募集案件詳細」カプセル型ボタン**: クリックで CON-003（募集案件詳細）に遷移する
   5. **「以下の内容で応募済みです。」セクション**: 自分が応募時に入力した内容を表示
@@ -146,7 +146,7 @@
   5. 対応可能エリア — `assets/icons/icon-globe.png`（地球アイコン）付き
   6. 経験年数 — `assets/icons/icon-briefcase.png`（カバンアイコン）付き
   7. 「このユーザーから以下の案件に応募があります」テキスト
-  8. 案件情報カード（タイトル、募集職種・人数、締め切り）
+  8. 案件情報カード（タイトル、募集職種・人数、応募締め切り）
   9. 「応募詳細をみる」ボタン → CLI-008 へ遷移
 - **空メッセージ**: 「未対応の応募はありません」
 - ページネーション: 20件ずつ
@@ -183,7 +183,7 @@
      - 募集職種・人数
      - 報酬 — `assets/icons/icon-coin.png`（コインアイコン）付き
      - エリア — `assets/icons/icon-pin.png`（ピンアイコン）付き
-     - 募集期間 — `assets/icons/icon-calendar.png`（カレンダーアイコン）付き
+     - 稼働期間 — `assets/icons/icon-calendar.png`（カレンダーアイコン）付き
      - 稼働時間 — lucide-react `Clock` アイコン付き（`className="w-4 h-4 text-primary/70"`）
   3. **「募集案件詳細」ボタン**: primary 塗りつぶしピル型（`rounded-full text-white w-full max-w-xs`）。クリックで CON-003 に遷移
   4. **区切り線** + 「以下の内容で応募があります。」テキスト
@@ -251,7 +251,7 @@
   - 「取引完了」: status IN ('completed', 'lost')
 - フィルター状態は URL searchParams（`status`）を Single Source of Truth とする
 - 並び替え: updated_at DESC（デフォルト）、ソートアイコンで ASC/DESC トグル
-- カード表示項目: ステータスバッジ、受注者情報（氏名・年齢・職種タグ・本人確認/CCUSバッジ・対応可能エリア・経験年数）、応募済み案件情報（タイトル・募集職種/人数・締め切り）
+- カード表示項目: ステータスバッジ、受注者情報（氏名・年齢・職種タグ・本人確認/CCUSバッジ・対応可能エリア・経験年数）、応募済み案件情報（タイトル・募集職種/人数・応募締め切り）
 - アクションボタン: 「ユーザー詳細をみる」（outline）/ 「発注内容詳細をみる」（primary）→ CLI-011 へ遷移
 - ページネーション: 20件ずつ
 - **補足**: 未対応応募は CLI-007 で管理する。案件単位で全ステータスを横断して見たい場合は CLI-007B（案件応募者一覧）を使う
@@ -261,7 +261,7 @@
 - 発注済み案件の詳細情報を表示する
 - レイアウト・アイコンは CON-012（応募詳細）と同一パターンを使用する
 - セクション構成:
-  1. **案件情報**: タイトル、募集職種・人数、報酬（icon-coin）、エリア（icon-pin）、募集期間（icon-calendar）、稼働時間（CheckCircle2）
+  1. **案件情報**: タイトル、募集職種・人数、報酬（icon-coin）、エリア（icon-pin）、稼働期間（icon-calendar）、稼働時間（CheckCircle2）
      - 「募集案件詳細」ボタン（primary）→ CON-003 へ遷移
   2. **ユーザー情報**: アバター、氏名（年齢）、職種一覧、本人確認済み／CCUS登録済みバッジ（icon-tag）、対応可能エリア、経験年数、保有スキル、保有資格（各 CheckCircle2）
      - データ取得元: users, user_skills, user_available_areas, user_qualifications

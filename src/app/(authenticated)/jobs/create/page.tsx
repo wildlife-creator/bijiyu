@@ -71,6 +71,8 @@ export default async function JobCreatePage({ searchParams }: PageProps) {
           })),
           municipalitySortOrderMap,
         ),
+        projectStartDate: "",
+        projectEndDate: "",
         workStartDate: "",
         workEndDate: "",
         recruitStartDate: "",

@@ -193,11 +193,10 @@ export default async function MyPage() {
         title,
         trade_types,
         headcount,
-        recruit_end_date,
         reward_lower,
         reward_upper,
-        recruit_start_date,
-        recruit_end_date,
+        work_start_date,
+        work_end_date,
         owner_id,
         organization_id,
         owner:users!owner_id(
@@ -448,10 +447,10 @@ export default async function MyPage() {
               title: string;
               trade_types: string[];
               headcount: number | null;
-              recruit_end_date: string | null;
               reward_lower: number | null;
               reward_upper: number | null;
-              recruit_start_date: string | null;
+              work_start_date: string | null;
+              work_end_date: string | null;
               owner_id: string;
               organization_id: string | null;
               owner: {
@@ -492,9 +491,10 @@ export default async function MyPage() {
               job.reward_upper,
               { emptyLabel: "要相談" },
             );
-            const recruitPeriod = [job.recruit_start_date, job.recruit_end_date]
-              .map((d) => (d ? d.replace(/-/g, "/") : ""))
-              .join("〜");
+            const workPeriod =
+              job.work_start_date && job.work_end_date
+                ? `${job.work_start_date.replace(/-/g, "/")}〜${job.work_end_date.replace(/-/g, "/")}`
+                : "";
 
             return (
               <div
@@ -522,18 +522,13 @@ export default async function MyPage() {
                   </p>
                 )}
 
-                {/* Trade type & deadline */}
+                {/* Trade type & headcount */}
                 <div className="mt-1 flex items-center justify-between text-body-xs text-muted-foreground">
                   <span>
                     <SummaryWithOthers items={job.trade_types} maxVisible={2} />
                     {job.trade_types.length > 0 && headcountText ? "・" : ""}
                     {headcountText}
                   </span>
-                  {job.recruit_end_date && (
-                    <span>
-                      締め切り：{job.recruit_end_date.replace(/-/g, "/")}
-                    </span>
-                  )}
                 </div>
 
                 {/* Divider */}
@@ -557,8 +552,8 @@ export default async function MyPage() {
                   </div>
                   <div className="flex items-center">
                     <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
-                    <span className="ml-2 w-16 shrink-0 font-bold text-bijiyu-purple">募集期間</span>
-                    <span className="text-foreground">{recruitPeriod || "未設定"}</span>
+                    <span className="ml-2 w-16 shrink-0 font-bold text-bijiyu-purple">稼働期間</span>
+                    <span className="text-foreground">{workPeriod || "未設定"}</span>
                   </div>
                 </div>
 

@@ -9,7 +9,7 @@ interface CompletionReportToContractorEmailProps {
   jobTitle: string;
   /** 職種。複数なら「、」区切り。NULL なら省略 */
   tradeType?: string;
-  /** 工期終了日 (YYYY/MM/DD)。NULL なら省略 */
+  /** 稼働期間の終了日 (YYYY/MM/DD)。NULL なら省略 */
   workEndDate?: string;
   /** 報告日時 (YYYY/MM/DD HH:MM、呼び出し側で整形) */
   reportedAt: string;
@@ -37,7 +37,7 @@ export function completionReportToContractorEmail({
     listItem("案件名", jobTitle),
     listItem("発注者", clientName),
     tradeType ? listItem("職種", tradeType) : "",
-    workEndDate ? listItem("工期終了日(応募確定時)", workEndDate) : "",
+    workEndDate ? listItem("稼働期間の終了日(応募確定時)", workEndDate) : "",
     listItem("報告日時", reportedAt, { last: true }),
   ].filter(Boolean);
 

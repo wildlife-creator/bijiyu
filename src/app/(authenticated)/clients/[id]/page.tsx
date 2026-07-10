@@ -125,7 +125,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
     .from("jobs")
     .select(
       `id, title, trade_types, reward_lower, reward_upper,
-       is_urgent, recruit_end_date,
+       is_urgent, work_start_date, work_end_date, recruit_end_date,
        job_images(image_url, sort_order)`,
     )
     .eq("status", "open")
@@ -354,6 +354,8 @@ export default async function ClientDetailPage({ params }: PageProps) {
                     rewardLower: job.reward_lower,
                     rewardUpper: job.reward_upper,
                     isUrgent: job.is_urgent ?? false,
+                    workStartDate: job.work_start_date,
+                    workEndDate: job.work_end_date,
                     recruitEndDate: job.recruit_end_date ?? "",
                     // この画面の案件はすべてこの client の案件なので、
                     // ページ上部で解決済みの displayName を利用する

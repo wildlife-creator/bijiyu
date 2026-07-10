@@ -121,11 +121,14 @@ export default async function DecisionPage({ params }: Props) {
 
         <div className="mt-2 rounded-[8px] border border-border bg-white p-3">
           <p className="text-body-md font-bold text-foreground">{job.title}</p>
-          <div className="mt-1 flex items-center justify-between text-body-xs text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-body-xs text-muted-foreground">
             <span>
               <SummaryWithOthers items={job.trade_types} maxVisible={2} />
             </span>
-            <span>締め切り: {formatDate(job.recruit_end_date, "未定")}</span>
+            {/* 職種が長い場合は折り返して次の行に右寄せで表示（重なり防止） */}
+            <span className="ml-auto shrink-0 whitespace-nowrap">
+              応募締め切り: {formatDate(job.recruit_end_date, "未定")}
+            </span>
           </div>
         </div>
 

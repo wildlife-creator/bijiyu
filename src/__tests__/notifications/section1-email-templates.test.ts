@@ -262,7 +262,7 @@ describe("orderAcceptedControlEmail — §1.6.C", () => {
     expect(out.subject).toBe("【ビジ友】「△△工事」への発注を確定しました");
   });
 
-  it("本文に宛名・案件名・受注者・職種・人数・初回稼働日・工期終了日・発注確定日時 を含む", () => {
+  it("本文に宛名・案件名・受注者・職種・人数・初回稼働日・稼働期間の終了日・発注確定日時 を含む", () => {
     const out = orderAcceptedControlEmail(BASE);
     expect(out.html).toContain("山田工務店 様");
     expect(out.html).toContain("下記の案件について、発注を確定しました。");
@@ -271,18 +271,18 @@ describe("orderAcceptedControlEmail — §1.6.C", () => {
     expect(out.html).toContain("【職種】 型枠大工");
     expect(out.html).toContain("【人数】 3人");
     expect(out.html).toContain("【初回稼働日】 2026/06/30");
-    expect(out.html).toContain("【工期終了日（応募確定時）】 2026/07/03");
+    expect(out.html).toContain("【稼働期間の終了日（応募確定時）】 2026/07/03");
     expect(out.html).toContain("【発注確定日時】 2026/06/22 14:30");
   });
 
-  it("工期終了日 / 人数 NULL は行ごと省略", () => {
+  it("稼働期間の終了日 / 人数 NULL は行ごと省略", () => {
     const out = orderAcceptedControlEmail({
       ...BASE,
       headcount: null,
       workEndDate: undefined,
     });
     expect(out.html).not.toContain("【人数】");
-    expect(out.html).not.toContain("【工期終了日");
+    expect(out.html).not.toContain("【稼働期間の終了日");
   });
 });
 
@@ -304,7 +304,7 @@ describe("orderRejectedControlEmail — §1.6.D", () => {
     expect(out.subject).toBe("【ビジ友】「△△工事」への発注を見送りました");
   });
 
-  it("本文に宛名・案件名・受注者・職種・対応日時 を含む。初回稼働日 / 工期終了日 は含めない", () => {
+  it("本文に宛名・案件名・受注者・職種・対応日時 を含む。初回稼働日 / 稼働期間の終了日 は含めない", () => {
     const out = orderRejectedControlEmail(BASE);
     expect(out.html).toContain("山田工務店 様");
     expect(out.html).toContain("下記の案件について、発注を見送りました。");
@@ -313,7 +313,7 @@ describe("orderRejectedControlEmail — §1.6.D", () => {
     expect(out.html).toContain("【職種】 型枠大工");
     expect(out.html).toContain("【対応日時】 2026/06/22 14:30");
     expect(out.html).not.toContain("【初回稼働日】");
-    expect(out.html).not.toContain("【工期終了日");
+    expect(out.html).not.toContain("【稼働期間の終了日");
   });
 });
 
@@ -384,7 +384,7 @@ describe("completionReportToClientEmail — §3.1.A", () => {
     expect(out.html).toContain("【案件名】 △△工事");
     expect(out.html).toContain("【受注者】 田中花子");
     expect(out.html).toContain("【職種】 型枠大工");
-    expect(out.html).toContain("【工期終了日(応募確定時)】 2026/07/03");
+    expect(out.html).toContain("【稼働期間の終了日(応募確定時)】 2026/07/03");
     expect(out.html).toContain("【報告日時】 2026/07/05 14:30");
   });
 
@@ -395,9 +395,9 @@ describe("completionReportToClientEmail — §3.1.A", () => {
     expect(out.html).not.toContain("マイページから提出");
   });
 
-  it("工期終了日 NULL は行ごと省略", () => {
+  it("稼働期間の終了日 NULL は行ごと省略", () => {
     const out = completionReportToClientEmail({ ...BASE, workEndDate: undefined });
-    expect(out.html).not.toContain("【工期終了日");
+    expect(out.html).not.toContain("【稼働期間の終了日");
   });
 });
 
@@ -430,7 +430,7 @@ describe("completionReportToContractorEmail — §3.1.B", () => {
     expect(out.html).toContain("【案件名】 △△工事");
     expect(out.html).toContain("【発注者】 山田工務店");
     expect(out.html).toContain("【職種】 型枠大工");
-    expect(out.html).toContain("【工期終了日(応募確定時)】 2026/07/03");
+    expect(out.html).toContain("【稼働期間の終了日(応募確定時)】 2026/07/03");
     expect(out.html).toContain("【報告日時】 2026/07/05 14:30");
   });
 });

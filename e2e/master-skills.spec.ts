@@ -440,10 +440,10 @@ test.describe("9.3e CLI-004 案件作成 → CON-002 検索ヒット", () => {
     const today = new Date();
     const fmt = (d: Date) => d.toISOString().split("T")[0];
     const plus = (n: number) => fmt(new Date(today.getTime() + n * 86400000));
-    await page.locator('input[type="date"]').nth(0).fill(plus(7)); // workStartDate
-    await page.locator('input[type="date"]').nth(1).fill(plus(30)); // workEndDate
-    await page.locator('input[type="date"]').nth(2).fill(fmt(today)); // recruitStartDate
-    await page.locator('input[type="date"]').nth(3).fill(plus(14)); // recruitEndDate
+    await page.locator('input[type="date"]').nth(2).fill(plus(7)); // workStartDate
+    await page.locator('input[type="date"]').nth(3).fill(plus(30)); // workEndDate
+    await page.locator('input[type="date"]').nth(4).fill(fmt(today)); // recruitStartDate
+    await page.locator('input[type="date"]').nth(5).fill(plus(14)); // recruitEndDate
 
     await page.locator('input[name="workHours"]').fill("8:00〜17:00");
 

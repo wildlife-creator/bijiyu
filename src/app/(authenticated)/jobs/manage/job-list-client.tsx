@@ -176,13 +176,13 @@ export function JobListClient({
                   {job.trade_types.length > 0 && (
                     <div className="flex items-center">
                       <img src="/images/icons/icon-briefcase.png" alt="" className="w-4 h-4 shrink-0" />
-                      <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集職種</span>
+                      <span className="ml-1.5 w-24 shrink-0 text-muted-foreground">募集職種</span>
                       <SummaryWithOthers items={job.trade_types} maxVisible={2} />
                     </div>
                   )}
                   <div className="flex items-center">
                     <img src="/images/icons/icon-coin.png" alt="" className="w-4 h-4 shrink-0" />
-                    <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">報酬</span>
+                    <span className="ml-1.5 w-24 shrink-0 text-muted-foreground">報酬</span>
                     <span>
                       {formatRewardRange(job.reward_lower, job.reward_upper, {
                         emptyLabel: "—",
@@ -192,14 +192,14 @@ export function JobListClient({
                   {job.areas.length > 0 && (
                     <div className="flex items-center">
                       <img src="/images/icons/icon-pin.png" alt="" className="w-4 h-4 shrink-0" />
-                      <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">エリア</span>
+                      <span className="ml-1.5 w-24 shrink-0 text-muted-foreground">エリア</span>
                       <AreaSummary areas={job.areas} className="line-clamp-1" />
                     </div>
                   )}
                   {job.recruit_start_date && job.recruit_end_date && (
                     <div className="flex items-center">
                       <img src="/images/icons/icon-calendar.png" alt="" className="w-4 h-4 shrink-0" />
-                      <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集期間</span>
+                      <span className="ml-1.5 w-24 shrink-0 text-muted-foreground">応募受付期間</span>
                       <span>
                         {formatDate(job.recruit_start_date, "")}〜
                         {formatDate(job.recruit_end_date, "")}

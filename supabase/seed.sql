@@ -2162,3 +2162,13 @@ SET organization_1_id = t.organization_id
 WHERE t.organization_id IS NOT NULL
   AND t.organization_1_id IS NULL
   AND t.organization_2_id IS NULL;
+
+-- ---------------------------------------------------------------------------
+-- 工事全体の工期（project_start_date / project_end_date、任意項目）
+-- 表示確認用に代表案件のみ投入する。他の案件は NULL のまま
+-- （未入力時は CON-003 で行ごと非表示になるケースの確認用）
+-- ---------------------------------------------------------------------------
+UPDATE jobs
+SET project_start_date = CURRENT_DATE - interval '30 days',
+    project_end_date   = CURRENT_DATE + interval '90 days'
+WHERE id = '66666666-6666-6666-6666-666666666666';

@@ -163,9 +163,9 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     emptyLabel: "未定",
   });
 
-  const recruitPeriod =
-    job.recruit_start_date && job.recruit_end_date
-      ? `${formatDate(job.recruit_start_date)} 〜 ${formatDate(job.recruit_end_date)}`
+  const workPeriod =
+    job.work_start_date && job.work_end_date
+      ? `${formatDate(job.work_start_date)} 〜 ${formatDate(job.work_end_date)}`
       : "未定";
 
   return (
@@ -205,8 +205,13 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
           </div>
           <div className="flex items-center gap-2">
             <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
-            <span className="min-w-[6rem] shrink-0">募集期間</span>
-            <span>{recruitPeriod}</span>
+            <span className="min-w-[6rem] shrink-0">稼働期間</span>
+            <span>{workPeriod}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
+            <span className="min-w-[6rem] shrink-0">応募締め切り</span>
+            <span>{formatDate(job.recruit_end_date, "未定")}</span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="size-4 shrink-0 text-primary/70" />

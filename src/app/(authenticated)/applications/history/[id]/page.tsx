@@ -194,11 +194,6 @@ export default async function ApplicationDetailPage({ params }: Props) {
     { emptyLabel: "未定" },
   );
 
-  const recruitPeriod =
-    job?.recruit_start_date && job?.recruit_end_date
-      ? `${formatDate(job.recruit_start_date)} 〜 ${formatDate(job.recruit_end_date)}`
-      : "未定";
-
   const workPeriod =
     job?.work_start_date && job?.work_end_date
       ? `${formatDate(job.work_start_date)} 〜 ${formatDate(job.work_end_date)}`
@@ -261,8 +256,8 @@ export default async function ApplicationDetailPage({ params }: Props) {
           </div>
           <div className="flex items-center gap-2">
             <img src="/images/icons/icon-calendar.png" alt="" className="size-4 shrink-0" />
-            <span className="min-w-[6rem] shrink-0 font-semibold">募集期間</span>
-            <span>{recruitPeriod}</span>
+            <span className="min-w-[6rem] shrink-0 font-semibold">稼働期間</span>
+            <span>{workPeriod ?? "未定"}</span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="size-4 shrink-0 text-primary/70" />
@@ -329,7 +324,7 @@ export default async function ApplicationDetailPage({ params }: Props) {
               </div>
             </div>
             <div>
-              <span className="font-semibold">【勤務日・稼働時間】</span>
+              <span className="font-semibold">【稼働期間・稼働時間】</span>
               <p className="pl-4">{workPeriod ?? "—"}</p>
               {job?.work_hours && <p className="pl-4">{job.work_hours}</p>}
               {job?.schedule_detail && <p className="pl-4 text-muted-foreground">{job.schedule_detail}</p>}

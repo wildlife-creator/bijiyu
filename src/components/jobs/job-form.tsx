@@ -87,6 +87,8 @@ export function JobForm({
       rewardLower: undefined as unknown as number,
       rewardUpper: undefined as unknown as number,
       areas: [],
+      projectStartDate: "",
+      projectEndDate: "",
       workStartDate: "",
       workEndDate: "",
       recruitStartDate: "",
@@ -355,16 +357,37 @@ export function JobForm({
           )}
         </div>
 
-        {/* 現場工期 */}
+        {/* 工事全体の工期（任意） */}
+        <div className="space-y-1">
+          <Label>工事全体の工期</Label>
+          <div className="flex items-center gap-2">
+            <Input type="date" {...register("projectStartDate")} />
+            <span className="text-body-md">〜</span>
+            <Input type="date" {...register("projectEndDate")} />
+          </div>
+          <p className="text-body-xs text-muted-foreground">
+            工事プロジェクト全体の期間です（着工〜竣工の予定）
+          </p>
+          {errors.projectEndDate && (
+            <p className="text-body-sm text-destructive">
+              {errors.projectEndDate.message}
+            </p>
+          )}
+        </div>
+
+        {/* 稼働期間 */}
         <div className="space-y-1">
           <Label>
-            現場工期 <span className="text-destructive">必須</span>
+            稼働期間 <span className="text-destructive">必須</span>
           </Label>
           <div className="flex items-center gap-2">
             <Input type="date" {...register("workStartDate")} />
             <span className="text-body-md">〜</span>
             <Input type="date" {...register("workEndDate")} />
           </div>
+          <p className="text-body-xs text-muted-foreground">
+            募集する職人の方に実際に働いてもらう期間です
+          </p>
           {errors.workStartDate && (
             <p className="text-body-sm text-destructive">
               {errors.workStartDate.message}
@@ -377,16 +400,19 @@ export function JobForm({
           )}
         </div>
 
-        {/* 募集期間 */}
+        {/* 応募受付期間 */}
         <div className="space-y-1">
           <Label>
-            募集期間 <span className="text-destructive">必須</span>
+            応募受付期間 <span className="text-destructive">必須</span>
           </Label>
           <div className="flex items-center gap-2">
             <Input type="date" {...register("recruitStartDate")} />
             <span className="text-body-md">〜</span>
             <Input type="date" {...register("recruitEndDate")} />
           </div>
+          <p className="text-body-xs text-muted-foreground">
+            応募を受け付ける期間です。終了日がそのまま応募締め切りになります
+          </p>
           {errors.recruitStartDate && (
             <p className="text-body-sm text-destructive">
               {errors.recruitStartDate.message}
@@ -410,10 +436,10 @@ export function JobForm({
           />
         </div>
 
-        {/* 締め切り（= 募集終了日と同じ値を表示用に表示） */}
+        {/* 応募締め切り（= 応募受付期間の終了日と同じ値を表示用に表示） */}
         <div className="space-y-1">
           <Label>
-            締め切り <span className="text-destructive">必須</span>
+            応募締め切り <span className="text-destructive">必須</span>
           </Label>
           <Input
             type="date"
@@ -422,7 +448,7 @@ export function JobForm({
             className="bg-muted"
           />
           <p className="text-body-xs text-muted-foreground">
-            募集期間の終了日が自動的に設定されます
+            応募受付期間の終了日が自動的に設定されます
           </p>
         </div>
 

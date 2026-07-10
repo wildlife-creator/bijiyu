@@ -252,7 +252,7 @@ test.describe("お気に入り機能", () => {
     await expect(page.getByText("経験年数").first()).toBeVisible();
   });
 
-  test("マイリスト案件タブ: 種類プルダウン + 締切並べ替えが動作する（CON-007）", async ({
+  test("マイリスト案件タブ: 種類プルダウン + 応募締め切り並べ替えが動作する（CON-007）", async ({
     page,
   }) => {
     // 別の受注者アカウントで案件を1件マイリスト登録（他テストと干渉しないため）
@@ -271,13 +271,13 @@ test.describe("お気に入り機能", () => {
     await expect(page.getByRole("combobox")).toContainText("案件");
     // 案件カードが表示される
     await expect(page.locator("a[href^='/jobs/']").first()).toBeVisible();
-    // 並べ替えボタン（既定: 締切が近い順）→ クリックで遠い順に切り替わる
+    // 並べ替えボタン（既定: 応募締め切りが近い順）→ クリックで遠い順に切り替わる
     await expect(
-      page.getByRole("button", { name: /締切が近い順/ }),
+      page.getByRole("button", { name: /応募締め切りが近い順/ }),
     ).toBeVisible();
-    await page.getByRole("button", { name: /締切が近い順/ }).click();
+    await page.getByRole("button", { name: /応募締め切りが近い順/ }).click();
     await expect(
-      page.getByRole("button", { name: /締切が遠い順/ }),
+      page.getByRole("button", { name: /応募締め切りが遠い順/ }),
     ).toBeVisible();
   });
 });

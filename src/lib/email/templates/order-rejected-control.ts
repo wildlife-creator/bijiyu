@@ -19,7 +19,7 @@ interface OrderRejectedControlEmailProps {
  * `rejectApplicationAction` で applied → rejected 遷移時に発火。
  * 個人プラン: オーナー本人 1 通 / 法人プラン: 組織メンバー全員 (M-03)。
  *
- * 初回稼働日 / 工期終了日は含めない (reject パスでは未入力)。closing なし。
+ * 初回稼働日 / 稼働期間の終了日は含めない (reject パスでは未入力)。closing なし。
  */
 export function orderRejectedControlEmail({
   recipientName,

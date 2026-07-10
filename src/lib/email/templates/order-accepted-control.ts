@@ -13,7 +13,7 @@ interface OrderAcceptedControlEmailProps {
   headcount?: number | null;
   /** 初回稼働日 (YYYY/MM/DD) */
   firstWorkDate: string;
-  /** 工期終了日 (YYYY/MM/DD)。NULL なら省略 */
+  /** 稼働期間の終了日 (YYYY/MM/DD)。NULL なら省略 */
   workEndDate?: string;
   /** 発注確定日時 (YYYY/MM/DD HH:MM、呼び出し側で整形) */
   decidedAt: string;
@@ -44,7 +44,7 @@ export function orderAcceptedControlEmail({
     tradeType ? listItem("職種", tradeType) : "",
     typeof headcount === "number" ? listItem("人数", `${headcount}人`) : "",
     listItem("初回稼働日", firstWorkDate),
-    workEndDate ? listItem("工期終了日（応募確定時）", workEndDate) : "",
+    workEndDate ? listItem("稼働期間の終了日（応募確定時）", workEndDate) : "",
     listItem("発注確定日時", decidedAt, { last: true }),
   ].filter(Boolean);
 

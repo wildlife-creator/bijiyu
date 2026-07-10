@@ -60,26 +60,34 @@ function DetailRow({
   label,
   value,
   alwaysShow = false,
+  note,
 }: {
   label: string;
   value: ReactNode | string | null | undefined;
   alwaysShow?: boolean;
+  /** ラベル下に表示する補足説明（何を表す項目かの注記） */
+  note?: string;
 }) {
   const isString = typeof value === "string";
   const isEmpty = value == null || (isString && !value);
   if (isEmpty && !alwaysShow) return null;
   return (
     <div className="flex border-b border-border py-3">
-      <span className="w-28 shrink-0 text-body-md font-medium text-secondary">
+      <span className="w-32 shrink-0 text-body-md font-medium text-secondary">
         {label}
       </span>
-      {isEmpty ? (
-        <span className="flex-1 text-body-md text-foreground">—</span>
-      ) : isString ? (
-        <span className="flex-1 text-body-md text-foreground">{value}</span>
-      ) : (
-        <div className="flex-1 text-body-md text-foreground">{value}</div>
-      )}
+      <div className="flex-1">
+        {isEmpty ? (
+          <span className="text-body-md text-foreground">—</span>
+        ) : isString ? (
+          <span className="text-body-md text-foreground">{value}</span>
+        ) : (
+          <div className="text-body-md text-foreground">{value}</div>
+        )}
+        {note && (
+          <p className="mt-0.5 text-body-xs text-muted-foreground">{note}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -291,7 +299,16 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
               alwaysShow
             />
             <DetailRow
-              label="現場工期"
+              label="工事全体の工期"
+              value={
+                job.project_start_date || job.project_end_date
+                  ? `${job.project_start_date ? formatDate(job.project_start_date) : "—"}〜${job.project_end_date ? formatDate(job.project_end_date) : "—"}`
+                  : null
+              }
+              alwaysShow
+            />
+            <DetailRow
+              label="稼働期間"
               value={
                 job.work_start_date || job.work_end_date
                   ? `${job.work_start_date ? formatDate(job.work_start_date) : "—"}〜${job.work_end_date ? formatDate(job.work_end_date) : "—"}`
@@ -300,7 +317,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
               alwaysShow
             />
             <DetailRow
-              label="募集期間"
+              label="応募受付期間"
               value={
                 job.recruit_start_date || job.recruit_end_date
                   ? `${job.recruit_start_date ? formatDate(job.recruit_start_date) : "—"}〜${job.recruit_end_date ? formatDate(job.recruit_end_date) : "—"}`
@@ -310,7 +327,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             />
             <DetailRow label="稼働時間" value={job.work_hours} alwaysShow />
             <DetailRow
-              label="締め切り"
+              label="応募締め切り"
               value={job.recruit_end_date ? formatDate(job.recruit_end_date) : null}
               alwaysShow
             />
@@ -554,27 +571,29 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
             value={job.headcount ? `${job.headcount}人` : null}
             alwaysShow
           />
+          {/* 工事全体の工期は任意入力のため、未入力の案件では行ごと非表示 */}
           <DetailRow
-            label="現場工期"
+            label="工事全体の工期"
+            value={
+              job.project_start_date && job.project_end_date
+                ? `${formatDate(job.project_start_date)}〜${formatDate(job.project_end_date)}`
+                : null
+            }
+            note="工事プロジェクト全体の期間"
+          />
+          <DetailRow
+            label="稼働期間"
             value={
               job.work_start_date && job.work_end_date
                 ? `${formatDate(job.work_start_date)}〜${formatDate(job.work_end_date)}`
                 : null
             }
-            alwaysShow
-          />
-          <DetailRow
-            label="募集期間"
-            value={
-              job.recruit_start_date && job.recruit_end_date
-                ? `${formatDate(job.recruit_start_date)}〜${formatDate(job.recruit_end_date)}`
-                : null
-            }
+            note="実際に働いていただく期間"
             alwaysShow
           />
           <DetailRow label="稼働時間" value={job.work_hours} alwaysShow />
           <DetailRow
-            label="締め切り"
+            label="応募締め切り"
             value={job.recruit_end_date ? formatDate(job.recruit_end_date) : null}
             alwaysShow
           />

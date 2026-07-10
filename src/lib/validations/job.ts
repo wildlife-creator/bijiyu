@@ -37,10 +37,13 @@ export const jobSchema = z
     areas: jobAreaRowsSchema.refine((arr) => arr.length >= 1, {
       message: "エリアを1つ以上選択してください",
     }),
-    workStartDate: z.string().min(1, "工期開始日を選択してください"),
-    workEndDate: z.string().min(1, "工期終了日を選択してください"),
-    recruitStartDate: z.string().min(1, "募集開始日を選択してください"),
-    recruitEndDate: z.string().min(1, "募集終了日を選択してください"),
+    // 工事全体の工期は任意入力
+    projectStartDate: z.string().optional().or(z.literal("")),
+    projectEndDate: z.string().optional().or(z.literal("")),
+    workStartDate: z.string().min(1, "稼働期間の開始日を選択してください"),
+    workEndDate: z.string().min(1, "稼働期間の終了日を選択してください"),
+    recruitStartDate: z.string().min(1, "応募受付の開始日を選択してください"),
+    recruitEndDate: z.string().min(1, "応募受付の終了日を選択してください"),
     headcount: z
       .number({ message: "募集人数は数値で入力してください" })
       .int()
@@ -73,7 +76,7 @@ export const jobSchema = z
   .refine(
     (data) => new Date(data.workEndDate) >= new Date(data.workStartDate),
     {
-      message: "工期終了日は開始日以降を選択してください",
+      message: "稼働期間の終了日は開始日以降を選択してください",
       path: ["workEndDate"],
     }
   )
@@ -81,8 +84,19 @@ export const jobSchema = z
     (data) =>
       new Date(data.recruitEndDate) >= new Date(data.recruitStartDate),
     {
-      message: "募集終了日は開始日以降を選択してください",
+      message: "応募受付の終了日は開始日以降を選択してください",
       path: ["recruitEndDate"],
+    }
+  )
+  .refine(
+    (data) => {
+      // 工事全体の工期は任意。両方入力されたときのみ前後関係をチェック
+      if (!data.projectStartDate || !data.projectEndDate) return true;
+      return new Date(data.projectEndDate) >= new Date(data.projectStartDate);
+    },
+    {
+      message: "工事全体の工期の終了日は開始日以降を選択してください",
+      path: ["projectEndDate"],
     }
   );
 
@@ -117,6 +131,8 @@ export const jobDraftSchema = z.object({
     .refine((arr) => expandAreasForDb(arr).length <= 10, {
       message: areaErrorMessages.tooManyAreasForJob,
     }),
+  projectStartDate: z.string().optional().or(z.literal("")),
+  projectEndDate: z.string().optional().or(z.literal("")),
   workStartDate: z.string().optional().or(z.literal("")),
   workEndDate: z.string().optional().or(z.literal("")),
   recruitStartDate: z.string().optional().or(z.literal("")),

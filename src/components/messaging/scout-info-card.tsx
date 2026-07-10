@@ -17,7 +17,9 @@ interface ScoutInfoCardProps {
   rewardUpper: number | null;
   /** master-area: スカウト対象案件のエリア配列 */
   areas: AreaForDisplay[];
-  recruitStartDate: string | null;
+  /** 稼働期間（職人が実際に働く期間） */
+  workStartDate: string | null;
+  workEndDate: string | null;
   // Scout action props
   showScoutActions: boolean;
   scoutStatus: string | null;
@@ -33,7 +35,8 @@ export function ScoutInfoCard({
   rewardLower,
   rewardUpper,
   areas,
-  recruitStartDate,
+  workStartDate,
+  workEndDate,
   showScoutActions,
   scoutStatus,
   messageId,
@@ -54,7 +57,7 @@ export function ScoutInfoCard({
       </Link>
 
       {/* Trade type + deadline */}
-      <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
         <span>
           {tradeTypes.length > 0 ? (
             <SummaryWithOthers items={tradeTypes} maxVisible={2} />
@@ -63,7 +66,10 @@ export function ScoutInfoCard({
           )}
           {headcount ? `・${headcount}名` : ""}
         </span>
-        <span>締め切り：{formatDate(recruitEndDate)}</span>
+        {/* 職種が長い場合は折り返して次の行に右寄せで表示（重なり防止） */}
+        <span className="ml-auto shrink-0 whitespace-nowrap">
+          応募締め切り：{formatDate(recruitEndDate)}
+        </span>
       </div>
 
       <div className="border-t border-border pt-3" />
@@ -96,9 +102,11 @@ export function ScoutInfoCard({
               alt=""
               className="h-4 w-4"
             />
-            <span className="w-14 text-xs text-primary/70">募集期間</span>
+            <span className="w-14 text-xs text-primary/70">稼働期間</span>
             <span className="text-sm">
-              {formatDate(recruitStartDate)}〜{formatDate(recruitEndDate)}
+              {workStartDate && workEndDate
+                ? `${formatDate(workStartDate)}〜${formatDate(workEndDate)}`
+                : "未定"}
             </span>
           </div>
         </div>

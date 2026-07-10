@@ -19,6 +19,9 @@ interface JobListCardProps {
     rewardLower: number | null;
     rewardUpper: number | null;
     isUrgent: boolean;
+    /** 稼働期間（職人が実際に働く期間）。下書き等で未設定なら null */
+    workStartDate: string | null;
+    workEndDate: string | null;
     recruitEndDate: string;
     companyName: string | null;
     thumbnailUrl: string | null;
@@ -62,7 +65,7 @@ export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobL
               alt=""
               className="w-4 h-4 shrink-0"
             />
-            <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集職種</span>
+            <span className="ml-1.5 w-24 shrink-0 text-muted-foreground">募集職種</span>
             <SummaryWithOthers items={job.tradeTypes} maxVisible={2} />
           </div>
           <div className="flex items-center">
@@ -71,7 +74,7 @@ export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobL
               alt=""
               className="w-4 h-4 shrink-0"
             />
-            <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">報酬</span>
+            <span className="ml-1.5 w-24 shrink-0 text-muted-foreground">報酬</span>
             <span>
               {formatRewardRange(job.rewardLower, job.rewardUpper, {
                 emptyLabel: "要相談",
@@ -84,7 +87,7 @@ export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobL
               alt=""
               className="w-4 h-4 shrink-0"
             />
-            <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">エリア</span>
+            <span className="ml-1.5 w-24 shrink-0 text-muted-foreground">エリア</span>
             <AreaSummary areas={job.areas} className="line-clamp-1" />
           </div>
           <div className="flex items-center">
@@ -93,7 +96,20 @@ export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobL
               alt=""
               className="w-4 h-4 shrink-0"
             />
-            <span className="ml-1.5 w-16 shrink-0 text-muted-foreground">募集期間</span>
+            <span className="ml-1.5 w-24 shrink-0 text-muted-foreground">稼働期間</span>
+            <span>
+              {job.workStartDate && job.workEndDate
+                ? `${job.workStartDate.replace(/-/g, "/")}〜${job.workEndDate.replace(/-/g, "/")}`
+                : "未定"}
+            </span>
+          </div>
+          <div className="flex items-center">
+            <img
+              src="/images/icons/icon-calendar.png"
+              alt=""
+              className="w-4 h-4 shrink-0"
+            />
+            <span className="ml-1.5 w-24 shrink-0 text-muted-foreground">応募締め切り</span>
             <span>〜{job.recruitEndDate.replace(/-/g, "/")}</span>
           </div>
         </div>

@@ -183,6 +183,7 @@ async function JobFavorites({
       `
       id, title, description, trade_types,
       reward_lower, reward_upper, is_urgent,
+      work_start_date, work_end_date,
       recruit_start_date, recruit_end_date, created_at,
       owner_id, organization_id,
       owner:users!owner_id(
@@ -248,6 +249,8 @@ async function JobFavorites({
               rewardLower: job.reward_lower,
               rewardUpper: job.reward_upper,
               isUrgent: job.is_urgent ?? false,
+              workStartDate: job.work_start_date,
+              workEndDate: job.work_end_date,
               recruitEndDate: job.recruit_end_date ?? "",
               companyName,
               thumbnailUrl: thumbnail,

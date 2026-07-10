@@ -671,6 +671,8 @@ export type Database = {
           owner_id: string
           owner_message: string | null
           project_details: string | null
+          project_end_date: string | null
+          project_start_date: string | null
           recruit_end_date: string | null
           recruit_start_date: string | null
           required_skills: string | null
@@ -701,6 +703,8 @@ export type Database = {
           owner_id: string
           owner_message?: string | null
           project_details?: string | null
+          project_end_date?: string | null
+          project_start_date?: string | null
           recruit_end_date?: string | null
           recruit_start_date?: string | null
           required_skills?: string | null
@@ -731,6 +735,8 @@ export type Database = {
           owner_id?: string
           owner_message?: string | null
           project_details?: string | null
+          project_end_date?: string | null
+          project_start_date?: string | null
           recruit_end_date?: string | null
           recruit_start_date?: string | null
           required_skills?: string | null

@@ -123,7 +123,7 @@ CON-002-design-sp.png / CON-002-design-pc.png を
 - shadcn/ui Card + rounded-[8px]
 - カード上部: 画像サムネイル（1枚目、なければプレースホルダー）
 - 画像左上: ステータスバッジ absolute 配置（rounded-[33px]）
-- カード下部: タイトル、会社名、職種、報酬、エリア、募集期間
+- カード下部: タイトル、会社名、職種、報酬、エリア、稼働期間、応募締め切り
 - アイコンは assets/icons/ のプロジェクト専用アイコンを使用
 
 #### 判断基準
@@ -288,7 +288,7 @@ lg: 1024px〜（ワイドPC、必要な場合のみ）
 | CON-002 募集案件一覧 | 募集職種 | icon-briefcase.png |
 | CON-002 募集案件一覧 | 報酬 | icon-coin.png |
 | CON-002 募集案件一覧 | エリア | icon-pin.png |
-| CON-002 募集案件一覧 | 募集期間 | icon-calendar.png |
+| CON-002 募集案件一覧 | 稼働期間・応募締め切り | icon-calendar.png |
 | CON-002 募集案件一覧 | 並び替え | icon-sort.png |
 | CON-005 発注者一覧 | 募集職種 | icon-briefcase.png |
 | CON-005 発注者一覧 | 募集エリア | icon-pin.png |

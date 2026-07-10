@@ -102,6 +102,7 @@ export default async function AdminApplicationDetailPage({
     .select(
       `id, status, first_work_date, cancelled_by, work_location, job_id, applicant_id,
        job:jobs(id, title, trade_types, headcount, recruit_start_date, recruit_end_date,
+                project_start_date, project_end_date, work_start_date, work_end_date,
                 reward_lower, reward_upper, owner_id, organization_id),
        applicant:users!applicant_id(last_name, first_name, email, birth_date, deleted_at)`,
     )
@@ -223,7 +224,7 @@ export default async function AdminApplicationDetailPage({
           )}
           <div className="mt-2 space-y-1 text-body-sm text-foreground">
             <div className="flex items-start gap-2">
-              <span className="min-w-[5.5rem] shrink-0 text-right text-muted-foreground">
+              <span className="min-w-[8rem] shrink-0 text-right text-muted-foreground">
                 募集職種：
               </span>
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -238,7 +239,7 @@ export default async function AdminApplicationDetailPage({
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="min-w-[5.5rem] shrink-0 text-right text-muted-foreground">
+              <span className="min-w-[8rem] shrink-0 text-right text-muted-foreground">
                 人数：
               </span>
               <span>
@@ -246,8 +247,8 @@ export default async function AdminApplicationDetailPage({
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="min-w-[5.5rem] shrink-0 text-right text-muted-foreground">
-                募集期間：
+              <span className="min-w-[8rem] shrink-0 text-right text-muted-foreground">
+                応募受付期間：
               </span>
               <span>
                 {app.job?.recruit_start_date || app.job?.recruit_end_date
@@ -256,7 +257,27 @@ export default async function AdminApplicationDetailPage({
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="min-w-[5.5rem] shrink-0 text-right text-muted-foreground">
+              <span className="min-w-[8rem] shrink-0 text-right text-muted-foreground">
+                工事全体の工期：
+              </span>
+              <span>
+                {app.job?.project_start_date || app.job?.project_end_date
+                  ? `${formatDate(app.job?.project_start_date)}〜${formatDate(app.job?.project_end_date)}`
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="min-w-[8rem] shrink-0 text-right text-muted-foreground">
+                稼働期間：
+              </span>
+              <span>
+                {app.job?.work_start_date || app.job?.work_end_date
+                  ? `${formatDate(app.job?.work_start_date)}〜${formatDate(app.job?.work_end_date)}`
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="min-w-[8rem] shrink-0 text-right text-muted-foreground">
                 エリア：
               </span>
               <span>
@@ -264,13 +285,13 @@ export default async function AdminApplicationDetailPage({
               </span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="min-w-[5.5rem] shrink-0 text-right text-muted-foreground">
+              <span className="min-w-[8rem] shrink-0 text-right text-muted-foreground">
                 勤務地：
               </span>
               <span>{app.work_location || "—"}</span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="min-w-[5.5rem] shrink-0 text-right text-muted-foreground">
+              <span className="min-w-[8rem] shrink-0 text-right text-muted-foreground">
                 工事代金：
               </span>
               <span>

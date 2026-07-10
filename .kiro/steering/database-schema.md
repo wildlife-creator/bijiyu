@@ -155,10 +155,12 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | headcount | integer | 募集人数 |
 | reward_upper | integer | 報酬上限（円） |
 | reward_lower | integer | 報酬下限（円） |
-| work_start_date | date | 現場工期（開始） |
-| work_end_date | date | 現場工期（終了） |
-| recruit_start_date | date | 募集期間（開始） |
-| recruit_end_date | date | 募集期間（終了） |
+| work_start_date | date | 稼働期間（開始）※旧称: 現場工期 |
+| work_end_date | date | 稼働期間（終了） |
+| recruit_start_date | date | 応募受付期間（開始）※旧称: 募集期間 |
+| project_start_date | date | 工事全体の工期（開始・任意） |
+| project_end_date | date | 工事全体の工期（終了・任意） |
+| recruit_end_date | date | 応募受付期間（終了）= 応募締め切り |
 | work_hours | text | 稼働時間 |
 | experience_years | text | 必要経験年数 |
 | required_skills | text | 必須スキル |
@@ -169,7 +171,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | owner_message | text | 発注者からのメッセージ |
 | location | text | 勤務地（補足情報） |
 | etc_message | text | 詳細その他 |
-| status | text | 'draft' / 'open' / 'closed'。'closed' への自動遷移: ①募集期間終了（Edge Function `close-expired-jobs` が recruit_end_date 超過時に自動設定）、②発注者の支払い遅延による降格時（Edge Function `auto-cancel-past-due`）、③発注者の退会時（Server Action） |
+| status | text | 'draft' / 'open' / 'closed'。'closed' への自動遷移: ①応募受付期間終了（Edge Function `close-expired-jobs` が recruit_end_date 超過時に自動設定）、②発注者の支払い遅延による降格時（Edge Function `auto-cancel-past-due`）、③発注者の退会時（Server Action） |
 | is_urgent | boolean | 急募フラグ（オプション） |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |

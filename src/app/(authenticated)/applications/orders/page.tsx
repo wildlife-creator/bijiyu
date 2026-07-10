@@ -58,7 +58,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
          user_skills(trade_type, experience_years),
          user_available_areas(prefecture)
        ),
-       jobs!inner(id, title, owner_id, organization_id, trade_types, headcount, recruit_end_date),
+       jobs!inner(id, title, owner_id, organization_id, trade_types, headcount, work_start_date, work_end_date),
        user_reviews(id),
        client_reviews(id)`,
     )
@@ -166,7 +166,8 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
             owner_id: string;
             trade_types: string[];
             headcount: number | null;
-            recruit_end_date: string | null;
+            work_start_date: string | null;
+            work_end_date: string | null;
           } | null;
 
           const hasUserReview =
@@ -320,10 +321,12 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
                         </span>
                       </div>
                     )}
-                    {job?.recruit_end_date && (
+                    {job?.work_start_date && job?.work_end_date && (
                       <div className="flex">
-                        <span className="w-16 shrink-0">締め切り</span>
-                        <span>{formatDate(job.recruit_end_date)}</span>
+                        <span className="w-16 shrink-0">稼働期間</span>
+                        <span>
+                          {formatDate(job.work_start_date)}〜{formatDate(job.work_end_date)}
+                        </span>
                       </div>
                     )}
                   </div>

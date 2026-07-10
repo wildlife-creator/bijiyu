@@ -65,10 +65,10 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     const endMonth = new Date(today.getFullYear(), today.getMonth() + 3, 1);
     const format = (d: Date) => d.toISOString().split("T")[0];
 
-    await page.locator('input[type="date"]').nth(0).fill(format(nextMonth));
-    await page.locator('input[type="date"]').nth(1).fill(format(endMonth));
-    await page.locator('input[type="date"]').nth(2).fill(format(today));
-    await page.locator('input[type="date"]').nth(3).fill(format(nextMonth));
+    await page.locator('input[type="date"]').nth(2).fill(format(nextMonth));
+    await page.locator('input[type="date"]').nth(3).fill(format(endMonth));
+    await page.locator('input[type="date"]').nth(4).fill(format(today));
+    await page.locator('input[type="date"]').nth(5).fill(format(nextMonth));
 
     // Save as draft
     await page.getByRole("button", { name: "下書き保存" }).click();
@@ -149,10 +149,10 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
     const endMonth = new Date(today.getFullYear(), today.getMonth() + 3, 1);
     const format = (d: Date) => d.toISOString().split("T")[0];
-    await page.locator('input[type="date"]').nth(0).fill(format(nextMonth));
-    await page.locator('input[type="date"]').nth(1).fill(format(endMonth));
-    await page.locator('input[type="date"]').nth(2).fill(format(today));
-    await page.locator('input[type="date"]').nth(3).fill(format(nextMonth));
+    await page.locator('input[type="date"]').nth(2).fill(format(nextMonth));
+    await page.locator('input[type="date"]').nth(3).fill(format(endMonth));
+    await page.locator('input[type="date"]').nth(4).fill(format(today));
+    await page.locator('input[type="date"]').nth(5).fill(format(nextMonth));
 
     const publishBtn = page.getByRole("button", { name: "公開する" });
     await expect(publishBtn).toBeEnabled();
