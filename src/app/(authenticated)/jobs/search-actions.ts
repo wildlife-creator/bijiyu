@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { applicationSchema } from "@/lib/validations/application";
@@ -154,21 +155,26 @@ export async function applyJobAction(
     }
 
     // 7. Validate scout_message_id if provided
+    //    当該案件宛のスカウトであることを確認する。messages の SELECT RLS が
+    //    非参加スレッドのメッセージを弾くため、ユーザー client で読めた時点で
+    //    本人が参加しているスレッドのスカウトであることが保証される。
     let validatedScoutMessageId: string | null = null;
+    let scoutThreadId: string | null = null;
     if (data.scoutMessageId) {
       const { data: scoutMsg } = await supabase
         .from("messages")
-        .select("id, is_scout")
+        .select("id, is_scout, job_id, thread_id")
         .eq("id", data.scoutMessageId)
         .single();
 
-      if (!scoutMsg || !scoutMsg.is_scout) {
+      if (!scoutMsg || !scoutMsg.is_scout || scoutMsg.job_id !== data.jobId) {
         return {
           success: false,
           error: "スカウトメッセージが見つかりません。",
         };
       }
       validatedScoutMessageId = scoutMsg.id;
+      scoutThreadId = scoutMsg.thread_id;
     }
 
     // 8. INSERT
@@ -192,6 +198,24 @@ export async function applyJobAction(
         success: false,
         error: "応募の登録に失敗しました。時間をおいて再度お試しください。",
       };
+    }
+
+    // 修正2: スカウト経由応募は、応募送信が成功した時点で初めて scout_status を
+    // 「受諾（accepted）」に確定する。受諾ボタン押下時は pending のままなので、
+    // 応募入力を送らず離脱しても再度「受ける」から入り直せる。
+    // scout_status は下記 §1.4.A 応募通知メールの出し分け（スカウト送信日）にも
+    // 使われるため、メール送信より前に pending→accepted を確定させる。
+    if (validatedScoutMessageId) {
+      const scoutAdmin = createAdminClient();
+      await scoutAdmin
+        .from("messages")
+        .update({ scout_status: "accepted" })
+        .eq("id", validatedScoutMessageId)
+        .eq("scout_status", "pending");
+      if (scoutThreadId) {
+        // スレッド画面を戻ったときにスカウトカードが「受けました」表示になるよう無効化
+        revalidatePath(`/messages/${scoutThreadId}`);
+      }
     }
 
     // §1.1.A/§1.4.A 発注者宛応募通知 + §1.1.B/§1.4.B 受注者控え (fire-and-forget)

@@ -700,6 +700,10 @@ describe("sendScoutAction", () => {
         },
       }),
     );
+    // 修正1: applications 応募済みチェック (admin) → 未応募
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
     // 3. Phase 2 findOrCreateThread: admin.organization_members で相手 (受注者) の
     //    組織所属を解決 → 受注者は org 無し
     mockAdminFrom.mockReturnValueOnce(
@@ -779,6 +783,10 @@ describe("sendScoutAction", () => {
         },
       }),
     );
+    // 修正1: applications 応募済みチェック (admin) → 未応募
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
     // 3. Phase 2 findOrCreateThread: admin で相手 (受注者) の org 解決 → 無し
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: null, error: null } }),
@@ -818,6 +826,29 @@ describe("sendScoutAction", () => {
       expect(result.error).toContain("既にこの案件でスカウト");
   });
 
+  it("修正1: 応募済みの職人には同一案件のスカウトを送れない（全ステータス）", async () => {
+    mockAuth(USER_ID);
+    // 1. role check → client
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ single: { data: { role: "client" }, error: null } }),
+    );
+    // 2. organization_members (getActiveOrganizationContext) → active=null
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 3. 修正1: applications 応募済みチェック (admin) → 応募あり（お断り済み等でも拒否）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { id: "existing-app-id" }, error: null },
+      }),
+    );
+
+    const result = await sendScoutAction(buildFormData());
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error).toBe("この職人はこの案件に既に応募しています");
+  });
+
   it("個人プラン（organization_id なし）で新規スレッドを作成してスカウト送信", async () => {
     mockAuth(USER_ID);
     // 1. role check
@@ -831,6 +862,10 @@ describe("sendScoutAction", () => {
       createQueryMock({
         maybeSingle: { data: null, error: null },
       }),
+    );
+    // 修正1: applications 応募済みチェック (admin) → 未応募
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
     );
     // 3. Phase 2 findOrCreateThread: admin で相手 (受注者) の org 解決 → 無し
     mockAdminFrom.mockReturnValueOnce(

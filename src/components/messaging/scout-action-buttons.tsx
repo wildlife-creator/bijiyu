@@ -54,20 +54,14 @@ export function ScoutActionButtons({
   if (!showScoutActions || localStatus !== "pending") return null;
 
   function handleAccept() {
-    startTransition(async () => {
-      const result = await respondToScoutAction(messageId, "accepted");
-      if (result.success) {
-        setLocalStatus("accepted");
-        const targetJobId = result.data?.jobId || jobId;
-        if (targetJobId) {
-          router.push(
-            `/jobs/${targetJobId}/apply?scout_message_id=${messageId}`,
-          );
-        }
-      } else {
-        toast.error(result.error);
-      }
-    });
+    if (!jobId) {
+      toast.error("案件が見つかりません");
+      return;
+    }
+    // 修正2: 受諾フラグはここでは立てず、応募入力画面へ遷移するのみ。
+    // scout_status は応募送信が成功した時点 (applyJobAction) で accepted へ更新する。
+    // 途中で離脱してもスカウトは pending のまま残り、再度「受ける」から入り直せる。
+    router.push(`/jobs/${jobId}/apply?scout_message_id=${messageId}`);
   }
 
   function handleRejectConfirm() {

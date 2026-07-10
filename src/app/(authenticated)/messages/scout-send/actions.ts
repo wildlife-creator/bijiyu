@@ -162,6 +162,24 @@ export async function sendScoutAction(
 
     // Find or create thread (Phase 2: identity ベース)
     const admin = createAdminClient();
+
+    // 修正1: 応募済みの職人には同一案件のスカウトを送れない（全ステータス対象）。
+    // お断り済み・発注済み・キャンセル等いずれの応募が存在しても拒否する。
+    // job owner の RLS に依存しないよう admin client で照会する。
+    const { data: existingApplication } = await admin
+      .from("applications")
+      .select("id")
+      .eq("applicant_id", parsed.data.userId)
+      .eq("job_id", parsed.data.jobId)
+      .limit(1)
+      .maybeSingle();
+    if (existingApplication) {
+      return {
+        success: false,
+        error: "この職人はこの案件に既に応募しています",
+      };
+    }
+
     const thread = await findOrCreateThread(supabase, admin, user.id, parsed.data.userId, organizationId);
     if (!thread) return { success: false, error: "スレッドの作成に失敗しました" };
 

@@ -884,6 +884,29 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
 INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
 VALUES ('88888888-8888-8888-8888-888888888898', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', '応募フォームテスト用案件', 'E2Eテスト用', ARRAY['建築/内装｜木工']::text[], 1, 'open', 18000, 22000, CURRENT_DATE, CURRENT_DATE + 60, CURRENT_DATE, CURRENT_DATE + 30);
 
+-- ------------------------------------------------------------
+-- 14b. 修正2 E2E: 「応募送信時に受諾確定」検証用の pending スカウト
+--   client2(aabbccdd) org ↔ contractor(11111111) の隔離スレッド (ee06)。
+--   他テストが参照しないスレッド/案件のため、受諾フラグを更新する破壊的操作を
+--   しても他のテストに影響しない。
+-- ------------------------------------------------------------
+-- 追いスカウト用の新規案件（contractor の職種「内装｜木工」+エリア「東京都」に合致、未応募）
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
+VALUES ('88888888-8888-8888-8888-888888888897', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', '受諾確定タイミング検証用案件（内装）', '修正2 E2E: 応募送信時にスカウト受諾を確定する検証用', ARRAY['建築/内装｜木工']::text[], 1, 'open', 19000, 23000, CURRENT_DATE, CURRENT_DATE + 60, CURRENT_DATE, CURRENT_DATE + 30);
+
+INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
+  ('88888888-8888-8888-8888-888888888897', '東京都', NULL);
+
+-- 隔離スカウトスレッド（client2 org ↔ contractor）。identity 列も明示 set し、
+-- 受注者側 (participant_2) の organization_2_id を NULL にして受諾ボタンを出す。
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, organization_id, organization_1_id, organization_2_id, thread_type) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee06', 'aabbccdd-1111-2222-3333-444455556666', '11111111-1111-1111-1111-111111111111', 'aabbccdd-5555-5555-5555-555555555555', 'aabbccdd-5555-5555-5555-555555555555', NULL, 'scout');
+
+-- pending スカウト（応募未送信なので scout_status='pending'）。
+-- id は apply の z.string().uuid() を通す RFC4122 準拠 UUID にする。
+INSERT INTO messages (id, thread_id, sender_id, body, job_id, is_scout, scout_status) VALUES
+  ('eeee0006-0006-4006-8006-000000000006', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee06', 'aabbccdd-1111-2222-3333-444455556666', '内装工事の追いスカウトです。ぜひご応募ください。', '88888888-8888-8888-8888-888888888897', true, 'pending');
+
 -- ============================================================
 -- 15. メッセージ機能テスト用スレッド＆メッセージ
 -- ============================================================

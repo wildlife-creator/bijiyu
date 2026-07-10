@@ -46,6 +46,7 @@ interface ScoutSendFormProps {
   userProfile: UserProfile;
   jobs: Job[];
   templates: ScoutTemplate[];
+  appliedJobIds: string[];
 }
 
 export function ScoutSendForm({
@@ -53,6 +54,7 @@ export function ScoutSendForm({
   userProfile,
   jobs,
   templates,
+  appliedJobIds,
 }: ScoutSendFormProps) {
   const router = useRouter();
   const [selectedJobId, setSelectedJobId] = useState("");
@@ -82,6 +84,10 @@ export function ScoutSendForm({
   function handleSubmit() {
     if (!selectedJobId) {
       toast.error("案件を選択してください");
+      return;
+    }
+    if (appliedJobIds.includes(selectedJobId)) {
+      toast.error("この職人はこの案件に既に応募しています");
       return;
     }
     if (!title.trim()) {
@@ -183,11 +189,15 @@ export function ScoutSendForm({
               <SelectValue placeholder="お選びください" />
             </SelectTrigger>
             <SelectContent>
-              {jobs.map((job) => (
-                <SelectItem key={job.id} value={job.id}>
-                  {job.title}
-                </SelectItem>
-              ))}
+              {jobs.map((job) => {
+                const applied = appliedJobIds.includes(job.id);
+                return (
+                  <SelectItem key={job.id} value={job.id} disabled={applied}>
+                    {job.title}
+                    {applied ? "（応募済み）" : ""}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>

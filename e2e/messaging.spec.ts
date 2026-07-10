@@ -233,8 +233,12 @@ test.describe("発注者: スカウト送信（CLI-015）", () => {
       .locator("..")
       .getByRole("combobox")
       .click();
-    // 最初の案件を選択
-    await page.getByRole("option").first().click();
+    // 最初の案件を選択（応募済みで disabled の案件は除外する）
+    await page
+      .getByRole("option")
+      .filter({ hasNotText: "応募済み" })
+      .first()
+      .click();
 
     // タイトルと本文を入力
     await page

@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { ScoutSendForm } from "./scout-send-form";
 
@@ -71,6 +72,22 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
     ascending: false,
   });
 
+  // 修正1: 対象職人が既に応募済みの案件は選択不可にする（全ステータス対象）。
+  // job owner の RLS に依存しないよう admin client で照会する。
+  const jobIds = (jobsData ?? []).map((j) => j.id);
+  let appliedJobIds: string[] = [];
+  if (jobIds.length > 0) {
+    const admin = createAdminClient();
+    const { data: appliedRows } = await admin
+      .from("applications")
+      .select("job_id")
+      .eq("applicant_id", targetUserId)
+      .in("job_id", jobIds);
+    appliedJobIds = Array.from(
+      new Set((appliedRows ?? []).map((a) => a.job_id)),
+    );
+  }
+
   // Fetch scout templates（最終更新日降順。CLI-018 編集直後に上位に来る）
   const { data: templatesData } = await supabase
     .from("scout_templates")
@@ -85,6 +102,7 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
           userProfile={userProfile}
           jobs={jobsData ?? []}
           templates={templatesData ?? []}
+          appliedJobIds={appliedJobIds}
         />
       </div>
     </div>

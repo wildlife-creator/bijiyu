@@ -1,6 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { login, TEST_CONTRACTOR, TEST_CLIENT } from "./helpers";
 
+// contractor(11111111) は seed のスカウト案件 88888888-...899 に応募済み
+const CONTRACTOR_ID = "11111111-1111-1111-1111-111111111111";
+// 修正2: 応募送信時に受諾確定する pending スカウト（seed section 14b）
+const PENDING_SCOUT_THREAD = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee06";
+const PENDING_SCOUT_JOB = "88888888-8888-8888-8888-888888888897";
+
 // ---------------------------------------------------------------------------
 // Seed data UUIDs (see seed.sql section 14)
 // ---------------------------------------------------------------------------
@@ -174,5 +180,93 @@ test.describe("受注者: スカウト経由でも二重応募は防止される
     await expect(
       page.getByText("この案件には既に応募済みです"),
     ).toBeVisible({ timeout: 10000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 修正1: 応募済みの職人には同一案件のスカウトを送れない（送信画面で選択不可）
+// ---------------------------------------------------------------------------
+test.describe("発注者: 応募済み案件はスカウト送信画面で選択不可", () => {
+  test("応募済みの職人には応募済み案件が『（応募済み）』で無効化される", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    // contractor(11111111) は client の案件 ...899 に応募済み
+    await page.goto(`/messages/scout-send?userId=${CONTRACTOR_ID}`);
+    await expect(
+      page.getByRole("heading", { name: "スカウト送信" }),
+    ).toBeVisible({ timeout: 10000 });
+
+    // 案件プルダウンを開く
+    await page
+      .locator("label", { hasText: "募集する案件を選択" })
+      .locator("..")
+      .getByRole("combobox")
+      .click();
+
+    // 応募済み案件は「（応募済み）」表示かつ選択不可（disabled）
+    const appliedOption = page.getByRole("option", { name: /（応募済み）/ });
+    await expect(appliedOption.first()).toBeVisible({ timeout: 10000 });
+    await expect(appliedOption.first()).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 修正2: スカウト受諾は「応募送信成功時」に確定する（クリック時点では pending）
+// ---------------------------------------------------------------------------
+test.describe("受注者: スカウト受諾の確定タイミングは応募送信時", () => {
+  test("受ける→離脱では受諾されず、応募送信後にのみ受諾済みになる", async ({
+    page,
+  }) => {
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+
+    // pending スカウトのスレッドを開く → 「受ける」ボタンが出る
+    await page.goto(`/messages/${PENDING_SCOUT_THREAD}`);
+    const acceptBtn = page.getByRole("button", { name: "スカウトを受ける" });
+    await expect(acceptBtn).toBeVisible({ timeout: 10000 });
+
+    // 「受ける」→ 応募入力画面へ遷移（この時点では受諾は確定しない）
+    await acceptBtn.click();
+    await page.waitForURL(new RegExp(`/jobs/${PENDING_SCOUT_JOB}/apply`), {
+      timeout: 10000,
+    });
+    await expect(page.getByText("スカウト経由の応募です")).toBeVisible();
+
+    // 応募せず離脱してスレッドに戻る → まだ pending（再度「受ける」から入れる）
+    await page.goto(`/messages/${PENDING_SCOUT_THREAD}`);
+    await expect(
+      page.getByRole("button", { name: "スカウトを受ける" }),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("スカウトを受けました")).toHaveCount(0);
+
+    // もう一度「受ける」→ 今度は応募を送信する
+    await page.getByRole("button", { name: "スカウトを受ける" }).click();
+    await page.waitForURL(new RegExp(`/jobs/${PENDING_SCOUT_JOB}/apply`), {
+      timeout: 10000,
+    });
+    await page.locator("input[type='number']").fill("1");
+    await page.locator("input[placeholder='日程/働き方を入力']").fill("常勤");
+    await page.locator("input[type='date']").fill("2026-06-01");
+    await page.getByLabel("上記内容を確認しました").check();
+    await page.getByRole("button", { name: "応募する" }).click();
+    // 確認ダイアログ OK → 送信
+    await page.getByRole("button", { name: "OK" }).click();
+    // 完了ダイアログ
+    await expect(page.getByText("応募が完了しました。")).toBeVisible({
+      timeout: 10000,
+    });
+    await page.getByRole("button", { name: "OK" }).click();
+
+    // スレッドに戻ると受諾済みになり、「受ける」ボタンは消える
+    await page.goto(`/messages/${PENDING_SCOUT_THREAD}`);
+    await expect(page.getByText("スカウトを受けました")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      page.getByRole("button", { name: "スカウトを受ける" }),
+    ).toHaveCount(0);
   });
 });
