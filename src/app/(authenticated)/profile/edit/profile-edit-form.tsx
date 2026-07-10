@@ -34,6 +34,7 @@ import {
   stripDeprecatedSuffix,
 } from "@/lib/master/deprecated";
 import { GENDERS } from "@/lib/constants/options";
+import { formatBirthDateInput } from "@/lib/validations/birth-date";
 import {
   profileEditSchema,
   type ProfileEditInput,
@@ -168,6 +169,7 @@ export function ProfileEditForm({
   const watchedSkillTags = watch("skillTags");
   const watchedSkills = watch("skills");
   const watchedGender = watch("gender");
+  const watchedBirthDate = watch("birthDate");
   const watchedPrefecture = watch("prefecture");
   const watchedMunicipality = watch("municipality");
 
@@ -551,9 +553,15 @@ export function ProfileEditForm({
                 id="birthDate"
                 type="text"
                 inputMode="numeric"
-                placeholder="例: 1990/01/15"
+                maxLength={10}
+                placeholder="例: 19900115"
                 className="bg-background"
-                {...register("birthDate")}
+                value={watchedBirthDate ?? ""}
+                onChange={(e) =>
+                  setValue("birthDate", formatBirthDateInput(e.target.value), {
+                    shouldValidate: false,
+                  })
+                }
               />
               <FieldError message={validationErrors["birthDate"]} />
             </FieldGroup>

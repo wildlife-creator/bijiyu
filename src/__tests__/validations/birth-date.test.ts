@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 
-import { birthDateSchema } from "@/lib/validations/birth-date";
+import {
+  birthDateSchema,
+  formatBirthDateInput,
+} from "@/lib/validations/birth-date";
 
 describe("birthDateSchema", () => {
   it("スラッシュ区切りを受け付け、YYYY-MM-DD に正規化する", () => {
@@ -50,5 +53,55 @@ describe("birthDateSchema", () => {
     const r = birthDateSchema.safeParse("2000/02/29");
     expect(r.success).toBe(true);
     if (r.success) expect(r.data).toBe("2000-02-29");
+  });
+});
+
+describe("formatBirthDateInput", () => {
+  it("数字8桁を YYYY/MM/DD に整形する", () => {
+    expect(formatBirthDateInput("19900115")).toBe("1990/01/15");
+  });
+
+  it("途中入力でも段階的に区切りを挿入する", () => {
+    expect(formatBirthDateInput("1")).toBe("1");
+    expect(formatBirthDateInput("1990")).toBe("1990");
+    expect(formatBirthDateInput("19900")).toBe("1990/0");
+    expect(formatBirthDateInput("199001")).toBe("1990/01");
+    expect(formatBirthDateInput("1990011")).toBe("1990/01/1");
+  });
+
+  it("スラッシュ入りのペーストを再整形する", () => {
+    expect(formatBirthDateInput("1990/01/15")).toBe("1990/01/15");
+  });
+
+  it("ハイフン入りのペーストを再整形する", () => {
+    expect(formatBirthDateInput("1990-01-15")).toBe("1990/01/15");
+  });
+
+  it("全角数字を半角に正規化して整形する", () => {
+    expect(formatBirthDateInput("１９９００１１５")).toBe("1990/01/15");
+  });
+
+  it("数字以外（空白・記号）を除去して整形する", () => {
+    expect(formatBirthDateInput(" 1990 01 15 ")).toBe("1990/01/15");
+    expect(formatBirthDateInput("1990年01月15日")).toBe("1990/01/15");
+  });
+
+  it("9桁以上は先頭8桁で切り捨てる", () => {
+    expect(formatBirthDateInput("199001159")).toBe("1990/01/15");
+  });
+
+  it("空文字はそのまま空を返す", () => {
+    expect(formatBirthDateInput("")).toBe("");
+  });
+
+  it("数字を含まない入力は空を返す", () => {
+    expect(formatBirthDateInput("abc//")).toBe("");
+  });
+
+  it("整形結果は birthDateSchema でそのまま検証を通せる", () => {
+    const formatted = formatBirthDateInput("19900401");
+    const r = birthDateSchema.safeParse(formatted);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data).toBe("1990-04-01");
   });
 });

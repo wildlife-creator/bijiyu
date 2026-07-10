@@ -58,7 +58,7 @@ export async function signupAction(formData: FormData): Promise<ActionResult> {
     ? `${proto}://${host}`
     : (process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000");
 
-  await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password: tempPassword,
     options: {
@@ -66,6 +66,38 @@ export async function signupAction(formData: FormData): Promise<ActionResult> {
     },
   });
 
+  // レート制限（短時間の連続送信 / 1時間あたりの送信上限）に達した場合だけは
+  // 正確な案内を返す。これは送信頻度に対するエラーであり、当該メールアドレスの
+  // 登録有無を明かさないため account enumeration の懸念はない。
+  // それ以外のエラー（既に確認済みユーザー等）は enumeration 防止のため
+  // success に丸めて「送信しました」画面へ進める（送信完了画面の案内文で
+  // 「既に登録済みの場合はログイン/パスワード再設定」を誘導する）。
+  if (error && isRateLimitError(error.status, error.message)) {
+    return {
+      success: false,
+      error:
+        "確認メールの送信間隔が空いていません。しばらく時間をおいてから、もう一度お試しください。",
+    };
+  }
+
   // Always return success to prevent account enumeration
   return { success: true };
+}
+
+/**
+ * Supabase Auth のメール送信レート制限エラーかを判定する。
+ * GoTrue は HTTP 429 と "For security purposes..." / "rate limit" 系の
+ * メッセージを返す。
+ */
+function isRateLimitError(
+  status: number | undefined,
+  message: string | undefined,
+): boolean {
+  if (status === 429) return true;
+  const m = (message ?? "").toLowerCase();
+  return (
+    m.includes("rate limit") ||
+    m.includes("for security purposes") ||
+    m.includes("only request this after")
+  );
 }

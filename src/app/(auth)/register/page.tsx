@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, startTransition } from "react";
+import { useActionState, startTransition, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { BackChevron } from "@/components/shared/back-chevron";
@@ -24,6 +25,14 @@ export default function RegisterPage() {
     resolver: zodResolver(signupEmailSchema),
   });
 
+  // 送信完了画面で「再送」に使うため、直近に送信したメールアドレスを保持する。
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [resendState, setResendState] = useState<{
+    pending: boolean;
+    message: string;
+    ok: boolean;
+  }>({ pending: false, message: "", ok: false });
+
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
     FormData
@@ -32,6 +41,8 @@ export default function RegisterPage() {
   }, null);
 
   const onSubmit = (data: SignupEmailInput) => {
+    setSubmittedEmail(data.email);
+    setResendState({ pending: false, message: "", ok: false });
     const formData = new FormData();
     formData.append("email", data.email);
     // useActionState の formAction は transition 内で呼ぶ必要がある。
@@ -40,6 +51,26 @@ export default function RegisterPage() {
     startTransition(() => {
       formAction(formData);
     });
+  };
+
+  // 送信完了画面からの再送。useActionState を経由すると success 画面が
+  // 一旦フォームへ戻ってしまうため、Server Action を直接呼んで inline に
+  // フィードバックを出す。
+  const onResend = async () => {
+    if (!submittedEmail || resendState.pending) return;
+    setResendState({ pending: true, message: "", ok: false });
+    const formData = new FormData();
+    formData.append("email", submittedEmail);
+    const result = await signupAction(formData);
+    if (result.success) {
+      setResendState({
+        pending: false,
+        ok: true,
+        message: "確認メールを再送しました。メールをご確認ください。",
+      });
+    } else {
+      setResendState({ pending: false, ok: false, message: result.error });
+    }
   };
 
   const isSuccess = state?.success === true;
@@ -55,6 +86,47 @@ export default function RegisterPage() {
           ご入力いただいたメールアドレスに会員登録のためのURLをお送りしました。
           メールをご確認ください。
         </p>
+
+        <div className="space-y-2 rounded-lg bg-muted/50 p-4">
+          <p className="text-body-sm text-muted-foreground">
+            メールが届かない場合は、迷惑メールフォルダをご確認ください。
+            それでも届かない場合は、下のボタンから再送するか、しばらく時間をおいてお試しください。
+          </p>
+          <p className="text-body-sm text-muted-foreground">
+            すでに会員登録がお済みのメールアドレスの場合は、確認メールは送信されません。
+            ログイン、またはパスワードをお忘れの場合は再設定をご利用ください。
+          </p>
+        </div>
+
+        <div className="flex flex-col items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onResend}
+            disabled={resendState.pending}
+            className="h-12 w-full rounded-[47px] font-bold"
+          >
+            {resendState.pending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                送信中...
+              </>
+            ) : (
+              "確認メールを再送する"
+            )}
+          </Button>
+          {resendState.message && (
+            <p
+              className={
+                resendState.ok
+                  ? "text-center text-body-sm text-foreground"
+                  : "text-center text-body-sm text-destructive"
+              }
+            >
+              {resendState.message}
+            </p>
+          )}
+        </div>
       </div>
     );
   }

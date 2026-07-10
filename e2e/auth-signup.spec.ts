@@ -37,9 +37,9 @@ function resetNewContractorE2eUser(): void {
  *   1. ログイン → middleware が last_name IS NULL を検出 → /register/profile へリダイレクト
  *   2. AUTH-006 フォームに 氏名 / 性別 / 生年月日 / お住まい / 対応職種 / 対応エリア (新 UI 複数県)
  *      / パスワード を入力
- *   3. 「入力内容を確認する」クリック → completeRegistrationAction 成功 → /register/complete 到達
+ *   3. 「登録する」クリック → completeRegistrationAction 成功 → /register/complete 到達
  *
- * 注意: register-profile-form の submit は『入力内容を確認する』ラベル。
+ * 注意: register-profile-form の submit は『登録する』ラベル。
  * 成功時は router.push('/register/complete') (本 E2E では URL のみ確認、完了画面の内容は対象外)。
  */
 test.describe("AUTH-006 プロフィール入力フォーム通し (master-area-multi-select Phase F)", () => {
@@ -70,8 +70,10 @@ test.describe("AUTH-006 プロフィール入力フォーム通し (master-area-
     await page.getByLabel("性別").click();
     await page.getByRole("option", { name: "男性", exact: true }).click();
 
-    // 5. 生年月日
-    await page.locator("#birthDate").fill("1990-04-01");
+    // 5. 生年月日 — スマホ想定で「/」を打たず数字のみ入力すると
+    //    formatBirthDateInput が自動で "1990/04/01" に整形する（修正1）。
+    await page.locator("#birthDate").fill("19900401");
+    await expect(page.locator("#birthDate")).toHaveValue("1990/04/01");
 
     // 6. お住まい (ResidencePicker: 都道府県 + 市区町村。市区町村は任意なので
     //    ここでは都道府県のみ選択する)
@@ -108,11 +110,11 @@ test.describe("AUTH-006 プロフィール入力フォーム通し (master-area-
     await page.locator("#password").fill("newpass456");
     await page.locator("#confirmPassword").fill("newpass456");
 
-    // 10. 「入力内容を確認する」クリック →
+    // 10. 「登録する」クリック →
     //     completeRegistrationAction 成功 → /register/complete →
     //     RegistrationCompleteRedirect が 3 秒で /mypage へ自動 navigate。
     //     最終到達先 /mypage で検証する (tasks.md 6.1 要件 "登録するクリック → /mypage 到達確認")。
-    await page.getByRole("button", { name: "入力内容を確認する" }).click();
+    await page.getByRole("button", { name: "登録する" }).click();
     await page.waitForURL(/\/mypage/, { timeout: 20000 });
     await expect(
       page.getByRole("heading", { name: "マイページ", exact: true }),

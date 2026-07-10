@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
   stripDeprecatedSuffix,
 } from "@/lib/master/deprecated";
 import { GENDERS } from "@/lib/constants/options";
+import { formatBirthDateInput } from "@/lib/validations/birth-date";
 import {
   registerProfileFormSchema,
   type RegisterProfileFormInput,
@@ -85,6 +86,7 @@ export function RegisterProfileForm({
   const watchedAreas = watch("availableAreas");
   const watchedSkills = watch("skills");
   const watchedGender = watch("gender");
+  const watchedBirthDate = watch("birthDate");
   const watchedPrefecture = watch("prefecture");
   const watchedMunicipality = watch("municipality");
 
@@ -133,11 +135,18 @@ export function RegisterProfileForm({
       const { confirmPassword: _, ...serverData } = data;
       const result = await completeRegistrationAction(serverData);
       if (result.success) {
+        // 成功時は isSubmitting を解除しない。ここで解除すると router.push の
+        // 遷移が完了するまでの間ボタンが一瞬復活し、ユーザーが登録失敗と
+        // 誤認する（画面はこの直後にアンマウントされる）。
         router.push("/register/complete");
-      } else {
-        setServerError(result.error);
+        return;
       }
-    } finally {
+      setServerError(result.error);
+      setIsSubmitting(false);
+    } catch {
+      setServerError(
+        "登録処理でエラーが発生しました。時間をおいて再度お試しください。",
+      );
       setIsSubmitting(false);
     }
   }
@@ -228,8 +237,14 @@ export function RegisterProfileForm({
             id="birthDate"
             type="text"
             inputMode="numeric"
-            placeholder="例: 1990/01/15"
-            {...register("birthDate")}
+            maxLength={10}
+            placeholder="例: 19900115"
+            value={watchedBirthDate ?? ""}
+            onChange={(e) =>
+              setValue("birthDate", formatBirthDateInput(e.target.value), {
+                shouldValidate: false,
+              })
+            }
           />
           {errors.birthDate && (
             <p className="text-destructive text-body-sm">
@@ -324,6 +339,7 @@ export function RegisterProfileForm({
                     min={0}
                     placeholder="年数"
                     aria-label={`経験年数 ${index + 1}（年）`}
+                    className="h-10"
                     {...register(`skills.${index}.experienceYears`, {
                       valueAsNumber: true,
                     })}
@@ -437,7 +453,14 @@ export function RegisterProfileForm({
           disabled={isSubmitting}
           className="h-12 w-full rounded-[47px] bg-primary font-bold text-white hover:bg-primary/90"
         >
-          {isSubmitting ? "送信中..." : "入力内容を確認する"}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              送信中...
+            </>
+          ) : (
+            "登録する"
+          )}
         </Button>
       </form>
     </div>
