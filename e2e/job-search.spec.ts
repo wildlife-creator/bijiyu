@@ -281,3 +281,89 @@ test.describe("お気に入り機能", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("経験年数フィルタ（CLI-005 職人検索・サーバー側絞り込み）", () => {
+  // 回帰防止: contractor-search-filter が experienceYears を URL に付与するのに
+  // page.tsx が読んでおらずクエリ条件も無かったため、「10年以上」でも経験の浅い/
+  // 未記載の職人まで出ていた不具合。サーバー側で数値レンジ絞り込みが効くことを検証。
+  // seed の user_skills 経験年数:
+  //   田中一郎(11111111): 大工10・木工5 / 渡辺大輔(cc222222): 電気15・配管6
+  //   高橋美咲(cc111111): 塗装8・左官4 / 小林さくら(cc333333): 木工3
+  test.beforeEach(async ({ page }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+  });
+
+  test("「10年以上」で 10 年以上の職人のみヒットし、10 年未満・未記載は出ない", async ({
+    page,
+  }) => {
+    await page.goto(
+      `/users/contractors?experienceYears=${encodeURIComponent("10年以上")}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "職人一覧" }),
+    ).toBeVisible({ timeout: 10000 });
+
+    // 10 年以上を含む
+    await expect(page.getByRole("heading", { name: /田中一郎/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /渡辺大輔/ })).toBeVisible();
+    // 10 年未満は除外
+    await expect(page.getByRole("heading", { name: /小林さくら/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /高橋美咲/ })).toHaveCount(0);
+  });
+
+  test("「3〜5年」は下限含む・上限未満で絞られる（3・4 年は出て、5・10 年は出ない）", async ({
+    page,
+  }) => {
+    await page.goto(
+      `/users/contractors?experienceYears=${encodeURIComponent("3〜5年")}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "職人一覧" }),
+    ).toBeVisible({ timeout: 10000 });
+
+    // 木工3年 / 左官4年 は [3,5) に入る
+    await expect(page.getByRole("heading", { name: /小林さくら/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /高橋美咲/ })).toBeVisible();
+    // 田中(10,5)・渡辺(15,6) は [3,5) に入らない
+    await expect(page.getByRole("heading", { name: /田中一郎/ })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /渡辺大輔/ })).toHaveCount(0);
+  });
+});
+
+test.describe("応募済みバッジ（CON-002 案件一覧）", () => {
+  // ログインユーザーが（キャンセル以外で）応募済みの案件カードに「応募済み」バッジを出す。
+  // 田中一郎(TEST_CONTRACTOR) は「E2Eテスト用案件（キャンセルテスト）」に accepted で応募済み。
+  test.beforeEach(async ({ page }) => {
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+  });
+
+  test("応募済みの案件カードに「応募済み」バッジが表示される", async ({ page }) => {
+    await page.goto(
+      `/jobs/search?q=${encodeURIComponent("キャンセルテスト")}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "募集案件一覧" }),
+    ).toBeVisible({ timeout: 10000 });
+
+    await expect(
+      page.getByText("E2Eテスト用案件（キャンセルテスト）"),
+    ).toBeVisible();
+    await expect(page.getByText("応募済み", { exact: true })).toBeVisible();
+  });
+
+  test("未応募の案件カードには「応募済み」バッジが出ない", async ({ page }) => {
+    // 田中一郎は「千葉県戸建て新築 大工工事」(88888888...881) には応募していない
+    // （この案件の応募者は小林さくら）。open かつ募集中で一覧に出る。
+    await page.goto(
+      `/jobs/search?q=${encodeURIComponent("千葉県戸建て")}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "募集案件一覧" }),
+    ).toBeVisible({ timeout: 10000 });
+
+    await expect(
+      page.getByText("千葉県戸建て新築 大工工事"),
+    ).toBeVisible();
+    await expect(page.getByText("応募済み", { exact: true })).toHaveCount(0);
+  });
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Select,
@@ -8,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PendingOverlay } from "@/components/shared/pending-overlay";
 
 const BASE_OPTIONS = [
   { value: "all", label: "すべて" },
@@ -31,6 +33,7 @@ export function StatusFilter({
 }: StatusFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const filter = searchParams.get("status") || "all";
 
   const options = includeApplied
@@ -45,13 +48,14 @@ export function StatusFilter({
       params.delete("status");
     }
     params.delete("page");
-    router.push(`${basePath}?${params.toString()}`);
+    startTransition(() => router.push(`${basePath}?${params.toString()}`));
   }
 
   return (
     <div className="mt-4 space-y-1">
+      <PendingOverlay active={isPending} />
       <p className="text-body-sm font-semibold text-foreground">ステータス</p>
-      <Select value={filter} onValueChange={handleFilterChange}>
+      <Select value={filter} onValueChange={handleFilterChange} disabled={isPending}>
         <SelectTrigger className="h-12 w-full rounded-[8px]">
           <SelectValue placeholder="お選びください" />
         </SelectTrigger>

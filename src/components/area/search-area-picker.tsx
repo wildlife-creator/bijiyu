@@ -19,6 +19,7 @@
 
 import * as React from "react";
 
+import { cn } from "@/lib/utils";
 import { AreaRow as AreaRowComponent } from "./area-row";
 import type { AreaRow } from "./types";
 
@@ -48,14 +49,30 @@ export function SearchAreaPicker({
     onChange({ ...next, whole: false });
   };
 
+  // エリア絞り込みの解除手段。shadcn Select は空文字 value を持てず、一度選んだ
+  // 都道府県を「指定なし」に戻せないため、明示的なクリアボタンを添える。
+  const handleClear = () => {
+    onChange({ prefecture: "", whole: false, municipalities: [] });
+  };
+
   return (
-    <AreaRowComponent
-      value={normalized}
-      onChange={handleChange}
-      candidateMunicipalitiesByPrefecture={candidateMunicipalitiesByPrefecture}
-      showWholeCheckbox={false}
-      disabled={disabled}
-      className={className}
-    />
+    <div className={cn("space-y-2", className)}>
+      <AreaRowComponent
+        value={normalized}
+        onChange={handleChange}
+        candidateMunicipalitiesByPrefecture={candidateMunicipalitiesByPrefecture}
+        showWholeCheckbox={false}
+        disabled={disabled}
+      />
+      {normalized.prefecture !== "" && !disabled && (
+        <button
+          type="button"
+          onClick={handleClear}
+          className="text-body-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        >
+          エリアをクリア（指定なし）
+        </button>
+      )}
+    </div>
   );
 }

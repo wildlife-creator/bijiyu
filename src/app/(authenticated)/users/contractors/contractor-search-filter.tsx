@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import {
   SearchFilterSheet,
-  useSheetClose,
+  useSheetContext,
 } from "@/components/job-search/search-filter-sheet";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { SearchAreaPicker } from "@/components/area/search-area-picker";
@@ -50,9 +50,8 @@ function ContractorSearchFilterContent({
   activeQualifications,
   candidateMunicipalitiesByPrefecture,
 }: ContractorSearchFilterProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const closeSheet = useSheetClose();
+  const sheet = useSheetContext();
 
   const [keyword, setKeyword] = useState(searchParams.get("q") ?? "");
   // 配列: 同名キーの繰り返しで encode/decode する
@@ -89,8 +88,8 @@ function ContractorSearchFilterContent({
     for (const v of skillTags) params.append("skillTag", v);
     for (const v of qualifications) params.append("qualification", v);
     params.set("page", "1");
-    closeSheet?.();
-    router.push(`/users/contractors?${params.toString()}`);
+    sheet?.close();
+    sheet?.navigate(`/users/contractors?${params.toString()}`);
   }
 
   return (
@@ -171,6 +170,7 @@ function ContractorSearchFilterContent({
 
       <Button
         onClick={handleSearch}
+        disabled={sheet?.isPending}
         className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
       >
         検索する

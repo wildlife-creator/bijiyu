@@ -16,6 +16,7 @@ import {
   getMunicipalitiesByPrefecture,
 } from "@/lib/master/fetch";
 import { buildAreaFilterIds } from "@/lib/utils/area-search-clauses";
+import { experienceYearsBounds } from "@/lib/utils/experience-years-filter";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { AreaSummary } from "@/components/area/area-summary";
@@ -50,6 +51,8 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
   const tradeTypes = getArrayParam(sp.tradeType);
   const skillTagFilters = getArrayParam(sp.skillTag);
   const qualificationFilters = getArrayParam(sp.qualification);
+  // 経験年数フィルタ（範囲ラベル → user_skills.experience_years の数値境界）
+  const experienceYears = (sp.experienceYears as string) ?? "";
 
   // 3 マスタ + 市区町村マスタ取得 (検索ポップアップへ active label を渡す)
   const [allTrade, allTags, allQuals, candidateMunicipalitiesByPrefecture] =
@@ -110,6 +113,24 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
       ),
     );
   }
+  // 経験年数フィルタ: user_skills.experience_years に数値境界を適用して user_id 集合を取る。
+  // .in() ではなく .gte()/.lt() のレンジ条件なので専用に組み立てる（ANY 一致 = いずれかの
+  // 対応職種が範囲内なら該当ユーザーを含める）。NULL（未記載）は境界に一致せず除外される。
+  if (experienceYears) {
+    const bounds = experienceYearsBounds(experienceYears);
+    if (bounds) {
+      let expQuery = supabase.from("user_skills").select("user_id");
+      if (bounds.gte !== undefined) {
+        expQuery = expQuery.gte("experience_years", bounds.gte);
+      }
+      if (bounds.lt !== undefined) {
+        expQuery = expQuery.lt("experience_years", bounds.lt);
+      }
+      const { data } = await expQuery;
+      idSets.push(new Set((data ?? []).map((r) => r.user_id)));
+    }
+  }
+
   // master-area-multi-select: muni 配列が空なら buildAreaFilterIds 1 回、
   // 複数なら各 muni で呼び Set 和で OR 結合
   const areaUserIds: string[] | null = await (async () => {

@@ -1,6 +1,15 @@
 "use client";
 
-import { type ReactNode, useState, createContext, useContext, useCallback } from "react";
+import {
+  type ReactNode,
+  useState,
+  createContext,
+  useContext,
+  useCallback,
+  useMemo,
+  useTransition,
+} from "react";
+import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -9,11 +18,27 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { PendingOverlay } from "@/components/shared/pending-overlay";
 
-const SheetCloseContext = createContext<(() => void) | null>(null);
+interface SheetContextValue {
+  /** Sheet を閉じる */
+  close: () => void;
+  /** 検索実行: 遷移を useTransition で包み、遷移中は isPending を立てる */
+  navigate: (href: string) => void;
+  /** 遷移中フラグ（検索ボタンの非活性・オーバーレイ表示に使う） */
+  isPending: boolean;
+}
 
+const SheetContext = createContext<SheetContextValue | null>(null);
+
+/** Sheet を閉じる関数（後方互換）。 */
 export function useSheetClose() {
-  return useContext(SheetCloseContext);
+  return useContext(SheetContext)?.close ?? null;
+}
+
+/** Sheet の close / navigate / isPending をまとめて取得する。 */
+export function useSheetContext() {
+  return useContext(SheetContext);
 }
 
 interface SearchFilterSheetProps {
@@ -23,7 +48,23 @@ interface SearchFilterSheetProps {
 
 export function SearchFilterSheet({ children, trigger }: SearchFilterSheetProps) {
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
   const close = useCallback(() => setOpen(false), []);
+  // 遷移を useTransition で包む。Sheet を閉じても本コンポーネント（＝オーバーレイと
+  // isPending）は SheetContent の外側で生き残るため、閉じた後もローディング表示が続く。
+  const navigate = useCallback(
+    (href: string) => {
+      startTransition(() => router.push(href));
+    },
+    [router],
+  );
+
+  const value = useMemo<SheetContextValue>(
+    () => ({ close, navigate, isPending }),
+    [close, navigate, isPending],
+  );
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -43,11 +84,12 @@ export function SearchFilterSheet({ children, trigger }: SearchFilterSheetProps)
           <SheetTitle>検索条件</SheetTitle>
         </SheetHeader>
         <div className="space-y-4 px-4 py-4">
-          <SheetCloseContext.Provider value={close}>
+          <SheetContext.Provider value={value}>
             {children}
-          </SheetCloseContext.Provider>
+          </SheetContext.Provider>
         </div>
       </SheetContent>
+      <PendingOverlay active={isPending} />
     </Sheet>
   );
 }

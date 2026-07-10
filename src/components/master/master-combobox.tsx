@@ -57,6 +57,28 @@ export function MasterCombobox({
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const composingRef = React.useRef(false);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  // 検索ポップアップは Sheet（Radix Dialog, modal）内で開かれる。既定の body portal だと
+  // Dialog の react-remove-scroll の許可対象外になり、候補リストがマウスホイールで
+  // スクロールできない。trigger が Sheet 内なら Popover を Sheet 内へ portal して回避する
+  // （Sheet 外＝登録系フォーム等では null → 既定の body portal のまま挙動不変）。
+  const [portalContainer, setPortalContainer] =
+    React.useState<HTMLElement | null>(null);
+
+  const handleOpenChange = React.useCallback(
+    (next: boolean) => {
+      if (disabled) return;
+      if (next && triggerRef.current) {
+        setPortalContainer(
+          triggerRef.current.closest<HTMLElement>(
+            '[data-slot="sheet-content"]',
+          ),
+        );
+      }
+      setOpen(next);
+    },
+    [disabled],
+  );
 
   const candidates = React.useMemo(() => {
     const selectedSet = new Set(value);
@@ -101,9 +123,10 @@ export function MasterCombobox({
   };
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={(o) => !disabled && setOpen(o)}>
+    <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
       <PopoverPrimitive.Trigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           disabled={disabled}
           data-slot="master-combobox-trigger"
@@ -151,7 +174,7 @@ export function MasterCombobox({
           <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
         </button>
       </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Portal container={portalContainer ?? undefined}>
         <PopoverPrimitive.Content
           align="start"
           sideOffset={4}

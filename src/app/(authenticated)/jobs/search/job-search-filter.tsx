@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SearchFilterSheet, useSheetClose } from "@/components/job-search/search-filter-sheet";
+import { SearchFilterSheet, useSheetContext } from "@/components/job-search/search-filter-sheet";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { SearchAreaPicker } from "@/components/area/search-area-picker";
 import type { AreaRow } from "@/components/area/types";
@@ -40,9 +40,8 @@ function JobSearchFilterContent({
   activeTradeTypes,
   candidateMunicipalitiesByPrefecture,
 }: JobSearchFilterProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const closeSheet = useSheetClose();
+  const sheet = useSheetContext();
 
   // master-area-multi-select: URL searchParams を Single Source of Truth とし、popup 開閉時に
   // 直近の URL 状態から初期化する。SearchAreaPicker は controlled component なので親側で値を保持。
@@ -82,8 +81,8 @@ function JobSearchFilterContent({
       params.set("experienceYears", experienceYears);
     if (language && language !== "all") params.set("language", language);
     params.set("page", "1");
-    closeSheet?.();
-    router.push(`/jobs/search?${params.toString()}`);
+    sheet?.close();
+    sheet?.navigate(`/jobs/search?${params.toString()}`);
   }
 
   return (
@@ -174,6 +173,7 @@ function JobSearchFilterContent({
 
       <Button
         onClick={handleSearch}
+        disabled={sheet?.isPending}
         className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
       >
         検索する

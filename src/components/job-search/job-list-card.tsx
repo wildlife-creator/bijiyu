@@ -27,11 +27,18 @@ interface JobListCardProps {
     thumbnailUrl: string | null;
   };
   isFavorited: boolean;
+  /** ログインユーザーが（キャンセル以外で）この案件に応募済みか */
+  hasApplied?: boolean;
   /** Use "text" for list pages, "icon" (default) for detail-like contexts */
   favoriteVariant?: "icon" | "text";
 }
 
-export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobListCardProps) {
+export function JobListCard({
+  job,
+  isFavorited,
+  hasApplied = false,
+  favoriteVariant = "text",
+}: JobListCardProps) {
   return (
     <Card className="overflow-hidden rounded-[8px]">
       {/* Thumbnail */}
@@ -40,6 +47,14 @@ export function JobListCard({ job, isFavorited, favoriteVariant = "text" }: JobL
         {job.isUrgent && (
           <Badge className="absolute top-2 left-2 rounded-[33px] bg-destructive text-destructive-foreground">
             急募
+          </Badge>
+        )}
+        {hasApplied && (
+          <Badge
+            variant="secondary"
+            className="absolute top-2 right-2 rounded-[33px] shadow-sm"
+          >
+            応募済み
           </Badge>
         )}
       </div>

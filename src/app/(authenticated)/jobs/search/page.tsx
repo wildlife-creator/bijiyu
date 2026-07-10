@@ -266,6 +266,17 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
 
   const favoritedIds = new Set((favorites ?? []).map((f) => f.target_id));
 
+  // 応募済みバッジ: ログインユーザーが（キャンセル以外で）応募済みの案件を表示中の
+  // jobIds の範囲で 1 クエリ取得し、カードに突き合わせる。count / ページネーションには
+  // 影響しない表示専用の付加情報。
+  const { data: myApplications } = await supabase
+    .from("applications")
+    .select("job_id")
+    .eq("applicant_id", user.id)
+    .neq("status", "cancelled")
+    .in("job_id", jobIds.length > 0 ? jobIds : ["00000000-0000-0000-0000-000000000000"]);
+  const appliedJobIds = new Set((myApplications ?? []).map((a) => a.job_id));
+
   // A9: ソート切替時に配列パラメータ (?municipality=A&municipality=B 等) が
   // 落ちて絞り込みが解除される問題対策。共通ヘルパー buildSortLinkHref で
   // append 復元する (回帰テストは src/__tests__/utils/build-sort-link.test.ts)。
@@ -353,6 +364,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
                   thumbnailUrl: thumbnail,
                 }}
                 isFavorited={favoritedIds.has(job.id)}
+                hasApplied={appliedJobIds.has(job.id)}
               />
             );
           })}
