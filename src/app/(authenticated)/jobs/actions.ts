@@ -77,13 +77,25 @@ async function registerJobImages(opts: {
   return null;
 }
 
+// 空欄・未送信の数値フィールドは NaN にする。Number("") / Number(null) は 0 になり、
+// タイトルのみの下書き保存で headcount / rewardLower / rewardUpper が 0 になると
+// jobDraftSchema の `.positive()` に弾かれて保存が失敗する（フォームは undefined の
+// フィールドを FormData に含めないため未送信になる）。NaN なら jobDraftSchema の
+// `.or(z.nan())` を通り、保存時に numOrNull で null 化される。公開時（jobSchema）は
+// 必須なので NaN は数値エラーとして正しく弾かれる。
+function numOrNaN(value: FormDataEntryValue | null): number {
+  if (value === null) return NaN;
+  const s = String(value).trim();
+  return s === "" ? NaN : Number(s);
+}
+
 function parseFormDataToJobInput(formData: FormData) {
   return {
     title: formData.get("title") as string,
     description: formData.get("description") as string,
     tradeTypes: formData.getAll("tradeTypes") as string[],
-    rewardLower: Number(formData.get("rewardLower")),
-    rewardUpper: Number(formData.get("rewardUpper")),
+    rewardLower: numOrNaN(formData.get("rewardLower")),
+    rewardUpper: numOrNaN(formData.get("rewardUpper")),
     areas: JSON.parse((formData.get("areas") as string) ?? "[]") as Array<{
       prefecture: string;
       whole: boolean;
@@ -95,7 +107,7 @@ function parseFormDataToJobInput(formData: FormData) {
     workEndDate: formData.get("workEndDate") as string,
     recruitStartDate: formData.get("recruitStartDate") as string,
     recruitEndDate: formData.get("recruitEndDate") as string,
-    headcount: Number(formData.get("headcount")),
+    headcount: numOrNaN(formData.get("headcount")),
     workHours: (formData.get("workHours") as string) ?? "",
     experienceYears: (formData.get("experienceYears") as string) ?? "",
     requiredSkills: (formData.get("requiredSkills") as string) ?? "",

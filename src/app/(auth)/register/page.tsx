@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, startTransition, useState } from "react";
+import { useActionState, startTransition, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -32,6 +32,9 @@ export default function RegisterPage() {
     message: string;
     ok: boolean;
   }>({ pending: false, message: "", ok: false });
+  // 再送ボタンの連打抑止。送信直後（初回送信・再送とも）に 60 秒のクールダウンを
+  // 開始し、その間はボタンを無効化する。Supabase のレート制限到達を防ぐ。
+  const [cooldown, setCooldown] = useState(0);
 
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
@@ -43,6 +46,8 @@ export default function RegisterPage() {
   const onSubmit = (data: SignupEmailInput) => {
     setSubmittedEmail(data.email);
     setResendState({ pending: false, message: "", ok: false });
+    // 送信直後（完了画面表示前）からクールダウンを開始し、再送ボタンの連打を防ぐ。
+    setCooldown(60);
     const formData = new FormData();
     formData.append("email", data.email);
     // useActionState の formAction は transition 内で呼ぶ必要がある。
@@ -57,12 +62,13 @@ export default function RegisterPage() {
   // 一旦フォームへ戻ってしまうため、Server Action を直接呼んで inline に
   // フィードバックを出す。
   const onResend = async () => {
-    if (!submittedEmail || resendState.pending) return;
+    if (!submittedEmail || resendState.pending || cooldown > 0) return;
     setResendState({ pending: true, message: "", ok: false });
     const formData = new FormData();
     formData.append("email", submittedEmail);
     const result = await signupAction(formData);
     if (result.success) {
+      setCooldown(60);
       setResendState({
         pending: false,
         ok: true,
@@ -75,6 +81,15 @@ export default function RegisterPage() {
 
   const isSuccess = state?.success === true;
   const errorMessage = state && !state.success ? state.error : null;
+
+  // 1 秒ごとにクールダウンをデクリメントする。
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => {
+      setCooldown((c) => Math.max(0, c - 1));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   if (isSuccess) {
     return (
@@ -103,7 +118,7 @@ export default function RegisterPage() {
             type="button"
             variant="outline"
             onClick={onResend}
-            disabled={resendState.pending}
+            disabled={resendState.pending || cooldown > 0}
             className="h-12 w-full rounded-[47px] font-bold"
           >
             {resendState.pending ? (
@@ -111,6 +126,8 @@ export default function RegisterPage() {
                 <Loader2 className="size-4 animate-spin" />
                 送信中...
               </>
+            ) : cooldown > 0 ? (
+              `再送する（${cooldown}秒）`
             ) : (
               "確認メールを再送する"
             )}

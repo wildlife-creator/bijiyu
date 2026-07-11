@@ -328,6 +328,39 @@ test.describe("経験年数フィルタ（CLI-005 職人検索・サーバー側
     await expect(page.getByRole("heading", { name: /田中一郎/ })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: /渡辺大輔/ })).toHaveCount(0);
   });
+
+  test("職種×経験年数の複合指定は「選択職種での経験年数」で判定する（大工2年＋塗装12年）", async ({
+    page,
+  }) => {
+    // 複合経験太郎(eeaa1111): 大工2年・塗装12年。
+    // 旧実装は職種と無相関の ANY 一致だったため「大工×10年以上」でも塗装12年に
+    // 引っ張られてヒットしていた。選択職種での経験年数で判定するよう修正した回帰防止。
+    const daiku = encodeURIComponent("建築/躯体｜大工");
+    const toso = encodeURIComponent("建築/仕上げ｜塗装工");
+    const exp = encodeURIComponent("10年以上");
+
+    // 大工は2年 → 「大工×10年以上」ではヒットしない
+    await page.goto(
+      `/users/contractors?tradeType=${daiku}&experienceYears=${exp}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "職人一覧" }),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole("heading", { name: /複合経験太郎/ }),
+    ).toHaveCount(0);
+
+    // 塗装は12年 → 「塗装×10年以上」でヒットする
+    await page.goto(
+      `/users/contractors?tradeType=${toso}&experienceYears=${exp}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "職人一覧" }),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole("heading", { name: /複合経験太郎/ }),
+    ).toBeVisible();
+  });
 });
 
 test.describe("応募済みバッジ（CON-002 案件一覧）", () => {

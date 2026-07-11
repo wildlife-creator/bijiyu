@@ -44,8 +44,10 @@ export interface AreaListEditorProps {
   /**
    * 必須フォーム向け: value が空でも初期状態で 1 行目 (空の入力行) を表示する。
    * この行は「表示専用」で value 自体は空配列のまま。行を操作した時点で onChange
-   * により実体化する。空のまま送信した場合のバリデーションは親スキーマ
-   * (areaRowsSchema.refine(length>=1)) に委ね、現状のメッセージを温存する。
+   * により実体化する。空のまま送信した場合のバリデーションは各フォーム側スキーマ
+   * (jobSchema 等の `areas: ...refine((arr) => arr.length >= 1)`) に委ね、現状の
+   * メッセージを温存する。areaRowsSchema 自体は length>=1 を持たない
+   * (排他/重複/未完成行の superRefine のみ)。
    */
   requireInitialRow?: boolean;
   disabled?: boolean;

@@ -134,6 +134,7 @@ export default async function FavoritesPage({ searchParams }: PageProps) {
             supabase={supabase}
             targetIds={targetIds}
             sortAsc={sortAsc}
+            userId={user.id}
           />
         )}
         {activeType === "client" && (
@@ -166,11 +167,14 @@ async function JobFavorites({
   supabase,
   targetIds,
   sortAsc = true,
+  userId,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   targetIds: string[];
   /** 締切が近い順 (true) / 遠い順 (false)。Server ページの並びと一致させる */
   sortAsc?: boolean;
+  /** 応募済みバッジ判定用のログインユーザー ID */
+  userId: string;
 }) {
   if (targetIds.length === 0) return null;
 
@@ -216,6 +220,19 @@ async function JobFavorites({
     }
   }
 
+  // 応募済みバッジ: 表示中の jobIds の範囲でログインユーザーの応募を 1 クエリ取得。
+  // count / ページネーションには影響しない表示専用の付加情報（検索一覧と同手法）。
+  const { data: myApplications } = await supabase
+    .from("applications")
+    .select("job_id")
+    .eq("applicant_id", userId)
+    .neq("status", "cancelled")
+    .in(
+      "job_id",
+      jobIds.length > 0 ? jobIds : ["00000000-0000-0000-0000-000000000000"],
+    );
+  const appliedJobIds = new Set((myApplications ?? []).map((a) => a.job_id));
+
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">
       {(jobs ?? []).map((job) => {
@@ -253,6 +270,7 @@ async function JobFavorites({
               thumbnailUrl: thumbnail,
             }}
             isFavorited={true}
+            hasApplied={appliedJobIds.has(job.id)}
           />
         );
       })}

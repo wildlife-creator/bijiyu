@@ -709,6 +709,19 @@ describe("sendScoutAction", () => {
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: null, error: null } }),
     );
+    // 修正8: jobs 所有権チェック（owner_id === 送信者）→ title もここで取得
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            title: "テスト案件",
+            owner_id: USER_ID,
+            organization_id: null,
+          },
+          error: null,
+        },
+      }),
+    );
     // 4. message_threads.select.or(...) (thenable) → identity ペアが一致する既存スレッド
     //    注: getActiveOrganizationContext は本テストの浅いモック配下では active=null を返し
     //    実効 organizationId は null になる (個人プラン相当)。identity 一致は個人ペアで成立させる。
@@ -745,13 +758,8 @@ describe("sendScoutAction", () => {
     mockFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
-    // 7. jobs.select(title).eq.single (A3: 案件タイトル解決) → title 取得
-    mockFrom.mockReturnValueOnce(
-      createQueryMock({
-        single: { data: { title: "テスト案件" }, error: null },
-      }),
-    );
     // 8. users.select(email).eq.single (target user) → email なしで email ブロックをスキップ
+    //    (案件タイトルは上部の所有権チェックで取得済み。旧 jobs.select(title) は廃止)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: { data: { email: null }, error: null },
@@ -790,6 +798,19 @@ describe("sendScoutAction", () => {
     // 3. Phase 2 findOrCreateThread: admin で相手 (受注者) の org 解決 → 無し
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 修正8: jobs 所有権チェック（owner_id === 送信者）→ title もここで取得
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            title: "テスト案件",
+            owner_id: USER_ID,
+            organization_id: null,
+          },
+          error: null,
+        },
+      }),
     );
     // 4. message_threads.select.or → identity ペア一致で既存スレッド
     //    (getActiveOrganizationContext モック上 active=null → 個人プラン相当)
@@ -836,6 +857,19 @@ describe("sendScoutAction", () => {
     mockFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: null, error: null } }),
     );
+    // 修正8: jobs 所有権チェック（owner_id === 送信者）→ 通過させる
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            title: "テスト案件",
+            owner_id: USER_ID,
+            organization_id: null,
+          },
+          error: null,
+        },
+      }),
+    );
     // 3. 修正1: applications 応募済みチェック (admin) → 応募あり（お断り済み等でも拒否）
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
@@ -870,6 +904,19 @@ describe("sendScoutAction", () => {
     // 3. Phase 2 findOrCreateThread: admin で相手 (受注者) の org 解決 → 無し
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 修正8: jobs 所有権チェック（owner_id === 送信者）→ title もここで取得
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            title: "テスト案件",
+            owner_id: USER_ID,
+            organization_id: null,
+          },
+          error: null,
+        },
+      }),
     );
     // 4. message_threads.select.or → identity ペア一致無し (candidates 空)
     mockFrom.mockReturnValueOnce(

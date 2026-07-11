@@ -288,6 +288,58 @@ describe("createJobAction", () => {
     }
   });
 
+  it("タイトルのみの下書き保存（数値項目が空欄）でも成功する", async () => {
+    // 確認1 回帰: 旧実装は Number("")=0 → jobDraftSchema の positive() に弾かれて
+    // 「タイトルのみ下書き」が保存できなかった。numOrNaN で NaN 化し保存時に null 化する。
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+    });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "users") {
+        return createQueryMock({
+          single: { data: { role: "client" }, error: null },
+        });
+      }
+      if (table === "organization_members") {
+        return createQueryMock({ maybeSingle: { data: null, error: null } });
+      }
+      if (table === "subscriptions") {
+        return createQueryMock({
+          maybeSingle: {
+            data: { status: "active", plan_type: "individual" },
+            error: null,
+          },
+        });
+      }
+      if (table === "jobs") {
+        return createQueryMock({
+          single: { data: { id: "job-1" }, error: null },
+        });
+      }
+      return createQueryMock({ single: { data: null, error: null } });
+    });
+
+    const result = await createJobAction(
+      buildValidFormData({
+        description: "",
+        rewardLower: "",
+        rewardUpper: "",
+        headcount: "",
+        workStartDate: "",
+        workEndDate: "",
+        recruitStartDate: "",
+        recruitEndDate: "",
+        ownerMessage: "",
+        areas: JSON.stringify([]),
+        status: "draft",
+      }),
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data?.id).toBe("job-1");
+    }
+  });
+
   // -------------------------------------------------------------------------
   // direct-upload 化した画像パス (imagePaths) の検証
   // -------------------------------------------------------------------------

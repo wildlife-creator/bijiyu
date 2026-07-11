@@ -55,3 +55,38 @@ export function experienceYearsMatches(
   if (bounds.lt !== undefined && years >= bounds.lt) return false;
   return true;
 }
+
+/**
+ * CLI-005 検索の「選択職種 × 経験年数」複合判定の意味論を表す純粋関数。
+ *
+ * `users/contractors/page.tsx` のサーバー側 user_skills クエリ
+ * （`trade_type IN (選択職種) AND experience_years 範囲`）と同一の判定ルールを
+ * 明文化し、単体テスト可能にするためのもの（実データのフィルタはクエリ側が担う）。
+ *
+ * - selectedTradeTypes が空: いずれかの対応職種が経験年数範囲に入れば true（職種指定なし）
+ * - selectedTradeTypes が非空: 「選択した職種」の経験年数が範囲に入る skill が 1 つでも
+ *   あれば true。職種と無相関の ANY 一致（旧実装）ではなく、選択職種での経験年数で判定する
+ *   （例:「大工2年＋塗装12年」の職人は「大工×10年以上」ではヒットせず、
+ *   「塗装×10年以上」でヒットする）。
+ * - experience_years が NULL / 未記載の skill は範囲に一致しない。
+ *
+ * 経験年数フィルタが有効なとき（experienceLabel が既知ラベル）にのみ意味を持つ。
+ */
+export function hasMatchingTradeExperience(
+  skills: Array<{
+    tradeType: string;
+    experienceYears: number | null | undefined;
+  }>,
+  selectedTradeTypes: string[],
+  experienceLabel: string,
+): boolean {
+  return skills.some((s) => {
+    if (
+      selectedTradeTypes.length > 0 &&
+      !selectedTradeTypes.includes(s.tradeType)
+    ) {
+      return false;
+    }
+    return experienceYearsMatches(s.experienceYears, experienceLabel);
+  });
+}

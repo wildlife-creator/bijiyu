@@ -16,12 +16,31 @@ import { z } from "zod";
  * {@link birthDateSchema} が担う。
  */
 export function formatBirthDateInput(raw: string): string {
-  // 全角数字 → 半角、数字以外を除去
-  const digits = raw
-    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
-    .replace(/\D/g, "")
-    .slice(0, 8);
+  // 全角数字 → 半角
+  const normalized = raw.replace(/[０-９]/g, (c) =>
+    String.fromCharCode(c.charCodeAt(0) - 0xfee0),
+  );
 
+  // ペースト対策: `/` または `-` で年・月・日の 3 成分が揃っている場合は、
+  // 各成分をゼロ詰めしてから連結する。数字だけを抜き出して連結すると
+  // 1 桁の月日（"1990/1/5"）が "1990/15" に化けるため。
+  // 成分が欠ける途中入力（"1990/1" 等）は化けないので素の数字連結に委ねる。
+  const parts = normalized.split(/[/-]/).filter((p) => p !== "");
+  if (parts.length === 3 && parts.every((p) => /^\d+$/.test(p))) {
+    const [y, m, d] = parts;
+    const joined =
+      y.slice(0, 4) +
+      m.padStart(2, "0").slice(0, 2) +
+      d.padStart(2, "0").slice(0, 2);
+    return formatBirthDateDigits(joined.slice(0, 8));
+  }
+
+  const digits = normalized.replace(/\D/g, "").slice(0, 8);
+  return formatBirthDateDigits(digits);
+}
+
+/** 数字列（最大8桁）を段階的に YYYY/MM/DD へ整形する内部ヘルパー。 */
+function formatBirthDateDigits(digits: string): string {
   if (digits.length <= 4) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 4)}/${digits.slice(4)}`;
   return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6)}`;

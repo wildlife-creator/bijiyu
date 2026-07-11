@@ -12,6 +12,7 @@ import { formatRewardRange } from "@/lib/utils/format-reward";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   Select,
   SelectContent,
@@ -139,9 +140,7 @@ export function JobListClient({
 
       {/* Job card grid */}
       {jobs.length === 0 ? (
-        <p className="mt-8 py-12 text-center text-body-md text-muted-foreground">
-          案件がありません
-        </p>
+        <EmptyState className="mt-8">案件がありません</EmptyState>
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           {jobs.map((job) => (

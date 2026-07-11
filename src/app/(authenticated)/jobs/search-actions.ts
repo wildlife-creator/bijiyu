@@ -163,7 +163,7 @@ export async function applyJobAction(
     if (data.scoutMessageId) {
       const { data: scoutMsg } = await supabase
         .from("messages")
-        .select("id, is_scout, job_id, thread_id")
+        .select("id, is_scout, job_id, thread_id, scout_status")
         .eq("id", data.scoutMessageId)
         .single();
 
@@ -173,8 +173,13 @@ export async function applyJobAction(
           error: "スカウトメッセージが見つかりません。",
         };
       }
-      validatedScoutMessageId = scoutMsg.id;
-      scoutThreadId = scoutMsg.thread_id;
+      // 修正10: 辞退済み（scout_status = 'rejected'）のスカウト経由の応募は、
+      // スカウト紐付けを無効化して通常応募として成立させる（辞退後の再応募は許容）。
+      // pending / accepted のスカウトのみ scout_message_id を保存する。
+      if (scoutMsg.scout_status !== "rejected") {
+        validatedScoutMessageId = scoutMsg.id;
+        scoutThreadId = scoutMsg.thread_id;
+      }
     }
 
     // 8. INSERT
@@ -207,11 +212,20 @@ export async function applyJobAction(
     // 使われるため、メール送信より前に pending→accepted を確定させる。
     if (validatedScoutMessageId) {
       const scoutAdmin = createAdminClient();
-      await scoutAdmin
+      const { error: scoutUpdateError } = await scoutAdmin
         .from("messages")
         .update({ scout_status: "accepted" })
         .eq("id", validatedScoutMessageId)
         .eq("scout_status", "pending");
+      // 修正2: 更新失敗を検知できないと「応募成立・スカウト pending のまま」の
+      // 不整合が静かに残る。応募自体は成立済みなので success は維持し、
+      // ログ出力で監視可能にする。
+      if (scoutUpdateError) {
+        console.error(
+          "[applyJobAction] scout_status update failed:",
+          scoutUpdateError,
+        );
+      }
       if (scoutThreadId) {
         // スレッド画面を戻ったときにスカウトカードが「受けました」表示になるよう無効化
         revalidatePath(`/messages/${scoutThreadId}`);

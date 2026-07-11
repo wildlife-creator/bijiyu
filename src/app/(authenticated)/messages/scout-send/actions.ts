@@ -160,19 +160,58 @@ export async function sendScoutAction(
     const organizationId = active?.organizationId ?? null;
     const isProxy = active?.isProxyAccount === true;
 
+    // 修正8: jobId は FormData 由来のため、送信者本人が所有する案件（owner_id 一致）
+    // または操作中の組織の案件であることをサーバー側で検証してからスカウトを送る。
+    // UI（scout-send/page.tsx）の案件プルダウンと同じ範囲（owner_id or active org）に
+    // 揃える。title もここで取得し、後段のメール【案件名】解決に再利用する。
+    const { data: scoutJob, error: scoutJobError } = await supabase
+      .from("jobs")
+      .select("title, owner_id, organization_id")
+      .eq("id", parsed.data.jobId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (scoutJobError) {
+      return {
+        success: false,
+        error: "一時的なエラーが発生しました。時間をおいて再度お試しください。",
+      };
+    }
+    if (!scoutJob) {
+      return { success: false, error: "案件が見つかりません" };
+    }
+    const ownsScoutJob =
+      scoutJob.owner_id === user.id ||
+      (scoutJob.organization_id !== null &&
+        scoutJob.organization_id === organizationId);
+    if (!ownsScoutJob) {
+      return {
+        success: false,
+        error: "この案件のスカウトを送る権限がありません",
+      };
+    }
+
     // Find or create thread (Phase 2: identity ベース)
     const admin = createAdminClient();
 
     // 修正1: 応募済みの職人には同一案件のスカウトを送れない（全ステータス対象）。
     // お断り済み・発注済み・キャンセル等いずれの応募が存在しても拒否する。
     // job owner の RLS に依存しないよう admin client で照会する。
-    const { data: existingApplication } = await admin
-      .from("applications")
-      .select("id")
-      .eq("applicant_id", parsed.data.userId)
-      .eq("job_id", parsed.data.jobId)
-      .limit(1)
-      .maybeSingle();
+    const { data: existingApplication, error: existingApplicationError } =
+      await admin
+        .from("applications")
+        .select("id")
+        .eq("applicant_id", parsed.data.userId)
+        .eq("job_id", parsed.data.jobId)
+        .limit(1)
+        .maybeSingle();
+    // fail-closed: 照会自体が失敗したら「応募なし」と誤判定せず拒否する
+    // （応募済みチェックを素通りさせない。CLAUDE.md silent block と同型の対策）。
+    if (existingApplicationError) {
+      return {
+        success: false,
+        error: "一時的なエラーが発生しました。時間をおいて再度お試しください。",
+      };
+    }
     if (existingApplication) {
       return {
         success: false,
@@ -230,17 +269,9 @@ export async function sendScoutAction(
       .update({ updated_at: new Date().toISOString() })
       .eq("id", thread.id);
 
-    // A3: 案件タイトル（jobs.title）を取得。以前はメール本文で
-    // parsed.data.title（スカウトタイトル入力欄）を「案件名」として使っていたため、
-    // 控えメール件名と受信者メール本文の【案件名】欄が不正になっていた。
-    // 辞退通知（respondToScoutAction 経由）は jobs.title を取得できていたのに
-    // 送信側だけ非対称だった。ここで一元的に案件タイトルを解決する。
-    const { data: scoutJob } = await supabase
-      .from("jobs")
-      .select("title")
-      .eq("id", parsed.data.jobId)
-      .single();
-    const jobTitle = scoutJob?.title ?? parsed.data.title;
+    // A3: メール本文の【案件名】は案件タイトル（jobs.title）で解決する。
+    // scoutJob は上部の所有権チェックで取得済みのため再フェッチしない。
+    const jobTitle = scoutJob.title ?? parsed.data.title;
 
     // Email notification (don't rollback on failure)
     const { data: targetUser } = await supabase

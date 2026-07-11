@@ -195,6 +195,21 @@ INSERT INTO auth.users (
     '', '', '', '', NULL, '', '', '', 0, '', false
   ),
   (
+    -- 経験年数フィルタの複合判定テスト用（大工2年＋塗装12年）
+    'eeaa1111-2222-3333-4444-555566667777',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'contractor-exp@test.local',
+    crypt('testpass123', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{}',
+    now(),
+    now(),
+    '', '', '', '', NULL, '', '', '', 0, '', false
+  ),
+  (
     'dd111111-1111-2222-3333-444455556666',
     '00000000-0000-0000-0000-000000000000',
     'authenticated',
@@ -243,6 +258,7 @@ INSERT INTO auth.identities (
   ('cc222222-2222-2222-2222-222222222222', 'cc222222-2222-2222-2222-222222222222', 'contractor3@test.local', '{"sub":"cc222222-2222-2222-2222-222222222222","email":"contractor3@test.local"}', 'email', now(), now(), now()),
   ('cc333333-3333-3333-3333-333333333333', 'cc333333-3333-3333-3333-333333333333', 'contractor4@test.local', '{"sub":"cc333333-3333-3333-3333-333333333333","email":"contractor4@test.local"}', 'email', now(), now(), now()),
   ('dd111111-1111-2222-3333-444455556666', 'dd111111-1111-2222-3333-444455556666', 'individual-client@test.local', '{"sub":"dd111111-1111-2222-3333-444455556666","email":"individual-client@test.local"}', 'email', now(), now(), now()),
+  ('eeaa1111-2222-3333-4444-555566667777', 'eeaa1111-2222-3333-4444-555566667777', 'contractor-exp@test.local', '{"sub":"eeaa1111-2222-3333-4444-555566667777","email":"contractor-exp@test.local"}', 'email', now(), now(), now()),
   ('ee111111-1111-1111-1111-111111111111', 'ee111111-1111-1111-1111-111111111111', 'staff-admin@test.local', '{"sub":"ee111111-1111-1111-1111-111111111111","email":"staff-admin@test.local"}', 'email', now(), now(), now());
 
 -- ============================================================
@@ -265,6 +281,20 @@ UPDATE public.users SET
   ccus_verified = true,
   skill_tags = ARRAY['木造軸組構法', '造作大工', '内装仕上工']
 WHERE id = '11111111-1111-1111-1111-111111111111';
+
+-- 受注者（経験年数フィルタの複合判定テスト用: 大工2年＋塗装12年）
+-- 「大工×10年以上」ではヒットせず、「塗装×10年以上」でヒットすることを CLI-005 で検証する。
+UPDATE public.users SET
+  role = 'contractor',
+  last_name = '複合',
+  first_name = '経験太郎',
+  gender = '男性',
+  birth_date = '1988-08-08',
+  prefecture = '東京都',
+  identity_verified = false,
+  ccus_verified = false,
+  skill_tags = ARRAY['外壁塗装工']
+WHERE id = 'eeaa1111-2222-3333-4444-555566667777';
 
 -- 発注者
 UPDATE public.users SET
@@ -415,6 +445,9 @@ INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
   ('cc222222-2222-2222-2222-222222222222', '設備/施工｜電気（その他全般）', 15),
   ('cc222222-2222-2222-2222-222222222222', '設備/施工｜配管工（塩ビ管）', 6),
   ('cc333333-3333-3333-3333-333333333333', '建築/内装｜木工', 3),
+  -- 複合経験太郎（eeaa1111）: 大工2年＋塗装12年。経験年数の複合判定テスト用。
+  ('eeaa1111-2222-3333-4444-555566667777', '建築/躯体｜大工', 2),
+  ('eeaa1111-2222-3333-4444-555566667777', '建築/仕上げ｜塗装工', 12),
   -- 発注者ユーザー（client role）にも user_skills を登録する。
   -- 理由: 正規ルート（/register/profile）の registerProfileSchema で skills.min(1) が必須のため、
   -- 自分で会員登録した全ユーザー（後に client にアップグレードする人含む）は必ず skills を持つ。
@@ -461,6 +494,7 @@ INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
   ('cc222222-2222-2222-2222-222222222222', '千葉県',   NULL),
   ('cc333333-3333-3333-3333-333333333333', '千葉県',   NULL),
   ('cc333333-3333-3333-3333-333333333333', '東京都',   NULL),
+  ('eeaa1111-2222-3333-4444-555566667777', '東京都',   NULL),
   -- 発注者ユーザー（client role）の対応可能エリア。
   -- registerProfileSchema で availableAreas.min(1) 必須のため、正規ルートを経た全ユーザーが持つ。
   ('22222222-2222-2222-2222-222222222222', '神奈川県', NULL),

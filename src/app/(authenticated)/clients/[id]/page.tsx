@@ -14,6 +14,7 @@ import { hasActiveOption } from "@/lib/billing/options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
+import { getJstToday } from "@/lib/utils/format-date";
 import { canSendJobInquiry } from "@/lib/job-inquiry/access-guard";
 import {
   resolveTargetOrganizationId,
@@ -131,6 +132,11 @@ export default async function ClientDetailPage({ params }: PageProps) {
     )
     .eq("status", "open")
     .is("deleted_at", null)
+    // 締切済み案件は表示しない（検索一覧・全画面で表示条件を統一。JST 基準で
+    // 当日まで表示。recruit_end_date IS NULL 案件は検索一覧同様に除外される）。
+    .gte("recruit_end_date", getJstToday())
+    // 急募を先頭に、その後は新着順（募集案件一覧と同じ優先順位）。
+    .order("is_urgent", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(10);
   jobsQuery = targetOrgId
@@ -164,6 +170,16 @@ export default async function ClientDetailPage({ params }: PageProps) {
   const favoritedJobIds = new Set(
     (jobFavorites ?? []).map((f) => f.target_id),
   );
+
+  // 応募済みバッジ: 表示中の案件に対するログインユーザーの応募を 1 クエリ取得
+  // （count / 並びに影響しない表示専用の付加情報。検索一覧と同手法）。
+  const { data: myApplications } = await supabase
+    .from("applications")
+    .select("job_id")
+    .eq("applicant_id", user.id)
+    .neq("status", "cancelled")
+    .in("job_id", jobIds.length > 0 ? jobIds : ["__none__"]);
+  const appliedJobIds = new Set((myApplications ?? []).map((a) => a.job_id));
 
   // Check client favorite status
   const { data: favorite } = await supabase
@@ -389,6 +405,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
                       thumbnailUrl: thumbnail,
                     }}
                     isFavorited={favoritedJobIds.has(job.id)}
+                    hasApplied={appliedJobIds.has(job.id)}
                   />
                 );
               })}

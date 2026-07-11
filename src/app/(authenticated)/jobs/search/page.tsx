@@ -8,6 +8,7 @@ import {
 } from "@/lib/master/fetch";
 import { buildAreaFilterIds } from "@/lib/utils/area-search-clauses";
 import { buildSortLinkHref } from "@/lib/utils/build-sort-link";
+import { getJstToday } from "@/lib/utils/format-date";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -183,7 +184,8 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     )
     .eq("status", "open")
     .is("deleted_at", null)
-    .gte("recruit_end_date", new Date().toISOString().split("T")[0]);
+    // 締切フィルタは JST 基準。UTC 日付だと JST 0〜9 時に締切済み案件が一覧に残る。
+    .gte("recruit_end_date", getJstToday());
 
   // Apply filters: title / description / 発注者名（client_profiles.display_name 経由）
   // の3軸で OR 検索。発注者名は事前抽出した owner_id / organization_id への IN

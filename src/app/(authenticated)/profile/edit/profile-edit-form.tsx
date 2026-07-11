@@ -563,6 +563,9 @@ export function ProfileEditForm({
                   })
                 }
               />
+              <p className="text-muted-foreground text-body-xs">
+                1985年1月23日生まれの場合 → 19850123 と入力
+              </p>
               <FieldError message={validationErrors["birthDate"]} />
             </FieldGroup>
 

@@ -87,49 +87,82 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
   // user_id 集合を取得し、ID 集合の積に統合する。
   // ──────────────────────────────────────────────────────────────────────
 
-  async function fetchMatchingUserIds(
-    table: "user_skills" | "user_qualifications",
-    column: "trade_type" | "qualification_name",
-    values: string[],
+  // join 先テーブルの user_id 集合をページネーションして全件取得する。
+  // PostgREST は無指定だと 1000 件で静かに打ち切るため、.range() で全ページ走査する
+  // （CLAUDE.md「PostgREST の件数上限とページネーション」/ fetchAllPages 基準）。
+  // 途中ページで error が出たら、部分データで誤絞り込みしないようその時点で打ち切る。
+  const USER_ID_PAGE_SIZE = 1000;
+  async function collectUserIds(
+    buildPage: (
+      from: number,
+      to: number,
+    ) => PromiseLike<{ data: { user_id: string }[] | null; error: unknown }>,
   ): Promise<Set<string>> {
-    const { data } = await supabase
-      .from(table)
-      .select("user_id")
-      .in(column, values);
-    return new Set((data ?? []).map((r) => r.user_id));
+    const ids = new Set<string>();
+    for (let from = 0; ; from += USER_ID_PAGE_SIZE) {
+      const to = from + USER_ID_PAGE_SIZE - 1;
+      const { data, error } = await buildPage(from, to);
+      if (error || !data) break;
+      for (const row of data) ids.add(row.user_id);
+      if (data.length < USER_ID_PAGE_SIZE) break;
+    }
+    return ids;
   }
 
+  // 職種と経験年数を同時指定した場合は「選択した職種での経験年数」で判定する。
+  // 職種と無相関の ANY 一致だと「大工2年＋塗装12年」の職人が「大工×10年以上」で
+  // ヒットしてしまうため、経験年数フィルタ側の複合クエリ
+  // （trade_type IN (選択職種) AND experience_years 範囲）に集約する。
+  // 意味論は lib/utils/experience-years-filter.ts の hasMatchingTradeExperience 参照。
+  const expBounds = experienceYears
+    ? experienceYearsBounds(experienceYears)
+    : null;
+  const combineTradeIntoExperience = tradeTypes.length > 0 && expBounds !== null;
+
   const idSets: Array<Set<string>> = [];
-  if (tradeTypes.length > 0) {
+  // 職種フィルタ: 経験年数と併用する場合は上記の複合クエリに集約するため、
+  // 経験年数の指定が無い場合のみ職種単独で絞り込む。
+  if (tradeTypes.length > 0 && !combineTradeIntoExperience) {
     idSets.push(
-      await fetchMatchingUserIds("user_skills", "trade_type", tradeTypes),
+      await collectUserIds((from, to) =>
+        supabase
+          .from("user_skills")
+          .select("user_id")
+          .in("trade_type", tradeTypes)
+          .range(from, to),
+      ),
     );
   }
   if (qualificationFilters.length > 0) {
     idSets.push(
-      await fetchMatchingUserIds(
-        "user_qualifications",
-        "qualification_name",
-        qualificationFilters,
+      await collectUserIds((from, to) =>
+        supabase
+          .from("user_qualifications")
+          .select("user_id")
+          .in("qualification_name", qualificationFilters)
+          .range(from, to),
       ),
     );
   }
-  // 経験年数フィルタ: user_skills.experience_years に数値境界を適用して user_id 集合を取る。
-  // .in() ではなく .gte()/.lt() のレンジ条件なので専用に組み立てる（ANY 一致 = いずれかの
-  // 対応職種が範囲内なら該当ユーザーを含める）。NULL（未記載）は境界に一致せず除外される。
-  if (experienceYears) {
-    const bounds = experienceYearsBounds(experienceYears);
-    if (bounds) {
-      let expQuery = supabase.from("user_skills").select("user_id");
-      if (bounds.gte !== undefined) {
-        expQuery = expQuery.gte("experience_years", bounds.gte);
-      }
-      if (bounds.lt !== undefined) {
-        expQuery = expQuery.lt("experience_years", bounds.lt);
-      }
-      const { data } = await expQuery;
-      idSets.push(new Set((data ?? []).map((r) => r.user_id)));
-    }
+  // 経験年数フィルタ: 職種も指定されていれば trade_type IN (選択職種) AND
+  // experience_years 範囲 の複合条件、職種未指定なら経験年数のみ（いずれかの対応職種が
+  // 範囲内なら該当）。NULL（未記載）は境界に一致せず除外される。
+  if (expBounds) {
+    idSets.push(
+      await collectUserIds((from, to) => {
+        let q = supabase.from("user_skills").select("user_id");
+        if (combineTradeIntoExperience) {
+          q = q.in("trade_type", tradeTypes);
+        }
+        if (expBounds.gte !== undefined) {
+          q = q.gte("experience_years", expBounds.gte);
+        }
+        if (expBounds.lt !== undefined) {
+          q = q.lt("experience_years", expBounds.lt);
+        }
+        return q.range(from, to);
+      }),
+    );
   }
 
   // master-area-multi-select: muni 配列が空なら buildAreaFilterIds 1 回、

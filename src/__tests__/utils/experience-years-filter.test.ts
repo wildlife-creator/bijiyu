@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   experienceYearsBounds,
   experienceYearsMatches,
+  hasMatchingTradeExperience,
 } from "@/lib/utils/experience-years-filter";
 
 // 職人検索（CLI-005）の経験年数フィルタ。
@@ -65,5 +66,76 @@ describe("experienceYearsMatches", () => {
   it("未知ラベルは常に false", () => {
     expect(experienceYearsMatches(10, "all")).toBe(false);
     expect(experienceYearsMatches(10, "")).toBe(false);
+  });
+});
+
+// 修正6+7: 職種×経験年数の複合指定は「選択した職種での経験年数」で判定する。
+// 職種と無相関の ANY 一致だと「大工2年＋塗装12年」が「大工×10年以上」でヒットする不具合。
+describe("hasMatchingTradeExperience", () => {
+  const konoDaiku2Toso12 = [
+    { tradeType: "建築/躯体｜大工", experienceYears: 2 },
+    { tradeType: "建築/仕上げ｜塗装工", experienceYears: 12 },
+  ];
+
+  it("選択職種の経験年数で判定する（大工2年＋塗装12年 は 大工×10年以上 に不一致）", () => {
+    expect(
+      hasMatchingTradeExperience(
+        konoDaiku2Toso12,
+        ["建築/躯体｜大工"],
+        "10年以上",
+      ),
+    ).toBe(false);
+  });
+
+  it("選択職種が範囲を満たせば一致する（塗装×10年以上 は一致）", () => {
+    expect(
+      hasMatchingTradeExperience(
+        konoDaiku2Toso12,
+        ["建築/仕上げ｜塗装工"],
+        "10年以上",
+      ),
+    ).toBe(true);
+  });
+
+  it("職種未指定なら いずれかの職種が範囲に入れば一致（ANY 一致）", () => {
+    expect(hasMatchingTradeExperience(konoDaiku2Toso12, [], "10年以上")).toBe(
+      true,
+    );
+    expect(hasMatchingTradeExperience(konoDaiku2Toso12, [], "5〜10年")).toBe(
+      false,
+    );
+  });
+
+  it("複数職種を選択した場合は OR（どれかの選択職種で範囲を満たせば一致）", () => {
+    expect(
+      hasMatchingTradeExperience(
+        konoDaiku2Toso12,
+        ["建築/躯体｜大工", "建築/仕上げ｜塗装工"],
+        "10年以上",
+      ),
+    ).toBe(true);
+    expect(
+      hasMatchingTradeExperience(
+        konoDaiku2Toso12,
+        ["建築/躯体｜大工", "建築/仕上げ｜塗装工"],
+        "1〜3年",
+      ),
+    ).toBe(true); // 大工2年 が 1〜3年 に一致
+  });
+
+  it("経験年数が未記載（NULL）の skill は一致しない", () => {
+    expect(
+      hasMatchingTradeExperience(
+        [{ tradeType: "建築/躯体｜大工", experienceYears: null }],
+        ["建築/躯体｜大工"],
+        "10年以上",
+      ),
+    ).toBe(false);
+  });
+
+  it("該当職種を保有しない場合は一致しない", () => {
+    expect(
+      hasMatchingTradeExperience(konoDaiku2Toso12, ["設備｜電気工"], "1〜3年"),
+    ).toBe(false);
   });
 });

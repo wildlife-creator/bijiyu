@@ -77,6 +77,20 @@ describe("formatBirthDateInput", () => {
     expect(formatBirthDateInput("1990-01-15")).toBe("1990/01/15");
   });
 
+  it("区切り付き1桁月日のペーストをゼロ詰めして整形する", () => {
+    // 数字だけ抜き出す旧実装では "1990/15" に化けていたケース
+    expect(formatBirthDateInput("1990/1/5")).toBe("1990/01/05");
+    expect(formatBirthDateInput("1990/1/15")).toBe("1990/01/15");
+    expect(formatBirthDateInput("1990/12/5")).toBe("1990/12/05");
+    expect(formatBirthDateInput("1990-1-5")).toBe("1990/01/05");
+  });
+
+  it("区切り付きでも成分が欠ける途中入力はゼロ詰めせず数字連結にフォールバックする", () => {
+    // "1990/01" に化けさせない（ユーザーが月を打ち切る前に確定させない）
+    expect(formatBirthDateInput("1990/1")).toBe("1990/1");
+    expect(formatBirthDateInput("1990/")).toBe("1990");
+  });
+
   it("全角数字を半角に正規化して整形する", () => {
     expect(formatBirthDateInput("１９９００１１５")).toBe("1990/01/15");
   });

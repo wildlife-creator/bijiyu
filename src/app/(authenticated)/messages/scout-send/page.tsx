@@ -78,11 +78,18 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
   let appliedJobIds: string[] = [];
   if (jobIds.length > 0) {
     const admin = createAdminClient();
-    const { data: appliedRows } = await admin
+    const { data: appliedRows, error: appliedRowsError } = await admin
       .from("applications")
       .select("job_id")
       .eq("applicant_id", targetUserId)
       .in("job_id", jobIds);
+    // 照会失敗はログに残す（最終防衛線は sendScoutAction 側の応募済みチェック）。
+    if (appliedRowsError) {
+      console.error(
+        "[ScoutSendPage] applied jobs lookup failed:",
+        appliedRowsError,
+      );
+    }
     appliedJobIds = Array.from(
       new Set((appliedRows ?? []).map((a) => a.job_id)),
     );
