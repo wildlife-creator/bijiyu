@@ -264,6 +264,17 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - `max_rows` の引き上げ（config.toml / ダッシュボード設定）は環境依存で再発しやすいため根治にならない。**コード側のページネーションで対処**すること
 - 2026-06-05 実例: `master_municipalities`（約 1,897 件）がページネーション未対応で 1000 件で打ち切られ、`sort_order` 後半の静岡県以降の市区町村が入力系 5・検索系 3 画面のエリア選択で表示されないバグが発生。基準実装は `src/lib/master/fetch.ts` の `fetchAllPages`
 
+### `unstable_cache` に「取得失敗」をキャッシュさせない（必ず守ること）
+- `unstable_cache(fn, keys, opts)` は **fn が解決した値だけ**をキャッシュする。fn が失敗時に**空配列 / null を return** すると、その「空」を正常結果として最大 1 時間（staging / 本番は Data Cache に永続）キャッシュし、修正デプロイ後も汚染データが残る（`revalidate` 待ちでしか消えない）
+- 典型症状: マスタ取得が一時的に失敗 → 空配列がキャッシュ → 検証（`validateLabelChanges` / `validateAreaChanges` 等）が全ラベルを「存在しない職種 / エリア」と**誤断定**。ドロップダウン（別キャッシュキー）は健全に見えるのに送信時の検証だけが失敗する、という乖離が起きて発見が遅れる
+- 対策（キャッシュ境界を軸に 3 層へ分離）:
+  1. **キャッシュ境界の内側（fetch プリミティブ）は失敗時に throw する**。空を return してはならない。reject は `unstable_cache` にキャッシュされないため、失敗が永続化しない
+  2. **検証系**は throw を catch して「一時的なエラー」（`transient`）として扱い、`データの取得に一時的に失敗しました。時間をおいて再度お試しください。` を表示する。**「存在しない」と断定してはならない**（ユーザーに誤情報を与える）。`マスタ` 等の開発用語もユーザー向け文言に使わない
+  3. **描画系**（ドロップダウンを描く Server Component / 派生ヘルパー）は throw を**キャッシュ境界の外側で** catch し、空フォールバックでページを描画可能にする。catch はキャッシュされないので失敗は次リクエストで自己回復する
+- 修正時は**キャッシュキーにバージョンを付与 / 更新**（例: `["master-skills", …, "v2"]` を新設、`master-area` を `v2→v3`）し、既存の汚染キャッシュを確実に無効化する（`revalidateTag` でも可）。ページネーションの `max_rows` 対策と同じく、キー据え置きの再デプロイだけでは汚染が残る
+- 基準実装: `src/lib/master/fetch.ts`（`getAllMasterRowsOrThrow` = 検証用 / throw、`getAllMasterRows` = 描画用 / 空フォールバック。市区町村の派生ヘルパーも同様に catch）、`src/lib/master/validate.ts` / `validate-area.ts`（`transient` 結果 + 共通メッセージヘルパー `labelValidationErrorMessage` / `areaValidationErrorMessage`）
+- 2026-07-11 実例: staging デプロイ直後の接続不安定で `master_trade_types` 取得が空配列でキャッシュされ、新規会員登録（/register/profile）で「存在しない職種が含まれています: 建築/仕上げ｜フィルム・シート工」が発生（当該ラベルはマスタに実在）。fetch プリミティブを throw 化 + キャッシュキー v2/v3 化 + `transient` 文言で修正
+
 ### 段階的フォーム表示（条件レンダリング）
 - プルダウンや選択肢に応じてフォームの表示内容が変わる場合は、別ページ遷移ではなく `useState` による同一ページ内の条件レンダリングで実装すること（例: CLI-009 の「発注を依頼する」/「お断りする」選択）
 - プルダウンの `onValueChange` では state 更新のみ行い、Server Action の呼び出しは行わない。送信はフォームの「送信する」ボタン押下時に行う

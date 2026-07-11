@@ -44,7 +44,8 @@ export function labelValidationErrorMessage(
   deprecatedAction = "登録",
 ): string {
   if (failure.transient) {
-    return `${noun}マスタの取得に一時的に失敗しました。時間をおいて再度お試しください。`;
+    // 「マスタ」等の開発用語は使わず、ユーザーに伝わる汎用文言で統一する。
+    return "データの取得に一時的に失敗しました。時間をおいて再度お試しください。";
   }
   if (failure.unknownLabels.length > 0) {
     return `存在しない${noun}が含まれています: ${failure.unknownLabels.join("、")}`;

@@ -169,10 +169,12 @@ describe("labelValidationErrorMessage", () => {
       { valid: false, transient: true },
       "職種",
     );
+    // 「マスタ」等の開発用語を含まない汎用文言で統一（noun に依らず同一文言）。
     expect(msg).toBe(
-      "職種マスタの取得に一時的に失敗しました。時間をおいて再度お試しください。",
+      "データの取得に一時的に失敗しました。時間をおいて再度お試しください。",
     );
     expect(msg).not.toContain("存在しない");
+    expect(msg).not.toContain("マスタ");
   });
 
   it("unknown は「存在しない〇〇が含まれています」", () => {

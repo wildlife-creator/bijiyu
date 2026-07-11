@@ -223,10 +223,12 @@ describe("validateAreaChanges", () => {
 describe("areaValidationErrorMessage", () => {
   it("transient は「時間をおいて」の一時エラー文言（存在しない断定をしない）", () => {
     const msg = areaValidationErrorMessage({ valid: false, transient: true });
+    // label 側と同一のユーザー向け汎用文言（「マスタ」等の開発用語を含まない）。
     expect(msg).toBe(
-      "エリアマスタの取得に一時的に失敗しました。時間をおいて再度お試しください。",
+      "データの取得に一時的に失敗しました。時間をおいて再度お試しください。",
     );
     expect(msg).not.toContain("存在しない");
+    expect(msg).not.toContain("マスタ");
   });
 
   it("unknown は県+市を結合して「存在しないエリアが含まれています」", () => {

@@ -66,7 +66,8 @@ export function areaValidationErrorMessage(
   deprecatedAction = "登録",
 ): string {
   if (failure.transient) {
-    return "エリアマスタの取得に一時的に失敗しました。時間をおいて再度お試しください。";
+    // label 側 (labelValidationErrorMessage) と同一のユーザー向け汎用文言で統一する。
+    return "データの取得に一時的に失敗しました。時間をおいて再度お試しください。";
   }
   if (failure.unknownPairs.length > 0) {
     return `存在しないエリアが含まれています: ${failure.unknownPairs.map(formatAreaTuple).join("、")}`;
