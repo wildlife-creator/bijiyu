@@ -213,7 +213,7 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
             <Button
               type="submit"
               variant="destructive"
-              className="w-full rounded-pill text-body-md border-destructive/30"
+              className="w-full rounded-pill text-body-md text-destructive border-destructive/30"
               disabled={isPending}
             >
               {isPending ? "処理中..." : "退会する"}
@@ -278,7 +278,7 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
               <Button
                 type="button"
                 variant="destructive"
-                className="w-full rounded-pill text-body-md border-destructive/30"
+                className="w-full rounded-pill text-body-md text-destructive border-destructive/30"
                 onClick={handleConfirmedWithdraw}
                 disabled={isPending}
               >
