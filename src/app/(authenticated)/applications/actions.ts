@@ -11,6 +11,7 @@ import {
   mapOperatingStatusToApplicationStatus,
 } from "@/lib/validations/matching";
 import {
+  canContractorCancel,
   evaluateReviewInputWindow,
   reviewInputWindowMessage,
 } from "@/lib/matching";
@@ -31,7 +32,7 @@ import {
   resolveClientProfileForRow,
   resolveParticipantName,
 } from "@/lib/utils/display-name";
-import { formatDateTime } from "@/lib/utils/format-date";
+import { formatDateTime, getJstToday } from "@/lib/utils/format-date";
 import type { ActionResult } from "@/lib/types/action-result";
 
 const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
@@ -101,17 +102,14 @@ export async function cancelApplicationAction(
       return { success: false, error: "発注済みの応募のみキャンセルできます" };
     }
 
-    // 5-day restriction check based on first_work_date (set by client)
-    if (application.first_work_date) {
-      const deadline = new Date(application.first_work_date);
-      deadline.setDate(deadline.getDate() - 5);
-      if (new Date() >= deadline) {
-        return {
-          success: false,
-          error:
-            "初回稼働日の5日前を過ぎたため、システムからはキャンセルできません。",
-        };
-      }
+    // 5日前ルール: 「初回稼働日の5日前の当日(JST)まで」のみキャンセル可
+    // （UI の表示条件と同一の canContractorCancel で判定。JST 暦日比較で本番 UTC でもズレない）
+    if (!canContractorCancel(application, getJstToday())) {
+      return {
+        success: false,
+        error:
+          "初回稼働日の5日前を過ぎたため、システムからはキャンセルできません。",
+      };
     }
 
     // Update status via admin client (RLS cancel policy only allows applied→cancelled,

@@ -95,8 +95,9 @@
        - ※【申し送り】は「以下の内容で応募済みです。」セクションで表示済みのため、ここには含めない
   7. **「キャンセルする」テキストリンク**:
      - applications.status = 'accepted' の場合のみ表示
-     - **キャンセル可否の判定基準**: 発注者が設定した初回稼働日（applications.first_work_date）の5日前まではキャンセル可能
-     - 初回稼働日の5日前を過ぎた場合: ボタンを非活性にし、注意文言を表示:「初回稼働日の5日前を過ぎたため、システムからはキャンセルできません。」
+     - **キャンセル可否の判定基準**: 発注者が設定した初回稼働日（applications.first_work_date）の **5日前の当日まで**（JST 暦日、その日の 23:59 まで）キャンセル可能。判定は `canContractorCancel(app, getJstToday())`（`src/lib/matching.ts`）で行い、UI（本ボタン表示）と Server Action（`cancelApplicationAction`）で同一関数を共有する。JST 暦日の文字列比較のため本番（UTC）でも日付がズレない
+       - 例: 初回稼働日 11/22 → 11/17 23:59（JST）まで可能、11/18 00:00 以降は不可
+     - 初回稼働日の5日前を過ぎた場合: キャンセルボタンを非表示にし、注意文言を表示:「初回稼働日の5日前を過ぎたため、システムからはキャンセルできません。」
      - キャンセル実行時: 確認ポップアップ → applications.status を 'cancelled' に更新（あわせてキャンセル実行者 `applications.cancelled_by = 'contractor'` を記録する。カラムは admin spec で新設・2026-06-11。ADM-013 の8分類で「ユーザー側からのキャンセル」と「運営によるキャンセル」を区別するため）→ CON-011 へ遷移
   8. **「評価を入力する」ピル型ボタン（塗りつぶし）**: CON-013 へ遷移
      - applications.status = 'accepted' の場合のみ表示
@@ -374,7 +375,7 @@
   - accepted → completed（受注者・発注者の両方が評価を登録した時点で、発注者の operatingStatus が 'completed' の場合に遷移）
   - accepted → lost（受注者・発注者の両方が評価を登録した時点で、発注者の operatingStatus が 'lost' の場合に遷移）
   - accepted → cancelled（受注者キャンセル〔下記制約内〕、または管理者による発注取り消し — ADM-014）
-  - **受注者キャンセルの制約**: status = 'accepted' かつ first_work_date（発注者が設定した初回稼働日）- 5日 > NOW() の場合のみ可能。applied 状態でのキャンセル（応募取り消し）については別途確認が必要
+  - **受注者キャンセルの制約**: status = 'accepted' かつ **JST 暦日で `getJstToday() <= first_work_date − 5日`**（＝5日前の当日まで、23:59 まで可）の場合のみ可能。判定は共通純粋関数 `canContractorCancel()` に集約し UI / Server Action で共有する。applied 状態でのキャンセル（応募取り消し）については別途確認が必要
   - **キャンセル実行者の記録（admin spec で新設・前方参照）**: `applications.cancelled_by`（'contractor' / 'admin'）に誰がキャンセルしたかを記録する。受注者のキャンセル Server Action・退会時の自動キャンセルは 'contractor'、ADM-014 の発注取り消しは 'admin' を記録。admin の応募履歴一覧（ADM-013）の8分類絞り込み「ユーザー側からのキャンセル／運営によるキャンセル」で使用（2026-06-11 決定。詳細は `.kiro/specs/admin/requirements.md` REQ-ADM-013）
   - **再応募の制約**: rejected 後の同一案件への再応募は不可。DB の UNIQUE 制約 `(job_id, applicant_id) WHERE status NOT IN ('cancelled')` により、rejected レコードが存在する場合は DB レベルで重複 INSERT がブロックされる（cancelled のみ除外 = rejected は制約に含まれるため再応募不可）。cancelled 後の再応募は可能（UNIQUE 制約から除外されているため）
 

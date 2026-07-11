@@ -14,7 +14,8 @@ import { CancelButton } from "./cancel-button";
 import { BackButton } from "@/components/shared/back-button";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils/format-date";
+import { formatDate, getJstToday } from "@/lib/utils/format-date";
+import { canContractorCancel } from "@/lib/matching";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 
 interface Props {
@@ -116,23 +117,11 @@ export default async function ApplicationDetailPage({ params }: Props) {
       })
     : "不明";
 
-  // Cancel check: accepted + first_work_date - 5 days
-  let canCancel = false;
-  let cancelDisabledReason = "";
-  if (application.status === "accepted") {
-    if (application.first_work_date) {
-      const deadline = new Date(application.first_work_date);
-      deadline.setDate(deadline.getDate() - 5);
-      if (new Date() < deadline) {
-        canCancel = true;
-      } else {
-        cancelDisabledReason =
-          "初回稼働日の5日前を過ぎたため、システムからはキャンセルできません。";
-      }
-    } else {
-      canCancel = true;
-    }
-  }
+  // Cancel check: accepted かつ「初回稼働日の5日前の当日(JST)まで」可能
+  // （Server Action の cancelApplicationAction と同一の canContractorCancel で判定）
+  const canCancel = canContractorCancel(application, getJstToday());
+  const cancelDisabledReason =
+    "初回稼働日の5日前を過ぎたため、システムからはキャンセルできません。";
 
   // master-area: fetch job_areas for area display
   const jobAreas: AreaForDisplay[] = [];

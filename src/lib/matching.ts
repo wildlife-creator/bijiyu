@@ -161,3 +161,34 @@ export function reviewInputWindowMessage(
   }
   return `評価・完了報告の入力期間（${formatDate(result.endDate)}まで）を過ぎたため、入力できません。`;
 }
+
+// ---------------------------------------------------------------------------
+// 発注確定後キャンセル（受注者・CON-012）の可否
+// ---------------------------------------------------------------------------
+//
+// 発注済み(accepted) の応募を受注者が自力キャンセルできるのは「初回稼働日の
+// 5日前の当日まで（JST 暦日）」。例: 初回稼働日 11/22 なら 11/17 23:59（JST）
+// まで可能で、11/18 以降は不可。初回稼働日が未設定(null)なら日付制限なし。
+// JST の暦日文字列で比較するため、本番(UTC)でも 9 時間ズレない
+// （旧実装は new Date("YYYY-MM-DD") を UTC 深夜=JST 9:00 で解釈しており、
+// 5日前の当日は 9:00 で締まってしまう不具合があった）。
+// 発注者側の管理者キャンセル(canAdminCancel)と同じ「UI と Server Action で
+// 同一の純粋関数を共有する」方針に揃える。
+
+/** 受注者が発注確定後にキャンセルできる、初回稼働日からの猶予日数（この日数前の当日まで可）。 */
+export const CONTRACTOR_CANCEL_CUTOFF_DAYS = 5;
+
+/**
+ * 受注者による発注確定後キャンセルの可否。
+ * UI（CON-012 のボタン表示）と Server Action（cancelApplicationAction）で
+ * 同一関数を使うこと。
+ * @param today getJstToday() が返す JST 暦日 "YYYY-MM-DD"
+ */
+export function canContractorCancel(
+  app: { status: string; first_work_date: string | null },
+  today: string,
+): boolean {
+  if (app.status !== "accepted") return false;
+  if (!app.first_work_date) return true;
+  return today <= addDaysToDateString(app.first_work_date, -CONTRACTOR_CANCEL_CUTOFF_DAYS);
+}

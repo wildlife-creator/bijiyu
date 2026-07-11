@@ -49,6 +49,20 @@ test.describe("受注者: 応募履歴（CON-011〜013）", () => {
     // Should redirect to history page
     await page.waitForURL(/\/applications\/history$/);
   });
+
+  test("初回稼働日の5日前を過ぎた発注はキャンセルボタンが出ず案内が表示される", async ({
+    page,
+  }) => {
+    await login(page);
+    // aaab: accepted・初回稼働日が過去(-3日) = 5日前を過ぎている（読み取りのみ・statusは変えない）
+    await page.goto("/applications/history/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab");
+    await expect(page.getByRole("heading", { name: "応募詳細" })).toBeVisible();
+    // 案内文言が表示され、キャンセルボタンは存在しない
+    await expect(page.getByText(/5日前を過ぎたため/)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "キャンセルする" }),
+    ).toHaveCount(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
