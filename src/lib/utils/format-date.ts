@@ -45,3 +45,19 @@ export function formatDateTime(
     hour12: false,
   }).format(date);
 }
+
+/**
+ * "YYYY-MM-DD" に日数を加算して "YYYY-MM-DD" で返す。
+ * date 型カラム（時刻・タイムゾーンを持たない暦日）の境界計算に使う純粋関数。
+ * UTC 基準で計算するため実行環境のタイムゾーンに依存せず、月またぎも正しく処理する
+ * （例: addDaysToDateString("2026-07-29", 5) === "2026-08-03"）。
+ * 不正な入力の場合は元の文字列をそのまま返す。
+ */
+export function addDaysToDateString(dateStr: string, days: number): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (!match) return dateStr;
+  const [, y, m, d] = match;
+  const base = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}

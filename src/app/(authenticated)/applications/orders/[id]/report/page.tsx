@@ -1,5 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 
+import {
+  evaluateReviewInputWindow,
+  reviewInputWindowMessage,
+} from "@/lib/matching";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { ClientReportForm } from "./client-report-form";
@@ -23,7 +27,7 @@ export default async function ClientReportPage({ params }: Props) {
   const { data: application } = await supabase
     .from("applications")
     .select(
-      `id, status, jobs!inner(id, title, owner_id, organization_id)`,
+      `id, status, first_work_date, jobs!inner(id, title, owner_id, organization_id, work_end_date)`,
     )
     .eq("id", id)
     .single();
@@ -37,6 +41,7 @@ export default async function ClientReportPage({ params }: Props) {
     title: string;
     owner_id: string;
     organization_id: string | null;
+    work_end_date: string | null;
   };
 
   // Verify job owner or same-org member (法人スタッフも完了報告を送れる)
@@ -50,6 +55,12 @@ export default async function ClientReportPage({ params }: Props) {
     }
   }
 
+  // 入力可能期間チェック（初回稼働日〜稼働終了日+5日）。期間外はフォームを出さず案内を表示
+  const reviewWindow = evaluateReviewInputWindow({
+    firstWorkDate: application.first_work_date,
+    workEndDate: job.work_end_date,
+  });
+
   return (
     <div className="min-h-dvh bg-muted">
       <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
@@ -58,7 +69,15 @@ export default async function ClientReportPage({ params }: Props) {
         {job.title}
       </p>
 
-      <ClientReportForm applicationId={application.id} />
+      {reviewWindow.allowed ? (
+        <ClientReportForm applicationId={application.id} />
+      ) : (
+        <div className="mt-6 rounded-lg border border-border bg-background p-6 text-center">
+          <p className="text-body-md text-muted-foreground">
+            {reviewInputWindowMessage(reviewWindow)}
+          </p>
+        </div>
+      )}
       </div>
     </div>
   );

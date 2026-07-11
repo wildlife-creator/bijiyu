@@ -747,9 +747,13 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types
     'open'
   );
 
+-- aaaa: 初回稼働日が未来（+10日）= 評価入力可能期間の開始前。CON-012/CLI-010 の詳細表示テストと、
+--       評価入力期間「開始前」の案内表示 E2E（/report で案内が出てフォームが出ない）に使う。
+-- aaab: 受注者/発注者の作業報告・評価「送信」E2E 用。first_work_date を過去（-3日）にして
+--       入力可能期間（初回稼働日〜稼働終了日+5日）を開いた状態にする（稼働終了日は job2 の未来値）。
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '7 days', 'accepted', CURRENT_DATE + interval '10 days'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab', '77777777-7777-7777-7777-777777777777', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'accepted', CURRENT_DATE + interval '21 days');
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab', '77777777-7777-7777-7777-777777777777', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + interval '14 days', 'accepted', CURRENT_DATE - interval '3 days');
 
 -- 勤務地（番地以下の詳細住所）: CLI-009 で発注者が入力し、成立した受注者にのみ表示する。
 -- 成立済み応募に設定して CON-012（応募詳細）/ CLI-010（発注履歴）の表示を検証できるようにする。
@@ -772,8 +776,9 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbe', '88888888-8888-8888-8888-888888888881', 'cc333333-3333-3333-3333-333333333333', 1, '常勤', CURRENT_DATE + interval '12 days', 'applied', '千葉県在住なので通いやすいです。よろしくお願いします。');
 
 -- E2Eテスト用: 発注者作業報告テスト用応募（受注者3 → 東京マンション内装、accepted）
+-- first_work_date を過去（-3日）にして評価入力可能期間を開いた状態にする（稼働終了日は当該 job の未来値）。
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac', '88888888-8888-8888-8888-888888888882', 'cc222222-2222-2222-2222-222222222222', 1, '常勤', CURRENT_DATE + interval '5 days', 'accepted', CURRENT_DATE + interval '7 days');
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac', '88888888-8888-8888-8888-888888888882', 'cc222222-2222-2222-2222-222222222222', 1, '常勤', CURRENT_DATE + interval '5 days', 'accepted', CURRENT_DATE - interval '3 days');
 
 -- contractor1 の1件目のみ評価済み（発注済み表示）、2件目は未評価（評価登録未入力表示）
 -- rating-redesign: 7項目★×5（rating_overall 必須・他6項目任意）。has_special_equipment は NULL = CLI-028「未評価」表示の検証用

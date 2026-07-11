@@ -101,6 +101,7 @@
   8. **「評価を入力する」ピル型ボタン（塗りつぶし）**: CON-013 へ遷移
      - applications.status = 'accepted' の場合のみ表示
      - 既に client_reviews が登録済みの場合は非表示 or 非活性
+     - 遷移先の CON-013 は入力可能期間（初回稼働日〜稼働終了日+5日。REQ-MT-003 参照）外のときフォームを表示せず案内文言を出す
   9. **「もどる」ピル型ボタン（アウトライン）**: CON-011 へ遷移（router.back()）
 - **画面遷移（追加）**: CON-012 → CON-003（「募集案件詳細」ボタン経由）
 
@@ -125,6 +126,13 @@
      - 「評価の補足」自由記入欄（任意）
   4. **「作業報告・評価を登録する」ピル型ボタン（塗りつぶし）**
   5. **「もどる」ピル型ボタン（アウトライン）**
+- **入力可能期間（受注者・発注者 共通ルール）**: 評価・完了報告は **初回稼働日（applications.first_work_date）〜 稼働終了日（jobs.work_end_date）+ 5日** の期間内のみ入力できる（JST の暦日で判定、開始日・終了日とも当日を含む）。
+  - 初回稼働日 = 発注者が応募を承認する（CLI-009-B「発注を依頼する」）際に入力する `applications.first_work_date`。
+  - 稼働終了日 = 発注者が案件掲載時に設定した「稼働期間」の終了日 `jobs.work_end_date`。
+  - `first_work_date` / `work_end_date` のいずれかが NULL の場合、その側のガードはスキップする（後方互換）。
+  - **二重防御**: report ページ（CON-013 / CLI-012）は期間外のときフォームを表示せず案内文言を出す。Server Action（`submitContractorReportAction` / `submitClientReportAction`）も期間外を日本語エラーで拒否する。
+  - 案内・エラー文言: 開始前「評価・完了報告は初回稼働日（YYYY/MM/DD）以降に入力できます。」／ 終了後「評価・完了報告の入力期間（YYYY/MM/DDまで）を過ぎたため、入力できません。」
+  - 実装: `src/lib/matching.ts` の `evaluateReviewInputWindow()` / `reviewInputWindowMessage()`（猶予日数は `REVIEW_INPUT_GRACE_DAYS = 5`）。
 - **評価によるステータス遷移（双方向）**: 受注者（CON-013）・発注者（CLI-012）どちらが先に評価を登録してもよい。片方が評価を登録した時点では `accepted` のまま維持し、**両方の評価（client_reviews + user_reviews）が揃った時点で** status を `completed` または `lost` に遷移する。最終ステータスは発注者側の `operatingStatus` を `mapOperatingStatusToApplicationStatus()` でマッピングした値（'completed' / 'lost'）を採用する
 - client_reviews テーブルに operating_status（選択値をそのまま保存）、status_supplement、rating_again、comment を保存
 - 保存成功後: マイページトップ（/mypage）へ `?success=report` 付きで遷移し、トースト通知「作業報告・評価を登録しました」を表示する
@@ -274,6 +282,7 @@
   - cancelled: 「この応募は応募者によりキャンセルされました。稼働は行われていません。」
 - ステータスが 'accepted'（発注済み）かつ評価未登録の場合:
   - 「評価入力」ボタン（primary）→ CLI-012 へ遷移
+  - 遷移先の CLI-012 は入力可能期間（初回稼働日〜稼働終了日+5日。REQ-MT-003 参照）外のときフォームを表示せず案内文言を出す
 
 #### REQ-MT-009: 作業完了/失注報告・評価登録 — 発注者側（CLI-012）
 
@@ -291,6 +300,7 @@
     7. 特別な道具/重機等を持っている（rating_has_special_equipment）※rating-redesign で新規追加
   - 評価の補足コメント（任意）
   - 送信ボタンは「総合評価」と「稼働状況」が揃うまで非活性
+- **入力可能期間**: REQ-MT-003 の「入力可能期間（受注者・発注者 共通ルール）」に従う（初回稼働日〜稼働終了日+5日。期間外は report ページで案内表示・Server Action でエラー）
 - user_reviews テーブルにデータを保存（rating-redesign で 6カラム string 'good'/'bad' → 7カラム smallint 1〜5 に置換。`.kiro/specs/rating-redesign/` 参照）
 - 受注者側の評価（client_reviews）が既に登録済みの場合、applications テーブルの status を mapOperatingStatusToApplicationStatus() で変換した値（「問題なく稼働完了」「一部欠席〜」→ 'completed'、それ以外 → 'lost'）に更新する。未登録の場合は status は 'accepted' のまま維持する
 - 保存成功後: CLI-010（発注履歴一覧）へ遷移

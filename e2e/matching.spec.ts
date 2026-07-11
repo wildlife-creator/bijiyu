@@ -10,6 +10,9 @@ const APPLICATION_FOR_ACCEPT = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbe"; // contra
 const APPLICATION_FOR_CONTRACTOR_REPORT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab"; // contractor → job2
 // 発注者作業報告テスト用（accepted 状態、レビューなし）
 const APPLICATION_FOR_CLIENT_REPORT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac"; // contractor3 → 東京マンション
+// 評価入力期間「開始前」テスト用（accepted・初回稼働日が未来 +10日 = 入力可能期間の開始前）
+// contractor(11111111) の応募 / job66666666 の owner は client(22222222)=TEST_CLIENT
+const APPLICATION_BEFORE_WINDOW = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
 // ---------------------------------------------------------------------------
 // 受注者フロー
@@ -195,6 +198,25 @@ test.describe("受注者: 作業報告・評価入力（CON-013）", () => {
     // マイページにリダイレクト
     await page.waitForURL(/\/mypage/, { timeout: 10000 });
   });
+
+  test("入力可能期間の開始前は案内が表示されフォームは出ない", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto(
+      `/applications/history/${APPLICATION_BEFORE_WINDOW}/report`,
+    );
+    // 見出しは表示される（notFound ではない）
+    await expect(
+      page.getByRole("heading", { name: "作業報告・評価入力" }),
+    ).toBeVisible();
+    // 期間外の案内文言が出る
+    await expect(page.getByText(/以降に入力できます/)).toBeVisible();
+    // フォームの送信ボタンは存在しない
+    await expect(
+      page.getByRole("button", { name: "作業報告・評価を登録する" }),
+    ).toHaveCount(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -248,6 +270,23 @@ test.describe("発注者: 作業完了報告・評価登録（CLI-012, 7項目�
     // 送信 → 発注履歴一覧にリダイレクト
     await submit.click();
     await page.waitForURL(/\/applications\/orders$/, { timeout: 10000 });
+  });
+
+  test("入力可能期間の開始前は案内が表示されフォームは出ない", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(
+      `/applications/orders/${APPLICATION_BEFORE_WINDOW}/report`,
+    );
+    // 見出しは表示される（notFound ではない）
+    await expect(page.locator("h1", { hasText: "評価入力" })).toBeVisible();
+    // 期間外の案内文言が出る
+    await expect(page.getByText(/以降に入力できます/)).toBeVisible();
+    // フォームの送信ボタンは存在しない
+    await expect(
+      page.getByRole("button", { name: "評価を登録する" }),
+    ).toHaveCount(0);
   });
 });
 

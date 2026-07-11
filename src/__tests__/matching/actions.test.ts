@@ -311,6 +311,64 @@ describe("submitContractorReportAction", () => {
     // 日本語ラベルを "lost" に変換して更新する（"欠席（連絡なし）" を生で書かない）
     expect(updateMock.update).toHaveBeenCalledWith({ status: "lost" });
   });
+
+  it("入力可能期間より前（初回稼働日が未来）はエラーを返す", async () => {
+    mockAuth(USER_ID);
+    mockFrom.mockReturnValue(
+      createQueryMock({
+        single: {
+          data: {
+            id: APP_ID,
+            applicant_id: USER_ID,
+            status: "accepted",
+            first_work_date: "2999-01-01",
+            jobs: {
+              id: "j1",
+              title: "Job",
+              owner_id: JOB_OWNER_ID,
+              organization_id: null,
+              work_end_date: "2999-01-10",
+            },
+            applicant: null,
+          },
+          error: null,
+        },
+      }),
+    );
+
+    const result = await submitContractorReportAction(buildFormData());
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("初回稼働日");
+  });
+
+  it("入力可能期間を過ぎている（稼働終了+5日より後）はエラーを返す", async () => {
+    mockAuth(USER_ID);
+    mockFrom.mockReturnValue(
+      createQueryMock({
+        single: {
+          data: {
+            id: APP_ID,
+            applicant_id: USER_ID,
+            status: "accepted",
+            first_work_date: "2000-01-01",
+            jobs: {
+              id: "j1",
+              title: "Job",
+              owner_id: JOB_OWNER_ID,
+              organization_id: null,
+              work_end_date: "2000-01-05",
+            },
+            applicant: null,
+          },
+          error: null,
+        },
+      }),
+    );
+
+    const result = await submitContractorReportAction(buildFormData());
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("入力期間");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -566,6 +624,37 @@ describe("submitClientReportAction（7項目★×5）", () => {
     const result = await submitClientReportAction(buildFormData());
     expect(result.success).toBe(false);
     expect(result).toHaveProperty("error", "発注済みの応募のみ完了報告できます");
+  });
+
+  it("入力可能期間を過ぎている（稼働終了+5日より後）はエラーを返す", async () => {
+    mockAuth(USER_ID);
+    mockFrom.mockReturnValue(
+      createQueryMock({
+        single: {
+          data: {
+            id: APP_ID,
+            applicant_id: "applicant-1",
+            status: "accepted",
+            first_work_date: "2000-01-01",
+            jobs: {
+              id: "j1",
+              title: "Job",
+              owner_id: USER_ID,
+              organization_id: null,
+              work_end_date: "2000-01-05",
+            },
+            applicant: null,
+          },
+          error: null,
+        },
+      }),
+    );
+
+    const result = await submitClientReportAction(buildFormData());
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("入力期間");
+    // 期間外は評価 INSERT に到達しない
+    expect(mockAdminFrom).not.toHaveBeenCalled();
   });
 
   it("正常系: INSERT 成功 + client_reviews 既存なら status を更新する", async () => {

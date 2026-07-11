@@ -10,6 +10,10 @@ import {
   rejectApplicationSchema,
   mapOperatingStatusToApplicationStatus,
 } from "@/lib/validations/matching";
+import {
+  evaluateReviewInputWindow,
+  reviewInputWindowMessage,
+} from "@/lib/matching";
 import { isOwnedStoragePath } from "@/lib/storage/storage-path";
 import { DOCUMENT_PATH_EXTENSIONS } from "@/lib/validations/profile";
 import { sendEmail } from "@/lib/email/send-email";
@@ -287,6 +291,20 @@ export async function submitContractorReportAction(
 
     if (application.status !== "accepted") {
       return { success: false, error: "発注済みの応募のみ完了報告できます" };
+    }
+
+    // 入力可能期間チェック（初回稼働日〜稼働終了日+5日）。期間外は日本語エラー
+    const reviewWindow = evaluateReviewInputWindow({
+      firstWorkDate: application.first_work_date,
+      workEndDate: application.jobs?.work_end_date ?? null,
+    });
+    if (!reviewWindow.allowed) {
+      return {
+        success: false,
+        error:
+          reviewInputWindowMessage(reviewWindow) ??
+          "評価・完了報告の入力可能期間外です",
+      };
     }
 
     const admin = createAdminClient();
@@ -869,6 +887,20 @@ export async function submitClientReportAction(
 
     if (application.status !== "accepted") {
       return { success: false, error: "発注済みの応募のみ完了報告できます" };
+    }
+
+    // 入力可能期間チェック（初回稼働日〜稼働終了日+5日）。期間外は日本語エラー
+    const reviewWindow = evaluateReviewInputWindow({
+      firstWorkDate: application.first_work_date,
+      workEndDate: application.jobs?.work_end_date ?? null,
+    });
+    if (!reviewWindow.allowed) {
+      return {
+        success: false,
+        error:
+          reviewInputWindowMessage(reviewWindow) ??
+          "評価・完了報告の入力可能期間外です",
+      };
     }
 
     const admin = createAdminClient();

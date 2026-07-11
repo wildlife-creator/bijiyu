@@ -1,5 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 
+import {
+  evaluateReviewInputWindow,
+  reviewInputWindowMessage,
+} from "@/lib/matching";
 import { createClient } from "@/lib/supabase/server";
 import { ContractorReportForm } from "./contractor-report-form";
 
@@ -21,7 +25,7 @@ export default async function ContractorReportPage({ params }: Props) {
 
   const { data: application } = await supabase
     .from("applications")
-    .select("id, applicant_id, status, jobs(title)")
+    .select("id, applicant_id, status, first_work_date, jobs(title, work_end_date)")
     .eq("id", id)
     .eq("applicant_id", user.id)
     .single();
@@ -30,7 +34,16 @@ export default async function ContractorReportPage({ params }: Props) {
     notFound();
   }
 
-  const job = application.jobs as { title: string } | null;
+  const job = application.jobs as {
+    title: string;
+    work_end_date: string | null;
+  } | null;
+
+  // 入力可能期間チェック（初回稼働日〜稼働終了日+5日）。期間外はフォームを出さず案内を表示
+  const reviewWindow = evaluateReviewInputWindow({
+    firstWorkDate: application.first_work_date,
+    workEndDate: job?.work_end_date ?? null,
+  });
 
   return (
     <div className="min-h-dvh bg-muted">
@@ -42,7 +55,15 @@ export default async function ContractorReportPage({ params }: Props) {
         {job?.title ?? "案件"}
       </p>
 
-      <ContractorReportForm applicationId={application.id} />
+      {reviewWindow.allowed ? (
+        <ContractorReportForm applicationId={application.id} />
+      ) : (
+        <div className="mt-6 rounded-lg border border-border bg-background p-6 text-center">
+          <p className="text-body-md text-muted-foreground">
+            {reviewInputWindowMessage(reviewWindow)}
+          </p>
+        </div>
+      )}
       </div>
     </div>
   );
