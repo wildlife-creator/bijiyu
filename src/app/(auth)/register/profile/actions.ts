@@ -5,8 +5,14 @@ import { registrationCompletedEmail } from "@/lib/email/templates/registration-c
 import { createClient } from "@/lib/supabase/server";
 import { registerProfileSchema } from "@/lib/validations/auth";
 import type { ActionResult } from "@/lib/types/action-result";
-import { validateLabelChanges } from "@/lib/master/validate";
-import { validateAreaChanges } from "@/lib/master/validate-area";
+import {
+  validateLabelChanges,
+  labelValidationErrorMessage,
+} from "@/lib/master/validate";
+import {
+  validateAreaChanges,
+  areaValidationErrorMessage,
+} from "@/lib/master/validate-area";
 import { expandAreasForDb } from "@/lib/master/area-conversion";
 
 export async function completeRegistrationAction(
@@ -37,10 +43,7 @@ export async function completeRegistrationAction(
   if (!tradeValid.valid) {
     return {
       success: false,
-      error:
-        tradeValid.unknownLabels.length > 0
-          ? `存在しない職種が含まれています: ${tradeValid.unknownLabels.join("、")}`
-          : `廃止された職種は登録できません: ${tradeValid.deprecatedLabels.join("、")}`,
+      error: labelValidationErrorMessage(tradeValid, "職種"),
     };
   }
 
@@ -50,14 +53,9 @@ export async function completeRegistrationAction(
   // 対応エリアのマスタ整合性検証 (新規登録のため previousAreas は空配列)
   const areaValid = await validateAreaChanges(flatAreas, []);
   if (!areaValid.valid) {
-    const fmt = (a: { prefecture: string; municipality: string | null }) =>
-      a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
     return {
       success: false,
-      error:
-        areaValid.unknownPairs.length > 0
-          ? `存在しないエリアが含まれています: ${areaValid.unknownPairs.map(fmt).join("、")}`
-          : `廃止されたエリアは登録できません: ${areaValid.deprecatedPairs.map(fmt).join("、")}`,
+      error: areaValidationErrorMessage(areaValid),
     };
   }
 

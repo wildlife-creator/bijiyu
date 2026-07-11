@@ -6,8 +6,17 @@
  *   `revalidateTag('master-skills')` を呼べば一括で無効化できる
  * - 廃止 (`deprecated_at IS NOT NULL`) は `getActiveXxx` から除外する。
  *   廃止判定の付与には `getAllMasterRows(kind)` を別キーで提供する
- * - 取得失敗時は空配列にフォールバックし、UI 側で「候補を取得できませんでした」
- *   表示を可能にする
+ * - 取得失敗の扱い（必ず守ること）: `unstable_cache` は「解決した値」しか
+ *   キャッシュしないため、fetch プリミティブ (`fetchActive` / `fetchAll` /
+ *   `fetchActiveMunicipalities` / `fetchAllMunicipalityRows`) は失敗時に
+ *   **空配列を返さず throw** する。空配列を返すと `unstable_cache` が
+ *   「正常な結果」として最大 1 時間（staging/本番は Data Cache に永続）
+ *   キャッシュしてしまい、`validateLabelChanges` / `validateAreaChanges` が
+ *   全ラベルを「存在しない職種/エリア」と誤判定するため（2026-07-11 実例）。
+ *   - 検証系: `getAllMasterRowsOrThrow` / `getAllMunicipalityRows` は reject を
+ *     伝播し、呼び出し元（validate）が「一時的なエラー」として扱う。
+ *   - 描画系: `getAllMasterRows` および市区町村の派生ヘルパーは内部で catch し
+ *     空フォールバックでページを描画可能にする（失敗自体はキャッシュされない）。
  * - 内部では cookieless な anon client のみを使う。`createServerClient` は
  *   呼ばない（unstable_cache 内で cookies() 参照すると throw）
  */
@@ -27,73 +36,94 @@ const TABLE_BY_KIND = {
   "skill-tags": "master_skill_tags",
 } as const satisfies Record<MasterKind, string>;
 
+// 取得失敗時は throw（空配列を返さない）。理由はファイル冒頭コメント参照。
 async function fetchActive(kind: MasterKind): Promise<string[]> {
-  try {
-    const client = createAnonClient();
-    const { data, error } = await client
-      .from(TABLE_BY_KIND[kind])
-      .select("label")
-      .is("deprecated_at", null)
-      .order("label", { ascending: true });
-    if (error || !data) return [];
-    return data.map((row) => row.label);
-  } catch {
-    return [];
+  const client = createAnonClient();
+  const { data, error } = await client
+    .from(TABLE_BY_KIND[kind])
+    .select("label")
+    .is("deprecated_at", null)
+    .order("label", { ascending: true });
+  if (error || !data) {
+    throw new Error(`master ${kind}（active）の取得に失敗しました`);
   }
+  return data.map((row) => row.label);
 }
 
 async function fetchAll(kind: MasterKind): Promise<MasterRow[]> {
-  try {
-    const client = createAnonClient();
-    const { data, error } = await client
-      .from(TABLE_BY_KIND[kind])
-      .select("label, deprecated_at")
-      .order("label", { ascending: true });
-    if (error || !data) return [];
-    return data;
-  } catch {
-    return [];
+  const client = createAnonClient();
+  const { data, error } = await client
+    .from(TABLE_BY_KIND[kind])
+    .select("label, deprecated_at")
+    .order("label", { ascending: true });
+  if (error || !data) {
+    throw new Error(`master ${kind}（all）の取得に失敗しました`);
   }
+  return data;
 }
 
+// キャッシュキーに "v2" を付与し、fetch 失敗時に空配列を返していた旧実装が
+// 「空 = 正常」として永続化した汚染キャッシュ（本番 Data Cache 含む）を確実に
+// 無視して取り直す（2026-07-11 の「存在しない職種」誤判定対策）。tag は据え置きで
+// admin 一括無効化を維持。
 export const getActiveTradeTypes = unstable_cache(
   () => fetchActive("trade-types"),
-  ["master-skills", "trade-types", "active"],
+  ["master-skills", "trade-types", "active", "v2"],
   { revalidate: 3600, tags: ["master-skills"] },
 );
 
 export const getActiveQualifications = unstable_cache(
   () => fetchActive("qualifications"),
-  ["master-skills", "qualifications", "active"],
+  ["master-skills", "qualifications", "active", "v2"],
   { revalidate: 3600, tags: ["master-skills"] },
 );
 
 export const getActiveSkillTags = unstable_cache(
   () => fetchActive("skill-tags"),
-  ["master-skills", "skill-tags", "active"],
+  ["master-skills", "skill-tags", "active", "v2"],
   { revalidate: 3600, tags: ["master-skills"] },
 );
 
 const allFetchers: Record<MasterKind, () => Promise<MasterRow[]>> = {
   "trade-types": unstable_cache(
     () => fetchAll("trade-types"),
-    ["master-skills", "trade-types", "all"],
+    ["master-skills", "trade-types", "all", "v2"],
     { revalidate: 3600, tags: ["master-skills"] },
   ),
   qualifications: unstable_cache(
     () => fetchAll("qualifications"),
-    ["master-skills", "qualifications", "all"],
+    ["master-skills", "qualifications", "all", "v2"],
     { revalidate: 3600, tags: ["master-skills"] },
   ),
   "skill-tags": unstable_cache(
     () => fetchAll("skill-tags"),
-    ["master-skills", "skill-tags", "all"],
+    ["master-skills", "skill-tags", "all", "v2"],
     { revalidate: 3600, tags: ["master-skills"] },
   ),
 };
 
-export function getAllMasterRows(kind: MasterKind): Promise<MasterRow[]> {
+/**
+ * 検証専用アクセサ。取得失敗時は reject を伝播する（＝ `unstable_cache` に
+ * 失敗をキャッシュさせない）。`validateLabelChanges` から呼ばれ、reject は
+ * 呼び出し元で「一時的なエラー」として扱う。
+ */
+export function getAllMasterRowsOrThrow(kind: MasterKind): Promise<MasterRow[]> {
   return allFetchers[kind]();
+}
+
+/**
+ * 描画用アクセサ。取得失敗時は空配列にフォールバックし、フォームページを
+ * 描画可能にする（候補は空だがページは表示され、次リクエストで再取得）。
+ * catch はキャッシュ境界の外側なので、失敗そのものはキャッシュされない。
+ */
+export async function getAllMasterRows(
+  kind: MasterKind,
+): Promise<MasterRow[]> {
+  try {
+    return await allFetchers[kind]();
+  } catch {
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -151,51 +181,45 @@ async function fetchAllPages<T>(
   return rows;
 }
 
+// 取得失敗時は throw（空配列を返さない）。`fetchAllPages` はページ取得エラーで
+// throw するので、外側で握り潰さずそのまま伝播させる。理由は冒頭コメント参照。
 async function fetchActiveMunicipalities(): Promise<MunicipalityPair[]> {
-  try {
-    const client = createAnonClient();
-    const rows = await fetchAllPages<MunicipalityPair>((from, to) =>
-      client
-        .from("master_municipalities")
-        .select("prefecture, municipality")
-        .is("deprecated_at", null)
-        .order("sort_order", { ascending: true })
-        .range(from, to),
-    );
-    return rows.map((row) => ({
-      prefecture: row.prefecture,
-      municipality: row.municipality,
-    }));
-  } catch {
-    return [];
-  }
+  const client = createAnonClient();
+  const rows = await fetchAllPages<MunicipalityPair>((from, to) =>
+    client
+      .from("master_municipalities")
+      .select("prefecture, municipality")
+      .is("deprecated_at", null)
+      .order("sort_order", { ascending: true })
+      .range(from, to),
+  );
+  return rows.map((row) => ({
+    prefecture: row.prefecture,
+    municipality: row.municipality,
+  }));
 }
 
 async function fetchAllMunicipalityRows(): Promise<MunicipalityRow[]> {
-  try {
-    const client = createAnonClient();
-    return await fetchAllPages<MunicipalityRow>((from, to) =>
-      client
-        .from("master_municipalities")
-        .select("prefecture, municipality, deprecated_at")
-        .order("sort_order", { ascending: true })
-        .range(from, to),
-    );
-  } catch {
-    return [];
-  }
+  const client = createAnonClient();
+  return await fetchAllPages<MunicipalityRow>((from, to) =>
+    client
+      .from("master_municipalities")
+      .select("prefecture, municipality, deprecated_at")
+      .order("sort_order", { ascending: true })
+      .range(from, to),
+  );
 }
 
 /**
  * active な (prefecture, municipality) ペアを sort_order 昇順で全件返す。
  * 戻り値は 1,897 件で 60 KB 程度 (gzip 数 KB)、1 時間キャッシュで負荷無視可能。
  */
-// キャッシュキーに "v2" を付与し、ページネーション未対応だった旧実装が
-// 1000 件で打ち切ったまま永続化しているキャッシュ（本番 Data Cache 含む）を
-// 確実に無視して取り直す。tag は据え置きで admin 一括無効化を維持。
+// キャッシュキーを "v2"→"v3" に更新し、fetch 失敗時に空配列を返していた旧実装が
+// 「空 = 正常」として永続化した汚染キャッシュ（本番 Data Cache 含む）を確実に
+// 無視して取り直す（2026-07-11 の「存在しないエリア」誤判定対策）。tag は据え置き。
 export const getActiveMunicipalities = unstable_cache(
   () => fetchActiveMunicipalities(),
-  ["master-area", "municipalities", "active", "v2"],
+  ["master-area", "municipalities", "active", "v3"],
   { revalidate: 3600, tags: ["master-area"] },
 );
 
@@ -207,7 +231,12 @@ export const getActiveMunicipalities = unstable_cache(
 export async function getActiveMunicipalitiesByPrefecture(
   prefecture: string,
 ): Promise<string[]> {
-  const all = await getActiveMunicipalities();
+  let all: MunicipalityPair[];
+  try {
+    all = await getActiveMunicipalities();
+  } catch {
+    return [];
+  }
   return all
     .filter((row) => row.prefecture === prefecture)
     .map((row) => row.municipality);
@@ -219,7 +248,7 @@ export async function getActiveMunicipalitiesByPrefecture(
  */
 export const getAllMunicipalityRows = unstable_cache(
   () => fetchAllMunicipalityRows(),
-  ["master-area", "municipalities", "all", "v2"],
+  ["master-area", "municipalities", "all", "v3"],
   { revalidate: 3600, tags: ["master-area"] },
 );
 
@@ -231,7 +260,12 @@ export const getAllMunicipalityRows = unstable_cache(
 export async function getMunicipalitiesByPrefecture(): Promise<
   Record<string, string[]>
 > {
-  const all = await getActiveMunicipalities();
+  let all: MunicipalityPair[];
+  try {
+    all = await getActiveMunicipalities();
+  } catch {
+    return {};
+  }
   const result: Record<string, string[]> = {};
   for (const row of all) {
     if (!result[row.prefecture]) result[row.prefecture] = [];
@@ -253,7 +287,12 @@ export async function getMunicipalitiesByPrefecture(): Promise<
 export async function getMunicipalitySortOrderMap(): Promise<
   Record<string, Record<string, number>>
 > {
-  const rows = await getAllMunicipalityRows();
+  let rows: MunicipalityRow[];
+  try {
+    rows = await getAllMunicipalityRows();
+  } catch {
+    return {};
+  }
   const map: Record<string, Record<string, number>> = {};
   rows.forEach((row, idx) => {
     if (!map[row.prefecture]) map[row.prefecture] = {};
@@ -277,7 +316,12 @@ export async function buildExistingDeprecatedMunicipalitiesByPrefecture(
   existingPairs: Array<{ prefecture: string; municipality: string | null }>,
 ): Promise<Record<string, string[]>> {
   if (existingPairs.length === 0) return {};
-  const allRows = await getAllMunicipalityRows();
+  let allRows: MunicipalityRow[];
+  try {
+    allRows = await getAllMunicipalityRows();
+  } catch {
+    return {};
+  }
   const deprecatedSet = new Set<string>();
   for (const row of allRows) {
     if (row.deprecated_at) {

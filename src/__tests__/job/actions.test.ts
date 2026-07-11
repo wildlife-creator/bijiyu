@@ -60,6 +60,13 @@ vi.mock("@/lib/master/fetch", () => {
       }
       return Promise.resolve([]);
     }),
+    // validateLabelChanges は Or-Throw アクセサを使う（成功時は同じ結果）。
+    getAllMasterRowsOrThrow: vi.fn().mockImplementation((kind: string) => {
+      if (kind === "trade-types") {
+        return Promise.resolve(MOCK_TRADES);
+      }
+      return Promise.resolve([]);
+    }),
   };
 });
 
@@ -68,9 +75,9 @@ import {
   updateJobAction,
   deleteJobImageAction,
 } from "@/app/(authenticated)/jobs/actions";
-import { getAllMasterRows } from "@/lib/master/fetch";
+import { getAllMasterRowsOrThrow } from "@/lib/master/fetch";
 
-const mockedGetAllMasterRows = vi.mocked(getAllMasterRows);
+const mockedGetAllMasterRowsOrThrow = vi.mocked(getAllMasterRowsOrThrow);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -469,7 +476,7 @@ describe("createJobAction", () => {
   });
 
   it("rejects newly added deprecated trade_type label", async () => {
-    mockedGetAllMasterRows.mockResolvedValueOnce([
+    mockedGetAllMasterRowsOrThrow.mockResolvedValueOnce([
       { label: "大工", deprecated_at: null },
       { label: "旧職種", deprecated_at: "2026-04-01T00:00:00.000Z" },
     ]);
@@ -912,8 +919,8 @@ describe("updateJobAction", () => {
 
     const result = await updateJobAction(formData);
     expect(result.success).toBe(true);
-    // getAllMasterRows must NOT be called because added is empty (optimization)
-    expect(mockedGetAllMasterRows).not.toHaveBeenCalled();
+    // master lookup must NOT run because added is empty (optimization)
+    expect(mockedGetAllMasterRowsOrThrow).not.toHaveBeenCalled();
   });
 });
 

@@ -54,13 +54,20 @@ vi.mock("@/lib/master/fetch", () => {
       }
       return Promise.resolve([]);
     }),
+    // validateLabelChanges は Or-Throw アクセサを使う（成功時は同じ結果）。
+    getAllMasterRowsOrThrow: vi.fn().mockImplementation((kind: string) => {
+      if (kind === "trade-types") {
+        return Promise.resolve(MOCK_TRADES);
+      }
+      return Promise.resolve([]);
+    }),
   };
 });
 
 import { saveClientProfileAction } from "@/app/(authenticated)/mypage/client-profile/actions";
-import { getAllMasterRows } from "@/lib/master/fetch";
+import { getAllMasterRowsOrThrow } from "@/lib/master/fetch";
 
-const mockedGetAllMasterRows = vi.mocked(getAllMasterRows);
+const mockedGetAllMasterRowsOrThrow = vi.mocked(getAllMasterRowsOrThrow);
 
 const OWNER_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -342,7 +349,7 @@ describe("saveClientProfileAction", () => {
   });
 
   it("新規追加の deprecated ラベルは reject される", async () => {
-    mockedGetAllMasterRows.mockResolvedValueOnce([
+    mockedGetAllMasterRowsOrThrow.mockResolvedValueOnce([
       { label: "内装工", deprecated_at: null },
       { label: "旧職種", deprecated_at: "2026-04-01T00:00:00.000Z" },
     ]);
@@ -372,7 +379,7 @@ describe("saveClientProfileAction", () => {
 
   it("既存保有の deprecated ラベルは保持を許可（previousLabels に含まれる）", async () => {
     // 直前のテストで蓄積した呼び出し履歴をクリアして、本テスト内の呼び出しのみ計測する
-    mockedGetAllMasterRows.mockClear();
+    mockedGetAllMasterRowsOrThrow.mockClear();
     mockAuth(OWNER_ID);
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
@@ -399,8 +406,8 @@ describe("saveClientProfileAction", () => {
       { mode: "edit" },
     );
     expect(r.success).toBe(true);
-    // added が空のため getAllMasterRows は呼ばれない（最適化）
-    expect(mockedGetAllMasterRows).not.toHaveBeenCalled();
+    // added が空のため master lookup は呼ばれない（最適化）
+    expect(mockedGetAllMasterRowsOrThrow).not.toHaveBeenCalled();
   });
 
   // --- 組織 Admin セッション（client_recruit_areas RLS 組織対応 / 2026-07-07 修正） ---

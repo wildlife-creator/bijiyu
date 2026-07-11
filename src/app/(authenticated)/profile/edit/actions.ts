@@ -9,8 +9,14 @@ import {
 } from "@/lib/validations/profile";
 import { isOwnedStoragePath } from "@/lib/storage/storage-path";
 import type { ActionResult } from "@/lib/types/action-result";
-import { validateLabelChanges } from "@/lib/master/validate";
-import { validateAreaChanges } from "@/lib/master/validate-area";
+import {
+  validateLabelChanges,
+  labelValidationErrorMessage,
+} from "@/lib/master/validate";
+import {
+  validateAreaChanges,
+  areaValidationErrorMessage,
+} from "@/lib/master/validate-area";
 import { expandAreasForDb } from "@/lib/master/area-conversion";
 
 export async function updateProfileAction(
@@ -110,39 +116,25 @@ export async function updateProfileAction(
     if (!tradeValid.valid) {
       return {
         success: false,
-        error:
-          tradeValid.unknownLabels.length > 0
-            ? `存在しない職種が含まれています: ${tradeValid.unknownLabels.join("、")}`
-            : `廃止された職種は新規追加できません: ${tradeValid.deprecatedLabels.join("、")}`,
+        error: labelValidationErrorMessage(tradeValid, "職種", "新規追加"),
       };
     }
     if (!qualValid.valid) {
       return {
         success: false,
-        error:
-          qualValid.unknownLabels.length > 0
-            ? `存在しない資格が含まれています: ${qualValid.unknownLabels.join("、")}`
-            : `廃止された資格は新規追加できません: ${qualValid.deprecatedLabels.join("、")}`,
+        error: labelValidationErrorMessage(qualValid, "資格", "新規追加"),
       };
     }
     if (!tagValid.valid) {
       return {
         success: false,
-        error:
-          tagValid.unknownLabels.length > 0
-            ? `存在しないスキルが含まれています: ${tagValid.unknownLabels.join("、")}`
-            : `廃止されたスキルは新規追加できません: ${tagValid.deprecatedLabels.join("、")}`,
+        error: labelValidationErrorMessage(tagValid, "スキル", "新規追加"),
       };
     }
     if (!areaValid.valid) {
-      const fmt = (a: { prefecture: string; municipality: string | null }) =>
-        a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
       return {
         success: false,
-        error:
-          areaValid.unknownPairs.length > 0
-            ? `存在しないエリアが含まれています: ${areaValid.unknownPairs.map(fmt).join("、")}`
-            : `廃止されたエリアは新規追加できません: ${areaValid.deprecatedPairs.map(fmt).join("、")}`,
+        error: areaValidationErrorMessage(areaValid, "新規追加"),
       };
     }
 

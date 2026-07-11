@@ -60,6 +60,9 @@ vi.mock("@/lib/supabase/anon", () => {
 import {
   getActiveMunicipalities,
   getAllMunicipalityRows,
+  getMunicipalitiesByPrefecture,
+  getActiveMunicipalitiesByPrefecture,
+  getMunicipalitySortOrderMap,
 } from "@/lib/master/fetch";
 
 beforeEach(() => {
@@ -108,10 +111,36 @@ describe("getAllMunicipalityRows（ページネーション）", () => {
   });
 });
 
-describe("ページ取得エラー時のフォールバック", () => {
-  it("途中ページで error が出たら空配列を返す（不完全データを返さない）", async () => {
+describe("ページ取得エラー時の挙動", () => {
+  // 2026-07-11 回帰防止: fetch 失敗を空配列で返すと unstable_cache が「空 = 正常」
+  // として永続キャッシュし、validate が「存在しないエリア」と誤判定する。
+  // キャッシュ境界の内側（プリミティブ）は throw して失敗をキャッシュさせず、
+  // 描画用の派生ヘルパーはキャッシュ境界の外側で catch → 空フォールバックする。
+
+  it("プリミティブ getActiveMunicipalities は途中ページ error で reject（空を返さない）", async () => {
     errorOnRangeFrom = PAGE_SIZE; // 2 ページ目で失敗させる
-    const rows = await getActiveMunicipalities();
-    expect(rows).toEqual([]);
+    await expect(getActiveMunicipalities()).rejects.toThrow();
+  });
+
+  it("プリミティブ getAllMunicipalityRows も先頭ページ error で reject", async () => {
+    errorOnRangeFrom = 0;
+    await expect(getAllMunicipalityRows()).rejects.toThrow();
+  });
+
+  it("描画用 getMunicipalitiesByPrefecture は取得失敗時 {} にフォールバック", async () => {
+    errorOnRangeFrom = 0;
+    await expect(getMunicipalitiesByPrefecture()).resolves.toEqual({});
+  });
+
+  it("描画用 getActiveMunicipalitiesByPrefecture は取得失敗時 [] にフォールバック", async () => {
+    errorOnRangeFrom = 0;
+    await expect(
+      getActiveMunicipalitiesByPrefecture("東京都"),
+    ).resolves.toEqual([]);
+  });
+
+  it("描画用 getMunicipalitySortOrderMap は取得失敗時 {} にフォールバック", async () => {
+    errorOnRangeFrom = 0;
+    await expect(getMunicipalitySortOrderMap()).resolves.toEqual({});
   });
 });

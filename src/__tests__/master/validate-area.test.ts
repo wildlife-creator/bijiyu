@@ -10,7 +10,11 @@ vi.mock("@/lib/master/fetch", () => ({
   getAllMunicipalityRows: () => mockGetAllMunicipalityRows(),
 }));
 
-import { validateAreaChanges, isKnownPrefecture } from "@/lib/master/validate-area";
+import {
+  validateAreaChanges,
+  isKnownPrefecture,
+  areaValidationErrorMessage,
+} from "@/lib/master/validate-area";
 
 const municipalityRows: MunicipalityRow[] = [
   { prefecture: "東京都", municipality: "港区", deprecated_at: null },
@@ -76,7 +80,7 @@ describe("validateAreaChanges", () => {
         [],
       );
       expect(result.valid).toBe(false);
-      if (result.valid === false) {
+      if (result.valid === false && result.transient === false) {
         expect(result.unknownPairs).toEqual([
           { prefecture: "架空県", municipality: null },
         ]);
@@ -101,7 +105,7 @@ describe("validateAreaChanges", () => {
         [],
       );
       expect(result.valid).toBe(false);
-      if (result.valid === false) {
+      if (result.valid === false && result.transient === false) {
         expect(result.unknownPairs).toEqual([
           { prefecture: "東京都", municipality: "存在しない区" },
         ]);
@@ -115,7 +119,7 @@ describe("validateAreaChanges", () => {
         [],
       );
       expect(result.valid).toBe(false);
-      if (result.valid === false) {
+      if (result.valid === false && result.transient === false) {
         expect(result.deprecatedPairs).toEqual([
           { prefecture: "東京都", municipality: "廃止区" },
         ]);
@@ -154,7 +158,7 @@ describe("validateAreaChanges", () => {
         [],
       );
       expect(result.valid).toBe(false);
-      if (result.valid === false) {
+      if (result.valid === false && result.transient === false) {
         expect(result.unknownPairs).toContainEqual({
           prefecture: "東京都",
           municipality: "存在しない区",
@@ -190,5 +194,73 @@ describe("validateAreaChanges", () => {
       // マスタ参照は 1 回のみ (added 計算後に検証)
       expect(mockGetAllMunicipalityRows).toHaveBeenCalledTimes(1);
     });
+  });
+
+  describe("マスタ取得の一時失敗", () => {
+    it("市区町村マスタ取得が throw したら transient=true（存在しない断定をしない）", async () => {
+      // 2026-07-11 回帰防止: getAllMunicipalityRows の reject を「存在しないエリア」と
+      // 誤判定しない。reject する = unstable_cache に空がキャッシュされない前提。
+      mockGetAllMunicipalityRows.mockRejectedValueOnce(new Error("boom"));
+      const result = await validateAreaChanges(
+        [{ prefecture: "東京都", municipality: "港区" }],
+        [],
+      );
+      expect(result).toEqual({ valid: false, transient: true });
+    });
+
+    it("県のみ追加はマスタ参照しないので取得失敗の影響を受けない", async () => {
+      mockGetAllMunicipalityRows.mockRejectedValueOnce(new Error("boom"));
+      const result = await validateAreaChanges(
+        [{ prefecture: "東京都", municipality: null }],
+        [],
+      );
+      expect(result).toEqual({ valid: true });
+      expect(mockGetAllMunicipalityRows).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("areaValidationErrorMessage", () => {
+  it("transient は「時間をおいて」の一時エラー文言（存在しない断定をしない）", () => {
+    const msg = areaValidationErrorMessage({ valid: false, transient: true });
+    expect(msg).toBe(
+      "エリアマスタの取得に一時的に失敗しました。時間をおいて再度お試しください。",
+    );
+    expect(msg).not.toContain("存在しない");
+  });
+
+  it("unknown は県+市を結合して「存在しないエリアが含まれています」", () => {
+    const msg = areaValidationErrorMessage({
+      valid: false,
+      transient: false,
+      unknownPairs: [{ prefecture: "東京都", municipality: "存在しない区" }],
+      deprecatedPairs: [],
+    });
+    expect(msg).toBe("存在しないエリアが含まれています: 東京都存在しない区");
+  });
+
+  it("県のみ (municipality=null) は県名だけを出す", () => {
+    const msg = areaValidationErrorMessage({
+      valid: false,
+      transient: false,
+      unknownPairs: [{ prefecture: "架空県", municipality: null }],
+      deprecatedPairs: [],
+    });
+    expect(msg).toBe("存在しないエリアが含まれています: 架空県");
+  });
+
+  it("deprecated の動詞は既定「登録」/ 引数で「新規追加」に切替できる", () => {
+    const failure = {
+      valid: false as const,
+      transient: false as const,
+      unknownPairs: [] as { prefecture: string; municipality: string | null }[],
+      deprecatedPairs: [{ prefecture: "東京都", municipality: "廃止区" }],
+    };
+    expect(areaValidationErrorMessage(failure)).toBe(
+      "廃止されたエリアは登録できません: 東京都廃止区",
+    );
+    expect(areaValidationErrorMessage(failure, "新規追加")).toBe(
+      "廃止されたエリアは新規追加できません: 東京都廃止区",
+    );
   });
 });

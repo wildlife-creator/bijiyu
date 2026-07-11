@@ -14,11 +14,43 @@
  * 内部は `getAllMasterRows(kind)` のキャッシュ済み in-memory データを
  * 使い、追加 DB ラウンドトリップを発生させない。
  */
-import { getAllMasterRows, type MasterKind } from "./fetch";
+import { getAllMasterRowsOrThrow, type MasterKind } from "./fetch";
 
 export type ValidateLabelChangesResult =
   | { valid: true }
-  | { valid: false; unknownLabels: string[]; deprecatedLabels: string[] };
+  // マスタ取得に一時的に失敗した状態。「存在しない」と断定してはならず、
+  // 呼び出し元は「時間をおいて再度お試しください」を表示する。
+  | { valid: false; transient: true }
+  | {
+      valid: false;
+      transient: false;
+      unknownLabels: string[];
+      deprecatedLabels: string[];
+    };
+
+export type LabelValidationFailure = Extract<
+  ValidateLabelChangesResult,
+  { valid: false }
+>;
+
+/**
+ * 検証失敗結果を UI 向けエラーメッセージに変換する共通ヘルパー。
+ * transient（マスタ取得の一時失敗）を必ず先に分岐し、「存在しない」誤断定を防ぐ。
+ * 全呼び出し元はこのヘルパー経由でメッセージを組むこと。
+ */
+export function labelValidationErrorMessage(
+  failure: LabelValidationFailure,
+  noun: string,
+  deprecatedAction = "登録",
+): string {
+  if (failure.transient) {
+    return `${noun}マスタの取得に一時的に失敗しました。時間をおいて再度お試しください。`;
+  }
+  if (failure.unknownLabels.length > 0) {
+    return `存在しない${noun}が含まれています: ${failure.unknownLabels.join("、")}`;
+  }
+  return `廃止された${noun}は${deprecatedAction}できません: ${failure.deprecatedLabels.join("、")}`;
+}
 
 export async function validateLabelChanges(
   newLabels: string[],
@@ -34,7 +66,13 @@ export async function validateLabelChanges(
     return { valid: true };
   }
 
-  const allRows = await getAllMasterRows(kind);
+  let allRows: Awaited<ReturnType<typeof getAllMasterRowsOrThrow>>;
+  try {
+    allRows = await getAllMasterRowsOrThrow(kind);
+  } catch {
+    // マスタ取得の一時失敗。added を「存在しない」と誤判定しない。
+    return { valid: false, transient: true };
+  }
   const allMap = new Map<string, string | null>(
     allRows.map((row) => [row.label, row.deprecated_at]),
   );
@@ -52,5 +90,5 @@ export async function validateLabelChanges(
   if (unknownLabels.length === 0 && deprecatedLabels.length === 0) {
     return { valid: true };
   }
-  return { valid: false, unknownLabels, deprecatedLabels };
+  return { valid: false, transient: false, unknownLabels, deprecatedLabels };
 }

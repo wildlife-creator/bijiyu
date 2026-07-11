@@ -10,8 +10,14 @@ import {
   selectClientProfileSchema,
   type ClientProfileFormInput,
 } from "@/lib/validations/client-profile";
-import { validateLabelChanges } from "@/lib/master/validate";
-import { validateAreaChanges } from "@/lib/master/validate-area";
+import {
+  validateLabelChanges,
+  labelValidationErrorMessage,
+} from "@/lib/master/validate";
+import {
+  validateAreaChanges,
+  areaValidationErrorMessage,
+} from "@/lib/master/validate-area";
 import { expandAreasForDb } from "@/lib/master/area-conversion";
 
 interface SaveOpts {
@@ -167,21 +173,13 @@ export async function saveClientProfileAction(
   if (!recruitValid.valid) {
     return {
       success: false,
-      error:
-        recruitValid.unknownLabels.length > 0
-          ? `存在しない職種が含まれています: ${recruitValid.unknownLabels.join("、")}`
-          : `廃止された職種は新規追加できません: ${recruitValid.deprecatedLabels.join("、")}`,
+      error: labelValidationErrorMessage(recruitValid, "職種", "新規追加"),
     };
   }
   if (!areaValid.valid) {
-    const fmt = (a: { prefecture: string; municipality: string | null }) =>
-      a.municipality ? `${a.prefecture}${a.municipality}` : a.prefecture;
     return {
       success: false,
-      error:
-        areaValid.unknownPairs.length > 0
-          ? `存在しないエリアが含まれています: ${areaValid.unknownPairs.map(fmt).join("、")}`
-          : `廃止されたエリアは新規追加できません: ${areaValid.deprecatedPairs.map(fmt).join("、")}`,
+      error: areaValidationErrorMessage(areaValid, "新規追加"),
     };
   }
 
