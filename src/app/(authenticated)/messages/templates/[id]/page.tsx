@@ -43,8 +43,9 @@ export default async function ScoutTemplateDetailPage({ params }: PageProps) {
   const { data: template } = await supabase
     .from("scout_templates")
     .select(
-      `id, title, body, memo, created_at, organization_id,
-       owner:users!owner_id(last_name, first_name, deleted_at)`,
+      `id, title, body, memo, created_at, updated_at, updated_by, organization_id,
+       owner:users!owner_id(last_name, first_name, deleted_at),
+       updater:users!updated_by(last_name, first_name, deleted_at)`,
     )
     .eq("id", id)
     .maybeSingle();
@@ -54,9 +55,18 @@ export default async function ScoutTemplateDetailPage({ params }: PageProps) {
   const owner = Array.isArray(template.owner)
     ? template.owner[0]
     : template.owner;
+  const updater = Array.isArray(template.updater)
+    ? template.updater[0]
+    : template.updater;
   const isSharedByOrg = template.organization_id !== null;
   const createdAtLabel = formatCreatedAt(template.created_at);
   const ownerName = isSharedByOrg ? resolveOwnerName(owner) : null;
+  // updated_by は本機能以降に一度でも編集された場合のみセットされる。
+  // 未編集（作成＝最終更新が同じ）行では最終更新行を出さない。
+  const hasBeenUpdated = template.updated_by !== null;
+  const updatedAtLabel = formatCreatedAt(template.updated_at);
+  // 氏名は「作成者」と同じく法人共有テンプレのみ表示（個人プランは日付のみ）
+  const updaterName = isSharedByOrg ? resolveOwnerName(updater) : null;
 
   return (
     <div className="min-h-dvh bg-muted">
@@ -77,10 +87,16 @@ export default async function ScoutTemplateDetailPage({ params }: PageProps) {
         <InfoRow label="メモ" value={template.memo || "—"} />
       </Card>
 
-      {/* 作成日（法人プラン共有テンプレのみ作成者氏名も表示） */}
+      {/* 作成日 / 最終更新（法人プラン共有テンプレのみ氏名も表示） */}
       <div className="mt-3 space-y-0.5 text-body-xs text-muted-foreground">
         <p>作成日: {createdAtLabel}</p>
         {ownerName && <p>作成者: {ownerName}</p>}
+        {hasBeenUpdated && (
+          <p>
+            最終更新: {updatedAtLabel}
+            {updaterName ? ` ${updaterName}` : ""}
+          </p>
+        )}
       </div>
 
       {/* 編集する・もどる */}

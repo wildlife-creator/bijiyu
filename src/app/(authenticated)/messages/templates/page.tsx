@@ -53,8 +53,9 @@ export default async function ScoutTemplatesListPage({ searchParams }: PageProps
   const { data: templates, count } = await supabase
     .from("scout_templates")
     .select(
-      `id, title, body, memo, created_at, updated_at, organization_id,
-       owner:users!owner_id(last_name, first_name, deleted_at)`,
+      `id, title, body, memo, created_at, updated_at, updated_by, organization_id,
+       owner:users!owner_id(last_name, first_name, deleted_at),
+       updater:users!updated_by(last_name, first_name, deleted_at)`,
       { count: "exact" },
     )
     .order("updated_at", { ascending: false })
@@ -91,10 +92,17 @@ export default async function ScoutTemplatesListPage({ searchParams }: PageProps
           (templates ?? []).map((tpl) => {
             const preview = tpl.memo?.trim() || truncatePreview(tpl.body ?? "");
             const owner = Array.isArray(tpl.owner) ? tpl.owner[0] : tpl.owner;
-            // 法人プラン共有テンプレ（organization_id あり）のみ作成者氏名を表示
+            const updater = Array.isArray(tpl.updater)
+              ? tpl.updater[0]
+              : tpl.updater;
+            // 法人プラン共有テンプレ（organization_id あり）のみ氏名を表示
             const isSharedByOrg = tpl.organization_id !== null;
             const ownerName = isSharedByOrg ? resolveOwnerName(owner) : null;
             const createdAtLabel = formatCreatedAt(tpl.created_at);
+            // updated_by は本機能以降に一度でも編集された行のみセットされる
+            const hasBeenUpdated = tpl.updated_by !== null;
+            const updatedAtLabel = formatCreatedAt(tpl.updated_at);
+            const updaterName = isSharedByOrg ? resolveOwnerName(updater) : null;
             return (
               <Link
                 key={tpl.id}
@@ -116,6 +124,12 @@ export default async function ScoutTemplatesListPage({ searchParams }: PageProps
                         作成日 {createdAtLabel}
                         {ownerName ? ` ・ 作成者 ${ownerName}` : ""}
                       </p>
+                      {hasBeenUpdated && (
+                        <p className="text-body-xs text-muted-foreground">
+                          最終更新 {updatedAtLabel}
+                          {updaterName ? ` ・ ${updaterName}` : ""}
+                        </p>
+                      )}
                     </div>
                     <ChevronRight className="size-5 shrink-0 text-primary/70" />
                   </CardContent>

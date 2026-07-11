@@ -277,6 +277,7 @@ describe("updateScoutTemplateAction", () => {
         title: "更新後タイトル",
         body: "更新後の本文です。",
         memo: "更新後メモ",
+        updated_by: USER_ID,
       }),
     );
     expect(updateChain.eq).toHaveBeenCalledWith("id", TEMPLATE_ID);

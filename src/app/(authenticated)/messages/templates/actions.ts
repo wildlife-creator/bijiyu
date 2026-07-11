@@ -95,12 +95,14 @@ export async function updateScoutTemplateAction(
   }
 
   // RLS: 本人作成 or 同一組織メンバーのみ UPDATE 可
+  // updated_by に実行ユーザーを記録（updated_at は set_updated_at トリガーが自動更新）
   const { error } = await supabase
     .from("scout_templates")
     .update({
       title: parsed.data.title,
       body: parsed.data.body,
       memo: parsed.data.memo,
+      updated_by: user.id,
     })
     .eq("id", id);
 
