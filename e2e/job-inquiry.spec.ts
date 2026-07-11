@@ -29,7 +29,7 @@ test.describe("求人へのお問い合わせ（job-inquiry / COM-013〜015）",
     ).toBeVisible();
 
     // 求人へのお問い合わせボタン → フォーム(COM-013)
-    await page.getByRole("link", { name: "求人へのお問い合わせ" }).click();
+    await page.getByRole("link", { name: "求人へのお問い合わせ" }).first().click();
     await page.waitForURL(/\/inquiry$/);
     await expect(
       page.getByRole("heading", { name: "求人へのお問い合わせ" }),
@@ -55,7 +55,7 @@ test.describe("求人へのお問い合わせ（job-inquiry / COM-013〜015）",
   }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
 
-    await page.getByRole("link", { name: "求人へのお問い合わせ" }).click();
+    await page.getByRole("link", { name: "求人へのお問い合わせ" }).first().click();
     await page.waitForURL(/\/mypage\/job-inquiries$/);
 
     // 受信箱一覧(COM-014)にシードの問い合わせが見える
@@ -78,7 +78,7 @@ test.describe("求人へのお問い合わせ（job-inquiry / COM-013〜015）",
   test("法人担当者: 組織共有受信箱で同じ問い合わせが見える", async ({ page }) => {
     await login(page, TEST_STAFF.email, TEST_STAFF.password);
 
-    await page.getByRole("link", { name: "求人へのお問い合わせ" }).click();
+    await page.getByRole("link", { name: "求人へのお問い合わせ" }).first().click();
     await page.waitForURL(/\/mypage\/job-inquiries$/);
     await expect(page.getByText("佐藤太郎")).toBeVisible();
   });
@@ -102,7 +102,7 @@ test.describe("求人へのお問い合わせ（job-inquiry / COM-013〜015）",
     await login(page, TEST_CONTRACTOR2.email, TEST_CONTRACTOR2.password);
     await page.goto(`/clients/${CLIENT_ID}`);
 
-    await page.getByRole("link", { name: "求人へのお問い合わせ" }).click();
+    await page.getByRole("link", { name: "求人へのお問い合わせ" }).first().click();
     await page.waitForURL(/\/inquiry$/);
 
     await page.getByRole("checkbox", { name: "その他" }).click();

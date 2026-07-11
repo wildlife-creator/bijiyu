@@ -213,7 +213,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       {showVideo && (
         <section className="mx-5 mt-6">
           <h3 className="text-[15px] font-bold tracking-wider mb-2">PR動画</h3>
-          <div className="rounded-[8px] border border-border/10 bg-background p-4">
+          <div className="rounded-[8px] border border-border bg-background p-4">
             <VideoEmbed url={contractor.video_url!} label="PR動画" />
           </div>
         </section>
@@ -239,7 +239,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       )}
 
       {isDeleted && (
-        <div className="mx-5 mt-4 rounded-[8px] bg-background border border-border/10 p-4">
+        <div className="mx-5 mt-4 rounded-[8px] bg-background border border-border p-4">
           <p className="text-body-md text-muted-foreground">
             このユーザーは退会済みです。
           </p>
@@ -249,7 +249,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       {/* 基本情報 */}
       <section className="mx-5 mt-6">
         <h3 className="text-[15px] font-bold tracking-wider mb-2">基本情報</h3>
-        <div className="rounded-[8px] border border-border/10 bg-background overflow-hidden">
+        <div className="rounded-[8px] border border-border bg-background overflow-hidden">
           <InfoRow
             label="居住地"
             value={formatResidence(contractor.prefecture, contractor.municipality)}
@@ -275,7 +275,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       {contractor.bio && !isDeleted && (
         <section className="mx-5 mt-6">
           <h3 className="text-[15px] font-bold tracking-wider mb-2">自己紹介</h3>
-          <div className="rounded-[8px] border border-border/10 bg-background p-4">
+          <div className="rounded-[8px] border border-border bg-background p-4">
             <p className="text-[13px] leading-[180%]">{contractor.bio}</p>
           </div>
         </section>
@@ -292,7 +292,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
         return (
           <section className="mx-5 mt-6">
             <h3 className="text-[15px] font-bold tracking-wider mb-2">能力</h3>
-            <div className="rounded-[8px] border border-border/10 bg-background overflow-hidden">
+            <div className="rounded-[8px] border border-border bg-background overflow-hidden">
               {hasSkills && (
                 <>
                   <InfoRow
@@ -341,7 +341,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
         {schedules && schedules.length > 0 && (
           <section className="flex-1 min-w-0">
             <h3 className="text-[15px] font-bold tracking-wider mb-2">空き日程</h3>
-            <div className="rounded-[8px] border border-border/10 bg-background overflow-hidden">
+            <div className="rounded-[8px] border border-border bg-background overflow-hidden">
               <table className="w-full border-collapse">
                 <tbody>
                   {schedules.map((s, i) => (
@@ -360,7 +360,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
         {/* 発注者評価（総合評価サマリー） */}
         <section className="flex-1 min-w-0 mt-6 md:mt-0">
           <h3 className="text-[15px] font-bold tracking-wider mb-2">発注者評価</h3>
-          <div className="rounded-[8px] border border-border/10 bg-primary/[0.06] p-4">
+          <div className="rounded-[8px] border border-border bg-primary/[0.06] p-4">
             <div className="flex items-center justify-between">
               <p className="text-[14px] font-bold">総合評価</p>
               {overallSummary.count > 0 && (

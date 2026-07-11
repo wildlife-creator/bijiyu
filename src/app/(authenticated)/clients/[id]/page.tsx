@@ -25,7 +25,10 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-function DetailRow({
+// 職人詳細（CLI-006）の InfoRow と同一スタイル。
+// ラベルを薄紫帯（bg-primary/[0.08]）で表示し、値行と交互に並べる。
+// 発注者詳細のデザインを職人詳細に合わせる（2026-07-11 決定）ための共通行部品。
+function InfoRow({
   label,
   value,
 }: {
@@ -35,16 +38,14 @@ function DetailRow({
   const isString = typeof value === "string";
   if (value == null || (isString && !value)) return null;
   return (
-    <div className="flex border-b border-border py-3">
-      <span className="w-28 shrink-0 text-body-md font-medium text-secondary">
-        {label}
-      </span>
-      {isString ? (
-        <span className="flex-1 text-body-md text-foreground">{value}</span>
-      ) : (
-        <div className="flex-1 text-body-md text-foreground">{value}</div>
-      )}
-    </div>
+    <>
+      <div className="bg-primary/[0.08] px-4 py-2">
+        <span className="text-body-sm font-medium">{label}</span>
+      </div>
+      <div className="px-4 py-2">
+        {isString ? <span className="text-body-sm">{value}</span> : value}
+      </div>
+    </>
   );
 }
 
@@ -197,185 +198,229 @@ export default async function ClientDetailPage({ params }: PageProps) {
   }).ok;
 
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh bg-muted">
       <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
-      <InquirySuccessToast />
-      <h1 className="text-center text-heading-lg font-bold text-secondary">発注者詳細</h1>
+        <InquirySuccessToast />
 
-      {/* Profile header */}
-      <div className="mt-4 flex items-center gap-4">
-        <div className="w-16 h-16 shrink-0 rounded-full bg-muted overflow-hidden">
-          {avatarUrl && !isDeleted ? (
-            <img
-              src={avatarUrl}
-              alt={displayName}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="flex items-center justify-center w-full h-full">
+        {/* Page title */}
+        <div className="px-5 pt-6 pb-2">
+          <h1 className="text-center text-heading-lg font-bold text-secondary">
+            発注者詳細
+          </h1>
+        </div>
+
+        {/* Profile header */}
+        <div className="px-5 flex items-center gap-4">
+          <div className="w-[90px] h-[90px] shrink-0 rounded-full bg-background overflow-hidden">
+            {avatarUrl && !isDeleted ? (
               <img
-                src="/images/icons/icon-avatar.png"
-                alt=""
-                className="w-8 h-8 opacity-40"
+                src={avatarUrl}
+                alt={displayName}
+                className="w-full h-full object-cover"
               />
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-heading-md font-bold text-foreground truncate">
-            {displayName}
-          </h2>
-        </div>
-      </div>
-
-      {/* Action buttons */}
-      {!isDeleted && (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <FavoriteButton
-            targetType="client"
-            targetId={id}
-            initialIsFavorited={!!favorite}
-            showLabel
-          />
-          <div className="flex-1" />
-          {canInquire && (
-            <Button
-              asChild
-              variant="outline"
-              className="rounded-[47px] border-primary bg-background text-primary hover:bg-primary/5 hover:text-primary"
-            >
-              <Link href={`/clients/${id}/inquiry`}>求人へのお問い合わせ</Link>
-            </Button>
-          )}
-          <Button
-            asChild
-            className="rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Link href={`/messages/new?to=${id}`}>メッセージを送る</Link>
-          </Button>
-        </div>
-      )}
-
-      {isDeleted && (
-        <div className="mt-4 rounded-[8px] bg-muted p-4">
-          <p className="text-body-md text-muted-foreground">
-            このユーザーは退会済みです。
-          </p>
-        </div>
-      )}
-
-      {/* 職場紹介動画（アクションボタン直下・募集職種より上） */}
-      {showWorkplaceVideo && (
-        <section className="mt-6">
-          <h3 className="text-body-lg font-bold text-foreground">職場紹介動画</h3>
-          <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoEmbed
-              url={profile!.workplace_video_url!}
-              label="職場紹介動画"
-            />
-          </div>
-        </section>
-      )}
-
-      {/* Detail rows */}
-      <div className="mt-6">
-        <DetailRow label="住所" value={profile?.address ?? null} />
-        {/* 「エリア」(users.prefecture = owner 個人居住県) は業務プロフィールに不要かつ
-            プライバシー観点でも他人に開示しない方が良いため非表示。
-            2026-05-20 Phase 9 シナリオ C で混乱の元と判明したため削除。 */}
-        <DetailRow
-          label="募集職種"
-          value={
-            profile?.recruit_job_types && profile.recruit_job_types.length > 0 ? (
-              <CollapsibleList
-                items={profile.recruit_job_types}
-                initialLimit={5}
-              />
-            ) : null
-          }
-        />
-        <DetailRow
-          label="募集エリア"
-          value={
-            clientAreas.length > 0 ? <AreaList areas={clientAreas} /> : null
-          }
-        />
-        <DetailRow
-          label="従業員規模"
-          value={profile?.employee_scale ? `${profile.employee_scale}名` : null}
-        />
-        <DetailRow
-          label="求める働き方"
-          value={(profile?.working_way ?? []).join("、") || null}
-        />
-        <DetailRow
-          label="言語"
-          value={(profile?.language ?? []).join("、") || null}
-        />
-      </div>
-
-      {/* Message from client */}
-      {profile?.message && (
-        <section className="mt-6">
-          <h3 className="text-body-lg font-bold text-foreground">
-            発注者メッセージ
-          </h3>
-          {/* 職人詳細(CLI-006)のカードと同一スタイルに統一。
-              Figma CON-006 はグレー枠だが、アプリの現行デザイン(薄い border/10)を
-              正とする意図的な判断（2026-07-11 決定）。詳細は implementation-notes.md */}
-          <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <p className="text-body-md text-foreground whitespace-pre-wrap">
-              {profile.message}
-            </p>
-          </div>
-        </section>
-      )}
-
-      {/* Open jobs */}
-      <section className="mt-6 bleed-viewport py-6 bg-muted">
-        <h3 className="text-body-lg font-bold text-foreground">
-          掲載中の案件
-        </h3>
-        {(!jobs || jobs.length === 0) ? (
-          <p className="mt-2 text-body-md text-muted-foreground">
-            現在掲載中の案件はありません
-          </p>
-        ) : (
-          <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-2">
-            {jobs.map((job) => {
-              const images = job.job_images as { image_url: string; sort_order: number }[] | null;
-              const thumbnail = images && images.length > 0
-                ? [...images].sort((a, b) => a.sort_order - b.sort_order)[0].image_url
-                : null;
-
-              return (
-                <JobListCard
-                  key={job.id}
-                  job={{
-                    id: job.id,
-                    title: job.title,
-                    tradeTypes: job.trade_types,
-                    areas: jobAreasMap.get(job.id) ?? [],
-                    rewardLower: job.reward_lower,
-                    rewardUpper: job.reward_upper,
-                    isUrgent: job.is_urgent ?? false,
-                    workStartDate: job.work_start_date,
-                    workEndDate: job.work_end_date,
-                    recruitEndDate: job.recruit_end_date ?? "",
-                    // この画面の案件はすべてこの client の案件なので、
-                    // ページ上部で解決済みの displayName を利用する
-                    companyName: displayName,
-                    thumbnailUrl: thumbnail,
-                  }}
-                  isFavorited={favoritedJobIds.has(job.id)}
+            ) : (
+              <div className="flex items-center justify-center w-full h-full">
+                <img
+                  src="/images/icons/icon-avatar.png"
+                  alt=""
+                  className="w-10 h-10 opacity-40"
                 />
-              );
-            })}
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[16px] font-bold text-foreground">
+              {displayName}
+            </h2>
+          </div>
+        </div>
+
+        {/* ♡マイリスト登録（職人詳細と同じく独立行） */}
+        {!isDeleted && (
+          <div className="px-5 mt-3">
+            <FavoriteButton
+              targetType="client"
+              targetId={id}
+              initialIsFavorited={!!favorite}
+              showLabel
+            />
           </div>
         )}
-      </section>
 
-      <BackButton />
+        {/* 職場紹介動画 */}
+        {showWorkplaceVideo && (
+          <section className="mx-5 mt-6">
+            <h3 className="text-[15px] font-bold tracking-wider mb-2">
+              職場紹介動画
+            </h3>
+            <div className="rounded-[8px] border border-border bg-background p-4">
+              <VideoEmbed
+                url={profile!.workplace_video_url!}
+                label="職場紹介動画"
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Action buttons（上） */}
+        {!isDeleted && (
+          <div className="px-5 mt-4 flex items-center gap-3">
+            {canInquire && (
+              <Button
+                variant="outline"
+                className="flex-1 rounded-[47px] border-secondary text-secondary font-bold text-[13px]"
+                asChild
+              >
+                <Link href={`/clients/${id}/inquiry`}>求人へのお問い合わせ</Link>
+              </Button>
+            )}
+            <Button
+              className="flex-1 rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-[13px]"
+              asChild
+            >
+              <Link href={`/messages/new?to=${id}`}>メッセージを送る</Link>
+            </Button>
+          </div>
+        )}
+
+        {isDeleted && (
+          <div className="mx-5 mt-4 rounded-[8px] bg-background border border-border p-4">
+            <p className="text-body-md text-muted-foreground">
+              このユーザーは退会済みです。
+            </p>
+          </div>
+        )}
+
+        {/* 基本情報 */}
+        <section className="mx-5 mt-6">
+          <h3 className="text-[15px] font-bold tracking-wider mb-2">基本情報</h3>
+          <div className="rounded-[8px] border border-border bg-background overflow-hidden">
+            <InfoRow label="住所" value={profile?.address ?? null} />
+            <InfoRow
+              label="募集職種"
+              value={
+                profile?.recruit_job_types &&
+                profile.recruit_job_types.length > 0 ? (
+                  <CollapsibleList
+                    items={profile.recruit_job_types}
+                    initialLimit={5}
+                  />
+                ) : null
+              }
+            />
+            <InfoRow
+              label="募集エリア"
+              value={
+                clientAreas.length > 0 ? <AreaList areas={clientAreas} /> : null
+              }
+            />
+            <InfoRow
+              label="従業員規模"
+              value={
+                profile?.employee_scale ? `${profile.employee_scale}名` : null
+              }
+            />
+            <InfoRow
+              label="求める働き方"
+              value={(profile?.working_way ?? []).join("、") || null}
+            />
+            <InfoRow
+              label="言語"
+              value={(profile?.language ?? []).join("、") || null}
+            />
+          </div>
+        </section>
+
+        {/* 発注者メッセージ（職人詳細の「自己紹介」と同じカード） */}
+        {profile?.message && (
+          <section className="mx-5 mt-6">
+            <h3 className="text-[15px] font-bold tracking-wider mb-2">
+              発注者メッセージ
+            </h3>
+            <div className="rounded-[8px] border border-border bg-background p-4">
+              <p className="text-[13px] leading-[180%] whitespace-pre-wrap">
+                {profile.message}
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* 掲載中の案件 */}
+        <section className="mx-5 mt-6">
+          <h3 className="text-[15px] font-bold tracking-wider mb-2">
+            掲載中の案件
+          </h3>
+          {!jobs || jobs.length === 0 ? (
+            <div className="rounded-[8px] border border-border bg-background p-4">
+              <p className="text-body-md text-muted-foreground">
+                現在掲載中の案件はありません
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {jobs.map((job) => {
+                const images = job.job_images as
+                  | { image_url: string; sort_order: number }[]
+                  | null;
+                const thumbnail =
+                  images && images.length > 0
+                    ? [...images].sort(
+                        (a, b) => a.sort_order - b.sort_order,
+                      )[0].image_url
+                    : null;
+
+                return (
+                  <JobListCard
+                    key={job.id}
+                    job={{
+                      id: job.id,
+                      title: job.title,
+                      tradeTypes: job.trade_types,
+                      areas: jobAreasMap.get(job.id) ?? [],
+                      rewardLower: job.reward_lower,
+                      rewardUpper: job.reward_upper,
+                      isUrgent: job.is_urgent ?? false,
+                      workStartDate: job.work_start_date,
+                      workEndDate: job.work_end_date,
+                      recruitEndDate: job.recruit_end_date ?? "",
+                      // この画面の案件はすべてこの client の案件なので、
+                      // ページ上部で解決済みの displayName を利用する
+                      companyName: displayName,
+                      thumbnailUrl: thumbnail,
+                    }}
+                    isFavorited={favoritedJobIds.has(job.id)}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Action buttons（下） */}
+        {!isDeleted && (
+          <div className="mx-5 mt-8 flex items-center gap-3">
+            {canInquire && (
+              <Button
+                variant="outline"
+                className="flex-1 rounded-[47px] border-secondary text-secondary font-bold text-[13px]"
+                asChild
+              >
+                <Link href={`/clients/${id}/inquiry`}>求人へのお問い合わせ</Link>
+              </Button>
+            )}
+            <Button
+              className="flex-1 rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-[13px]"
+              asChild
+            >
+              <Link href={`/messages/new?to=${id}`}>メッセージを送る</Link>
+            </Button>
+          </div>
+        )}
+
+        {/* Back link */}
+        <div className="mx-5 mt-8 mb-8">
+          <BackButton />
+        </div>
       </div>
     </div>
   );
