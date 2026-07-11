@@ -114,7 +114,10 @@ export function MemberForm({
           toast.error(result.error);
           return;
         }
-        toast.success("担当者を招待しました。招待メールを送信しました");
+        toast.success("担当者を招待しました", {
+          description:
+            "招待メールを送信しました。担当者にご連絡のうえ、メール内のリンクから承諾をお願いしてください（リンクの有効期限は24時間です）",
+        });
         router.push("/mypage/members");
         router.refresh();
         return;

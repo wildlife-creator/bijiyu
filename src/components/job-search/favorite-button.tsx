@@ -65,8 +65,8 @@ export function FavoriteButton({
         size="sm"
         className={
           isFavorited
-            ? "rounded-[47px] border-primary text-primary hover:bg-primary/10"
-            : "rounded-[47px]"
+            ? "rounded-[47px] border-primary text-primary hover:bg-primary/10 disabled:opacity-100"
+            : "rounded-[47px] disabled:opacity-100"
         }
         onClick={handleToggle}
         disabled={isPending}
@@ -81,7 +81,7 @@ export function FavoriteButton({
     <button
       onClick={handleToggle}
       disabled={isPending}
-      className="flex items-center gap-1 disabled:opacity-50"
+      className="flex items-center gap-1"
       aria-label={isFavorited ? "マイリスト解除" : "マイリスト登録"}
     >
       <HeartIcon active={isFavorited} />

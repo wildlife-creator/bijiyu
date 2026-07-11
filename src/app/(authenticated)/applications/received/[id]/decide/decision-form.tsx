@@ -264,15 +264,10 @@ export function DecisionForm({
                   className="rounded-full"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  書類を登録する
+                  {existingDocuments.length > 0 || filePreviews.length > 0
+                    ? "＋追加する"
+                    : "書類を登録する"}
                 </Button>
-                <button
-                  type="button"
-                  className="text-body-sm text-foreground underline"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  ＋追加する
-                </button>
               </div>
             </div>
 

@@ -30,7 +30,7 @@ interface MenuItem {
 const FIND_WORK_MENU: MenuItem[] = [
   { label: "募集案件一覧", href: "/jobs/search" },
   { label: "発注者一覧", href: "/clients" },
-  { label: "マイリスト", href: "/favorites" },
+  { label: "マイリスト", href: "/favorites?type=job" },
   { label: "メッセージ・スカウト", href: "/messages" },
 ];
 
@@ -42,8 +42,8 @@ const CHECK_SCHEDULE_MENU: MenuItem[] = [
 
 // Section 3: Find contractors (client only)
 const FIND_CONTRACTORS_MENU: MenuItem[] = [
-  { label: "ユーザー一覧", href: "/users/contractors" },
-  { label: "マイリスト", href: "/favorites" },
+  { label: "職人一覧", href: "/users/contractors" },
+  { label: "マイリスト", href: "/favorites?type=user" },
   { label: "応募一覧", href: "/applications/received" },
   { label: "メッセージ・スカウト", href: "/messages" },
 ];
@@ -594,7 +594,7 @@ export default async function MyPage() {
       {/* Section 3: Find contractors (client only) */}
       {isClient && (
         <section className="mt-8">
-          <h2 className="text-body-lg font-bold text-foreground">発注先を探す</h2>
+          <h2 className="text-body-lg font-bold text-foreground">職人を探す</h2>
           <nav className="mt-3">
             <MenuList items={FIND_CONTRACTORS_MENU} />
           </nav>

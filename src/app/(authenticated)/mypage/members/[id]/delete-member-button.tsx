@@ -17,7 +17,7 @@ export function DeleteMemberButton({ targetUserId }: Props) {
 
   function handleClick() {
     const ok = window.confirm(
-      "この担当者を削除します。よろしいですか？\n\nこの担当者が作成したテンプレートは管理責任者に引き継がれます",
+      "この担当者を削除します。よろしいですか？\n\nこの担当者が作成したテンプレートは削除後も引き続き利用できます",
     );
     if (!ok) return;
 

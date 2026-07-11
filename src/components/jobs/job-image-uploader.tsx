@@ -122,11 +122,11 @@ export function JobImageUploader({
         </div>
       )}
 
-      {/* Upload buttons */}
+      {/* Upload button — 0枚時は「画像を登録する」、1枚以上で「＋追加する」に切替（重複排除） */}
       {canAdd && (
         <div className="flex flex-col items-center gap-2">
           <label className="inline-flex cursor-pointer items-center justify-center rounded-[47px] border border-secondary px-8 py-2 text-body-md text-secondary transition-colors hover:bg-secondary/10">
-            <span>画像を登録する</span>
+            <span>{totalCount > 0 ? "＋追加する" : "画像を登録する"}</span>
             <input
               type="file"
               accept="image/jpeg,image/png"
@@ -135,18 +135,6 @@ export function JobImageUploader({
               className="hidden"
             />
           </label>
-          {totalCount > 0 && (
-            <label className="cursor-pointer text-body-md text-foreground hover:underline">
-              <span>＋追加する</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </label>
-          )}
         </div>
       )}
 
