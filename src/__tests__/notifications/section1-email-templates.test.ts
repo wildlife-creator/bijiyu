@@ -8,6 +8,7 @@ import { scoutDeclinedControlEmail } from "@/lib/email/templates/scout-declined-
 import { orderAcceptedControlEmail } from "@/lib/email/templates/order-accepted-control";
 import { orderRejectedControlEmail } from "@/lib/email/templates/order-rejected-control";
 import { scoutSentBroadcastEmail } from "@/lib/email/templates/scout-sent-broadcast";
+import { scoutNotificationEmail } from "@/lib/email/templates/scout-notification";
 import { completionReportToClientEmail } from "@/lib/email/templates/completion-report-to-client";
 import { completionReportToContractorEmail } from "@/lib/email/templates/completion-report-to-contractor";
 
@@ -352,6 +353,40 @@ describe("scoutSentBroadcastEmail — §1.7.B", () => {
     const out = scoutSentBroadcastEmail({ ...BASE, messageExcerpt: "" });
     expect(out.html).not.toContain("【メッセージ】");
     expect(out.html).toContain("【送信者】 田中花子");
+  });
+});
+
+// ----------------------------------------------------------------------------
+// §1.7.A スカウト送信通知 (受注者本人宛)
+// ----------------------------------------------------------------------------
+
+describe("scoutNotificationEmail — §1.7.A", () => {
+  const BASE = {
+    recipientName: "××建設",
+    senderName: "山田工務店",
+    jobTitle: "△△工事",
+    messageExcerpt: "ぜひご協力ください。",
+  };
+
+  it("本文に宛名・送信者・案件名・メッセージ抜粋を含む", () => {
+    const out = scoutNotificationEmail(BASE);
+    expect(out.subject).toBe("【ビジ友】スカウトが届きました");
+    expect(out.html).toContain("××建設 様");
+    expect(out.html).toContain("山田工務店 様からスカウトメッセージが届きました。");
+    expect(out.html).toContain("【案件名】 △△工事");
+    expect(out.html).toContain("【メッセージ】");
+    expect(out.html).toContain("ぜひご協力ください。");
+  });
+
+  it("メッセージ抜粋を鉤括弧「」で囲まない", () => {
+    const out = scoutNotificationEmail(BASE);
+    expect(out.html).toContain("【メッセージ】 ぜひご協力ください。");
+    expect(out.html).not.toContain("「ぜひご協力ください。」");
+  });
+
+  it("メッセージ空なら【メッセージ】行を省略", () => {
+    const out = scoutNotificationEmail({ ...BASE, messageExcerpt: "" });
+    expect(out.html).not.toContain("【メッセージ】");
   });
 });
 

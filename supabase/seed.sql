@@ -945,8 +945,19 @@ INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05', '11111111-1111-1111-1111-111111111111', 'はい、お気軽にどうぞ。どのような工事をご検討ですか？', false, false, now() - interval '5 hours 30 minutes'),
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05', 'dd111111-1111-2222-3333-444455556666', '壁紙の張り替えとフローリングの交換を考えています。見積もりをお願いできますか？', false, false, now() - interval '5 hours');
 
+-- スレッド07: 個人発注者（中村リフォーム dd111111）↔ 受注者2（高橋美咲 cc111111）
+--   画像のみメッセージ（body 空 + image_url あり）。一覧プレビューで
+--   「画像を送信しました」と表示されることの E2E 検証用（本文空 → 添付ありで未着扱いしない）。
+--   このペアは送信系テストで使われないため、image-only 固定でも他テストに影響しない。
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, thread_type, organization_id) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee07', 'dd111111-1111-2222-3333-444455556666', 'cc111111-1111-1111-1111-111111111111', 'message', NULL);
+
+INSERT INTO messages (thread_id, sender_id, body, image_url, is_scout, is_proxy, created_at) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee07', 'cc111111-1111-1111-1111-111111111111', '', 'cc111111-1111-1111-1111-111111111111/sample.png', false, false, now() - interval '10 minutes');
+
 -- updated_at をスレッドごとに更新（一覧の並び順に反映）
 UPDATE message_threads SET updated_at = now() - interval '2 days' WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02';
+UPDATE message_threads SET updated_at = now() - interval '10 minutes' WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee07';
 UPDATE message_threads SET updated_at = now() - interval '23 hours' WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03';
 UPDATE message_threads SET updated_at = now() - interval '3 hours' WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee04';
 UPDATE message_threads SET updated_at = now() - interval '5 hours' WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05';

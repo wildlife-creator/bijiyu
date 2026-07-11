@@ -69,7 +69,7 @@ export default async function MessagesPage({ searchParams }: Props) {
            client_profiles(display_name, image_url)
          )
        ),
-       messages(id, body, sender_id, read_at, created_at)`,
+       messages(id, body, image_url, sender_id, read_at, created_at)`,
     )
     .order("updated_at", { ascending: false });
 
@@ -112,7 +112,7 @@ export default async function MessagesPage({ searchParams }: Props) {
     const participantAvatarUrl = counterparty.avatarUrl;
 
     const messages = (thread.messages ?? []) as Array<{
-      id: string; body: string; sender_id: string; read_at: string | null; created_at: string;
+      id: string; body: string; image_url: string | null; sender_id: string; read_at: string | null; created_at: string;
     }>;
 
     const sortedMessages = [...messages].sort(
@@ -129,6 +129,7 @@ export default async function MessagesPage({ searchParams }: Props) {
       participantName,
       participantAvatarUrl,
       lastMessageBody: latestMessage?.body ?? null,
+      lastMessageHasAttachment: !!latestMessage?.image_url,
       lastMessageAt: latestMessage?.created_at ?? thread.updated_at,
       threadType: thread.thread_type,
       unreadCount,

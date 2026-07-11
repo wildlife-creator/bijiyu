@@ -181,7 +181,27 @@ export function ApplicationForm({ jobId, scoutMessageId }: ApplicationFormProps)
           <DialogHeader>
             <DialogTitle>確認</DialogTitle>
           </DialogHeader>
-          <p className="text-body-md">この情報で応募して良いですか？</p>
+          <p className="text-body-md">この内容で応募して良いですか？</p>
+          <dl className="space-y-2 rounded-[8px] bg-muted/40 px-4 py-3 text-body-sm">
+            <div className="flex gap-3">
+              <dt className="w-24 flex-shrink-0 text-muted-foreground">応募人数</dt>
+              <dd className="flex-1 break-words">{headcount}名</dd>
+            </div>
+            <div className="flex gap-3">
+              <dt className="w-24 flex-shrink-0 text-muted-foreground">日程/働き方</dt>
+              <dd className="flex-1 break-words">{workingType}</dd>
+            </div>
+            <div className="flex gap-3">
+              <dt className="w-24 flex-shrink-0 text-muted-foreground">初回稼働希望日</dt>
+              <dd className="flex-1 break-words">{preferredDate}</dd>
+            </div>
+            {message && (
+              <div className="flex gap-3">
+                <dt className="w-24 flex-shrink-0 text-muted-foreground">申し送り</dt>
+                <dd className="flex-1 whitespace-pre-wrap break-words">{message}</dd>
+              </div>
+            )}
+          </dl>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirm(false)}>
               キャンセル

@@ -11,6 +11,8 @@ interface ThreadListItemProps {
   participantName: string;
   participantAvatarUrl: string | null;
   lastMessageBody: string | null;
+  /** 最新メッセージに添付（画像）があるか。本文が空でも添付があれば未着扱いにしない。 */
+  lastMessageHasAttachment?: boolean;
   lastMessageAt: string | null;
   threadType: string;
   unreadCount: number;
@@ -21,10 +23,18 @@ export function ThreadListItem({
   participantName,
   participantAvatarUrl,
   lastMessageBody,
+  lastMessageHasAttachment = false,
   lastMessageAt,
   threadType,
   unreadCount,
 }: ThreadListItemProps) {
+  // 本文があればそれを、無ければ添付有無で「画像を送信しました」を表示する。
+  // メッセージ添付は画像限定（JPEG/PNG バケット）のため「画像を送信しました」で確定。
+  const lastMessagePreview = lastMessageBody
+    ? lastMessageBody
+    : lastMessageHasAttachment
+      ? "画像を送信しました"
+      : "メッセージはありません";
   return (
     <Link
       href={`/messages/${threadId}`}
@@ -63,7 +73,7 @@ export function ThreadListItem({
           )}
         </div>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          {lastMessageBody || "メッセージはありません"}
+          {lastMessagePreview}
         </p>
       </div>
 

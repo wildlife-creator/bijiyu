@@ -252,6 +252,14 @@ test.describe("受注者: スカウト受諾の確定タイミングは応募送
     await page.locator("input[type='date']").fill("2026-06-01");
     await page.getByLabel("上記内容を確認しました").check();
     await page.getByRole("button", { name: "応募する" }).click();
+    // 修正1: 確認ダイアログに入力内容の要約が表示される
+    const confirmDialog = page.getByRole("dialog");
+    await expect(
+      confirmDialog.getByText("この内容で応募して良いですか？"),
+    ).toBeVisible();
+    await expect(confirmDialog.getByText("1名")).toBeVisible();
+    await expect(confirmDialog.getByText("常勤")).toBeVisible();
+    await expect(confirmDialog.getByText("2026-06-01")).toBeVisible();
     // 確認ダイアログ OK → 送信
     await page.getByRole("button", { name: "OK" }).click();
     // 完了ダイアログ

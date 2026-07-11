@@ -27,7 +27,7 @@ export function scoutNotificationEmail({
 
   const items = [
     listItem("案件名", jobTitle),
-    excerpt ? listItem("メッセージ", `「${excerpt}」`, { blockEnd: true }) : "",
+    excerpt ? listItem("メッセージ", excerpt, { blockEnd: true }) : "",
   ].filter(Boolean);
 
   return {

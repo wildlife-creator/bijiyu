@@ -313,6 +313,22 @@ test.describe("個人発注者: メッセージ", () => {
     await expect(page.getByText("田中建設")).toBeVisible({ timeout: 10000 });
   });
 
+  test("画像のみメッセージのスレッドは一覧で「画像を送信しました」と表示される", async ({
+    page,
+  }) => {
+    // 修正4: 最新メッセージが本文空 + 画像添付ありのスレッド (seed ee07) は
+    // 「メッセージはありません」ではなく「画像を送信しました」を表示する。
+    await login(
+      page,
+      TEST_INDIVIDUAL_CLIENT.email,
+      TEST_INDIVIDUAL_CLIENT.password,
+    );
+    await page.goto("/messages");
+    await expect(page.getByText("画像を送信しました")).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
   test("個人発注者がメッセージ詳細を閲覧できる", async ({ page }) => {
     await login(
       page,
