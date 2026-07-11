@@ -322,10 +322,11 @@ export function DecisionForm({
         <div className="mx-auto flex w-full max-w-xs flex-col gap-3">
           <Button
             className="w-full rounded-pill text-body-md text-white border-primary"
-            disabled={!canSubmit || isLoading}
+            disabled={!canSubmit}
+            pending={isLoading}
             onClick={handleSubmit}
           >
-            {isLoading ? "送信中..." : "送信する"}
+            送信する
           </Button>
 
           <Button

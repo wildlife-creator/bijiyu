@@ -13,6 +13,7 @@ import {
   resolveParticipantName,
 } from "@/lib/utils/display-name";
 import { JobListCard } from "@/components/job-search/job-list-card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
 import { JobSearchFilter } from "./job-search-filter";
@@ -371,11 +372,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
         </div>
 
         {(jobs ?? []).length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <p className="text-body-md text-muted-foreground">
-              条件に一致する案件が見つかりませんでした。
-            </p>
-          </div>
+          <EmptyState>条件に一致する案件が見つかりませんでした。</EmptyState>
         )}
 
         {/* Pagination */}

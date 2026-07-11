@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import {
   ApplicationStatusBadge,
@@ -140,9 +141,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
       </div>
 
       {paginatedApplications.length === 0 && (
-        <p className="mt-8 text-center text-body-md text-muted-foreground">
-          発注履歴はありません
-        </p>
+        <EmptyState className="mt-6">発注履歴はありません</EmptyState>
       )}
 
       <div className="mt-4 space-y-4">

@@ -320,9 +320,14 @@ export default async function ClientDetailPage({ params }: PageProps) {
           <h3 className="text-body-lg font-bold text-foreground">
             発注者メッセージ
           </h3>
-          <p className="mt-2 text-body-md text-foreground whitespace-pre-wrap">
-            {profile.message}
-          </p>
+          {/* 職人詳細(CLI-006)のカードと同一スタイルに統一。
+              Figma CON-006 はグレー枠だが、アプリの現行デザイン(薄い border/10)を
+              正とする意図的な判断（2026-07-11 決定）。詳細は implementation-notes.md */}
+          <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
+            <p className="text-body-md text-foreground whitespace-pre-wrap">
+              {profile.message}
+            </p>
+          </div>
         </section>
       )}
 

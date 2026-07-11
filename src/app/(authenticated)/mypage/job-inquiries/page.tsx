@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
 import { formatDateTime } from "@/lib/utils/format-message-time";
@@ -53,9 +54,7 @@ export default async function JobInquiriesInboxPage({ searchParams }: Props) {
       </p>
 
       {(!inquiries || inquiries.length === 0) && (
-        <p className="mt-8 text-center text-body-md text-muted-foreground">
-          受信した問い合わせはありません
-        </p>
+        <EmptyState className="mt-6">受信した問い合わせはありません</EmptyState>
       )}
 
       <div className="mt-4 space-y-3">

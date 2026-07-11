@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CalendarDays, Clock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
@@ -143,11 +144,7 @@ export default async function FavoritesPage({ searchParams }: PageProps) {
         )}
 
         {targetIds.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <p className="text-body-md text-muted-foreground">
-              マイリストに登録されたものはありません。
-            </p>
-          </div>
+          <EmptyState>マイリストに登録されたものはありません。</EmptyState>
         )}
 
         {/* Pagination */}

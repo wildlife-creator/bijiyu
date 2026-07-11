@@ -128,6 +128,20 @@ export function BillingClient({
 }: BillingClientProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // 押したボタンにだけスピナーを出すためのキー。全ボタンが同じ pending を
+  // 共有するため、これが無いと処理中に全ボタンが同時にスピナー表示になる。
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+
+  function runPending(key: string, fn: () => Promise<void>) {
+    setPendingKey(key);
+    startTransition(async () => {
+      try {
+        await fn();
+      } finally {
+        setPendingKey(null);
+      }
+    });
+  }
 
   // 補償オプションの active 状態は option_subscriptions（active なレコード）
   // 単独で判定する（client_profiles のフラグカラムは廃止済み）。
@@ -178,7 +192,7 @@ export function BillingClient({
 
   function handlePlanButton(plan: PlanState) {
     if (plan.buttonAction === "checkout") {
-      startTransition(async () => {
+      runPending(`plan-${plan.planType}`, async () => {
         const result = await startCheckoutAction({
           type: "plan",
           planType: plan.planType,
@@ -206,7 +220,7 @@ export function BillingClient({
   function handleDialogConfirm() {
     if (!dialogTarget) return;
     setDialogOpen(false);
-    startTransition(async () => {
+    runPending("dialog", async () => {
       const result = await changePlanAction({ targetPlan: dialogTarget });
       if (!result.success) {
         toast.error(result.error);
@@ -229,7 +243,7 @@ export function BillingClient({
   }
 
   function handleCancelReservation() {
-    startTransition(async () => {
+    runPending("cancel-reservation", async () => {
       const result = await cancelDowngradeReservationAction();
       if (!result.success) {
         toast.error(result.error);
@@ -252,7 +266,7 @@ export function BillingClient({
 
   function handleScheduleCancelConfirm() {
     setDialogOpen(false);
-    startTransition(async () => {
+    runPending("dialog", async () => {
       const result = await scheduleCancelAction();
       if (!result.success) {
         toast.error(result.error);
@@ -271,7 +285,7 @@ export function BillingClient({
 
   function handleCancelImmediatelyConfirm() {
     setDialogOpen(false);
-    startTransition(async () => {
+    runPending("dialog", async () => {
       const result = await cancelImmediatelyAction();
       if (!result.success) {
         toast.error(result.error);
@@ -283,7 +297,7 @@ export function BillingClient({
   }
 
   function handleOpenPortal() {
-    startTransition(async () => {
+    runPending("portal", async () => {
       const result = await openCustomerPortalAction();
       if (!result.success) {
         toast.error(result.error);
@@ -304,7 +318,7 @@ export function BillingClient({
       | "video_workplace",
     jobId?: string,
   ) {
-    startTransition(async () => {
+    runPending(`opt-${optionType}`, async () => {
       const input =
         optionType === "urgent" && jobId
           ? { type: "option" as const, optionType, jobId }
@@ -334,7 +348,7 @@ export function BillingClient({
   function handleCancelCompensationConfirm() {
     if (!cancelCompId) return;
     setDialogOpen(false);
-    startTransition(async () => {
+    runPending("dialog", async () => {
       const result = await cancelCompensationAction({
         optionSubscriptionId: cancelCompId!,
       });
@@ -438,6 +452,7 @@ export function BillingClient({
                         size="sm"
                         className="rounded-full"
                         disabled={pending}
+                        pending={pendingKey === "cancel-reservation"}
                         onClick={handleCancelReservation}
                       >
                         変更をキャンセルする
@@ -454,6 +469,7 @@ export function BillingClient({
                         size="sm"
                         className="rounded-full"
                         disabled={pending}
+                        pending={pendingKey === "cancel-reservation"}
                         onClick={handleCancelReservation}
                       >
                         解約をキャンセルする
@@ -467,6 +483,7 @@ export function BillingClient({
                     variant="default"
                     className="w-full max-w-xs rounded-full text-white"
                     disabled={plan.buttonDisabled || pending}
+                    pending={pendingKey === `plan-${plan.planType}`}
                     onClick={() => handlePlanButton(plan)}
                     title={plan.disabledReason ?? undefined}
                   >
@@ -501,6 +518,7 @@ export function BillingClient({
                 variant="default"
                 className="w-full max-w-xs rounded-full text-white"
                 disabled={pending || isStaff}
+                pending={pendingKey === "opt-video"}
                 onClick={() => handleOptionCheckout("video")}
               >
                 自己PR動画掲載を申し込む
@@ -523,6 +541,7 @@ export function BillingClient({
                 variant="default"
                 className="w-full max-w-xs rounded-full text-white"
                 disabled={pending || isStaff || !isClientPlanActive}
+                pending={pendingKey === "opt-video_workplace"}
                 onClick={() => handleOptionCheckout("video_workplace")}
               >
                 職場紹介動画掲載を申し込む
@@ -564,6 +583,7 @@ export function BillingClient({
                     variant="default"
                     className="w-full max-w-xs rounded-full text-white"
                     disabled={!selectedJobId || pending || isStaff}
+                    pending={pendingKey === "opt-urgent"}
                     onClick={() =>
                       handleOptionCheckout("urgent", selectedJobId)
                     }
@@ -611,6 +631,7 @@ export function BillingClient({
                   variant="default"
                   className="w-full max-w-xs rounded-full text-white"
                   disabled={hasComp9800 || pending || isStaff}
+                  pending={pendingKey === "opt-compensation_5000"}
                   onClick={() => handleOptionCheckout("compensation_5000")}
                 >
                   補償（5,000円）を申し込む
@@ -655,6 +676,7 @@ export function BillingClient({
                   variant="default"
                   className="w-full max-w-xs rounded-full text-white"
                   disabled={hasComp5000 || pending || isStaff}
+                  pending={pendingKey === "opt-compensation_9800"}
                   onClick={() => handleOptionCheckout("compensation_9800")}
                 >
                   補償（9,800円）を申し込む
@@ -672,6 +694,7 @@ export function BillingClient({
             variant="outline"
             className="w-full max-w-xs rounded-full text-primary border-primary/50"
             disabled={pending}
+            pending={pendingKey === "portal"}
             onClick={handleOpenPortal}
           >
             お支払い情報を管理する
@@ -718,6 +741,7 @@ export function BillingClient({
                   variant="default"
                   className="rounded-full text-white"
                   disabled={pending}
+                  pending={pendingKey === "dialog"}
                   onClick={handleDialogConfirm}
                 >
                   プラン変更する
@@ -754,6 +778,7 @@ export function BillingClient({
                   variant="default"
                   className="rounded-full text-white"
                   disabled={pending}
+                  pending={pendingKey === "dialog"}
                   onClick={handleDialogConfirm}
                 >
                   プラン変更を予約する
@@ -793,6 +818,7 @@ export function BillingClient({
                   variant="destructive"
                   className="rounded-full"
                   disabled={pending}
+                  pending={pendingKey === "dialog"}
                   onClick={handleScheduleCancelConfirm}
                 >
                   解約する
@@ -841,6 +867,7 @@ export function BillingClient({
                   variant="destructive"
                   className="rounded-full"
                   disabled={pending}
+                  pending={pendingKey === "dialog"}
                   onClick={handleCancelImmediatelyConfirm}
                 >
                   解約する
@@ -867,6 +894,7 @@ export function BillingClient({
                   variant="destructive"
                   className="rounded-full"
                   disabled={pending}
+                  pending={pendingKey === "dialog"}
                   onClick={handleCancelCompensationConfirm}
                 >
                   解約する

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
@@ -337,11 +338,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
         </div>
 
         {(clients ?? []).length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <p className="text-body-md text-muted-foreground">
-              条件に一致する発注者が見つかりませんでした。
-            </p>
-          </div>
+          <EmptyState>条件に一致する発注者が見つかりませんでした。</EmptyState>
         )}
 
         {/* Pagination */}

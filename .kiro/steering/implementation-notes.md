@@ -108,3 +108,10 @@
 - **決定事項**: messages テーブルの UPDATE 操作（read_at 更新、scout_status 更新）は全て admin client で実行し、UPDATE 用 RLS ポリシーは設置しない
 - **理由**: PostgreSQL の PERMISSIVE ポリシーは OR で結合されるため、read_at 更新用ポリシーが scout_status の更新にも適用されてしまう。例: 組織スタッフが read_at 更新ポリシーを通じて scout_status を変更できてしまう
 - **対策**: UPDATE ポリシーを全て削除し、Server Action 内で権限チェック後に admin client で更新する。SELECT/INSERT のみ RLS で保護
+
+### 19. 発注者詳細(CON-006)のカード枠は職人詳細の実装デザインを正とする ✅ 対応済み（2026-07-11 決定）
+- **決定事項**: 発注者詳細(`/clients/[id]`, CON-006)のセクションカード（発注者メッセージ・職場紹介動画）の枠線・背景・角丸・余白は、職人詳細(`/users/contractors/[id]`, CLI-006)の現行カードスタイル `rounded-[8px] border border-border/10 bg-background p-4` に統一する
+- **理由**: Figma CON-006 は「発注者からのメッセージ」をグレー枠(border-border 相当)で描いているが、アプリ全体の詳細画面カードは薄い `border-border/10` で実装されており、こちらの見た目を正とする方が画面間の一貫性が保てる（発注者詳細だけ Figma に厳密準拠させると職人詳細と枠色が食い違う）
+- **対策**: 発注者メッセージをカード化し、職場紹介動画ボックスと合わせて職人詳細と同一クラスに揃えた。職人詳細側は変更しない
+- **注意**: これは Figma CON-006（グレー枠）と意図的に異なる判断。今後デザイン監査で「発注者詳細のメッセージ枠が薄い」と指摘された場合、本項の判断を根拠に維持するか、職人詳細ごとグレー枠へ変更するか（両画面同時変更）を検討すること
+- **補足（同時対応の共通 UI）**: 空状態の共通コンポーネント `EmptyState`（`src/components/shared/empty-state.tsx`）は、詳細カードとは目的が異なり「背景に浮かせない」ためあえて視認できる `border-border`（グレー）を使う。詳細カードの薄枠(border/10)と使い分けること

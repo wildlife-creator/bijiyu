@@ -180,9 +180,10 @@ export function ClientReportForm({ applicationId }: ClientReportFormProps) {
         <Button
           type="submit"
           className="w-full rounded-pill text-body-md text-white border-primary"
-          disabled={isLoading || !canSubmit}
+          disabled={!canSubmit}
+          pending={isLoading}
         >
-          {isLoading ? "送信中..." : "評価を登録する"}
+          評価を登録する
         </Button>
 
         <Button

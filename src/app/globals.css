@@ -246,6 +246,24 @@
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "palt";  /* 日本語プロポーショナル */
   }
+
+  /*
+   * 押せる要素は指カーソルに統一する。
+   * Tailwind v4 の preflight は button を cursor:default にするため、
+   * ボタン・role="button" が「押せるのか分からない」状態になっていた。
+   * disabled / aria-disabled のときは通常カーソルに戻す。
+   * ここは base レイヤーなので、個別に cursor-* ユーティリティを当てた要素は
+   * そちらが優先される（!important は使わない）。
+   */
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  button[aria-disabled="true"],
+  [role="button"][aria-disabled="true"] {
+    cursor: default;
+  }
 }
 
 @layer utilities {

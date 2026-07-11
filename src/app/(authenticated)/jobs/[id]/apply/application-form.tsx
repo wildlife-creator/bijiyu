@@ -165,7 +165,7 @@ export function ApplicationForm({ jobId, scoutMessageId }: ApplicationFormProps)
         <div className="mx-auto flex w-full max-w-xs flex-col gap-3">
           <Button
             type="submit"
-            disabled={isPending}
+            pending={isPending}
             className="w-full rounded-pill text-body-md border-primary bg-primary text-primary-foreground hover:bg-primary/90"
           >
             応募する
@@ -206,7 +206,7 @@ export function ApplicationForm({ jobId, scoutMessageId }: ApplicationFormProps)
             <Button variant="outline" onClick={() => setShowConfirm(false)}>
               キャンセル
             </Button>
-            <Button onClick={handleConfirmOk} disabled={isPending}>
+            <Button onClick={handleConfirmOk} pending={isPending}>
               OK
             </Button>
           </DialogFooter>

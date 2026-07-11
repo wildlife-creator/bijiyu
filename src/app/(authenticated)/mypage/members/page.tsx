@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
@@ -162,11 +163,11 @@ export default async function MembersListPage({ searchParams }: PageProps) {
       {/* メンバーカードリスト */}
       <div className="mt-3 space-y-3">
         {paginated.length === 0 ? (
-          <Card className="rounded-[8px] p-6 text-center text-body-md text-muted-foreground">
+          <EmptyState>
             {q
               ? "該当する担当者が見つかりません"
               : "担当者はまだ登録されていません"}
-          </Card>
+          </EmptyState>
         ) : (
           paginated.map((m) => {
             const u = m.user!;

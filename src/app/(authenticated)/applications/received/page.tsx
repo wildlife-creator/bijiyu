@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { ApplicationStatusBadge } from "@/components/shared/application-status-badge";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
@@ -132,9 +133,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
       </div>
 
       {(!applications || applications.length === 0) && (
-        <p className="mt-8 text-center text-body-md text-muted-foreground">
-          未対応の応募はありません
-        </p>
+        <EmptyState className="mt-6">未対応の応募はありません</EmptyState>
       )}
 
       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -102,6 +102,12 @@ export function JobForm({
 }: JobFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // どのボタンを押したかを保持し、そのボタンにのみスピナーを出す。
+  // （公開 / 下書き保存 / 更新 は同じ isPending を共有するため、
+  //  これが無いと全ボタンが同時にスピナー表示になってしまう）
+  const [pendingAction, setPendingAction] = useState<
+    "publish" | "draft" | "update" | null
+  >(null);
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState(initialExistingImages);
   const formRef = useRef<HTMLFormElement>(null);
@@ -175,6 +181,9 @@ export function JobForm({
   }, []);
 
   function onSubmit(data: JobFormValues) {
+    const action =
+      data.status === "draft" ? "draft" : mode === "edit" ? "update" : "publish";
+    setPendingAction(action);
     startTransition(async () => {
       try {
         const formData = new FormData();
@@ -235,6 +244,8 @@ export function JobForm({
         toast.error(
           "保存に失敗しました。通信環境をご確認のうえ再度お試しください"
         );
+      } finally {
+        setPendingAction(null);
       }
     });
   }
@@ -670,18 +681,20 @@ export function JobForm({
               type="button"
               className="w-full rounded-pill text-body-md border-primary bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={isPending}
+              pending={pendingAction === "publish"}
               onClick={handlePublish}
             >
-              {isPending ? "処理中..." : "公開する"}
+              公開する
             </Button>
             <Button
               type="button"
               variant="outline"
               className="w-full rounded-pill text-body-md border-secondary text-secondary"
               disabled={isPending}
+              pending={pendingAction === "draft"}
               onClick={handleSaveAsDraft}
             >
-              {isPending ? "処理中..." : "下書き保存"}
+              下書き保存
             </Button>
           </>
         )}
@@ -692,18 +705,20 @@ export function JobForm({
               type="button"
               className="w-full rounded-pill text-body-md border-primary bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={isPending}
+              pending={pendingAction === "publish"}
               onClick={handlePublish}
             >
-              {isPending ? "処理中..." : "公開する"}
+              公開する
             </Button>
             <Button
               type="button"
               variant="outline"
               className="w-full rounded-pill text-body-md border-secondary text-secondary"
               disabled={isPending}
+              pending={pendingAction === "draft"}
               onClick={handleSaveAsDraft}
             >
-              {isPending ? "処理中..." : "下書き保存"}
+              下書き保存
             </Button>
           </>
         )}
@@ -713,8 +728,9 @@ export function JobForm({
             type="submit"
             className="w-full rounded-pill text-body-md border-primary bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={isPending}
+            pending={pendingAction === "update"}
           >
-            {isPending ? "処理中..." : "更新する"}
+            更新する
           </Button>
         )}
 

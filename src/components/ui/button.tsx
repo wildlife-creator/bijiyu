@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Loader2 } from "lucide-react"
 import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
@@ -46,21 +47,47 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  pending = false,
+  disabled,
+  children,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    /**
+     * 処理中フラグ。true のときスピナーを前置し、ボタンを非活性にする。
+     * Server Action を呼ぶ送信系ボタンで「押した後に処理中と分からない」
+     * 誤解・連打を防ぐ。ラベル文言は変えないためアクセシブル名は不変
+     * （E2E の getByRole({ name }) セレクタを壊さない）。
+     * asChild（Slot）の場合はスピナーを注入できない（子は単一要素）ため、
+     * aria-busy / aria-disabled のみ付与する。
+     */
+    pending?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
+  const isDisabled = disabled || pending
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
       data-size={size}
+      data-pending={pending ? "true" : undefined}
+      aria-busy={pending || undefined}
+      aria-disabled={asChild && isDisabled ? true : undefined}
       className={cn(buttonVariants({ variant, size, className }))}
+      {...(asChild ? {} : { disabled: isDisabled })}
       {...props}
-    />
+    >
+      {pending && !asChild ? (
+        <>
+          <Loader2 className="animate-spin" aria-hidden="true" />
+          {children}
+        </>
+      ) : (
+        children
+      )}
+    </Comp>
   )
 }
 

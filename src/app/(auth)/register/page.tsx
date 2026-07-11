@@ -179,10 +179,10 @@ export default function RegisterPage() {
         <Button
           type="submit"
           variant="default"
-          disabled={isPending}
+          pending={isPending}
           className="h-12 w-full rounded-[47px] font-bold"
         >
-          {isPending ? "送信中..." : "同意して送信する"}
+          同意して送信する
         </Button>
       </form>
     </div>

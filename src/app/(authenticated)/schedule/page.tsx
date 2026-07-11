@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 import { BackButton } from "@/components/shared/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils/format-date";
@@ -68,9 +69,7 @@ export default async function SchedulePage() {
             })}
           </ul>
         ) : (
-          <p className="rounded-lg border border-[rgba(30,30,30,0.1)] bg-background px-4 py-6 text-center text-body-md text-muted-foreground">
-            登録された空き日程はありません。
-          </p>
+          <EmptyState>登録された空き日程はありません。</EmptyState>
         )}
       </section>
 

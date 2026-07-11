@@ -139,9 +139,10 @@ export function ContractorReportForm({
         <Button
           type="submit"
           className="w-full rounded-pill text-body-md border-primary"
-          disabled={isLoading || !operatingStatus || !ratingAgain}
+          disabled={!operatingStatus || !ratingAgain}
+          pending={isLoading}
         >
-          {isLoading ? "送信中..." : "作業報告・評価を登録する"}
+          作業報告・評価を登録する
         </Button>
 
         <Button

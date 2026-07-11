@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 import { ThreadListItem } from "@/components/messaging/thread-list-item";
 import { BackButton } from "@/components/shared/back-button";
 import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display";
@@ -181,9 +182,7 @@ export default async function MessagesPage({ searchParams }: Props) {
 
         <div className="bg-background">
           {threadItems.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              メッセージはありません
-            </div>
+            <EmptyState>メッセージはありません</EmptyState>
           ) : (
             threadItems.map((item) => (
               <ThreadListItem key={item.threadId} {...item} />
