@@ -41,6 +41,13 @@ export interface AreaListEditorProps {
   existingDeprecatedMunicipalitiesByPrefecture?: Record<string, string[]>;
   /** 「+ 県を追加」ボタンのラベル */
   addLabel?: string;
+  /**
+   * 必須フォーム向け: value が空でも初期状態で 1 行目 (空の入力行) を表示する。
+   * この行は「表示専用」で value 自体は空配列のまま。行を操作した時点で onChange
+   * により実体化する。空のまま送信した場合のバリデーションは親スキーマ
+   * (areaRowsSchema.refine(length>=1)) に委ね、現状のメッセージを温存する。
+   */
+  requireInitialRow?: boolean;
   disabled?: boolean;
   className?: string;
 }
@@ -57,10 +64,12 @@ export function AreaListEditor({
   candidateMunicipalitiesByPrefecture,
   existingDeprecatedMunicipalitiesByPrefecture,
   addLabel = "+ 県を追加",
+  requireInitialRow = false,
   disabled = false,
   className,
 }: AreaListEditorProps) {
   const handleRowChange = (index: number, next: AreaRow) => {
+    // value が空 (phantom 表示中) でも index 0 への代入で実体化する
     const newValue = value.slice();
     newValue[index] = next;
     onChange(newValue);
@@ -74,15 +83,19 @@ export function AreaListEditor({
     onChange([...value, { ...EMPTY_ROW }]);
   };
 
+  // 必須フォームで value が空のとき、表示専用の空行を 1 つ描画する (value は空のまま)。
+  const isPhantom = requireInitialRow && value.length === 0;
+  const displayRows = isPhantom ? [{ ...EMPTY_ROW }] : value;
+
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      {value.map((row, index) => {
+      {displayRows.map((row, index) => {
         // 他行で選択済みの prefecture (本行を除く)
-        const disabledPrefectures = value
+        const disabledPrefectures = displayRows
           .map((r, i) => (i !== index && r.prefecture ? r.prefecture : null))
           .filter((p): p is string => p !== null);
         return (
-          // eslint-disable-next-line react/no-array-index-key -- 並び替えなし・ID なしのため index で十分
+          // 並び替えなし・ID なしのため index を key に用いる
           <div key={index} className="flex items-start gap-2">
             <div className="flex-1">
               <AreaRowComponent
@@ -98,15 +111,18 @@ export function AreaListEditor({
                 disabled={disabled}
               />
             </div>
-            <button
-              type="button"
-              onClick={() => handleRowRemove(index)}
-              disabled={disabled}
-              aria-label={`エリア ${index + 1} を削除`}
-              className="mt-1 cursor-pointer rounded-full p-2 text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <XIcon className="size-4" />
-            </button>
+            {/* phantom 行の削除ボタンは no-op になるため非表示 */}
+            {!isPhantom && (
+              <button
+                type="button"
+                onClick={() => handleRowRemove(index)}
+                disabled={disabled}
+                aria-label={`エリア ${index + 1} を削除`}
+                className="mt-1 cursor-pointer rounded-full p-2 text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <XIcon className="size-4" />
+              </button>
+            )}
           </div>
         );
       })}

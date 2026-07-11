@@ -634,6 +634,7 @@ export function ProfileEditForm({
                 existingDeprecatedMunicipalitiesByPrefecture={
                   existingDeprecatedMunicipalitiesByPrefecture
                 }
+                requireInitialRow
                 disabled={isPending}
               />
               <FieldError message={validationErrors["availableAreas"]} />

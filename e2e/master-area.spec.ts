@@ -187,6 +187,51 @@ test.describe("master-area-multi-select Phase E: 既存データ正規化 (シ�
   });
 });
 
+test.describe("master-area: 市区町村折りたたみ UI (2026-07-11)", () => {
+  test("受注者プロフィール編集: トグルで市区町村群を開閉し、選択チップを × で解除できる", async ({
+    page,
+  }) => {
+    // 折りたたみ化: 市区町村チェック群は「市区町村を選択」トグルで開閉。選択済みは
+    // 行内チップ (× で解除) として表示される。保存は行わず UI 挙動のみ検証 (seed 保護)。
+    await login(page, TEST_CONTRACTOR.email);
+    await page.goto("/profile/edit");
+    await expect(
+      page.getByRole("heading", { name: "ユーザープロフィール編集" }),
+    ).toBeVisible();
+    await page.waitForLoadState("networkidle");
+
+    // 既存 (東京都/神奈川県/千葉県 = すべて県全域) と重複しない大阪府の行を追加する。
+    // 県全域の行はトグルを持たないため、追加後のトグルは大阪府行の 1 つだけになる。
+    await page.getByRole("button", { name: "+ 県を追加" }).click();
+    await page
+      .locator('[data-slot="select-trigger"]:has-text("都道府県を選択")')
+      .first()
+      .click();
+    await page.getByRole("option", { name: "大阪府", exact: true }).click();
+
+    // 既定は折りたたみ: 市区町村チェックボックスは未描画
+    await expect(page.getByLabel("大阪市北区", { exact: true })).toHaveCount(0);
+
+    // トグルを開くとチェック群が現れる
+    await page.getByRole("button", { name: "市区町村を選択" }).click();
+    const kitaBox = page.getByLabel("大阪市北区", { exact: true });
+    await expect(kitaBox).toBeVisible();
+
+    // チェックするとチップ (削除ボタン) が現れる
+    await kitaBox.check();
+    await expect(
+      page.getByRole("button", { name: "大阪市北区 を削除" }),
+    ).toBeVisible();
+
+    // チップの × で解除すると、チップが消えチェックも外れる
+    await page.getByRole("button", { name: "大阪市北区 を削除" }).click();
+    await expect(
+      page.getByRole("button", { name: "大阪市北区 を削除" }),
+    ).toHaveCount(0);
+    await expect(kitaBox).not.toBeChecked();
+  });
+});
+
 test.describe("master-area: 受注者プロフィール表示 (詳細画面)", () => {
   test("contractor2 のプロフィール詳細で対応エリアが新スキーマで表示される (シナリオ 1)", async ({
     page,

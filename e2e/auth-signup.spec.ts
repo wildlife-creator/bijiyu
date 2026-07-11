@@ -103,6 +103,9 @@ test.describe("AUTH-006 プロフィール入力フォーム通し (master-area-
       .first()
       .click();
     await page.getByRole("option", { name: "神奈川県", exact: true }).click();
+    // 折りたたみ UI (2026-07-11): 市区町村チェック群は「市区町村を選択」トグルで開く。
+    // 東京都行は全域 ON でトグル非表示のため、このトグルは神奈川県行の 1 つだけ。
+    await page.getByRole("button", { name: "市区町村を選択" }).click();
     await page.getByLabel("横浜市鶴見区", { exact: true }).check();
 
     // 9. パスワード (seed の暫定 password と異なる値にする。同一値だと

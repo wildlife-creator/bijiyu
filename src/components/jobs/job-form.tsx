@@ -355,6 +355,7 @@ export function JobForm({
             existingDeprecatedMunicipalitiesByPrefecture={
               existingDeprecatedMunicipalitiesByPrefecture
             }
+            requireInitialRow
           />
           {errors.areas && (
             <p className="text-body-sm text-destructive">

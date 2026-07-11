@@ -52,11 +52,9 @@ test.describe("案件掲載機能（CLI-001〜004）", () => {
     await page.getByLabel("全域").check();
 
     // Select trade types (募集職種) — MasterCombobox (multi)
-    // AreaListEditor が disabled な 市区町村 master-combobox-trigger を 1 個追加
-    // (都道府県を「東京都」に変えた後は enabled になる) するため
-    // `.first()` だと 市区町村 trigger に誤マッチする。MasterCombobox の
-    // placeholder「募集職種を検索」が trigger の accessible name になるため
-    // accessible name で一意に解決する。
+    // `.first()` では別 trigger に誤マッチしうるため、MasterCombobox の
+    // placeholder「募集職種を検索」が trigger の accessible name になることを
+    // 利用して一意に解決する。
     await page.getByRole("button", { name: "募集職種を検索" }).click();
     await page.getByRole("combobox").last().fill("大工");
     await page.getByRole("option", { name: "建築/躯体｜大工" }).first().click();

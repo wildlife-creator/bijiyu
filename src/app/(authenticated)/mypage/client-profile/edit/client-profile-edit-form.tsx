@@ -322,6 +322,7 @@ export function ClientProfileEditForm({
               existingDeprecatedMunicipalitiesByPrefecture={
                 existingDeprecatedMunicipalitiesByPrefecture
               }
+              requireInitialRow={!isSetup}
               disabled={isPending}
             />
           )}

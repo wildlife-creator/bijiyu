@@ -402,6 +402,7 @@ export function RegisterProfileForm({
             candidateMunicipalitiesByPrefecture={
               candidateMunicipalitiesByPrefecture
             }
+            requireInitialRow
           />
           {errors.availableAreas?.message && (
             <p className="text-destructive text-body-sm">

@@ -423,10 +423,9 @@ test.describe("9.3e CLI-004 案件作成 → CON-002 検索ヒット", () => {
     await page.getByLabel("全域").check();
 
     // 募集職種 (MasterCombobox multi, 2 件)
-    // AreaListEditor が disabled な 市区町村 master-combobox-trigger を 1 個追加するため、
-    // 「募集職種」セクションラベルが「募集職種 必須」となり exact マッチが効かない。
+    // 「募集職種」セクションラベルが「募集職種 必須」となり exact マッチが効かないため、
     // MasterCombobox の placeholder「募集職種を検索」が trigger の accessible name に
-    // なるため、accessible name 経由で一意に解決する（value 未選択時のみ有効）。
+    // なることを利用して一意に解決する（value 未選択時のみ有効）。
     await page.getByRole("button", { name: "募集職種を検索" }).click();
     await page.getByRole("combobox").last().fill("大工");
     await page.getByRole("option", { name: "建築/躯体｜大工" }).first().click();
