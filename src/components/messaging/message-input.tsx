@@ -1,13 +1,18 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Camera, Send, X } from "lucide-react";
+import { Camera, FileText, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { sendMessageAction } from "@/app/(authenticated)/messages/[threadId]/actions";
 import {
   uploadFilesDirect,
-  IMAGE_UPLOAD_RULE_10MB,
+  validateFileAgainstRule,
+  DOCUMENT_UPLOAD_RULE_10MB,
 } from "@/lib/storage/direct-upload";
+import {
+  convertImageForUpload,
+  ImageConvertError,
+} from "@/lib/storage/image-convert";
 import { toast } from "sonner";
 
 interface MessageInputProps {
@@ -31,21 +36,37 @@ export function MessageInput({
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("画像は10MB以下にしてください");
+    // iPhone の HEIC 写真は JPEG に変換してから扱う (他形式は素通し)
+    let file: File;
+    try {
+      file = await convertImageForUpload(selected);
+    } catch (err) {
+      toast.error(
+        err instanceof ImageConvertError
+          ? err.message
+          : "画像の読み込みに失敗しました。もう一度お試しください。",
+      );
       return;
     }
-    if (!["image/jpeg", "image/png"].includes(file.type)) {
-      toast.error("画像はJPEGまたはPNG形式のみ対応しています");
+
+    const validationError = validateFileAgainstRule(
+      file,
+      DOCUMENT_UPLOAD_RULE_10MB,
+    );
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
     setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    // PDF はプレビュー画像を作らない (下でファイル名チップを表示する)
+    setImagePreview(
+      file.type === "application/pdf" ? null : URL.createObjectURL(file),
+    );
   }
 
   function clearImage() {
@@ -80,7 +101,7 @@ export function MessageInput({
           const uploaded = await uploadFilesDirect({
             bucket: "message-attachments",
             files: [fileToUpload],
-            rule: IMAGE_UPLOAD_RULE_10MB,
+            rule: DOCUMENT_UPLOAD_RULE_10MB,
           });
           if (!uploaded.success) {
             toast.error(uploaded.error);
@@ -113,9 +134,22 @@ export function MessageInput({
 
   return (
     <div className="sticky bottom-0 border-t border-border bg-background p-3">
-      {imagePreview && (
+      {imageFile && (
         <div className="relative mb-2 inline-block">
-          <img src={imagePreview} alt="添付プレビュー" className="h-16 rounded" />
+          {imagePreview ? (
+            <img
+              src={imagePreview}
+              alt="添付プレビュー"
+              className="h-16 rounded"
+            />
+          ) : (
+            <div className="flex h-16 items-center gap-2 rounded border border-border bg-muted px-3">
+              <FileText className="h-5 w-5 text-secondary" />
+              <span className="max-w-[160px] truncate text-body-xs text-muted-foreground">
+                {imageFile.name}
+              </span>
+            </div>
+          )}
           <button
             type="button"
             onClick={clearImage}
@@ -129,9 +163,9 @@ export function MessageInput({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png"
+          accept="image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.heic,.heif"
           className="hidden"
-          onChange={handleImageSelect}
+          onChange={(e) => void handleImageSelect(e)}
         />
         <button
           type="button"

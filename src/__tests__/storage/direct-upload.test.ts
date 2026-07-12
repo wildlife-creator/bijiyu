@@ -37,6 +37,21 @@ describe("validateFileAgainstRule", () => {
     ).toBeNull();
   });
 
+  it("画像ルール: WebP を許可する", () => {
+    expect(
+      validateFileAgainstRule(
+        file("a.webp", "image/webp", 1024),
+        IMAGE_UPLOAD_RULE_10MB,
+      ),
+    ).toBeNull();
+    expect(
+      validateFileAgainstRule(
+        file("a.webp", "image/webp", 1024),
+        IMAGE_UPLOAD_RULE_5MB,
+      ),
+    ).toBeNull();
+  });
+
   it("画像ルール: PDF・GIF を拒否する", () => {
     expect(
       validateFileAgainstRule(
@@ -96,6 +111,15 @@ describe("validateFileAgainstRule", () => {
     expect(
       validateFileAgainstRule(
         file("doc.pdf", "application/pdf", 1024),
+        DOCUMENT_UPLOAD_RULE_10MB,
+      ),
+    ).toBeNull();
+  });
+
+  it("書類ルール: WebP も許可する", () => {
+    expect(
+      validateFileAgainstRule(
+        file("doc.webp", "image/webp", 1024),
         DOCUMENT_UPLOAD_RULE_10MB,
       ),
     ).toBeNull();

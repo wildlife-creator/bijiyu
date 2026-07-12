@@ -230,11 +230,29 @@ export const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 // ---------------------------------------------------------------------------
 // Image file validation
 // ---------------------------------------------------------------------------
-const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png"] as const;
-const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"] as const;
+const ALLOWED_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+] as const;
+const ALLOWED_IMAGE_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".pdf",
+] as const;
 /** direct-upload 後のストレージパス検証用 (ドット無し小文字) */
-export const JOB_IMAGE_PATH_EXTENSIONS = ["jpg", "jpeg", "png"] as const;
-const MAX_FILE_SIZE = 10_000_000; // 10MB
+export const JOB_IMAGE_PATH_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "pdf",
+] as const;
+// 他の 10MB 系画面 (メッセージ / 書類) と同じ 10MiB に揃える
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_IMAGES_PER_JOB = 10;
 
 function getFileExtension(filename: string): string {
@@ -247,13 +265,13 @@ export function validateJobImageFile(file: File): string | null {
   if (
     !(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(file.type)
   ) {
-    return "JPEGまたはPNG形式の画像のみアップロードできます";
+    return "JPEG・PNG・WebP形式の画像、またはPDFを選択してください";
   }
   const ext = getFileExtension(file.name);
   if (
     !(ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)
   ) {
-    return "JPEGまたはPNG形式の画像のみアップロードできます";
+    return "JPEG・PNG・WebP形式の画像、またはPDFを選択してください";
   }
   if (file.size > MAX_FILE_SIZE) {
     return "画像は1枚あたり10MB以下にしてください";

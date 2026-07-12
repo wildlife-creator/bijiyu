@@ -10,8 +10,8 @@ export const SUPPORT_ATTACHMENTS_BUCKET = "support-attachments";
 export const SUPPORT_ATTACHMENT_RULES = {
   maxFiles: 5,
   maxBytesPerFile: 5 * 1024 * 1024, // 5MB
-  allowedMimeTypes: ["image/jpeg", "image/png", "application/pdf"],
-  allowedExtensions: ["jpg", "jpeg", "png", "pdf"],
+  allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+  allowedExtensions: ["jpg", "jpeg", "png", "webp", "pdf"],
 } as const;
 
 export interface SupportAttachmentMeta {
@@ -41,7 +41,7 @@ export function validateSupportAttachmentMeta(
       meta.type,
     )
   ) {
-    return "添付できるのは画像（JPEG／PNG）とPDFのみです";
+    return "添付できるのは画像（JPEG・PNG・WebP）とPDFのみです";
   }
   const ext = extensionOf(meta.name);
   if (
@@ -49,13 +49,13 @@ export function validateSupportAttachmentMeta(
       ext,
     )
   ) {
-    return "添付できるのは画像（JPEG／PNG）とPDFのみです";
+    return "添付できるのは画像（JPEG・PNG・WebP）とPDFのみです";
   }
   return null;
 }
 
 const UUID_PATTERN = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
-const EXT_PATTERN = "(jpg|jpeg|png|pdf)";
+const EXT_PATTERN = "(jpg|jpeg|png|webp|pdf)";
 
 /**
  * 署名付き URL 発行時にサーバーが生成したパス形式かを検証する。

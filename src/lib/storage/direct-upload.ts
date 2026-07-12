@@ -28,9 +28,9 @@ export interface UploadRule {
 export const IMAGE_UPLOAD_RULE_10MB: UploadRule = {
   maxBytes: 10 * 1024 * 1024,
   maxBytesLabel: "10MB",
-  allowedMimeTypes: ["image/jpeg", "image/png"],
-  allowedExtensions: ["jpg", "jpeg", "png"],
-  typeErrorMessage: "JPEGまたはPNG形式の画像のみアップロードできます",
+  allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+  allowedExtensions: ["jpg", "jpeg", "png", "webp"],
+  typeErrorMessage: "JPEG・PNG・WebP形式の画像を選択してください",
 };
 
 export const IMAGE_UPLOAD_RULE_5MB: UploadRule = {
@@ -42,9 +42,9 @@ export const IMAGE_UPLOAD_RULE_5MB: UploadRule = {
 export const DOCUMENT_UPLOAD_RULE_10MB: UploadRule = {
   maxBytes: 10 * 1024 * 1024,
   maxBytesLabel: "10MB",
-  allowedMimeTypes: ["image/jpeg", "image/png", "application/pdf"],
-  allowedExtensions: ["jpg", "jpeg", "png", "pdf"],
-  typeErrorMessage: "JPEG、PNG、PDF形式のファイルをアップロードしてください",
+  allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+  allowedExtensions: ["jpg", "jpeg", "png", "webp", "pdf"],
+  typeErrorMessage: "JPEG・PNG・WebP形式の画像、またはPDFを選択してください",
 };
 
 export type DirectUploadResult =
@@ -64,6 +64,8 @@ function extensionFromMime(mime: string): string {
       return "jpg";
     case "image/png":
       return "png";
+    case "image/webp":
+      return "webp";
     case "application/pdf":
       return "pdf";
     default:

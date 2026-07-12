@@ -1,10 +1,19 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Camera, X } from "lucide-react";
+import { Camera, FileText, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { validateJobImageFile } from "@/lib/validations/job";
+import {
+  convertImageForUpload,
+  ImageConvertError,
+} from "@/lib/storage/image-convert";
+
+/** ストレージ URL が PDF かどうか (クエリを除いた末尾拡張子で判定) */
+function isPdfUrl(url: string): boolean {
+  return url.toLowerCase().split("?")[0].endsWith(".pdf");
+}
 
 interface ExistingImage {
   id: string;
@@ -33,27 +42,41 @@ export function JobImageUploader({
   const canAdd = totalCount < maxImages;
 
   const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? []);
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const rawFiles = Array.from(e.target.files ?? []);
+      e.target.value = "";
       setError(null);
+      if (rawFiles.length === 0) return;
 
-      if (existingImages.length + newFiles.length + files.length > maxImages) {
+      if (existingImages.length + newFiles.length + rawFiles.length > maxImages) {
         setError(`画像は1案件あたり最大${maxImages}枚までアップロードできます`);
-        e.target.value = "";
         return;
+      }
+
+      // iPhone の HEIC 写真は JPEG に変換してから扱う (他形式は素通し)
+      const files: File[] = [];
+      for (const f of rawFiles) {
+        try {
+          files.push(await convertImageForUpload(f));
+        } catch (err) {
+          setError(
+            err instanceof ImageConvertError
+              ? err.message
+              : "画像の読み込みに失敗しました。もう一度お試しください。",
+          );
+          return;
+        }
       }
 
       for (const file of files) {
         const validationError = validateJobImageFile(file);
         if (validationError) {
           setError(validationError);
-          e.target.value = "";
           return;
         }
       }
 
       onFilesChange([...newFiles, ...files]);
-      e.target.value = "";
     },
     [existingImages.length, newFiles, maxImages, onFilesChange]
   );
@@ -81,11 +104,23 @@ export function JobImageUploader({
         <div className="grid grid-cols-3 gap-2">
           {existingImages.map((img) => (
             <div key={img.id} className="group relative">
-              <img
-                src={img.imageUrl}
-                alt="案件画像"
-                className="aspect-square w-full rounded-lg object-cover"
-              />
+              {isPdfUrl(img.imageUrl) ? (
+                <a
+                  href={img.imageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-lg border border-border bg-muted text-secondary"
+                >
+                  <FileText className="size-8" />
+                  <span className="text-body-xs">PDFを開く</span>
+                </a>
+              ) : (
+                <img
+                  src={img.imageUrl}
+                  alt="案件画像"
+                  className="aspect-square w-full rounded-lg object-cover"
+                />
+              )}
               {onDeleteExisting && (
                 <button
                   type="button"
@@ -105,11 +140,20 @@ export function JobImageUploader({
         <div className="grid grid-cols-3 gap-2">
           {newFiles.map((file, index) => (
             <div key={`new-${index}`} className="group relative">
-              <img
-                src={URL.createObjectURL(file)}
-                alt="新規画像"
-                className="aspect-square w-full rounded-lg object-cover"
-              />
+              {file.type === "application/pdf" ? (
+                <div className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-lg border border-border bg-muted px-1 text-secondary">
+                  <FileText className="size-8" />
+                  <span className="w-full truncate text-center text-body-xs">
+                    {file.name}
+                  </span>
+                </div>
+              ) : (
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt="新規画像"
+                  className="aspect-square w-full rounded-lg object-cover"
+                />
+              )}
               <button
                 type="button"
                 onClick={() => handleRemoveNew(index)}
@@ -129,9 +173,9 @@ export function JobImageUploader({
             <span>{totalCount > 0 ? "＋追加する" : "画像を登録する"}</span>
             <input
               type="file"
-              accept="image/jpeg,image/png"
+              accept="image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.heic,.heif"
               multiple
-              onChange={handleFileSelect}
+              onChange={(e) => void handleFileSelect(e)}
               className="hidden"
             />
           </label>

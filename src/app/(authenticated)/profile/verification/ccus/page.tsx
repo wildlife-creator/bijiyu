@@ -15,6 +15,10 @@ import {
   uploadFilesDirect,
   DOCUMENT_UPLOAD_RULE_10MB,
 } from "@/lib/storage/direct-upload";
+import {
+  convertImageForUpload,
+  ImageConvertError,
+} from "@/lib/storage/image-convert";
 
 import { submitCcusAction } from "./actions";
 
@@ -29,9 +33,22 @@ export default function CcusUploadPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [ccusWorkerId, setCcusWorkerId] = useState("");
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selectedFile = event.target.files?.[0] ?? null;
-    if (!selectedFile) return;
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0] ?? null;
+    if (!selected) return;
+
+    // iPhone の HEIC 写真は JPEG に変換してから扱う (他形式は素通し)
+    let selectedFile: File;
+    try {
+      selectedFile = await convertImageForUpload(selected);
+    } catch (err) {
+      setError(
+        err instanceof ImageConvertError
+          ? err.message
+          : "画像の読み込みに失敗しました。もう一度お試しください。",
+      );
+      return;
+    }
 
     if (preview) URL.revokeObjectURL(preview);
     setFile(selectedFile);
@@ -122,9 +139,9 @@ export default function CcusUploadPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,application/pdf"
+                  accept="image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.heic,.heif"
                   className="hidden"
-                  onChange={handleFileChange}
+                  onChange={(e) => void handleFileChange(e)}
                 />
                 <Button
                   type="button"
@@ -135,6 +152,9 @@ export default function CcusUploadPage() {
                 >
                   画像を登録する
                 </Button>
+                <p className="text-body-xs text-muted-foreground">
+                  JPEG・PNG・WebP・PDF、iPhoneのHEIC写真も可／10MBまで
+                </p>
               </div>
             </CardContent>
           </Card>

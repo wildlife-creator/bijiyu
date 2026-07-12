@@ -5,7 +5,12 @@ const UUID_REGEX =
 
 const MAX_BODY_LENGTH = 5000;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png"];
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+];
 
 export const messageSchema = z.object({
   body: z
@@ -20,7 +25,7 @@ export const messageSchema = z.object({
     )
     .refine(
       (file) => ALLOWED_IMAGE_TYPES.includes(file.type),
-      "画像はJPEGまたはPNG形式のみ対応しています",
+      "JPEG・PNG・WebP形式の画像、またはPDFを選択してください",
     )
     .optional(),
 });

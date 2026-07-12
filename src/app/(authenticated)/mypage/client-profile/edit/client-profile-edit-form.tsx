@@ -35,6 +35,10 @@ import {
   validateFileAgainstRule,
   IMAGE_UPLOAD_RULE_5MB,
 } from "@/lib/storage/direct-upload";
+import {
+  convertImageForUpload,
+  ImageConvertError,
+} from "@/lib/storage/image-convert";
 
 import { saveClientProfileAction } from "../actions";
 
@@ -116,10 +120,13 @@ export function ClientProfileEditForm({
     if (!file) return;
     startUpload(async () => {
       try {
+        // iPhone の HEIC 写真は JPEG に変換してから扱う (他形式は素通し)
+        const converted = await convertImageForUpload(file);
+
         // ブラウザから Storage へ直接アップロードする (Vercel の 4.5MB 上限回避)。
         // 認可は avatars バケットの RLS (Owner 本人 or 組織 Admin) が担う
         const validationError = validateFileAgainstRule(
-          file,
+          converted,
           IMAGE_UPLOAD_RULE_5MB,
         );
         if (validationError) {
@@ -127,11 +134,16 @@ export function ClientProfileEditForm({
           return;
         }
         const supabase = createClient();
-        const ext = file.type === "image/png" ? "png" : "jpg";
+        const ext =
+          converted.type === "image/png"
+            ? "png"
+            : converted.type === "image/webp"
+              ? "webp"
+              : "jpg";
         const path = `${profileUserId}/client-profile.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("avatars")
-          .upload(path, file, { upsert: true, contentType: file.type });
+          .upload(path, converted, { upsert: true, contentType: converted.type });
         if (uploadError) {
           toast.error("画像のアップロードに失敗しました");
           return;
@@ -142,9 +154,11 @@ export function ClientProfileEditForm({
         // パスが固定のためブラウザキャッシュ対策の cache buster を付与
         setImageUrl(`${publicUrl}?t=${Date.now()}`);
         toast.success("画像をアップロードしました");
-      } catch {
+      } catch (err) {
         toast.error(
-          "画像のアップロードに失敗しました。通信環境をご確認のうえ再度お試しください",
+          err instanceof ImageConvertError
+            ? err.message
+            : "画像のアップロードに失敗しました。通信環境をご確認のうえ再度お試しください",
         );
       }
     });
@@ -226,7 +240,7 @@ export function ClientProfileEditForm({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             hidden
             onChange={handleImageChange}
           />

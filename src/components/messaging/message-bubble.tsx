@@ -1,7 +1,14 @@
+import { FileText } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { formatBubbleTime } from "@/lib/utils/format-message-time";
 import { ScoutInfoCard } from "./scout-info-card";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+
+/** 署名付き URL が PDF かどうか (クエリを除いた末尾拡張子で判定) */
+function isPdfUrl(url: string): boolean {
+  return url.toLowerCase().split("?")[0].endsWith(".pdf");
+}
 
 interface ScoutJobInfo {
   id: string;
@@ -103,13 +110,24 @@ export function MessageBubble({
                 )}
               </div>
             )}
-            {signedImageUrl && (
-              <img
-                src={signedImageUrl}
-                alt="添付画像"
-                className="mb-2 max-w-full rounded"
-              />
-            )}
+            {signedImageUrl &&
+              (isPdfUrl(signedImageUrl) ? (
+                <a
+                  href={signedImageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mb-2 flex items-center gap-2 rounded border border-border bg-muted px-3 py-2 text-secondary"
+                >
+                  <FileText className="h-5 w-5" />
+                  <span className="text-body-sm">PDFを開く</span>
+                </a>
+              ) : (
+                <img
+                  src={signedImageUrl}
+                  alt="添付画像"
+                  className="mb-2 max-w-full rounded"
+                />
+              ))}
             <p className="whitespace-pre-wrap break-words text-sm">{body}</p>
           </div>
           <div

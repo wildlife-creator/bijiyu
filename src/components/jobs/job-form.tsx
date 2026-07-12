@@ -26,7 +26,8 @@ import {
 } from "@/lib/validations/job";
 import {
   uploadFilesDirect,
-  IMAGE_UPLOAD_RULE_10MB,
+  // 案件画像は画像 + PDF (10MB) を許可するため書類用ルールを流用する
+  DOCUMENT_UPLOAD_RULE_10MB,
 } from "@/lib/storage/direct-upload";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { MasterCombobox } from "@/components/master/master-combobox";
@@ -215,7 +216,7 @@ export function JobForm({
         const uploaded = await uploadFilesDirect({
           bucket: "job-attachments",
           files: newFiles,
-          rule: IMAGE_UPLOAD_RULE_10MB,
+          rule: DOCUMENT_UPLOAD_RULE_10MB,
         });
         if (!uploaded.success) {
           toast.error(uploaded.error);
@@ -663,7 +664,7 @@ export function JobForm({
       <section className="space-y-4">
         <h2 className="text-heading-md font-bold text-secondary">画像</h2>
         <p className="text-body-sm text-muted-foreground">
-          1枚目の画像が案件一覧のサムネイルとして表示されます。最大10枚までアップロードできます。
+          1枚目の画像が案件一覧のサムネイルとして表示されます（写真を1枚目にしてください）。JPEG・PNG・WebP・PDF、iPhoneのHEIC写真も可。最大10枚まで、1枚あたり10MBまで。
         </p>
         <JobImageUploader
           existingImages={existingImages}

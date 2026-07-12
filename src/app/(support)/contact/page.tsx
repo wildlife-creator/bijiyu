@@ -29,6 +29,10 @@ import {
   SUPPORT_ATTACHMENTS_BUCKET,
 } from "@/lib/support/attachment-rules";
 import { uploadSupportFilesViaSignedUrls } from "@/lib/support/upload-client";
+import {
+  convertImageForUpload,
+  ImageConvertError,
+} from "@/lib/storage/image-convert";
 import { contactSchema, type ContactInput } from "@/lib/validations/contact";
 import { submitContactAction } from "./actions";
 
@@ -39,7 +43,8 @@ const OPTIONAL_BADGE = (
   <span className="ml-1 text-body-sm text-muted-foreground">〔任意〕</span>
 );
 
-const ACCEPT_ATTR = "image/jpeg,image/png,application/pdf";
+const ACCEPT_ATTR =
+  "image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.heic,.heif";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -70,11 +75,27 @@ export default function ContactPage() {
     },
   });
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(e.target.files ?? []);
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const rawSelected = Array.from(e.target.files ?? []);
     // 同じファイルの再選択を許可し、state とのズレを防ぐため input を空に戻す
     e.target.value = "";
-    if (selected.length === 0) return;
+    if (rawSelected.length === 0) return;
+
+    // iPhone の HEIC 写真は JPEG に変換してから扱う (他形式は素通し)。
+    // 変換後は image/jpeg になるので後段の MIME チェックをそのまま通る。
+    const selected: File[] = [];
+    for (const f of rawSelected) {
+      try {
+        selected.push(await convertImageForUpload(f));
+      } catch (err) {
+        toast.error(
+          err instanceof ImageConvertError
+            ? err.message
+            : "画像の読み込みに失敗しました。もう一度お試しください。",
+        );
+        return;
+      }
+    }
 
     // 既存の選択に追加する（名前＋サイズが同じものは重複として除く）
     const merged = [...files];
@@ -101,7 +122,7 @@ export default function ContactPage() {
           SUPPORT_ATTACHMENT_RULES.allowedMimeTypes as readonly string[]
         ).includes(f.type)
       ) {
-        toast.error("添付できるのは画像（JPEG／PNG）とPDFのみです");
+        toast.error("添付できるのは画像（JPEG・PNG・WebP）とPDFのみです");
         return;
       }
     }
@@ -326,7 +347,7 @@ export default function ContactPage() {
               aria-label="資料添付"
               data-bucket={SUPPORT_ATTACHMENTS_BUCKET}
               className="sr-only"
-              onChange={handleFileChange}
+              onChange={(e) => void handleFileChange(e)}
             />
             <Button
               type="button"
@@ -337,7 +358,7 @@ export default function ContactPage() {
               ファイルを選ぶ
             </Button>
             <p className="text-body-sm text-muted-foreground">
-              画像（JPEG／PNG）・PDF、最大5枚・各5MBまで
+              画像（JPEG・PNG・WebP）・PDF、最大5枚・各5MBまで
             </p>
             {files.length > 0 && (
               <ul className="space-y-1 pt-1">

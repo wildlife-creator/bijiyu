@@ -41,6 +41,18 @@ describe("messageSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("正常系: image がWebPファイル", () => {
+    const file = new File(["data"], "test.webp", { type: "image/webp" });
+    const result = messageSchema.safeParse({ body: "msg", image: file });
+    expect(result.success).toBe(true);
+  });
+
+  it("正常系: image がPDFファイル", () => {
+    const file = new File(["data"], "test.pdf", { type: "application/pdf" });
+    const result = messageSchema.safeParse({ body: "msg", image: file });
+    expect(result.success).toBe(true);
+  });
+
   it("異常系: image が不正形式（GIF）", () => {
     const file = new File(["data"], "test.gif", { type: "image/gif" });
     const result = messageSchema.safeParse({ body: "msg", image: file });

@@ -201,7 +201,15 @@ export async function sendMessageAction(
     // 本人フォルダ配下のパスのみ許可
     let imagePath: string | null = null;
     if (hasImage) {
-      if (!isOwnedStoragePath(rawImagePath, user.id, ["jpg", "jpeg", "png"])) {
+      if (
+        !isOwnedStoragePath(rawImagePath, user.id, [
+          "jpg",
+          "jpeg",
+          "png",
+          "webp",
+          "pdf",
+        ])
+      ) {
         return {
           success: false,
           error: "画像データが不正です。画面を再読み込みして再度お試しください",

@@ -26,10 +26,15 @@ function meta(
 }
 
 describe("validateSupportAttachmentMeta", () => {
-  it("有効な画像（JPEG/PNG）と PDF は許可する", () => {
+  it("有効な画像（JPEG/PNG/WebP）と PDF は許可する", () => {
     expect(validateSupportAttachmentMeta(meta())).toBeNull();
     expect(
       validateSupportAttachmentMeta(meta({ name: "a.jpg", type: "image/jpeg" })),
+    ).toBeNull();
+    expect(
+      validateSupportAttachmentMeta(
+        meta({ name: "a.webp", type: "image/webp" }),
+      ),
     ).toBeNull();
     expect(
       validateSupportAttachmentMeta(
@@ -67,6 +72,9 @@ describe("isValidSupportAttachmentPath", () => {
     ).toBe(true);
     expect(
       isValidSupportAttachmentPath(`contact/${VALID_UUID}.pdf`, "contact"),
+    ).toBe(true);
+    expect(
+      isValidSupportAttachmentPath(`contact/${VALID_UUID}.webp`, "contact"),
     ).toBe(true);
   });
 

@@ -45,6 +45,10 @@ import {
   IMAGE_UPLOAD_RULE_5MB,
 } from "@/lib/storage/direct-upload";
 import {
+  convertImageForUpload,
+  ImageConvertError,
+} from "@/lib/storage/image-convert";
+import {
   updateProfileAction,
   uploadAvatarAction,
 } from "@/app/(authenticated)/profile/edit/actions";
@@ -298,11 +302,14 @@ export function ProfileEditForm({
 
     startTransition(async () => {
       try {
+        // iPhone の HEIC 写真は JPEG に変換してから扱う (他形式は素通し)
+        const converted = await convertImageForUpload(file);
+
         // 画像はブラウザから Storage へ直接アップロードし、パスだけ渡す
         // (Server Action 経由の File 送信は Vercel の 4.5MB 上限で 413 になる)
         const uploaded = await uploadFilesDirect({
           bucket: "avatars",
-          files: [file],
+          files: [converted],
           rule: IMAGE_UPLOAD_RULE_5MB,
         });
         if (!uploaded.success) {
@@ -318,9 +325,11 @@ export function ProfileEditForm({
         } else if (!result.success) {
           setServerError(result.error);
         }
-      } catch {
+      } catch (err) {
         setServerError(
-          "アップロードに失敗しました。もう一度お試しください。",
+          err instanceof ImageConvertError
+            ? err.message
+            : "アップロードに失敗しました。もう一度お試しください。",
         );
       } finally {
         setAvatarUploading(false);
@@ -472,12 +481,12 @@ export function ProfileEditForm({
               {avatarUploading ? "アップロード中..." : "画像を登録する"}
             </Button>
             <p className="text-body-xs text-muted-foreground">
-              JPEG、PNG形式（5MB以下）
+              JPEG・PNG・WebP形式（5MB以下）
             </p>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
               hidden
               onChange={handleAvatarChange}
             />

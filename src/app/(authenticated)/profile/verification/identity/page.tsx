@@ -13,6 +13,10 @@ import {
   uploadFilesDirect,
   DOCUMENT_UPLOAD_RULE_10MB,
 } from "@/lib/storage/direct-upload";
+import {
+  convertImageForUpload,
+  ImageConvertError,
+} from "@/lib/storage/image-convert";
 
 import { submitIdentityAction } from "./actions";
 
@@ -29,12 +33,26 @@ export default function IdentityUploadPage() {
   const [preview1, setPreview1] = useState<string | null>(null);
   const [preview2, setPreview2] = useState<string | null>(null);
 
-  function handleFileChange(
+  async function handleFileChange(
     fileNumber: 1 | 2,
     event: React.ChangeEvent<HTMLInputElement>,
   ) {
-    const file = event.target.files?.[0] ?? null;
-    if (!file) return;
+    const selected = event.target.files?.[0] ?? null;
+    if (!selected) return;
+
+    // iPhone の HEIC 写真は JPEG に変換してから扱う (他形式は素通し)。
+    // 変換後の File でプレビュー・保存する (HEIC は変換しないと表示が崩れる)。
+    let file: File;
+    try {
+      file = await convertImageForUpload(selected);
+    } catch (err) {
+      setError(
+        err instanceof ImageConvertError
+          ? err.message
+          : "画像の読み込みに失敗しました。もう一度お試しください。",
+      );
+      return;
+    }
 
     const previewUrl = URL.createObjectURL(file);
 
@@ -128,9 +146,9 @@ export default function IdentityUploadPage() {
                 <input
                   ref={fileInput1Ref}
                   type="file"
-                  accept="image/jpeg,image/png,application/pdf"
+                  accept="image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.heic,.heif"
                   className="hidden"
-                  onChange={(e) => handleFileChange(1, e)}
+                  onChange={(e) => void handleFileChange(1, e)}
                 />
                 <Button
                   type="button"
@@ -141,6 +159,9 @@ export default function IdentityUploadPage() {
                 >
                   画像を登録する
                 </Button>
+                <p className="text-body-xs text-muted-foreground">
+                  JPEG・PNG・WebP・PDF、iPhoneのHEIC写真も可／10MBまで
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -176,9 +197,9 @@ export default function IdentityUploadPage() {
                 <input
                   ref={fileInput2Ref}
                   type="file"
-                  accept="image/jpeg,image/png,application/pdf"
+                  accept="image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.heic,.heif"
                   className="hidden"
-                  onChange={(e) => handleFileChange(2, e)}
+                  onChange={(e) => void handleFileChange(2, e)}
                 />
                 <Button
                   type="button"
@@ -189,6 +210,9 @@ export default function IdentityUploadPage() {
                 >
                   画像を登録する
                 </Button>
+                <p className="text-body-xs text-muted-foreground">
+                  JPEG・PNG・WebP・PDF、iPhoneのHEIC写真も可／10MBまで
+                </p>
               </div>
             </CardContent>
           </Card>

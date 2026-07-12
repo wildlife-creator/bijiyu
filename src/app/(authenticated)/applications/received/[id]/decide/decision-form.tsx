@@ -2,11 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera } from "lucide-react";
+import { Camera, FileText } from "lucide-react";
 import {
   uploadFilesDirect,
   DOCUMENT_UPLOAD_RULE_10MB,
 } from "@/lib/storage/direct-upload";
+import {
+  convertImageForUpload,
+  ImageConvertError,
+} from "@/lib/storage/image-convert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -31,6 +35,11 @@ import {
   acceptApplicationAction,
   rejectApplicationAction,
 } from "@/app/(authenticated)/applications/actions";
+
+/** 保存済み書類 URL が PDF かどうか (クエリを除いた末尾拡張子で判定) */
+function isPdfUrl(url: string): boolean {
+  return url.toLowerCase().split("?")[0].endsWith(".pdf");
+}
 
 interface ExistingDocument {
   id: string;
@@ -66,21 +75,36 @@ export function DecisionForm({
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files) return;
 
-    const newFiles = Array.from(files);
+    const selected = Array.from(files);
+    // Reset input so the same file can be re-selected (変換 await の前に退避)
+    e.target.value = "";
+
+    // iPhone の HEIC 写真は JPEG に変換してから扱う (他形式は素通し)
+    const newFiles: File[] = [];
+    for (const selectedFile of selected) {
+      try {
+        newFiles.push(await convertImageForUpload(selectedFile));
+      } catch (err) {
+        setError(
+          err instanceof ImageConvertError
+            ? err.message
+            : "画像の読み込みに失敗しました。もう一度お試しください。",
+        );
+        return;
+      }
+    }
+
     setUploadedFiles((prev) => [...prev, ...newFiles]);
 
-    // Generate previews
+    // Generate previews (変換後の File で作る)
     newFiles.forEach((file) => {
       const url = URL.createObjectURL(file);
       setFilePreviews((prev) => [...prev, url]);
     });
-
-    // Reset input so the same file can be re-selected
-    e.target.value = "";
   }
 
   function removeFile(index: number) {
@@ -204,11 +228,23 @@ export function DecisionForm({
                       key={doc.id}
                       className="overflow-hidden rounded-[8px] border border-border"
                     >
-                      <img
-                        src={doc.image_url}
-                        alt="業務書類"
-                        className="h-40 w-full object-contain bg-muted"
-                      />
+                      {isPdfUrl(doc.image_url) ? (
+                        <a
+                          href={doc.image_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex h-40 flex-col items-center justify-center gap-1 bg-muted text-secondary"
+                        >
+                          <FileText className="size-8" />
+                          <span className="text-body-xs">PDFを開く</span>
+                        </a>
+                      ) : (
+                        <img
+                          src={doc.image_url}
+                          alt="業務書類"
+                          className="h-40 w-full object-contain bg-muted"
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -226,11 +262,14 @@ export function DecisionForm({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,application/pdf"
+                accept="image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.heic,.heif"
                 multiple
                 className="hidden"
-                onChange={handleFileSelect}
+                onChange={(e) => void handleFileSelect(e)}
               />
+              <p className="text-body-xs text-muted-foreground">
+                JPEG・PNG・WebP・PDF、iPhoneのHEIC写真も可／10MBまで
+              </p>
 
               {/* Uploaded file previews */}
               {filePreviews.length > 0 && (
@@ -240,11 +279,20 @@ export function DecisionForm({
                       key={i}
                       className="relative overflow-hidden rounded-[8px] border border-border"
                     >
-                      <img
-                        src={preview}
-                        alt={`アップロード ${i + 1}`}
-                        className="h-40 w-full object-contain bg-muted"
-                      />
+                      {uploadedFiles[i]?.type === "application/pdf" ? (
+                        <div className="flex h-40 flex-col items-center justify-center gap-1 bg-muted text-secondary">
+                          <FileText className="size-8" />
+                          <span className="max-w-[80%] truncate text-body-xs">
+                            {uploadedFiles[i]?.name}
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={preview}
+                          alt={`アップロード ${i + 1}`}
+                          className="h-40 w-full object-contain bg-muted"
+                        />
+                      )}
                       <button
                         type="button"
                         className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-full bg-black/50 text-white text-xs"

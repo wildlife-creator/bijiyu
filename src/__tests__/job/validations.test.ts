@@ -344,31 +344,34 @@ describe("validateJobImageFile", () => {
     expect(validateJobImageFile(file)).toBeNull();
   });
 
+  it("accepts valid WebP file", () => {
+    const file = createMockFile("photo.webp", 1_000_000, "image/webp");
+    expect(validateJobImageFile(file)).toBeNull();
+  });
+
+  it("accepts PDF file", () => {
+    const file = createMockFile("doc.pdf", 1_000_000, "application/pdf");
+    expect(validateJobImageFile(file)).toBeNull();
+  });
+
   it("rejects GIF files", () => {
     const file = createMockFile("photo.gif", 1_000_000, "image/gif");
     expect(validateJobImageFile(file)).toBe(
-      "JPEGまたはPNG形式の画像のみアップロードできます"
-    );
-  });
-
-  it("rejects WebP files", () => {
-    const file = createMockFile("photo.webp", 1_000_000, "image/webp");
-    expect(validateJobImageFile(file)).toBe(
-      "JPEGまたはPNG形式の画像のみアップロードできます"
+      "JPEG・PNG・WebP形式の画像、またはPDFを選択してください"
     );
   });
 
   it("rejects file with wrong extension but correct MIME type", () => {
     const file = createMockFile("photo.gif", 1_000_000, "image/jpeg");
     expect(validateJobImageFile(file)).toBe(
-      "JPEGまたはPNG形式の画像のみアップロードできます"
+      "JPEG・PNG・WebP形式の画像、またはPDFを選択してください"
     );
   });
 
   it("rejects file exceeding 10MB", () => {
     const file = createMockFile(
       "large.jpg",
-      10_000_001,
+      10 * 1024 * 1024 + 1,
       "image/jpeg"
     );
     expect(validateJobImageFile(file)).toBe(
@@ -376,10 +379,10 @@ describe("validateJobImageFile", () => {
     );
   });
 
-  it("accepts file exactly 10MB", () => {
+  it("accepts file exactly 10MB (10MiB)", () => {
     const file = createMockFile(
       "exact.jpg",
-      10_000_000,
+      10 * 1024 * 1024,
       "image/jpeg"
     );
     expect(validateJobImageFile(file)).toBeNull();
