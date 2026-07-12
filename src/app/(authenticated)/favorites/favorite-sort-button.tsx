@@ -1,6 +1,8 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { PendingOverlay } from "@/components/shared/pending-overlay";
 
 /**
  * マイリスト（CON-007）案件表示中の締切並べ替えボタン。
@@ -10,27 +12,32 @@ import { useRouter, useSearchParams } from "next/navigation";
 export function FavoriteSortButton() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const isAsc = (searchParams.get("sort") || "asc") !== "desc";
 
   function handleSort() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("sort", isAsc ? "desc" : "asc");
     params.delete("page");
-    router.push(`/favorites?${params.toString()}`);
+    startTransition(() => router.push(`/favorites?${params.toString()}`));
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleSort}
-      className="flex shrink-0 items-center gap-1 text-body-sm text-muted-foreground"
-    >
-      <img
-        src="/images/icons/icon-sort.png"
-        alt="並び替え"
-        className="size-5"
-      />
-      <span>{isAsc ? "応募締め切りが近い順" : "応募締め切りが遠い順"}</span>
-    </button>
+    <>
+      <PendingOverlay active={isPending} />
+      <button
+        type="button"
+        onClick={handleSort}
+        disabled={isPending}
+        className="flex shrink-0 items-center gap-1 text-body-sm text-muted-foreground disabled:opacity-50"
+      >
+        <img
+          src="/images/icons/icon-sort.png"
+          alt="並び替え"
+          className="size-5"
+        />
+        <span>{isAsc ? "応募締め切りが近い順" : "応募締め切りが遠い順"}</span>
+      </button>
+    </>
   );
 }

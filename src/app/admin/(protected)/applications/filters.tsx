@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PendingOverlay } from "@/components/shared/pending-overlay";
 import {
   ADMIN_APPLICATION_CATEGORY_LABELS,
   type AdminApplicationCategory,
@@ -46,6 +47,7 @@ export function AdminApplicationFilters({
   clientId,
 }: AdminApplicationFiltersProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [keyword, setKeyword] = useState(initialKeyword);
   const [category, setCategory] = useState(initialCategory || "all");
 
@@ -60,11 +62,16 @@ export function AdminApplicationFilters({
     if (jobId) params.set("jobId", jobId);
     if (clientId) params.set("clientId", clientId);
     // 新規検索時はページを 1 に戻す（page は付けない = 既定 1）
-    router.push(`/admin/applications${params.toString() ? `?${params}` : ""}`);
+    startTransition(() =>
+      router.push(
+        `/admin/applications${params.toString() ? `?${params}` : ""}`,
+      ),
+    );
   }
 
   return (
     <div className="mt-6 space-y-4">
+      <PendingOverlay active={isPending} />
       <div>
         <label htmlFor="admin-app-keyword" className="text-body-sm font-bold">
           キーワード
@@ -111,6 +118,7 @@ export function AdminApplicationFilters({
         <Button
           type="button"
           onClick={handleSearch}
+          disabled={isPending}
           className="h-9 rounded-full bg-primary px-10 text-body-md text-white hover:bg-primary/90"
         >
           検索

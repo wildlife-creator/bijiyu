@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PendingOverlay } from "@/components/shared/pending-overlay";
 
 interface KeywordSearchFormProps {
   /** 検索結果ページの basePath（例: "/admin/contacts"） */
@@ -23,17 +24,21 @@ export function KeywordSearchForm({
   initialKeyword,
 }: KeywordSearchFormProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [keyword, setKeyword] = useState(initialKeyword);
 
   function handleSearch() {
     const params = new URLSearchParams();
     if (keyword.trim()) params.set("q", keyword.trim());
     // 新規検索時はページを 1 に戻す（page は付けない = 既定 1）
-    router.push(`${basePath}${params.toString() ? `?${params}` : ""}`);
+    startTransition(() =>
+      router.push(`${basePath}${params.toString() ? `?${params}` : ""}`),
+    );
   }
 
   return (
     <div className="mt-6 space-y-4">
+      <PendingOverlay active={isPending} />
       <div>
         <label
           htmlFor={`keyword-${basePath}`}
@@ -61,6 +66,7 @@ export function KeywordSearchForm({
         <Button
           type="button"
           onClick={handleSearch}
+          disabled={isPending}
           className="h-9 rounded-full bg-primary px-10 text-body-md text-white hover:bg-primary/90"
         >
           検索

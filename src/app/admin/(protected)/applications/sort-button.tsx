@@ -1,6 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
+
+import { PendingOverlay } from "@/components/shared/pending-overlay";
 
 /** ⇅ を押すたびに順送りする 4 種類の並び順。 */
 const SORT_CYCLE: { value: string; label: string }[] = [
@@ -18,6 +21,7 @@ const SORT_CYCLE: { value: string; label: string }[] = [
 export function AdminApplicationSortButton() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const currentValue = searchParams.get("sort") ?? "applied_desc";
   const currentIndex = Math.max(
     0,
@@ -34,22 +38,30 @@ export function AdminApplicationSortButton() {
     }
     // 並び順を変えたら 1 ページ目に戻す。
     params.delete("page");
-    router.push(`/admin/applications${params.toString() ? `?${params}` : ""}`);
+    startTransition(() =>
+      router.push(
+        `/admin/applications${params.toString() ? `?${params}` : ""}`,
+      ),
+    );
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      aria-label={`並び替え: ${SORT_CYCLE[currentIndex].label}（押すと次の順番に切り替わります）`}
-      className="flex shrink-0 items-center gap-1 text-body-sm text-muted-foreground hover:text-foreground"
-    >
+    <>
+      <PendingOverlay active={isPending} />
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isPending}
+        aria-label={`並び替え: ${SORT_CYCLE[currentIndex].label}（押すと次の順番に切り替わります）`}
+        className="flex shrink-0 items-center gap-1 text-body-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+      >
       <img
         src="/images/icons/icon-sort.png"
         alt=""
         className="size-5 shrink-0"
       />
       <span>{SORT_CYCLE[currentIndex].label}</span>
-    </button>
+      </button>
+    </>
   );
 }

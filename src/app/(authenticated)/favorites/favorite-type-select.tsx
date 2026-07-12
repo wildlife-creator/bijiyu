@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Select,
@@ -8,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PendingOverlay } from "@/components/shared/pending-overlay";
 
 /**
  * マイリスト（CON-007）の種類切り替えプルダウン。
@@ -28,6 +30,7 @@ interface FavoriteTypeSelectProps {
 export function FavoriteTypeSelect({ options, value }: FavoriteTypeSelectProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   function handleChange(next: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -35,11 +38,13 @@ export function FavoriteTypeSelect({ options, value }: FavoriteTypeSelectProps) 
     // 種類を変えたらページと並べ替え（案件専用）はリセット
     params.delete("page");
     params.delete("sort");
-    router.push(`/favorites?${params.toString()}`);
+    startTransition(() => router.push(`/favorites?${params.toString()}`));
   }
 
   return (
-    <Select value={value} onValueChange={handleChange}>
+    <>
+      <PendingOverlay active={isPending} />
+      <Select value={value} onValueChange={handleChange} disabled={isPending}>
       <SelectTrigger className="h-10 w-40 bg-background text-sm">
         <SelectValue />
       </SelectTrigger>
@@ -50,6 +55,7 @@ export function FavoriteTypeSelect({ options, value }: FavoriteTypeSelectProps) 
           </SelectItem>
         ))}
       </SelectContent>
-    </Select>
+      </Select>
+    </>
   );
 }

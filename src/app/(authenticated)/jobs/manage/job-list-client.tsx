@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobThumbnail } from "@/components/job-search/job-thumbnail";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PendingOverlay } from "@/components/shared/pending-overlay";
 import {
   Select,
   SelectContent,
@@ -89,6 +91,7 @@ export function JobListClient({
 }: JobListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   function handleStatusChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -98,7 +101,7 @@ export function JobListClient({
       params.set("status", value);
     }
     params.delete("page");
-    router.push(`/jobs/manage?${params.toString()}`);
+    startTransition(() => router.push(`/jobs/manage?${params.toString()}`));
   }
 
   function handlePageChange(page: number) {
@@ -108,18 +111,19 @@ export function JobListClient({
     } else {
       params.set("page", String(page));
     }
-    router.push(`/jobs/manage?${params.toString()}`);
+    startTransition(() => router.push(`/jobs/manage?${params.toString()}`));
   }
 
   return (
     <>
+      <PendingOverlay active={isPending} />
       {/* Filter row */}
       <div className="mt-6 flex items-center justify-between">
         <span className="text-body-md text-foreground">
           全{totalCount}件
         </span>
         <div className="flex items-center gap-2">
-          <Select value={statusFilter} onValueChange={handleStatusChange}>
+          <Select value={statusFilter} onValueChange={handleStatusChange} disabled={isPending}>
             <SelectTrigger className="w-[120px] rounded-lg">
               <SelectValue placeholder="ステータス" />
             </SelectTrigger>
@@ -231,7 +235,7 @@ export function JobListClient({
             variant="outline"
             size="sm"
             className="rounded-[33px]"
-            disabled={currentPage <= 1}
+            disabled={currentPage <= 1 || isPending}
             onClick={() => handlePageChange(currentPage - 1)}
           >
             前へ
@@ -243,7 +247,7 @@ export function JobListClient({
             variant="outline"
             size="sm"
             className="rounded-[33px]"
-            disabled={currentPage >= totalPages}
+            disabled={currentPage >= totalPages || isPending}
             onClick={() => handlePageChange(currentPage + 1)}
           >
             次へ

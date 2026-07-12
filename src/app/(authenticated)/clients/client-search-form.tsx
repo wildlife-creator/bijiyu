@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import {
   SearchFilterSheet,
-  useSheetClose,
+  useSheetContext,
 } from "@/components/job-search/search-filter-sheet";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { SearchAreaPicker } from "@/components/area/search-area-picker";
@@ -46,9 +46,8 @@ function ClientSearchFormContent({
   activeTradeTypes,
   candidateMunicipalitiesByPrefecture,
 }: ClientSearchFormProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const closeSheet = useSheetClose();
+  const sheet = useSheetContext();
 
   const [keyword, setKeyword] = useState(searchParams.get("q") ?? "");
   const [areaValue, setAreaValue] = useState<AreaRow>({
@@ -82,8 +81,8 @@ function ClientSearchFormContent({
     if (workingWay && workingWay !== ALL) params.set("workingWay", workingWay);
     if (language && language !== ALL) params.set("language", language);
     params.set("page", "1");
-    closeSheet?.();
-    router.push(`/clients?${params.toString()}`);
+    sheet?.close();
+    sheet?.navigate(`/clients?${params.toString()}`);
   }
 
   return (
@@ -186,6 +185,7 @@ function ClientSearchFormContent({
 
       <Button
         onClick={handleSearch}
+        disabled={sheet?.isPending}
         className="w-full rounded-[47px] bg-primary text-primary-foreground hover:bg-primary/90"
       >
         検索する

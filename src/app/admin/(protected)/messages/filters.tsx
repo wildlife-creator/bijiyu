@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 
 import {
   Select,
@@ -9,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PendingOverlay } from "@/components/shared/pending-overlay";
 import type { ProxyOrgOption } from "@/lib/admin/proxy-threads";
 
 interface ProxyThreadFiltersProps {
@@ -27,19 +29,24 @@ export function ProxyThreadFilters({
   options,
 }: ProxyThreadFiltersProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   function handleChange(value: string) {
     const params = new URLSearchParams();
     if (value !== "all") params.set("organizationId", value);
-    router.push(`/admin/messages${params.toString() ? `?${params}` : ""}`);
+    startTransition(() =>
+      router.push(`/admin/messages${params.toString() ? `?${params}` : ""}`),
+    );
   }
 
   return (
     <div className="mt-6">
+      <PendingOverlay active={isPending} />
       <label className="text-body-sm font-bold">会社で絞り込み</label>
       <Select
         value={initialOrganizationId || "all"}
         onValueChange={handleChange}
+        disabled={isPending}
       >
         <SelectTrigger className="mt-1 w-full bg-background">
           <SelectValue placeholder="すべての会社" />

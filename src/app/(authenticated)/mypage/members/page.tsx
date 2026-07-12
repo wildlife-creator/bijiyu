@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
+import { MembersSearchForm } from "./members-search-form";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { ChevronRight } from "lucide-react";
@@ -129,32 +129,8 @@ export default async function MembersListPage({ searchParams }: PageProps) {
         担当者一覧
       </h1>
 
-      {/* キーワード検索（form GET） */}
-      <form method="get" className="mt-6 space-y-3">
-        <div>
-          <label
-            htmlFor="q"
-            className="text-body-sm font-medium text-foreground"
-          >
-            キーワード
-          </label>
-          <Input
-            id="q"
-            name="q"
-            defaultValue={q}
-            placeholder="氏名・メールで検索"
-            className="mt-1 bg-background"
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            className="rounded-pill bg-primary px-8 text-white hover:bg-primary/90"
-          >
-            検索
-          </Button>
-        </div>
-      </form>
+      {/* キーワード検索（CLI-022） */}
+      <MembersSearchForm initialKeyword={q} />
 
       <p className="mt-4 text-body-sm text-muted-foreground">
         検索結果: {totalCount}件
