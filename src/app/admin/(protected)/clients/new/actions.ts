@@ -10,15 +10,7 @@ import { sendEmail } from "@/lib/email/send-email";
 import { adminClientInvitedControlEmail } from "@/lib/email/templates/admin-client-invited-control";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/lib/types/action-result";
-
-function formatJapaneseDateTime(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
-}
+import { formatDateTime } from "@/lib/utils/format-date";
 
 const clientInviteSchema = z.object({
   companyName: z
@@ -170,7 +162,7 @@ export async function createClientInviteAction(
         memberName,
         companyName: input.companyName,
         memberEmail: input.email,
-        invitedAt: formatJapaneseDateTime(new Date()),
+        invitedAt: formatDateTime(new Date().toISOString()),
       });
       await sendEmail({ to: adminRow.email, subject, html });
     }

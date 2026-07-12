@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDateTime, getJstToday } from "@/lib/utils/format-date";
+import {
+  formatDateJst,
+  formatDateTime,
+  getJstToday,
+} from "@/lib/utils/format-date";
 
 describe("formatDateTime", () => {
   it("UTC 入力を Asia/Tokyo に変換して YYYY/MM/DD HH:mm 形式で返す（9時間ズレない）", () => {
@@ -35,6 +39,34 @@ describe("formatDateTime", () => {
 
   it("カスタム fallback を指定できる", () => {
     expect(formatDateTime(null, "未設定")).toBe("未設定");
+  });
+});
+
+describe("formatDateJst", () => {
+  it("UTC 入力を Asia/Tokyo に変換して YYYY/MM/DD 形式で返す", () => {
+    // UTC 03:00 = JST 12:00（同日）
+    expect(formatDateJst("2026-06-01T03:00:00Z")).toBe("2026/06/01");
+  });
+
+  it("UTC 深夜（JST では翌日）でも JST の暦日になる（1日ズレない）", () => {
+    // UTC 2026-06-10 20:00 = JST 2026-06-11 05:00
+    expect(formatDateJst("2026-06-10T20:00:00Z")).toBe("2026/06/11");
+  });
+
+  it("JST 日付境界（UTC 15:00 = JST 0:00）で日付が切り替わる", () => {
+    expect(formatDateJst("2026-06-12T14:59:59Z")).toBe("2026/06/12");
+    expect(formatDateJst("2026-06-12T15:00:00Z")).toBe("2026/06/13");
+  });
+
+  it("null / undefined / 空文字 / 不正な文字列は fallback（既定 —）を返す", () => {
+    expect(formatDateJst(null)).toBe("—");
+    expect(formatDateJst(undefined)).toBe("—");
+    expect(formatDateJst("")).toBe("—");
+    expect(formatDateJst("not-a-date")).toBe("—");
+  });
+
+  it("カスタム fallback を指定できる", () => {
+    expect(formatDateJst(null, "未設定")).toBe("未設定");
   });
 });
 

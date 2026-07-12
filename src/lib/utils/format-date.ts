@@ -47,6 +47,29 @@ export function formatDateTime(
 }
 
 /**
+ * Format an ISO datetime string to "YYYY/MM/DD" in Asia/Tokyo.
+ * 時刻付き ISO（timestamptz / new Date().toISOString() 等）を JST の暦日に変換する。
+ * 本番サーバーは UTC のため、明示しないと日付境界で最大 1 日ズレる。
+ * 純粋な "YYYY-MM-DD"（時刻を持たない暦日）文字列にはこの関数を使わないこと
+ * （タイムゾーン変換で日付がズレるため。その用途は formatDate を使う）。
+ * Returns fallback ("—") when the input is null/undefined/invalid.
+ */
+export function formatDateJst(
+  iso: string | null | undefined,
+  fallback = "—"
+): string {
+  if (!iso) return fallback;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+/**
  * "YYYY-MM-DD" に日数を加算して "YYYY-MM-DD" で返す。
  * date 型カラム（時刻・タイムゾーンを持たない暦日）の境界計算に使う純粋関数。
  * UTC 基準で計算するため実行環境のタイムゾーンに依存せず、月またぎも正しく処理する

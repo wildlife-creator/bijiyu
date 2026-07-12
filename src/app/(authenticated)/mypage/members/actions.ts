@@ -17,6 +17,7 @@ import {
   type MemberUpdateInput,
 } from "@/lib/validations/member";
 import { sendEmail } from "@/lib/email/send-email";
+import { formatDateTime } from "@/lib/utils/format-date";
 import { emailChangedByAdminEmail } from "@/lib/email/templates/email-changed-by-admin";
 import { emailChangedByAdminControlEmail } from "@/lib/email/templates/email-changed-by-admin-control";
 import { memberInvitedControlEmail } from "@/lib/email/templates/member-invited-control";
@@ -216,7 +217,7 @@ export async function createMemberAction(
     const invitedByName =
       `${actorRes.data?.last_name ?? ""}${actorRes.data?.first_name ?? ""}`.trim() ||
       "管理者";
-    const invitedAt = formatJapaneseDateTime(new Date());
+    const invitedAt = formatDateTime(new Date().toISOString());
 
     const { data: invited, error: inviteError } =
       await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
@@ -438,7 +439,7 @@ async function sendProxyAssignedBundle(params: {
     const actorName =
       `${actorRes.data?.last_name ?? ""}${actorRes.data?.first_name ?? ""}`.trim() ||
       "管理者";
-    const assignedAt = formatJapaneseDateTime(new Date());
+    const assignedAt = formatDateTime(new Date().toISOString());
 
     const tasks: Promise<unknown>[] = [];
 
@@ -473,15 +474,6 @@ async function sendProxyAssignedBundle(params: {
   }
 }
 
-function formatJapaneseDateTime(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
-}
-
 // ---------------------------------------------------------------------------
 // Helper: §5.2.A 担当者招待 control broadcast
 // 通常 staff 招待時のみ呼ばれる。組織の Owner + admin (操作者含む) 全員に
@@ -513,7 +505,7 @@ async function sendMemberInvitedControl(params: {
       `${actorRow?.last_name ?? ""}${actorRow?.first_name ?? ""}`.trim() ||
       "管理者";
 
-    const invitedAt = formatJapaneseDateTime(new Date());
+    const invitedAt = formatDateTime(new Date().toISOString());
 
     await Promise.all(
       recipients.map((r) => {
@@ -592,7 +584,7 @@ async function sendMemberRemoved(params: {
     const actorName =
       `${actorRes.data?.last_name ?? ""}${actorRes.data?.first_name ?? ""}`.trim() ||
       "管理者";
-    const removedAt = formatJapaneseDateTime(new Date());
+    const removedAt = formatDateTime(new Date().toISOString());
 
     const tasks: Promise<unknown>[] = [];
 
@@ -693,7 +685,7 @@ async function sendMemberRoleChanged(params: {
     const actorName =
       `${actorRes.data?.last_name ?? ""}${actorRes.data?.first_name ?? ""}`.trim() ||
       "管理者";
-    const changedAt = formatJapaneseDateTime(new Date());
+    const changedAt = formatDateTime(new Date().toISOString());
 
     const tasks: Promise<unknown>[] = [];
 
@@ -773,7 +765,7 @@ async function sendEmailChangedByAdminControl(params: {
       `${actorRow?.last_name ?? ""}${actorRow?.first_name ?? ""}`.trim() ||
       "管理者";
 
-    const changedAt = formatJapaneseDateTime(new Date());
+    const changedAt = formatDateTime(new Date().toISOString());
 
     await Promise.all(
       recipients.map((r) => {

@@ -20,6 +20,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
 import type { Database } from "@/types/database";
+import { formatDateJst } from "@/lib/utils/format-date";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -285,17 +286,6 @@ async function sendSubscriptionChangedEmail(
       { userId, eventType: params.eventType, err },
     );
   }
-}
-
-/** ISO 日時を YYYY/MM/DD 形式に整形するローカルヘルパー。null 時は "—"。 */
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}/${mm}/${dd}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -582,7 +572,7 @@ export async function scheduleCancelAction(): Promise<ActionResult> {
   // Server Action 側で「【ビジ友】解約をご予約いただきました」メールを同期送信する。
   await sendSubscriptionChangedEmail(admin, subscription.user_id, {
     eventType: "cancel-reserved",
-    endDate: formatDate(subscription.current_period_end),
+    endDate: formatDateJst(subscription.current_period_end),
   });
 
   return { success: true };

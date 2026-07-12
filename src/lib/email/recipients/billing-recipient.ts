@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
+import { formatDateJst, formatDateTime } from "@/lib/utils/format-date";
 
 /**
  * §6 系課金メールの受信者解決ヘルパー。
@@ -31,26 +32,19 @@ export async function fetchBillingRecipient(
   return { email: result.data.email, name };
 }
 
-/** YYYY/MM/DD 形式。ISO 文字列を受け取り「—」を null フォールバックに使う。 */
+/**
+ * YYYY/MM/DD 形式（Asia/Tokyo）。ISO 文字列を受け取り「—」を null フォールバックに使う。
+ * 時刻付き ISO（timestamptz / new Date().toISOString()）を JST の暦日に変換する。
+ * TZ を明示しないと本番（UTC サーバー）で日付が最大 1 日ズレるため、共通ヘルパーに委譲する。
+ */
 export function formatBillingDate(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}/${mm}/${dd}`;
+  return formatDateJst(iso);
 }
 
-/** YYYY/MM/DD HH:MM 形式。OPS 通知の【申込日時】で使用（分単位）。 */
+/**
+ * YYYY/MM/DD HH:MM 形式（Asia/Tokyo）。OPS 通知の【申込日時】で使用（分単位）。
+ * TZ を明示しないと本番（UTC サーバー）で 9 時間ズレるため、共通ヘルパーに委譲する。
+ */
 export function formatBillingDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${yyyy}/${mm}/${dd} ${hh}:${min}`;
+  return formatDateTime(iso);
 }

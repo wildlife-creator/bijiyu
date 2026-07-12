@@ -26,7 +26,7 @@ const EMPTY_DRAFT: InviteDraft = {
 /**
  * ADM-006（入力）/ ADM-007（確認）: 管理責任者 新規作成フォーム。
  * 1ルート内で「入力 → 確認」を useState の段階的表示で実装する（標準パターン）。
- * 「作成する」のみ type="submit"、「修正する」「もどる」は type="button"。
+ * 「招待メールを送信する」のみ type="submit"、「修正する」「もどる」は type="button"。
  */
 export function ClientInviteForm() {
   const [step, setStep] = useState<"input" | "confirm">("input");
@@ -86,7 +86,7 @@ export function ClientInviteForm() {
           <ConfirmRow label="メールアドレス" value={draft.email} />
         </div>
         <p className="mt-4 text-body-sm text-muted-foreground">
-          「作成する」を押すと、上記メールアドレスへ招待メールが送信されます。
+          「招待メールを送信する」を押すと、上記メールアドレスへ招待メールが送信されます。
           プランの選択と決済は招待された本人が行います。
         </p>
         <div className="mt-8 flex flex-col items-center gap-3">
@@ -95,7 +95,7 @@ export function ClientInviteForm() {
             disabled={isPending}
             className="h-12 w-full max-w-xs rounded-full bg-primary font-bold text-white hover:bg-primary/90"
           >
-            {isPending ? "作成中..." : "作成する"}
+            {isPending ? "送信中..." : "招待メールを送信する"}
           </Button>
           <Button
             type="button"
