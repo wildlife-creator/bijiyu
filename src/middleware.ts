@@ -182,6 +182,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // AUTH-001 サインアップ確認リンク（implicit flow）の着地点。
+  // Supabase Auth が `#access_token=...&refresh_token=...` を URL フラグメントで
+  // 渡し、client 側の setSession で「新しく登録したアカウント」のセッションを確立する。
+  // フラグメントはサーバーに届かないため、middleware はトークンの有無を判定できない。
+  // よって別アカウントでログイン中でも、role を問わず（admin 含む）必ずレンダリング
+  // させる必要がある。ここを通さないと「別アカウントでログイン中に確認リンクを踏むと
+  // 前アカウントのマイページ / 管理画面へ転送され、新規登録が完了せず再送もできない」
+  // 詰みが発生する。/accept-invite/confirm・/reset-password/confirm と同性質の例外。
+  if (pathname === "/register/verify") {
+    return NextResponse.next();
+  }
+
   // /mypage/organization-setup は organization spec Task 6.1 で廃止済み。
   // 旧 URL を直接踏まれた場合は CLI-021 setup モードに 308 リダイレクト
   if (pathname === "/mypage/organization-setup") {

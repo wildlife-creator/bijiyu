@@ -41,6 +41,14 @@ function getRoutingResult(
     return { allowed: true };
   }
 
+  // AUTH-001 サインアップ確認リンク（/register/verify, implicit flow）は
+  // URL フラグメントのトークンを client 側 setSession で処理し、別アカウントの
+  // セッションを確立する着地点。別アカウントでログイン中でも role を問わず必ず
+  // レンダリングさせる（本体 middleware の先頭ゲートと同順）。
+  if (pathname === "/register/verify") {
+    return { allowed: true };
+  }
+
   // Unauthenticated routing
   if (!isAuthenticated) {
     if (isAuthPage(pathname) || isPublicPage(pathname)) {
@@ -311,6 +319,40 @@ describe("authenticated admin routing", () => {
     const result = getRoutingResult(role, "/jobs", true);
     expect(result.allowed).toBe(false);
     expect(result.redirectTo).toBe("/admin/dashboard");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AUTH-001 サインアップ確認リンク /register/verify
+// ---------------------------------------------------------------------------
+// 2026-07-12 回帰防止: 別アカウントでログイン中に新規アカウントの確認メールリンク
+// （/register/verify）を踏むと、前アカウントのマイページ / 管理画面へ転送されて
+// 新規登録が完了できず、しかもリンクは消費済みで再送も効かず詰む不具合の修正。
+// このページは role・認証状態を問わず常に素通しされねばならない。
+describe("signup verify link /register/verify is always allowed", () => {
+  it("allows unauthenticated access (normal first-click)", () => {
+    const result = getRoutingResult("contractor", "/register/verify", false);
+    expect(result.allowed).toBe(true);
+  });
+
+  it("allows while logged in as another contractor (multi-account trap)", () => {
+    const result = getRoutingResult("contractor", "/register/verify", true);
+    expect(result.allowed).toBe(true);
+  });
+
+  it("allows while logged in as a client", () => {
+    const result = getRoutingResult("client", "/register/verify", true);
+    expect(result.allowed).toBe(true);
+  });
+
+  it("allows while logged in as staff", () => {
+    const result = getRoutingResult("staff", "/register/verify", true);
+    expect(result.allowed).toBe(true);
+  });
+
+  it("allows even while logged in as admin (not bounced to /admin/dashboard)", () => {
+    const result = getRoutingResult("admin", "/register/verify", true);
+    expect(result.allowed).toBe(true);
   });
 });
 
