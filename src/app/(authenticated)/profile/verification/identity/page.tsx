@@ -51,7 +51,7 @@ export default function IdentityUploadPage() {
 
   function handleSubmit() {
     if (!file1 || !file2) {
-      setError("書類と顔写真の両方を選択してください");
+      setError("本人確認書類とご本人の顔写真の両方を選択してください");
       return;
     }
 
@@ -106,7 +106,7 @@ export default function IdentityUploadPage() {
       <div className="mt-8 space-y-8">
         {/* Document upload */}
         <section className="space-y-4">
-          <h2 className="text-heading-sm font-bold text-foreground">書類</h2>
+          <h2 className="text-heading-sm font-bold text-foreground">本人確認書類</h2>
           <Card>
             <CardContent>
               <div className="flex flex-col items-center gap-4">
@@ -151,7 +151,10 @@ export default function IdentityUploadPage() {
 
         {/* Face photo upload */}
         <section className="space-y-4">
-          <h2 className="text-heading-sm font-bold text-foreground">顔写真</h2>
+          <h2 className="text-heading-sm font-bold text-foreground">ご本人の顔写真</h2>
+          <p className="text-body-sm text-muted-foreground">
+            ご本人さまであることを確認するため、本人確認書類とは別に、現在のお顔がわかる写真をご提出ください。
+          </p>
           <Card>
             <CardContent>
               <div className="flex flex-col items-center gap-4">

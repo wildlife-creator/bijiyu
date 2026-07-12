@@ -32,10 +32,10 @@ export async function submitIdentityAction(
   const path2 = input.document2Path;
 
   if (!path1 || !isOwnedStoragePath(path1, user.id, DOCUMENT_PATH_EXTENSIONS)) {
-    return { success: false, error: "書類を選択してください" };
+    return { success: false, error: "本人確認書類を選択してください" };
   }
   if (!path2 || !isOwnedStoragePath(path2, user.id, DOCUMENT_PATH_EXTENSIONS)) {
-    return { success: false, error: "顔写真を選択してください" };
+    return { success: false, error: "ご本人の顔写真を選択してください" };
   }
 
   // 3. Check no pending identity verification exists

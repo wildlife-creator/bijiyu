@@ -204,10 +204,10 @@ test.describe("本人確認書類（COM-003〜004）", () => {
       page.getByRole("heading", { name: "本人確認", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "書類" }),
+      page.getByRole("heading", { name: "本人確認書類" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "顔写真" }),
+      page.getByRole("heading", { name: "ご本人の顔写真" }),
     ).toBeVisible();
   });
 });
