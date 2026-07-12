@@ -5,6 +5,11 @@
  * そのまま流用してページ側に送信フォームを追加する（分離の意図）。
  */
 
+import { FileText } from "lucide-react";
+
+import { ImageLightbox } from "@/components/shared/image-lightbox";
+import { isPdfUrl } from "@/lib/utils/is-pdf-url";
+
 export interface ProxyMessageItem {
   id: string;
   body: string;
@@ -65,15 +70,32 @@ export function ProxyMessageList({
                 {m.body}
               </p>
             )}
-            {m.signedImageUrl && (
-              <img
-                src={m.signedImageUrl}
-                alt="添付画像"
-                className={`max-h-60 rounded-[8px] object-contain ${
-                  m.body ? "mt-2" : ""
-                }`}
-              />
-            )}
+            {m.signedImageUrl &&
+              (isPdfUrl(m.signedImageUrl) ? (
+                <a
+                  href={m.signedImageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center gap-2 rounded border border-border bg-muted px-3 py-2 text-secondary ${
+                    m.body ? "mt-2" : ""
+                  }`}
+                >
+                  <FileText className="h-5 w-5" />
+                  <span className="text-body-sm">PDFを開く</span>
+                </a>
+              ) : (
+                <ImageLightbox
+                  src={m.signedImageUrl}
+                  alt="添付画像"
+                  className={`inline-block ${m.body ? "mt-2" : ""}`}
+                >
+                  <img
+                    src={m.signedImageUrl}
+                    alt="添付画像"
+                    className="max-h-60 rounded-[8px] object-contain"
+                  />
+                </ImageLightbox>
+              ))}
           </div>
           <p className="mt-1 text-body-sm text-muted-foreground">
             {m.createdAt}

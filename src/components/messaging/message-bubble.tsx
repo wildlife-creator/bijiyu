@@ -1,6 +1,7 @@
 import { FileText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { formatBubbleTime } from "@/lib/utils/format-message-time";
 import { ScoutInfoCard } from "./scout-info-card";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
@@ -122,11 +123,17 @@ export function MessageBubble({
                   <span className="text-body-sm">PDFを開く</span>
                 </a>
               ) : (
-                <img
+                <ImageLightbox
                   src={signedImageUrl}
                   alt="添付画像"
-                  className="mb-2 max-w-full rounded"
-                />
+                  className="mb-2 inline-block"
+                >
+                  <img
+                    src={signedImageUrl}
+                    alt="添付画像"
+                    className="max-w-full rounded"
+                  />
+                </ImageLightbox>
               ))}
             <p className="whitespace-pre-wrap break-words text-sm">{body}</p>
           </div>

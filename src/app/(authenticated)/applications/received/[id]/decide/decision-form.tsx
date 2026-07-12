@@ -11,6 +11,7 @@ import {
   convertImageForUpload,
   ImageConvertError,
 } from "@/lib/storage/image-convert";
+import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -239,11 +240,17 @@ export function DecisionForm({
                           <span className="text-body-xs">PDFを開く</span>
                         </a>
                       ) : (
-                        <img
+                        <ImageLightbox
                           src={doc.image_url}
                           alt="業務書類"
-                          className="h-40 w-full object-contain bg-muted"
-                        />
+                          className="block w-full"
+                        >
+                          <img
+                            src={doc.image_url}
+                            alt="業務書類"
+                            className="h-40 w-full object-contain bg-muted"
+                          />
+                        </ImageLightbox>
                       )}
                     </div>
                   ))}

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AreaList } from "@/components/area/area-list";
 import { CollapsibleList } from "@/components/master/collapsible-list";
-import { SafeImage } from "@/components/job-search/safe-image";
+import { ZoomableImage } from "@/components/job-search/zoomable-image";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -217,11 +217,12 @@ export default async function AdminJobDetailPage({
           <h3 className="text-body-lg font-bold text-foreground">添付画像</h3>
           <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
             {(images ?? []).map((img) => (
-              <SafeImage
+              <ZoomableImage
                 key={img.id}
                 src={img.image_url}
                 alt="案件画像"
-                className="aspect-square w-full rounded-lg object-cover"
+                fit="cover"
+                frameClassName="aspect-square w-full rounded-lg bg-muted"
               />
             ))}
           </div>

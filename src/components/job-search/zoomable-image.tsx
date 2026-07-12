@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { FileText } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+
+import { cn } from "@/lib/utils";
+import { ImageLightbox } from "@/components/shared/image-lightbox";
+import { isPdfUrl } from "@/lib/utils/is-pdf-url";
 
 interface ZoomableImageProps {
   src: string;
@@ -15,11 +14,6 @@ interface ZoomableImageProps {
   frameClassName?: string;
   /** 枠内の画像の object-fit。ヒーロー = contain、サムネ = cover */
   fit?: "cover" | "contain";
-}
-
-/** ストレージ URL が PDF かどうか (クエリを除いた末尾拡張子で判定) */
-function isPdfUrl(url: string): boolean {
-  return url.toLowerCase().split("?")[0].endsWith(".pdf");
 }
 
 /**
@@ -35,7 +29,6 @@ export function ZoomableImage({
   fit = "cover",
 }: ZoomableImageProps) {
   const [hasError, setHasError] = useState(false);
-  const [open, setOpen] = useState(false);
 
   // PDF は <img> で表示できないため、アイコン + リンクで表示する (ズーム不可)
   if (isPdfUrl(src)) {
@@ -69,31 +62,17 @@ export function ZoomableImage({
   const fitClass = fit === "contain" ? "object-contain" : "object-cover";
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="画像を拡大表示"
-        className={`block cursor-zoom-in overflow-hidden ${frameClassName ?? ""}`}
-      >
-        <img
-          src={src}
-          alt={alt}
-          className={`h-full w-full ${fitClass}`}
-          onError={() => setHasError(true)}
-        />
-      </button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-auto max-w-[95vw] border-0 bg-transparent p-0 ring-0 sm:max-w-4xl">
-          <DialogTitle className="sr-only">画像プレビュー</DialogTitle>
-          <img
-            src={src}
-            alt={alt}
-            className="mx-auto max-h-[85vh] w-auto rounded-lg object-contain"
-          />
-        </DialogContent>
-      </Dialog>
-    </>
+    <ImageLightbox
+      src={src}
+      alt={alt}
+      className={cn("overflow-hidden", frameClassName)}
+    >
+      <img
+        src={src}
+        alt={alt}
+        className={`h-full w-full ${fitClass}`}
+        onError={() => setHasError(true)}
+      />
+    </ImageLightbox>
   );
 }

@@ -1,9 +1,13 @@
 /**
  * admin 画面共通: 署名付きURLの書類・添付表示。
- * 統一ルール（admin spec）: 画像はインラインプレビュー・PDF はリンクで開く・
- * 生成失敗はフォールバック表示。
+ * 統一ルール（admin spec）: 画像はインラインプレビュー（クリックで全画面ズーム）・
+ * PDF はリンクで開く・生成失敗はフォールバック表示。
  * 使用画面: ADM-012（本人確認書類）/ ADM-017・019（問い合わせ添付）ほか。
  */
+
+import { FileText } from "lucide-react";
+
+import { ImageLightbox } from "@/components/shared/image-lightbox";
 
 function isPdf(path: string): boolean {
   return path.toLowerCase().endsWith(".pdf");
@@ -31,15 +35,18 @@ export function DocumentView({
         href={doc.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex aspect-video w-full items-center justify-center rounded-[8px] border border-border bg-muted/30 text-body-md font-medium text-secondary underline underline-offset-2"
+        className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-[8px] border border-border bg-muted/30 text-secondary"
       >
-        PDF を開く
+        <FileText className="size-8" />
+        <span className="text-body-xs">PDFを開く</span>
       </a>
     );
   }
   return (
     <div className="overflow-hidden rounded-[8px] border border-border bg-background">
-      <img src={doc.url} alt={alt} className="w-full object-contain" />
+      <ImageLightbox src={doc.url} alt={alt} className="block w-full">
+        <img src={doc.url} alt={alt} className="w-full object-contain" />
+      </ImageLightbox>
     </div>
   );
 }

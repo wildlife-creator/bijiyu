@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
-import { Clock, CheckCircle2 } from "lucide-react";
+import { Clock, CheckCircle2, FileText } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
+import { ImageLightbox } from "@/components/shared/image-lightbox";
+import { isPdfUrl } from "@/lib/utils/is-pdf-url";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -330,14 +332,33 @@ export default async function ApplicationDetailPage({ params }: Props) {
               <span className="font-semibold">【業務に関する書類】</span>
               {allDocumentUrls.length > 0 ? (
                 <div className="mt-1 space-y-2 pl-4">
-                  {allDocumentUrls.map((url, i) => (
-                    <img
-                      key={i}
-                      src={url}
-                      alt={`業務書類 ${i + 1}`}
-                      className="h-40 w-full rounded-[8px] border border-border object-contain bg-muted"
-                    />
-                  ))}
+                  {allDocumentUrls.map((url, i) =>
+                    isPdfUrl(url) ? (
+                      <a
+                        key={i}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-40 w-full flex-col items-center justify-center gap-1 rounded-[8px] border border-border bg-muted text-secondary"
+                      >
+                        <FileText className="size-8" />
+                        <span className="text-body-xs">PDFを開く</span>
+                      </a>
+                    ) : (
+                      <ImageLightbox
+                        key={i}
+                        src={url}
+                        alt={`業務書類 ${i + 1}`}
+                        className="block w-full"
+                      >
+                        <img
+                          src={url}
+                          alt={`業務書類 ${i + 1}`}
+                          className="h-40 w-full rounded-[8px] border border-border object-contain bg-muted"
+                        />
+                      </ImageLightbox>
+                    ),
+                  )}
                 </div>
               ) : (
                 <p className="pl-4 text-muted-foreground">—</p>
