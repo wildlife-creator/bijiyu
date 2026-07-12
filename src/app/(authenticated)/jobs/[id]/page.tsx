@@ -15,7 +15,7 @@ import { canApplyJob } from "@/lib/matching";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { BackButton } from "@/components/job-search/back-button";
 import { BackButton as SharedBackButton } from "@/components/shared/back-button";
-import { SafeImage } from "@/components/job-search/safe-image";
+import { ZoomableImage } from "@/components/job-search/zoomable-image";
 import { AreaList } from "@/components/area/area-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatDate } from "@/lib/utils/format-date";
@@ -215,20 +215,17 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
           )}
         </div>
 
-        {/* Images */}
-        {images && images.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-            {images.map((img) => (
-              <SafeImage
-                key={img.id}
-                src={img.image_url}
-                alt="案件画像"
-                className="aspect-square w-full rounded-lg object-cover"
-              />
-            ))}
+        {/* Hero image (1枚目 / 枠固定で全体表示) */}
+        {images && images.length > 0 ? (
+          <div className="mt-4">
+            <ZoomableImage
+              src={images[0].image_url}
+              alt="案件画像"
+              fit="contain"
+              frameClassName="aspect-[16/9] w-full rounded-lg border border-border bg-muted"
+            />
           </div>
-        )}
-        {(!images || images.length === 0) && (
+        ) : (
           <div className="mt-4 flex aspect-video w-full items-center justify-center rounded-[8px] border border-border bg-muted/30">
             <span className="text-muted-foreground">画像なし</span>
           </div>
@@ -369,6 +366,24 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
           </div>
         </section>
 
+        {/* Images (2枚目以降。1枚目はヒーローに表示済み) */}
+        {images && images.length > 1 && (
+          <section className="mt-6">
+            <h3 className="text-body-lg font-bold text-foreground">添付画像</h3>
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+              {images.slice(1).map((img) => (
+                <ZoomableImage
+                  key={img.id}
+                  src={img.image_url}
+                  alt="案件画像"
+                  fit="cover"
+                  frameClassName="aspect-square w-full rounded-lg bg-muted"
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Action buttons (lower) */}
         <div className="mt-6 flex justify-center gap-3">
           <Button
@@ -476,6 +491,18 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
     <div className="min-h-dvh">
       <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">募集案件詳細</h1>
+
+      {/* Hero image (1枚目 / タイトル直下・枠固定で全体表示) */}
+      {images && images.length > 0 && (
+        <div className="mt-4">
+          <ZoomableImage
+            src={images[0].image_url}
+            alt="案件画像"
+            fit="contain"
+            frameClassName="aspect-[16/9] w-full rounded-lg border border-border bg-muted"
+          />
+        </div>
+      )}
 
       {/* Title + Company */}
       <h2 className="mt-4 text-heading-md font-bold text-foreground">
@@ -633,17 +660,18 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
         </div>
       </section>
 
-      {/* Images */}
-      {images && images.length > 0 && (
+      {/* Images (2枚目以降。1枚目はヒーローに表示済み) */}
+      {images && images.length > 1 && (
         <section className="mt-6">
           <h3 className="text-body-lg font-bold text-foreground">添付画像</h3>
           <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-            {images.map((img) => (
-              <SafeImage
+            {images.slice(1).map((img) => (
+              <ZoomableImage
                 key={img.id}
                 src={img.image_url}
                 alt="案件画像"
-                className="aspect-square w-full rounded-lg object-cover"
+                fit="cover"
+                frameClassName="aspect-square w-full rounded-lg bg-muted"
               />
             ))}
           </div>
