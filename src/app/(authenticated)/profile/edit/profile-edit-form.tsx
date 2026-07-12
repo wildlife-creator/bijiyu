@@ -717,7 +717,7 @@ export function ProfileEditForm({
                           min={0}
                           placeholder="例: 5"
                           aria-label={`経験年数 ${index + 1}（年）`}
-                          className="bg-background"
+                          className="h-10 bg-background"
                           {...register(`skills.${index}.experienceYears`, {
                             valueAsNumber: true,
                           })}
