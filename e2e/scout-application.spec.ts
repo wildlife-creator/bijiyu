@@ -187,7 +187,7 @@ test.describe("受注者: スカウト経由でも二重応募は防止される
 // 修正1: 応募済みの職人には同一案件のスカウトを送れない（送信画面で選択不可）
 // ---------------------------------------------------------------------------
 test.describe("発注者: 応募済み案件はスカウト送信画面で選択不可", () => {
-  test("応募済みの職人には応募済み案件が『（応募済み）』で無効化される", async ({
+  test("応募済み案件はプルダウンから除外され、ラベル下に注意文が出る", async ({
     page,
   }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
@@ -197,20 +197,20 @@ test.describe("発注者: 応募済み案件はスカウト送信画面で選択
       page.getByRole("heading", { name: "スカウト送信" }),
     ).toBeVisible({ timeout: 10000 });
 
-    // 案件プルダウンを開く
+    // 応募済み案件は選択肢から除外されたことを、常時表示のインライン注意文で伝える
+    await expect(
+      page.getByText(/この職人が応募済みの案件（\d+件）は/),
+    ).toBeVisible();
+
+    // 案件プルダウンを開いても「（応募済み）」の disabled 項目は出ない
     await page
       .locator("label", { hasText: "募集する案件を選択" })
       .locator("..")
       .getByRole("combobox")
       .click();
-
-    // 応募済み案件は「（応募済み）」表示かつ選択不可（disabled）
-    const appliedOption = page.getByRole("option", { name: /（応募済み）/ });
-    await expect(appliedOption.first()).toBeVisible({ timeout: 10000 });
-    await expect(appliedOption.first()).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(
+      page.getByRole("option", { name: /（応募済み）/ }),
+    ).toHaveCount(0);
   });
 });
 

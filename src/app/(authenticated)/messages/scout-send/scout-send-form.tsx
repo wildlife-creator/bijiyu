@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,11 @@ export function ScoutSendForm({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  // 応募済みの案件はスカウト対象外。プルダウンからは除外し、
+  // 理由はラベル下のインライン注意文で常時伝える。
+  const selectableJobs = jobs.filter((job) => !appliedJobIds.includes(job.id));
+  const appliedJobCount = jobs.length - selectableJobs.length;
 
   function handleTemplateSelect(templateId: string) {
     const template = templates.find((t) => t.id === templateId);
@@ -189,17 +195,21 @@ export function ScoutSendForm({
               <SelectValue placeholder="お選びください" />
             </SelectTrigger>
             <SelectContent>
-              {jobs.map((job) => {
-                const applied = appliedJobIds.includes(job.id);
-                return (
-                  <SelectItem key={job.id} value={job.id} disabled={applied}>
-                    {job.title}
-                    {applied ? "（応募済み）" : ""}
-                  </SelectItem>
-                );
-              })}
+              {selectableJobs.map((job) => (
+                <SelectItem key={job.id} value={job.id}>
+                  {job.title}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+          {appliedJobCount > 0 && (
+            <p className="mt-2 flex items-start gap-1.5 text-body-xs text-muted-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary/70" />
+              <span>
+                この職人が応募済みの案件（{appliedJobCount}件）は、スカウトを送れないため選択できません。
+              </span>
+            </p>
+          )}
         </div>
 
         {/* Template select */}
