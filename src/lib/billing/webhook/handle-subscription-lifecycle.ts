@@ -3,6 +3,10 @@ import type Stripe from "stripe";
 
 import { sendEmail } from "@/lib/email/send-email";
 import { OPTION_LABELS, type OptionType } from "@/lib/billing/options";
+import {
+  extractPeriodEnd,
+  extractPeriodStart,
+} from "@/lib/billing/subscription-periods";
 import { optionPaymentFailedEmail } from "@/lib/email/templates/option-payment-failed";
 import {
   optionSubscriptionCancelledEmail,
@@ -468,16 +472,6 @@ function extractScheduleId(sub: Stripe.Subscription): string | null {
   const value = sub.schedule;
   if (!value) return null;
   return typeof value === "string" ? value : value.id;
-}
-
-function extractPeriodStart(sub: Stripe.Subscription): string | null {
-  const v = sub.items?.data?.[0]?.current_period_start;
-  return typeof v === "number" ? new Date(v * 1000).toISOString() : null;
-}
-
-function extractPeriodEnd(sub: Stripe.Subscription): string | null {
-  const v = sub.items?.data?.[0]?.current_period_end;
-  return typeof v === "number" ? new Date(v * 1000).toISOString() : null;
 }
 
 function extractInvoiceSubscriptionId(

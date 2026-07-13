@@ -4,6 +4,11 @@ import type Stripe from "stripe";
 import { headers } from "next/headers";
 
 import { OPTION_LABELS } from "@/lib/billing/options";
+import { getStripeClient } from "@/lib/billing/stripe";
+import {
+  extractPeriodEnd,
+  extractPeriodStart,
+} from "@/lib/billing/subscription-periods";
 import { PLAN_LABELS, type PlanType } from "@/lib/constants/plans";
 import { resolveApplicantCompanyName } from "@/lib/email/recipients/applicant-company-name";
 import {
@@ -29,6 +34,11 @@ import type { Database } from "@/types/database";
  */
 export interface CheckoutDeps {
   sendEmail?: typeof sendEmail;
+  /**
+   * Test-only DI seam for the Stripe client. 通常コードパスは getStripeClient()
+   * のシングルトンを使う。plan checkout 時に subscription の課金期間を取得する。
+   */
+  stripeClient?: Stripe;
 }
 
 /**
@@ -54,7 +64,7 @@ export async function handleCheckoutCompleted(
   const send = deps.sendEmail ?? sendEmail;
 
   if (type === "plan") {
-    await handlePlanCheckout(admin, session, send);
+    await handlePlanCheckout(admin, session, send, deps.stripeClient);
     return;
   }
 
@@ -78,6 +88,7 @@ async function handlePlanCheckout(
   admin: SupabaseClient<Database>,
   session: Stripe.Checkout.Session,
   send: typeof sendEmail,
+  stripeClient?: Stripe,
 ): Promise<void> {
   const metadata = session.metadata ?? {};
   const userId = metadata.user_id;
@@ -134,18 +145,35 @@ async function handlePlanCheckout(
     );
   }
 
-  // The current_period_* values may not be present on the Checkout Session
-  // itself. Caller (route handler) is responsible for fetching the
-  // subscription if it needs them; for plan checkout the RPC will accept
-  // null and fall back to defaults set by Stripe via subsequent
-  // customer.subscription.updated events.
+  // 課金期間（current_period_*）は Checkout Session 本体には載っていないため、
+  // ここで Stripe から subscription を取得して初期投入する。これを怠ると
+  // customer.subscription.updated Webhook が届くまで current_period_end が
+  // null のままになり、その間に解約予約すると「解約予定日」が画面・メールで
+  // 空欄になる不具合が起きる（Webhook 遅延・未発火・エンドポイントの
+  // API version ズレでも顕在化しうる）。
+  // 取得失敗は非ブロッキング（null のまま続行）: 後続の updated Webhook と
+  // scheduleCancelAction のバックフィルで補完される。
+  let periodStart: string | null = null;
+  let periodEnd: string | null = null;
+  try {
+    const stripe = stripeClient ?? getStripeClient();
+    const sub = await stripe.subscriptions.retrieve(subscriptionId);
+    periodStart = extractPeriodStart(sub);
+    periodEnd = extractPeriodEnd(sub);
+  } catch (err) {
+    console.error(
+      "[handlePlanCheckout] failed to fetch subscription periods (non-blocking)",
+      { subscriptionId, err },
+    );
+  }
+
   const eventData = {
     user_id: userId,
     plan_type: planType,
     stripe_subscription_id: subscriptionId,
     stripe_customer_id: customerId,
-    current_period_start: null,
-    current_period_end: null,
+    current_period_start: periodStart,
+    current_period_end: periodEnd,
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

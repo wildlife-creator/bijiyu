@@ -231,6 +231,84 @@ describe("handleCheckoutCompleted (plan)", () => {
     });
   });
 
+  it("Stripe から取得した課金期間 current_period_end を初期投入する", async () => {
+    const { admin, calls } = makeAdmin({
+      rpcResults: { handle_checkout_completed_plan: { data: {}, error: null } },
+    });
+
+    const periodStartUnix = Math.floor(
+      Date.parse("2026-09-01T00:00:00Z") / 1000,
+    );
+    const periodEndUnix = Math.floor(
+      Date.parse("2026-10-01T00:00:00Z") / 1000,
+    );
+    const stripeClient = {
+      subscriptions: {
+        retrieve: vi.fn(async () => ({
+          id: "sub_test_123",
+          items: {
+            data: [
+              {
+                current_period_start: periodStartUnix,
+                current_period_end: periodEndUnix,
+              },
+            ],
+          },
+        })),
+      },
+    } as unknown as Stripe;
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "plan",
+        plan_type: "individual",
+        user_id: "user-1",
+      }),
+      { stripeClient },
+    );
+
+    const rpcCall = calls.find((c) => c.op === "rpc");
+    // 契約完了時点で終了日が入る（null のままにしない）
+    expect(rpcCall?.payload).toMatchObject({
+      event_data: {
+        current_period_start: "2026-09-01T00:00:00.000Z",
+        current_period_end: "2026-10-01T00:00:00.000Z",
+      },
+    });
+  });
+
+  it("Stripe 取得が失敗しても契約処理はブロックせず、期間は null で続行する", async () => {
+    const { admin, calls } = makeAdmin({
+      rpcResults: { handle_checkout_completed_plan: { data: {}, error: null } },
+    });
+
+    const stripeClient = {
+      subscriptions: {
+        retrieve: vi.fn(async () => {
+          throw new Error("stripe down");
+        }),
+      },
+    } as unknown as Stripe;
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "plan",
+        plan_type: "individual",
+        user_id: "user-1",
+      }),
+      { stripeClient },
+    );
+
+    // RPC は通常どおり呼ばれる（例外で落ちない）
+    const rpcCall = calls.find((c) => c.op === "rpc");
+    expect(rpcCall?.fn).toBe("handle_checkout_completed_plan");
+    const eventData = (rpcCall?.payload as { event_data: Record<string, unknown> })
+      .event_data;
+    expect(eventData.current_period_end).toBeNull();
+  });
+
   it("招待フロー: invited_company_name があれば RPC より先に client_profiles へ会社名を upsert する", async () => {
     const { admin, calls } = makeAdmin({
       rpcResults: { handle_checkout_completed_plan: { data: {}, error: null } },

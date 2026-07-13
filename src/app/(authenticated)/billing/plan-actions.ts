@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { comparePlans } from "@/lib/billing/compare-plans";
 import { getStripeClient } from "@/lib/billing/stripe";
+import { extractPeriodEnd } from "@/lib/billing/subscription-periods";
 import { validateDowngradePrerequisites } from "@/lib/billing/validate-downgrade";
 import {
   ACTION_TYPES,
@@ -540,8 +541,9 @@ export async function scheduleCancelAction(): Promise<ActionResult> {
   }
 
   const stripe = getStripeClient();
+  let updatedSub;
   try {
-    await stripe.subscriptions.update(
+    updatedSub = await stripe.subscriptions.update(
       subscription.stripe_subscription_id,
       { cancel_at_period_end: true },
     );
@@ -553,12 +555,24 @@ export async function scheduleCancelAction(): Promise<ActionResult> {
     };
   }
 
+  // 解約終了日（＝有料プランでご利用いただける最終日）は Stripe の応答から
+  // 直接取り出す。DB の current_period_end は customer.subscription.updated
+  // Webhook が届くまで null のことがあり（契約直後・Webhook 遅延・エンドポイントの
+  // API version ズレ等）、それに依存すると画面・メールで日付が空欄になる不具合が
+  // 出る。Stripe 応答に無い場合のみ DB 値へフォールバックする。
+  const periodEndIso =
+    extractPeriodEnd(updatedSub) ?? subscription.current_period_end;
+
   // A6: Webhook 到着前の再描画で解約予約状態が反映されるように DB を先行更新。
-  // Webhook（handle_subscription_lifecycle_updated）でも同じ値が入るため冪等。
-  // アップグレード側（upgradePlanAction）と同じ対策パターン。
+  // 併せて、上で確定した終了日も先行保存しておく（画面の「〜に解約予定」が
+  // Webhook を待たずに正しい日付で表示される）。Webhook（handle_subscription_
+  // lifecycle_updated）でも同じ値が入るため冪等。
   const { error: preUpdateError } = await admin
     .from("subscriptions")
-    .update({ cancel_at_period_end: true })
+    .update({
+      cancel_at_period_end: true,
+      ...(periodEndIso ? { current_period_end: periodEndIso } : {}),
+    })
     .eq("id", subscription.id);
   if (preUpdateError) {
     console.error(
@@ -572,7 +586,7 @@ export async function scheduleCancelAction(): Promise<ActionResult> {
   // Server Action 側で「【ビジ友】解約をご予約いただきました」メールを同期送信する。
   await sendSubscriptionChangedEmail(admin, subscription.user_id, {
     eventType: "cancel-reserved",
-    endDate: formatDateJst(subscription.current_period_end),
+    endDate: formatDateJst(periodEndIso),
   });
 
   return { success: true };

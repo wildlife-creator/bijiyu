@@ -130,9 +130,11 @@ describe("POST /api/webhooks/stripe", () => {
     expect(res.status).toBe(200);
     expect(withWebhookIdempotencyMock).toHaveBeenCalledOnce();
     expect(handleCheckoutCompletedMock).toHaveBeenCalledOnce();
+    // checkout 時の課金期間取得のため Stripe クライアントを第3引数で渡す
     expect(handleCheckoutCompletedMock).toHaveBeenCalledWith(
       expect.anything(),
       session,
+      expect.objectContaining({ stripeClient: expect.anything() }),
     );
   });
 

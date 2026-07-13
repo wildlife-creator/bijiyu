@@ -473,12 +473,48 @@ describe("scheduleCancelAction (A5-follow-up: cancel-reserved メール)", () =>
     expect(call.html).toContain("有料プランでのご利用が終了します");
   });
 
-  it("current_period_end が null なら endDate は「—」で送信される", async () => {
+  it("DB / Stripe 応答ともに終了日が無ければ endDate は「—」で送信される", async () => {
     subState.row!.current_period_end = null;
+    // 既定の update mock は {} を返す（item/top どちらにも期間なし）
     await scheduleCancelAction();
     expect(sendEmailMock).toHaveBeenCalledTimes(1);
     const call = sendEmailMock.mock.calls[0]![0];
     expect(call.html).toContain("— をもって");
+  });
+
+  it("DB が null でも Stripe 応答の current_period_end を優先し、実日付で送信・先行保存する", async () => {
+    // 契約直後・Webhook 未達で DB の終了日が空のケースを再現
+    subState.row!.current_period_end = null;
+    const periodEndUnix = Math.floor(
+      Date.parse("2026-09-30T00:00:00Z") / 1000,
+    );
+    stripeMock.subscriptions.update.mockResolvedValueOnce({
+      id: "sub_1",
+      items: { data: [{ current_period_end: periodEndUnix }] },
+      cancel_at_period_end: true,
+    });
+
+    const result = await scheduleCancelAction();
+    expect(result.success).toBe(true);
+
+    // メールは「—」ではなく実日付（2026-09-30T00:00:00Z → JST 2026/09/30）
+    const call = sendEmailMock.mock.calls[0]![0];
+    expect(call.html).toContain("2026/09/30");
+    expect(call.html).not.toContain("— をもって");
+
+    // 画面が Webhook を待たず正しく表示できるよう、DB 先行 UPDATE にも
+    // current_period_end が入る
+    const preUpdate = adminUpdates.find(
+      (u) =>
+        u.table === "subscriptions" &&
+        (u.payload as { current_period_end?: string }).current_period_end !=
+          null,
+    );
+    expect(preUpdate).toBeDefined();
+    expect(
+      (preUpdate!.payload as { current_period_end?: string })
+        .current_period_end,
+    ).toBe("2026-09-30T00:00:00.000Z");
   });
 
   it("past_due 時は Stripe 呼ばず、メールも送らない", async () => {

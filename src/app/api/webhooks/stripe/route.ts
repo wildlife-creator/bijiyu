@@ -71,6 +71,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         await handleCheckoutCompleted(
           admin,
           event.data.object as Stripe.Checkout.Session,
+          { stripeClient: stripe },
         );
         return;
       case "customer.subscription.created":
