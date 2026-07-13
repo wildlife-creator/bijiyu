@@ -148,7 +148,7 @@ export async function submitJobInquiryAction(
       content: input.content,
     });
     for (const recipient of recipients) {
-      void sendEmail({ to: recipient.email, subject, html }).catch((err) => {
+      await sendEmail({ to: recipient.email, subject, html }).catch((err) => {
         console.error(
           "[submitJobInquiryAction] notification email failed:",
           err,
@@ -171,7 +171,7 @@ export async function submitJobInquiryAction(
     content: input.content,
     sentAt,
   });
-  void sendEmail({
+  await sendEmail({
     to: input.email,
     subject: receipt.subject,
     html: receipt.html,

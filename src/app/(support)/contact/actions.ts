@@ -140,8 +140,10 @@ export async function submitContactAction(
     }
   }
 
-  // 8. §7.1.A 送信者控え + §7.1.B 運営通知を fire-and-forget で並列送信
-  //    失敗してもレコードはロールバックしない（メール失敗 ≠ 受付失敗）。
+  // 8. §7.1.A 送信者控え + §7.1.B 運営通知を送信（await で完了を待つ）。
+  //    await しないと Vercel が応答直後に処理を凍結し、送信が届かないことがある
+  //    （匿名フォームは後続処理が無く即 return するため確実に落ちていた）。
+  //    .catch で握るため、失敗してもレコードはロールバックしない（メール失敗 ≠ 受付失敗）。
   //    日時は INSERT 直後にサーバー側で stamp（DB の created_at は本文表示で再 SELECT しない）。
   const receivedAt = formatDateTime(new Date().toISOString());
 
@@ -152,7 +154,7 @@ export async function submitContactAction(
     detail: input.detail,
     receivedAt,
   });
-  void sendEmail({ to: input.email, subject: receipt.subject, html: receipt.html }).catch(
+  await sendEmail({ to: input.email, subject: receipt.subject, html: receipt.html }).catch(
     (err) => {
       console.error("[submitContactAction] receipt email failed:", err);
     },
@@ -204,7 +206,7 @@ export async function submitContactAction(
       siteUrl,
       contactId: inserted.id,
     });
-    void sendEmail({ to: opsEmail, subject: ops.subject, html: ops.html }).catch(
+    await sendEmail({ to: opsEmail, subject: ops.subject, html: ops.html }).catch(
       (err) => {
         console.error("[submitContactAction] ops email failed:", err);
       },

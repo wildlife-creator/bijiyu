@@ -592,6 +592,13 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - メールテンプレートファイル（`src/lib/email/templates/`）を作成したら、対応する Server Action で**実際に使われているか**確認すること。テンプレートが存在するのにインライン HTML で送信しているコードが過去に発見された（`scoutNotificationEmail` テンプレートが未使用だった）
 - メール通知の sender/recipient 名はハードコードしない。`resolveParticipantName()` で動的に解決すること（過去に `clientName: "発注者"` とハードコードされていた問題が発生）
 
+### Server Action / Route Handler でのメール送信は必ず await する（必ず守ること）
+- `void sendEmail(...).catch(...)` のような **fire-and-forget（送信完了を待たない）呼び出しを書いてはならない**。Vercel は Server Action が応答（`return` / `redirect()`）を返した瞬間に実行コンテキストを凍結するため、await されていない送信は途中で破棄され、**メールがサイレントに届かない**
+- 正しい形: `await sendEmail(...).catch((err) => console.error(...))`。`.catch` を付ければ送信失敗が受付・保存・削除処理を巻き戻すことはない（失敗を握りつつ完了は待てる）。複数宛先は `await Promise.all(recipients.map((r) => sendEmail(...).catch(...)))` で待つ
+- **症状の出方に注意**: fire-and-forget でも「送信直後に別の await（DB 問い合わせ等）がある」経路では偶然フラッシュされて届くため、**バグが経路によって出たり出なかったりする**。特に「後続処理が無く即 return する経路」（匿名フォーム submit・`redirect()` 直前）で確実に落ちる。ローカルはメールをファイル書き出しするため再現しない
+- ヘルパー関数（`sendVerificationEmails` 等）でメールを送る場合、呼び出し側が `await helper()` していても **ヘルパー内部が `void sendEmail` だと待てていない**。ヘルパー内部も await すること
+- 2026-07-13 実例: ログアウト状態のお問い合わせ（`(support)/contact/actions.ts`）で送信者控え・運営通知の両方が届かず（DB には保存済）。原因は `void sendEmail`。同パターンが trouble-report / job-inquiry(COM-013) / 本人確認申請メール / admin 強制削除通知 / メンバーのメール変更通知の計 7 系統に潜在しており一括で `await` 化。内部運営アラート `sendEmailRecycleFailureAlert`（audit_logs に耐久記録が残るため許容）のみ fire-and-forget を意図的に維持
+
 ### UI テキスト・ラベル（必ず守ること）
 - お気に入りボタンのラベルは「マイリスト登録」/「マイリスト解除」を使うこと（「興味する」等の不自然な日本語は禁止）
 - UIテキストは自然な日本語であることを確認すること。機械的な翻訳調の表現は使わない

@@ -297,7 +297,7 @@ export async function createMemberAction(
       // §9.1 運営通知アラート (旧 E-13、テンプレ化 + 件名統一)。
       // 技術詳細 (auth_user_id / rpc_error / cleanup_error) は本文に含めず audit_logs 経由で
       // 開発担当者が引く前提 (§9 全体方針: 技術用語ゼロ)。
-      void sendOrphanAuthUserAlert(admin, {
+      await sendOrphanAuthUserAlert(admin, {
         invitedEmail: parsed.data.email,
         organizationId: actor.organizationId,
       });
@@ -965,7 +965,7 @@ export async function updateMemberAction(
           (e) => e && e.length > 0,
         );
         for (const to of recipients) {
-          sendEmail({ to, subject, html }).catch((err) => {
+          await sendEmail({ to, subject, html }).catch((err) => {
             console.error("[updateMemberAction] notify email failed", err, to);
             logAudit(admin, actor.userId, "email_changed_by_admin_notify_failed", {
               target_user_id: targetUserId,

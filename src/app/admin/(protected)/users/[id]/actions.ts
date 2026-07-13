@@ -70,13 +70,14 @@ export async function deleteUserAccountAction(
     targetId: userId,
   });
 
-  // §8.4 admin 強制削除時の本人通知 (fire-and-forget、失敗は削除自体に影響させない)。
+  // §8.4 admin 強制削除時の本人通知。await で送信完了を待つ（await しないと
+  //    直後の redirect で処理が凍結し送信が届かない）。失敗は .catch で握り削除に影響させない。
   if (target.email) {
     const recipientName =
       `${target.last_name ?? ""}${target.first_name ?? ""}`.trim() ||
       "ご利用者";
     const { subject, html } = accountSuspendedByAdminEmail({ recipientName });
-    void sendEmail({ to: target.email, subject, html }).catch((err) => {
+    await sendEmail({ to: target.email, subject, html }).catch((err) => {
       console.error(
         "[deleteUserAccountAction] §8.4 account-suspended email failed",
         err,

@@ -6,11 +6,12 @@ import type { Database, Json } from "@/types/database";
 export type AdminClient = SupabaseClient<Database>;
 
 /**
- * §9.2 OPS アラートを fire-and-forget で発火する内部 wrapper。
- * `ops-alerts.sendEmailRecycleFailureAlert` 自身も内部例外を握り潰すが、ここでも
- * void で呼ぶことで applyDeletedSuffix 本体が alert 失敗で詰まらないようにする。
+ * §9.2 OPS アラートを送信する内部 wrapper。await で送信完了まで待つ
+ * （Vercel は応答後に実行を凍結するため、待たないとアラートが届かない）。
+ * `ops-alerts.sendEmailRecycleFailureAlert` 自身が内部例外を握り潰し、ここでも
+ * .catch で握るため、alert 失敗で applyDeletedSuffix 本体が詰まることはない。
  */
-function notifyEmailRecycleFailure(
+async function notifyEmailRecycleFailure(
   admin: AdminClient,
   params: {
     path: ApplyDeletedSuffixOptions["path"];
@@ -18,8 +19,8 @@ function notifyEmailRecycleFailure(
     targetEmail: string | null;
     organizationId: string | null;
   },
-): void {
-  void sendEmailRecycleFailureAlert(admin, params).catch((err) => {
+): Promise<void> {
+  await sendEmailRecycleFailureAlert(admin, params).catch((err) => {
     console.error("[applyDeletedSuffix] notifyEmailRecycleFailure failed", err);
   });
 }
@@ -168,7 +169,7 @@ export async function applyDeletedSuffix(
       targetId: userId,
       metadata: { path: options.path, reason: "api_error", date: isoDate },
     });
-    void notifyEmailRecycleFailure(admin, {
+    await notifyEmailRecycleFailure(admin, {
       path: options.path,
       targetUserId: userId,
       targetEmail: null,
@@ -185,7 +186,7 @@ export async function applyDeletedSuffix(
       targetId: userId,
       metadata: { path: options.path, reason: "user_not_found", date: isoDate },
     });
-    notifyEmailRecycleFailure(admin, {
+    await notifyEmailRecycleFailure(admin, {
       path: options.path,
       targetUserId: userId,
       targetEmail: null,
@@ -212,7 +213,7 @@ export async function applyDeletedSuffix(
         date: isoDate,
       },
     });
-    notifyEmailRecycleFailure(admin, {
+    await notifyEmailRecycleFailure(admin, {
       path: options.path,
       targetUserId: userId,
       targetEmail: currentEmail || null,
@@ -252,7 +253,7 @@ export async function applyDeletedSuffix(
         targetId: userId,
         metadata: { path: options.path, reason: "api_error", date: isoDate },
       });
-      notifyEmailRecycleFailure(admin, {
+      await notifyEmailRecycleFailure(admin, {
         path: options.path,
         targetUserId: userId,
         targetEmail: currentEmail,
@@ -301,7 +302,7 @@ export async function applyDeletedSuffix(
         targetId: userId,
         metadata: { path: options.path, reason: "api_error", date: isoDate },
       });
-      notifyEmailRecycleFailure(admin, {
+      await notifyEmailRecycleFailure(admin, {
         path: options.path,
         targetUserId: userId,
         targetEmail: currentEmail,
@@ -323,7 +324,7 @@ export async function applyDeletedSuffix(
       date: isoDate,
     },
   });
-  notifyEmailRecycleFailure(admin, {
+  await notifyEmailRecycleFailure(admin, {
     path: options.path,
     targetUserId: userId,
     targetEmail: currentEmail,

@@ -113,11 +113,12 @@ async function updateVideoColumn(
     metadata: { column: config.column, cleared: value === null },
   });
 
-  // §6.6.C-User + §6.6.C-Ops 並列送信（初回登録のみ、fire-and-forget）
+  // §6.6.C-User + §6.6.C-Ops 送信（初回登録のみ）。await で完了を待つ
+  //    （await しないと直後の return で処理が凍結し送信が届かないことがある）。
   if (isInitialRegistration) {
     const optionType =
       config.column === "workplace_video_url" ? "video_workplace" : "video";
-    void sendVideoPublishedEmails(admin, userId, optionType).catch((err) => {
+    await sendVideoPublishedEmails(admin, userId, optionType).catch((err) => {
       console.error("[admin updateVideoColumn] §6.6.C emails failed", err);
     });
   }

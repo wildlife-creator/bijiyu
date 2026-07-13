@@ -240,9 +240,10 @@ export async function sendMessageAction(
       .update({ updated_at: new Date().toISOString() })
       .eq("id", threadId);
 
-    // §2.1 メッセージ受信通知 (throttle 15 分 + M-03 broadcast)、fire-and-forget。
-    // メッセージ送信自体は完了済みなので、メール失敗は握り潰す。
-    void sendMessageNotification(createAdminClient(), {
+    // §2.1 メッセージ受信通知 (throttle 15 分 + M-03 broadcast)。await で送信完了を待つ
+    //    （await しないと直後の return で処理が凍結し送信が届かないことがある）。
+    //    メール失敗は .catch で握り、メッセージ送信自体の成功には影響させない。
+    await sendMessageNotification(createAdminClient(), {
       threadId,
       thread,
       senderId: user.id,

@@ -128,7 +128,8 @@ export async function submitTroubleReportAction(
     }
   }
 
-  // 7. §7.2.A 送信者控え + §7.2.B 運営通知を fire-and-forget で並列送信
+  // 7. §7.2.A 送信者控え + §7.2.B 運営通知を送信（await で完了を待つ。
+  //    await しないと Vercel が応答直後に処理を凍結し送信が届かないことがある）
   const receivedAt = formatDateTime(new Date().toISOString());
 
   // §7.2.A 送信者控え
@@ -139,7 +140,7 @@ export async function submitTroubleReportAction(
     content: input.content,
     receivedAt,
   });
-  void sendEmail({ to: input.email, subject: receipt.subject, html: receipt.html }).catch(
+  await sendEmail({ to: input.email, subject: receipt.subject, html: receipt.html }).catch(
     (err) => {
       console.error("[submitTroubleReportAction] receipt email failed:", err);
     },
@@ -189,7 +190,7 @@ export async function submitTroubleReportAction(
         siteUrl,
         reportId,
       });
-      void sendEmail({ to: opsEmail, subject: ops.subject, html: ops.html }).catch(
+      await sendEmail({ to: opsEmail, subject: ops.subject, html: ops.html }).catch(
         (err) => {
           console.error("[submitTroubleReportAction] ops email failed:", err);
         },

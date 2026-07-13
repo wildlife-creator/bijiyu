@@ -55,7 +55,7 @@ export async function sendVerificationEmails({
         documentType,
         appliedAt,
       });
-      void sendEmail({ to: recipientEmail, subject, html }).catch((err) => {
+      await sendEmail({ to: recipientEmail, subject, html }).catch((err) => {
         console.error("[sendVerificationEmails] receipt email failed:", err);
       });
     }
@@ -77,7 +77,7 @@ export async function sendVerificationEmails({
         siteUrl,
         verificationId,
       });
-      void sendEmail({ to: opsEmail, subject, html }).catch((err) => {
+      await sendEmail({ to: opsEmail, subject, html }).catch((err) => {
         console.error("[sendVerificationEmails] ops email failed:", err);
       });
     }
