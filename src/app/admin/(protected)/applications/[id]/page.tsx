@@ -330,10 +330,10 @@ export default async function AdminApplicationDetailPage({
         </p>
       </section>
 
-      {/* ユーザーからの評価（受注者→発注者） */}
+      {/* 職人から発注者に対する評価（受注者→発注者） */}
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">
-          ユーザーからの評価
+          職人から発注者に対する評価
         </h2>
         <div className="mt-2 overflow-hidden rounded-[8px] border border-border/20 bg-background">
           {!contractorReview ? (
@@ -383,10 +383,10 @@ export default async function AdminApplicationDetailPage({
         </div>
       </section>
 
-      {/* 発注者からの評価（発注者→受注者・★×5 7項目） */}
+      {/* 発注者から職人に対する評価（発注者→受注者・★×5 7項目） */}
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">
-          発注者からの評価
+          発注者から職人に対する評価
         </h2>
         <div className="mt-2 overflow-hidden rounded-[8px] border border-border/20 bg-background">
           {!clientReview ? (

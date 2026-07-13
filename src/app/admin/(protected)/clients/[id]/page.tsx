@@ -441,9 +441,9 @@ export default async function AdminClientDetailPage({
         </div>
       </section>
 
-      {/* 8. 評判 */}
+      {/* 8. 職人からの評判 */}
       <section className="mt-6">
-        <h2 className="text-body-lg font-bold text-foreground">評判</h2>
+        <h2 className="text-body-lg font-bold text-foreground">職人からの評判</h2>
         <div className="mt-2 rounded-[8px] border border-border bg-background p-4">
           <p className="flex items-center gap-3 text-body-md text-foreground">
             ・また仕事を受けたい

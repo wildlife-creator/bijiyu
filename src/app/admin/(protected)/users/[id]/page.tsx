@@ -294,9 +294,9 @@ export default async function AdminUserDetailPage({
         </section>
       )}
 
-      {/* 発注者評価（★×5 7項目サマリー。評価詳細ページと同じ共有部品） */}
+      {/* 発注者からの評価（★×5 7項目サマリー。評価詳細ページと同じ共有部品） */}
       <section className="mt-6">
-        <h2 className="text-body-lg font-bold text-foreground">発注者評価</h2>
+        <h2 className="text-body-lg font-bold text-foreground">発注者からの評価</h2>
         <div className="mt-2">
           <RatingSummaryCard perItem={perItem} />
         </div>
