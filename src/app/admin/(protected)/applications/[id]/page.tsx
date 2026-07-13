@@ -305,9 +305,9 @@ export default async function AdminApplicationDetailPage({
         </Link>
       </section>
 
-      {/* ユーザー情報 → ADM-009 */}
+      {/* 職人情報 → ADM-009 */}
       <section className="mt-6">
-        <h2 className="text-body-lg font-bold text-foreground">ユーザー情報</h2>
+        <h2 className="text-body-lg font-bold text-foreground">職人情報</h2>
         <Link
           href={`/admin/users/${app.applicant_id}?backTo=${encodeURIComponent(backToForChildren)}`}
           className="mt-2 block rounded-[8px] border border-border/20 bg-background p-4 transition-colors hover:bg-muted/50"
