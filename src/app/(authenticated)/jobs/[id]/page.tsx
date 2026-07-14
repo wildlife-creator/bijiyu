@@ -219,6 +219,14 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
       .select("*", { count: "exact", head: true })
       .eq("job_id", id);
 
+    // 発注確定済み（稼働予定/稼働中）の受注者数。掲載終了時の注意喚起を
+    // 出すかどうかの判定に使う（0 件なら従来のシンプルな確認のみ）
+    const { count: acceptedApplicationCount } = await supabase
+      .from("applications")
+      .select("*", { count: "exact", head: true })
+      .eq("job_id", id)
+      .eq("status", "accepted");
+
     const { data: urgentOption } = await supabase
       .from("option_subscriptions")
       .select("id")
@@ -236,7 +244,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
         </h1>
         {job.status === "open" && (
           <div className="mt-3 flex justify-center">
-            <CloseJobButton jobId={id} />
+            <CloseJobButton jobId={id} acceptedCount={acceptedApplicationCount ?? 0} />
           </div>
         )}
 
