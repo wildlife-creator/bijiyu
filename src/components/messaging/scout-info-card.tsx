@@ -77,8 +77,15 @@ export function ScoutInfoCard({
 
       <div className="border-t border-border pt-3" />
 
-      {/* Job details + buttons side by side on PC, stacked on SP */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      {/* Job details + buttons side by side on PC, stacked on SP。
+          掲載終了(未対応)時は案内文をカード中央に置くため縦積みにする。 */}
+      <div
+        className={
+          isClosed && scoutStatus === "pending"
+            ? "space-y-3"
+            : "flex flex-col gap-3 md:flex-row md:items-end md:justify-between"
+        }
+      >
         {/* Left: job info */}
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
@@ -119,7 +126,7 @@ export function ScoutInfoCard({
             （応募のしようがないため）。承諾済み/辞退済みは履歴として
             「スカウトを受けました/断りました」を残す = ScoutActionButtons に委ねる。 */}
         {isClosed && scoutStatus === "pending" ? (
-          <p className="text-sm font-medium text-muted-foreground md:self-end md:text-right">
+          <p className="text-center text-sm font-medium text-muted-foreground">
             掲載を終了しました
           </p>
         ) : (
