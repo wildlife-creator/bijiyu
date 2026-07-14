@@ -36,30 +36,72 @@ const TABLE_BY_KIND = {
   "skill-tags": "master_skill_tags",
 } as const satisfies Record<MasterKind, string>;
 
+// ---------------------------------------------------------------------------
+// 一時的な取得失敗のリトライ（必ず守ること）
+// ---------------------------------------------------------------------------
+// staging デプロイ直後などの一時的な接続不安定でマスタ取得が失敗すると、
+// 会員登録（/register/profile）の検証が transient エラーになり、ユーザーが
+// 登録を完了できずに詰みかける（2026-07-11 事例と同族）。対象は SELECT
+// （読み取り専用）だけなので、失敗時に短い間隔で数回リトライしても副作用は
+// 一切ない（書き込みは決してリトライしない）。最大 3 試行して全滅したら
+// 従来どおり throw し、呼び出し元（validate = transient / 描画 = 空フォール
+// バック）に委ねる。throw はキャッシュされないため、失敗が永続化する
+// 2026-07-11 の問題も再発しない。
+const RETRY_BACKOFF_MS = [200, 500]; // 初回 + 2 回 = 最大 3 試行
+
+async function sleep(ms: number): Promise<void> {
+  // テスト実行時は待機しない（既存の error パステストを不必要に遅くせず、
+  // fake timers との干渉も避ける）。リトライ回数の検証は fetch.test.ts が
+  // range 呼び出し回数で行うため、待機自体はテスト対象にしない。
+  if (process.env.VITEST || process.env.NODE_ENV === "test") return;
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// 読み取り専用 fetch を包み、一時失敗を吸収する。fn が throw したら
+// バックオフを挟んで再試行し、最終試行も失敗したら最後のエラーを再 throw する。
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= RETRY_BACKOFF_MS.length; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const backoff = RETRY_BACKOFF_MS[attempt];
+      if (backoff === undefined) break; // 最終試行だった
+      await sleep(backoff);
+    }
+  }
+  throw lastError;
+}
+
 // 取得失敗時は throw（空配列を返さない）。理由はファイル冒頭コメント参照。
 async function fetchActive(kind: MasterKind): Promise<string[]> {
-  const client = createAnonClient();
-  const { data, error } = await client
-    .from(TABLE_BY_KIND[kind])
-    .select("label")
-    .is("deprecated_at", null)
-    .order("label", { ascending: true });
-  if (error || !data) {
-    throw new Error(`master ${kind}（active）の取得に失敗しました`);
-  }
-  return data.map((row) => row.label);
+  return withRetry(async () => {
+    const client = createAnonClient();
+    const { data, error } = await client
+      .from(TABLE_BY_KIND[kind])
+      .select("label")
+      .is("deprecated_at", null)
+      .order("label", { ascending: true });
+    if (error || !data) {
+      throw new Error(`master ${kind}（active）の取得に失敗しました`);
+    }
+    return data.map((row) => row.label);
+  });
 }
 
 async function fetchAll(kind: MasterKind): Promise<MasterRow[]> {
-  const client = createAnonClient();
-  const { data, error } = await client
-    .from(TABLE_BY_KIND[kind])
-    .select("label, deprecated_at")
-    .order("label", { ascending: true });
-  if (error || !data) {
-    throw new Error(`master ${kind}（all）の取得に失敗しました`);
-  }
-  return data;
+  return withRetry(async () => {
+    const client = createAnonClient();
+    const { data, error } = await client
+      .from(TABLE_BY_KIND[kind])
+      .select("label, deprecated_at")
+      .order("label", { ascending: true });
+    if (error || !data) {
+      throw new Error(`master ${kind}（all）の取得に失敗しました`);
+    }
+    return data;
+  });
 }
 
 // キャッシュキーに "v2" を付与し、fetch 失敗時に空配列を返していた旧実装が
@@ -183,31 +225,38 @@ async function fetchAllPages<T>(
 
 // 取得失敗時は throw（空配列を返さない）。`fetchAllPages` はページ取得エラーで
 // throw するので、外側で握り潰さずそのまま伝播させる。理由は冒頭コメント参照。
+// リトライは関数全体を包む（個別ページ単位ではなく）。ページ途中で一時失敗
+// しても次の試行でページ 0 から取り直し、別スナップショットのページ継ぎ接ぎを
+// 防ぐ。fetchAllPages は途中ページ error で throw するので withRetry が受ける。
 async function fetchActiveMunicipalities(): Promise<MunicipalityPair[]> {
-  const client = createAnonClient();
-  const rows = await fetchAllPages<MunicipalityPair>((from, to) =>
-    client
-      .from("master_municipalities")
-      .select("prefecture, municipality")
-      .is("deprecated_at", null)
-      .order("sort_order", { ascending: true })
-      .range(from, to),
-  );
-  return rows.map((row) => ({
-    prefecture: row.prefecture,
-    municipality: row.municipality,
-  }));
+  return withRetry(async () => {
+    const client = createAnonClient();
+    const rows = await fetchAllPages<MunicipalityPair>((from, to) =>
+      client
+        .from("master_municipalities")
+        .select("prefecture, municipality")
+        .is("deprecated_at", null)
+        .order("sort_order", { ascending: true })
+        .range(from, to),
+    );
+    return rows.map((row) => ({
+      prefecture: row.prefecture,
+      municipality: row.municipality,
+    }));
+  });
 }
 
 async function fetchAllMunicipalityRows(): Promise<MunicipalityRow[]> {
-  const client = createAnonClient();
-  return await fetchAllPages<MunicipalityRow>((from, to) =>
-    client
-      .from("master_municipalities")
-      .select("prefecture, municipality, deprecated_at")
-      .order("sort_order", { ascending: true })
-      .range(from, to),
-  );
+  return withRetry(async () => {
+    const client = createAnonClient();
+    return await fetchAllPages<MunicipalityRow>((from, to) =>
+      client
+        .from("master_municipalities")
+        .select("prefecture, municipality, deprecated_at")
+        .order("sort_order", { ascending: true })
+        .range(from, to),
+    );
+  });
 }
 
 /**

@@ -24,6 +24,9 @@ const activeRows = allRows.filter((r) => r.deprecated_at === null);
 const rangeSpy = vi.fn<(from: number, to: number) => void>();
 // 特定ページで error を返させるためのフック（null = 全ページ成功）
 let errorOnRangeFrom: number | null = null;
+// 先頭から N 回の range 呼び出しを一時的に失敗させる（withRetry のリトライ検証用）。
+// 呼ばれるたびにデクリメントし、0 になったら通常どおり成功する。
+let transientFailRemaining = 0;
 
 vi.mock("next/cache", () => ({
   // unstable_cache はパススルー（毎回 fetch 関数を実行）
@@ -43,6 +46,13 @@ vi.mock("@/lib/supabase/anon", () => {
       },
       range: (from: number, to: number) => {
         rangeSpy(from, to);
+        if (transientFailRemaining > 0) {
+          transientFailRemaining--;
+          return Promise.resolve({
+            data: null,
+            error: { message: "transient" },
+          });
+        }
         if (errorOnRangeFrom !== null && from === errorOnRangeFrom) {
           return Promise.resolve({ data: null, error: { message: "boom" } });
         }
@@ -68,6 +78,7 @@ import {
 beforeEach(() => {
   rangeSpy.mockClear();
   errorOnRangeFrom = null;
+  transientFailRemaining = 0;
 });
 
 afterEach(() => {
@@ -142,5 +153,38 @@ describe("ページ取得エラー時の挙動", () => {
   it("描画用 getMunicipalitySortOrderMap は取得失敗時 {} にフォールバック", async () => {
     errorOnRangeFrom = 0;
     await expect(getMunicipalitySortOrderMap()).resolves.toEqual({});
+  });
+});
+
+describe("一時的な取得失敗のリトライ（withRetry）", () => {
+  // staging デプロイ直後の一時的な接続不安定でマスタ取得が失敗し、会員登録が
+  // 完了できず詰みかける問題への対策。読み取り専用 fetch を最大 3 試行する。
+
+  it("最初の試行が一時失敗しても、リトライで成功して全件返す", async () => {
+    transientFailRemaining = 1; // 最初の range 呼び出しだけ失敗させる
+    const rows = await getActiveMunicipalities();
+    expect(rows).toHaveLength(activeRows.length);
+    // 1 回失敗 → 全体を試行し直すので、少なくとも成功時（2 ページ）より多く呼ばれる
+    expect(rangeSpy.mock.calls.length).toBeGreaterThan(2);
+  });
+
+  it("2 回連続で一時失敗しても、3 試行目で成功する", async () => {
+    transientFailRemaining = 2;
+    const rows = await getActiveMunicipalities();
+    expect(rows).toHaveLength(activeRows.length);
+  });
+
+  it("リトライ上限（3 試行）を超えて失敗し続けると reject する", async () => {
+    transientFailRemaining = 999; // 常に失敗
+    await expect(getActiveMunicipalities()).rejects.toThrow();
+    // 各試行で先頭ページ（from=0）を 1 回叩いて即失敗 → 初回 + 2 リトライ = 3 回
+    expect(rangeSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("成功する取得ではリトライせず 1 試行で完了する", async () => {
+    const rows = await getAllMunicipalityRows();
+    expect(rows).toHaveLength(TOTAL);
+    // 2 ページ分ちょうど（0-999, 1000-1999）。リトライによる余分な呼び出しが無い
+    expect(rangeSpy).toHaveBeenCalledTimes(2);
   });
 });

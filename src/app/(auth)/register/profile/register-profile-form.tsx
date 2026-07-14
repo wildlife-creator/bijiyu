@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,6 +53,16 @@ export function RegisterProfileForm({
   const [serverError, setServerError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastPickedTrade, setLastPickedTrade] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  // 送信失敗時のエラーは送信ボタンのすぐ上に表示する。長いフォームでは画面上部に
+  // 出すとスクロール位置から外れ「押しても無反応」に見えるため、失敗したらその
+  // エラーへスクロールして確実に見せる。
+  useEffect(() => {
+    if (serverError) {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [serverError]);
 
   const {
     register,
@@ -156,12 +166,6 @@ export function RegisterProfileForm({
       <h1 className="text-center text-heading-lg font-bold text-secondary">
         新規会員登録
       </h1>
-
-      {serverError && (
-        <p className="text-center text-destructive text-body-md">
-          {serverError}
-        </p>
-      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* 姓 */}
@@ -450,6 +454,22 @@ export function RegisterProfileForm({
             </p>
           )}
         </div>
+
+        {/* 送信失敗時のエラー + 復旧案内。押した場所（ボタン直上）に出す。 */}
+        {serverError && (
+          <div
+            ref={errorRef}
+            className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+          >
+            <p className="text-center text-destructive text-body-md font-medium">
+              {serverError}
+            </p>
+            <p className="text-center text-muted-foreground text-body-sm">
+              この画面を閉じてしまった場合は、ご登録のメールアドレスと設定した
+              パスワードでログインすると、続きから再開できます。
+            </p>
+          </div>
+        )}
 
         {/* Submit */}
         <Button

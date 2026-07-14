@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 
+import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 import { BackChevron } from "@/components/shared/back-chevron";
 import { Input } from "@/components/ui/input";
@@ -102,15 +104,34 @@ export default function RegisterPage() {
           メールをご確認ください。
         </p>
 
-        <div className="space-y-2 rounded-lg bg-muted/50 p-4">
-          <p className="text-body-sm text-muted-foreground">
-            メールが届かない場合は、迷惑メールフォルダをご確認ください。
-            それでも届かない場合は、下のボタンから再送するか、しばらく時間をおいてお試しください。
+        <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+          <p className="text-body-md font-bold text-secondary">
+            メールが届かないときは
           </p>
-          <p className="text-body-sm text-muted-foreground">
-            すでに会員登録がお済みのメールアドレスの場合は、確認メールは送信されません。
-            ログイン、またはパスワードをお忘れの場合は再設定をご利用ください。
-          </p>
+          <ul className="space-y-2 text-body-sm text-foreground">
+            <li>
+              迷惑メールフォルダをご確認ください。それでも見つからない場合は、
+              下のボタンから再送できます。
+            </li>
+            <li>
+              すでに登録手続きを始めているメールアドレスには、確認メールは
+              届きません。その場合は、設定済みのパスワードで{" "}
+              <Link
+                href="/login"
+                className="font-bold text-primary underline"
+              >
+                ログイン
+              </Link>
+              すると、続きから再開できます（パスワードが分からない場合は{" "}
+              <Link
+                href="/reset-password"
+                className="font-bold text-primary underline"
+              >
+                再設定
+              </Link>
+              してください）。
+            </li>
+          </ul>
         </div>
 
         <div className="flex flex-col items-center gap-3">
