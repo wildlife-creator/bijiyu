@@ -9,9 +9,10 @@ import { birthDateSchema } from "@/lib/validations/birth-date";
 export const loginSchema = z.object({
   email: z
     .string()
+    .trim()
     .min(1, "メールアドレスを入力してください")
     .email("正しいメールアドレスを入力してください"),
-  password: z.string().min(1, "パスワードを入力してください"),
+  password: z.string().trim().min(1, "パスワードを入力してください"),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
@@ -21,6 +22,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const signupEmailSchema = z.object({
   email: z
     .string()
+    .trim()
     .min(1, "メールアドレスを入力してください")
     .email("正しいメールアドレスを入力してください"),
 });
@@ -32,6 +34,7 @@ export type SignupEmailInput = z.infer<typeof signupEmailSchema>;
 export const resetPasswordSchema = z.object({
   email: z
     .string()
+    .trim()
     .min(1, "メールアドレスを入力してください")
     .email("正しいメールアドレスを入力してください"),
 });
@@ -44,8 +47,9 @@ export const updatePasswordSchema = z
   .object({
     password: z
       .string()
+      .trim()
       .min(8, "パスワードは8文字以上で入力してください"),
-    confirmPassword: z.string().min(1, "確認用パスワードを入力してください"),
+    confirmPassword: z.string().trim().min(1, "確認用パスワードを入力してください"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "パスワードが一致しません",
@@ -58,11 +62,12 @@ export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
 // ---------------------------------------------------------------------------
 export const adminPasswordChangeSchema = z
   .object({
-    currentPassword: z.string().min(1, "現在のパスワードを入力してください"),
+    currentPassword: z.string().trim().min(1, "現在のパスワードを入力してください"),
     newPassword: z
       .string()
+      .trim()
       .min(8, "パスワードは8文字以上で入力してください"),
-    confirmPassword: z.string().min(1, "確認用パスワードを入力してください"),
+    confirmPassword: z.string().trim().min(1, "確認用パスワードを入力してください"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
     message: "パスワードが一致しません",
@@ -109,6 +114,7 @@ const registerProfileBaseSchema = z.object({
   }),
   password: z
     .string()
+    .trim()
     .min(8, "パスワードは8文字以上で入力してください")
     .max(16, "パスワードは16文字以内で入力してください"),
 });
@@ -120,7 +126,7 @@ export type RegisterProfileInput = z.infer<typeof registerProfileSchema>;
 // Client-side schema with confirmPassword and matching validation
 export const registerProfileFormSchema = registerProfileBaseSchema
   .extend({
-    confirmPassword: z.string().min(1, "確認用パスワードを入力してください"),
+    confirmPassword: z.string().trim().min(1, "確認用パスワードを入力してください"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "パスワードが一致しません",

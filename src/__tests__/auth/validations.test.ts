@@ -279,3 +279,73 @@ describe("registerProfileSchema", () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 前後スペースの自動除去（誤入力によるログイン不能の防止）
+// ---------------------------------------------------------------------------
+// メール/パスワードの先頭・末尾に紛れたスペースは、設定時とログイン時で
+// 片方だけに乗るとハッシュが一致せずログイン不能になる。全入口で共有スキーマが
+// .trim() してから照合・保存することで、このズレを根本から無くす。
+// 途中のスペースは保持される（正当なパスワード文字として扱う）。
+describe("前後スペースの自動除去", () => {
+  it("loginSchema はメール・パスワードの前後スペースを除去する", () => {
+    const result = loginSchema.safeParse({
+      email: "  test@example.com  ",
+      password: "  password123  ",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.email).toBe("test@example.com");
+      expect(result.data.password).toBe("password123");
+    }
+  });
+
+  it("signupEmailSchema / resetPasswordSchema はメール前後スペースを除去する", () => {
+    for (const schema of [signupEmailSchema, resetPasswordSchema]) {
+      const result = schema.safeParse({ email: " user@test.local " });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.email).toBe("user@test.local");
+    }
+  });
+
+  it("updatePasswordSchema はパスワード前後スペースを除去する", () => {
+    const result = updatePasswordSchema.safeParse({
+      password: "  pass1234  ",
+      confirmPassword: "  pass1234  ",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.password).toBe("pass1234");
+  });
+
+  it("registerProfileSchema はパスワード前後スペースを除去する", () => {
+    const result = registerProfileSchema.safeParse({
+      lastName: "山田",
+      firstName: "太郎",
+      gender: "男性",
+      birthDate: "1990-01-15",
+      prefecture: "東京都",
+      skills: [{ tradeType: "大工", experienceYears: 5 }],
+      availableAreas: [{ prefecture: "東京都", whole: true, municipalities: [] }],
+      password: "  password123  ",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.password).toBe("password123");
+  });
+
+  it("途中のスペースは保持する（前後のみ除去）", () => {
+    const result = loginSchema.safeParse({
+      email: " a@b.com ",
+      password: " pa ss 12 ",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.password).toBe("pa ss 12");
+  });
+
+  it("スペースを除いて 8 文字未満のパスワードは弾く（トリム後に長さ判定）", () => {
+    const result = updatePasswordSchema.safeParse({
+      password: "  abc  ",
+      confirmPassword: "  abc  ",
+    });
+    expect(result.success).toBe(false);
+  });
+});

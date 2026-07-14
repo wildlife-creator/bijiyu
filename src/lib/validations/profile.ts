@@ -48,6 +48,7 @@ export const profileEditSchema = z.object({
   birthDate: birthDateSchema,
   email: z
     .string()
+    .trim()
     .email("正しいメールアドレスを入力してください")
     .optional()
     .or(z.literal("")),
