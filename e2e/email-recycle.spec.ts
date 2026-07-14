@@ -213,8 +213,11 @@ test.describe("Task 11.3: 受注者本人退会 → email 解放", () => {
     await page.getByLabel("上記内容に同意して退会する").check();
     await page.getByRole("button", { name: "退会する" }).click();
 
-    // 退会完了で /login or /goodbye 等へリダイレクト
-    await page.waitForURL(/\/(login|goodbye|$)/, { timeout: 15000 });
+    // 退会完了で退会完了ページ（/withdrawal-complete）へリダイレクト
+    await page.waitForURL(/\/withdrawal-complete/, { timeout: 15000 });
+    await expect(
+      page.getByRole("heading", { name: "退会完了" }),
+    ).toBeVisible();
 
     // Step 3: auth.users.email が印付き化されていることを SQL で確認
     //         (= 元 email "er-self-withdraw@test.local" は新規登録で再利用可能)

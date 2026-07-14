@@ -1,5 +1,7 @@
 "use server";
 
+import { redirect } from "next/navigation";
+
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send-email";
@@ -83,5 +85,14 @@ export async function withdrawAction(
   // 5. Invalidate session
   await supabase.auth.signOut();
 
-  return { success: true };
+  // 6. 退会完了ページへ遷移する。
+  // ここで Server Action 側から redirect することが重要:
+  //   `{ success: true }` を返してクライアント側で遷移する方式だと、Next.js が
+  //   直後に呼び出し元の /profile/withdrawal を自動再レンダリングし、その時点で
+  //   signOut 済み（getUser=null）のため page 先頭の redirect("/login") が発火して
+  //   アクション応答自体に /login への誘導が乗ってしまう（＝完了ページに着地できない）。
+  //   アクションから redirect すると現ページの再レンダリングが短絡されるため、
+  //   確実に /withdrawal-complete へ着地する。middleware 側の早期バイパスが
+  //   Cookie 掃除と描画を担う。
+  redirect("/withdrawal-complete");
 }

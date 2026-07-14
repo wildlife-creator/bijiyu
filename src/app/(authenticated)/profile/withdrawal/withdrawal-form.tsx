@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm, Controller } from "react-hook-form";
@@ -66,14 +66,9 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
     },
   });
 
-  useEffect(() => {
-    if (state.success) {
-      // 退会でセッションを signOut() 済み。router.push（ソフト遷移）だと
-      // Router Cache / 退会画面の再レンダリング競合で Next.js 標準 404 に
-      // 落ちるため、window.location.href（ハード遷移）で確実に着地させる。
-      window.location.href = "/withdrawal-complete";
-    }
-  }, [state]);
+  // 成功時の遷移は withdrawAction 側の redirect("/withdrawal-complete") が担う。
+  // （クライアントで遷移すると、退会画面の自動再レンダリングで /login に
+  //   飛ばされてしまうため。詳細は actions.ts のコメント参照）
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (!isCorporateOwner) return; // 通常フローはそのまま action へ

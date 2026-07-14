@@ -16,6 +16,14 @@ const mockAdminAuthUpdate = vi.fn();
 const mockSignOut = vi.fn().mockResolvedValue({ error: null });
 const mockSendEmail = vi.fn().mockResolvedValue({ success: true });
 const mockStripeCancel = vi.fn().mockResolvedValue({});
+// redirect は本物同様「throw して以降の実行を止める」挙動を再現する
+const mockRedirect = vi.fn((url: string) => {
+  throw new Error(`NEXT_REDIRECT:${url}`);
+});
+
+vi.mock("next/navigation", () => ({
+  redirect: (...args: unknown[]) => mockRedirect(...(args as [string])),
+}));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -144,6 +152,9 @@ beforeEach(() => {
   mockSignOut.mockReset().mockResolvedValue({ error: null });
   mockSendEmail.mockReset().mockResolvedValue({ success: true });
   mockStripeCancel.mockReset().mockResolvedValue({});
+  mockRedirect.mockReset().mockImplementation((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  });
 
   mockGetUser.mockResolvedValue({
     data: { user: { id: OWNER_ID, email: "owner@test.local" } },
@@ -189,15 +200,14 @@ describe("withdrawAction: 認証・バリデーション", () => {
 });
 
 describe("withdrawAction: 成功フロー（executeWithdrawal 実体経由）", () => {
-  it("退会成功で signOut と退会完了メールが実行される", async () => {
+  it("退会成功で signOut・退会完了メール実行後、退会完了ページへ redirect される", async () => {
     setupHappyPath();
 
-    const result = await withdrawAction(
-      { success: false, error: "" },
-      buildFormData(),
-    );
+    await expect(
+      withdrawAction({ success: false, error: "" }, buildFormData()),
+    ).rejects.toThrow("NEXT_REDIRECT:/withdrawal-complete");
 
-    expect(result.success).toBe(true);
+    expect(mockRedirect).toHaveBeenCalledWith("/withdrawal-complete");
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     expect(mockSendEmail).toHaveBeenCalledWith(
@@ -217,9 +227,10 @@ describe("withdrawAction: 成功フロー（executeWithdrawal 実体経由）", 
     fd.set("details", "高い");
     fd.set("confirmed", "on");
 
-    const result = await withdrawAction({ success: false, error: "" }, fd);
+    await expect(
+      withdrawAction({ success: false, error: "" }, fd),
+    ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(result.success).toBe(true);
     const surveyChain = chains.get("withdrawal_surveys");
     expect(surveyChain).toBeDefined();
     expect(surveyChain!._inserts[0]).toMatchObject({
