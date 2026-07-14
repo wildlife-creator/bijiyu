@@ -127,7 +127,7 @@ export function ScoutInfoCard({
             「スカウトを受けました/断りました」を残す = ScoutActionButtons に委ねる。 */}
         {isClosed && scoutStatus === "pending" ? (
           <p className="text-center text-sm font-medium text-muted-foreground">
-            掲載を終了しました
+            この案件は掲載を終了しました
           </p>
         ) : (
           <ScoutActionButtons
