@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { BackButton } from "@/components/shared/back-button";
 import {
   evaluateReviewInputWindow,
   reviewInputWindowMessage,
@@ -58,11 +59,16 @@ export default async function ContractorReportPage({ params }: Props) {
       {reviewWindow.allowed ? (
         <ContractorReportForm applicationId={application.id} />
       ) : (
-        <div className="mt-6 rounded-lg border border-border bg-background p-6 text-center">
-          <p className="text-body-md text-muted-foreground">
-            {reviewInputWindowMessage(reviewWindow)}
-          </p>
-        </div>
+        <>
+          <div className="mt-6 rounded-lg border border-border bg-background p-6 text-center">
+            <p className="text-body-md text-muted-foreground">
+              {reviewInputWindowMessage(reviewWindow)}
+            </p>
+          </div>
+          <div className="mx-auto mt-6 flex w-full max-w-xs flex-col gap-3">
+            <BackButton />
+          </div>
+        </>
       )}
       </div>
     </div>
