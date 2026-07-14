@@ -384,6 +384,12 @@ test.describe("ADM-003/004/022: 発注者管理ドリルダウン", () => {
 
     // 募集現場一覧 → ADM-022
     await expect(page.getByText("募集現場一覧")).toBeVisible();
+    // 募集現場一覧は先頭5件で折りたたまれる。seed 案件は created_at が同一で
+    // 並び順が非決定的なため、目的の案件が畳まれている場合に備えて先に展開する。
+    const showMore = page.getByRole("button", { name: /もっと見る/ });
+    if (await showMore.isVisible().catch(() => false)) {
+      await showMore.click();
+    }
     await page
       .locator("a[href^='/admin/jobs/']")
       .filter({ hasText: "木造住宅の内装リフォーム工事" })
