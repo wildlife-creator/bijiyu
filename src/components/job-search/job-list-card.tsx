@@ -25,6 +25,8 @@ interface JobListCardProps {
     recruitEndDate: string;
     companyName: string | null;
     thumbnailUrl: string | null;
+    /** 案件ステータス。'closed' のとき「掲載終了」バッジを表示する（任意） */
+    status?: "draft" | "open" | "closed";
   };
   isFavorited: boolean;
   /** ログインユーザーが（キャンセル以外で）この案件に応募済みか */
@@ -44,11 +46,15 @@ export function JobListCard({
       {/* Thumbnail */}
       <div className="relative aspect-[16/9] bg-muted">
         <JobThumbnail src={job.thumbnailUrl} alt={job.title} />
-        {job.isUrgent && (
+        {job.status === "closed" ? (
+          <Badge className="absolute top-2 left-2 rounded-[33px] bg-muted text-muted-foreground">
+            掲載終了
+          </Badge>
+        ) : job.isUrgent ? (
           <Badge className="absolute top-2 left-2 rounded-[33px] bg-destructive text-destructive-foreground">
             急募
           </Badge>
-        )}
+        ) : null}
         {hasApplied && (
           <Badge
             variant="secondary"

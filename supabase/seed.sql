@@ -2245,3 +2245,55 @@ UPDATE jobs
 SET project_start_date = CURRENT_DATE - interval '30 days',
     project_end_date   = CURRENT_DATE + interval '90 days'
 WHERE id = '66666666-6666-6666-6666-666666666666';
+
+-- ============================================================
+-- 掲載終了(closed)案件の関係者向け表示・完了報告 E2E 用フィクスチャ
+-- （jobs_select_related_closed / e2e/closed-job-visibility.spec.ts）
+-- 既存データには一切触れず、専用ユーザー2名＋掲載終了案件1件＋
+-- 受注(accepted)応募1件（レビュー未登録・入力可能期間内）を隔離して用意する。
+-- ============================================================
+
+-- 1) auth.users（発注者オーナー / 受注者）
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change, email_change_token_new,
+  phone, phone_change, phone_change_token, email_change_token_current,
+  email_change_confirm_status, reauthentication_token, is_sso_user
+) VALUES
+  ('c105ed00-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+   'closed-report-client@test.local', crypt('testpass123', gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"]}', '{}', now(), now(),
+   '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('c105ed00-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+   'closed-report-contractor@test.local', crypt('testpass123', gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"]}', '{}', now(), now(),
+   '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (user_id, id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at) VALUES
+  ('c105ed00-0000-4000-8000-000000000001', 'c105ed00-0000-4000-8000-000000000001', 'closed-report-client@test.local',
+   '{"sub":"c105ed00-0000-4000-8000-000000000001","email":"closed-report-client@test.local"}', 'email', now(), now(), now()),
+  ('c105ed00-0000-4000-8000-000000000002', 'c105ed00-0000-4000-8000-000000000002', 'closed-report-contractor@test.local',
+   '{"sub":"c105ed00-0000-4000-8000-000000000002","email":"closed-report-contractor@test.local"}', 'email', now(), now(), now());
+
+-- 2) public.users（トリガー自動作成分を UPDATE で上書き）
+UPDATE public.users SET
+  role = 'client', last_name = '締切', first_name = '発注太郎', prefecture = '東京都'
+WHERE id = 'c105ed00-0000-4000-8000-000000000001';
+
+UPDATE public.users SET
+  role = 'contractor', last_name = '締切', first_name = '受注花子', prefecture = '東京都',
+  skill_tags = ARRAY['造作大工']
+WHERE id = 'c105ed00-0000-4000-8000-000000000002';
+
+-- 3) 掲載終了案件（稼働終了日=本日 → 完了報告の入力可能期間内）
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status,
+  reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
+VALUES ('c105ed00-0000-4000-8000-00000000ba01', 'c105ed00-0000-4000-8000-000000000001', NULL,
+  '掲載終了 完了報告テスト案件', '掲載終了後も受注者が完了報告できることの検証用', ARRAY['建築/躯体｜大工']::text[], 1, 'closed',
+  20000, 25000, CURRENT_DATE - 5, CURRENT_DATE, CURRENT_DATE - 20, CURRENT_DATE - 6);
+
+-- 4) 受注(accepted)応募（初回稼働日=本日-3・レビュー未登録＝送信可能）
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date)
+VALUES ('c105ed00-0000-4000-8000-00000000aa01', 'c105ed00-0000-4000-8000-00000000ba01',
+  'c105ed00-0000-4000-8000-000000000002', 1, '常勤', CURRENT_DATE - 3, 'accepted', CURRENT_DATE - 3);

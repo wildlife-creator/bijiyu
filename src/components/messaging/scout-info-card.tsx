@@ -20,6 +20,8 @@ interface ScoutInfoCardProps {
   /** 稼働期間（職人が実際に働く期間） */
   workStartDate: string | null;
   workEndDate: string | null;
+  /** 掲載終了(status='closed')案件のとき true。「掲載終了」バッジを表示する */
+  isClosed?: boolean;
   // Scout action props
   showScoutActions: boolean;
   scoutStatus: string | null;
@@ -37,6 +39,7 @@ export function ScoutInfoCard({
   areas,
   workStartDate,
   workEndDate,
+  isClosed = false,
   showScoutActions,
   scoutStatus,
   messageId,
@@ -111,13 +114,22 @@ export function ScoutInfoCard({
           </div>
         </div>
 
-        {/* Right (PC) / Below (SP): scout action buttons inside card */}
-        <ScoutActionButtons
-          showScoutActions={showScoutActions}
-          scoutStatus={scoutStatus}
-          messageId={messageId}
-          jobId={jobId}
-        />
+        {/* Right (PC) / Below (SP):
+            未対応(pending)のまま案件が掲載終了した場合はボタンを出さず案内のみ
+            （応募のしようがないため）。承諾済み/辞退済みは履歴として
+            「スカウトを受けました/断りました」を残す = ScoutActionButtons に委ねる。 */}
+        {isClosed && scoutStatus === "pending" ? (
+          <p className="text-sm font-medium text-muted-foreground md:self-end md:text-right">
+            掲載を終了しました
+          </p>
+        ) : (
+          <ScoutActionButtons
+            showScoutActions={showScoutActions}
+            scoutStatus={scoutStatus}
+            messageId={messageId}
+            jobId={jobId}
+          />
+        )}
       </div>
     </div>
   );

@@ -20,6 +20,8 @@ export interface ScoutJobInfo {
   /** 稼働期間（職人が実際に働く期間） */
   workStartDate: string | null;
   workEndDate: string | null;
+  /** 掲載終了(status='closed')案件のとき true */
+  isClosed?: boolean;
 }
 
 export interface Message {

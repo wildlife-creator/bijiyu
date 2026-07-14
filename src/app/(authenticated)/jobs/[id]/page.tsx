@@ -7,6 +7,7 @@ import { CollapsibleList } from "@/components/master/collapsible-list";
 import { resolveEffectiveSubscription } from "@/lib/billing/resolve-effective-subscription";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -135,6 +136,38 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
     .single();
 
   if (!job) {
+    // RLS で読めない = (a) 無関係ユーザーが開いた掲載終了案件 /
+    // (b) 削除済み / (c) 存在しない。(a) のときだけ「掲載終了しました」と
+    // 案内する（案件の中身は出さない = 非公開のまま）。それ以外は 404。
+    const admin = createAdminClient();
+    const { data: probe } = await admin
+      .from("jobs")
+      .select("status, deleted_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (probe && probe.status === "closed" && !probe.deleted_at) {
+      return (
+        <div className="min-h-dvh">
+          <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-8 md:py-8">
+            <h1 className="text-center text-heading-lg font-bold text-secondary">
+              募集案件詳細
+            </h1>
+            <div className="mt-10 flex flex-col items-center gap-3 text-center">
+              <StatusBadge status="closed" />
+              <p className="text-body-md text-foreground">
+                この案件は掲載終了しました。
+              </p>
+              <p className="text-body-sm text-muted-foreground">
+                現在は募集していないため、詳細は表示できません。
+              </p>
+              <div className="mt-4">
+                <SharedBackButton />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
     notFound();
   }
 
@@ -156,6 +189,8 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
   }));
 
   const isOwner = job.owner_id === user.id;
+  // 掲載終了案件（関係者のみここに到達）は読み取り専用にする
+  const isClosed = job.status === "closed";
 
   // 組織コンテキストを 1 回だけ解決し、下流の (1) 同組織メンバー判定と
   // (2) 実効サブスク解決の両方で使い回す。Owner でも Staff/Admin でも同じ。
@@ -422,8 +457,9 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
 
   // --- Applicant view (CON-003) ---
 
-  // Hide apply button for: own jobs, same org jobs, and staff (staff cannot apply per roles-and-permissions.md)
-  const hideApplyButton = canManage || userData?.role === "staff";
+  // Hide apply button for: own jobs, same org jobs, staff (staff cannot apply per
+  // roles-and-permissions.md), and 掲載終了案件（応募不可）
+  const hideApplyButton = canManage || userData?.role === "staff" || isClosed;
 
   // Check favorite status
   const { data: favorite } = await supabase
@@ -491,6 +527,16 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
     <div className="min-h-dvh">
       <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">募集案件詳細</h1>
+
+      {/* 掲載終了バナー（読み取り専用・応募不可を明示） */}
+      {isClosed && (
+        <div className="mt-3 flex flex-col items-center gap-1">
+          <StatusBadge status="closed" />
+          <p className="text-body-sm text-muted-foreground">
+            この案件の募集は終了しました。
+          </p>
+        </div>
+      )}
 
       {/* Hero image (1枚目 / タイトル直下・枠固定で全体表示) */}
       {images && images.length > 0 && (

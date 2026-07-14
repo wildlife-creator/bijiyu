@@ -287,7 +287,7 @@ test.describe("ADM-006/007: 管理責任者 招待フロー", () => {
     await expect(page.getByText("入力内容の確認")).toBeVisible();
     await expect(page.getByText("招待テスト建設株式会社")).toBeVisible();
     await expect(page.getByText(inviteEmail)).toBeVisible();
-    await page.getByRole("button", { name: "作成する" }).click();
+    await page.getByRole("button", { name: "招待メールを送信する" }).click();
     await page.waitForURL(/\/admin\/clients$/);
 
     // 招待メールを Mailpit（supabase local の dev メールボックス）から取得

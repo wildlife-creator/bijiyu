@@ -182,7 +182,7 @@ async function JobFavorites({
     .from("jobs")
     .select(
       `
-      id, title, description, trade_types,
+      id, title, description, trade_types, status,
       reward_lower, reward_upper, is_urgent,
       work_start_date, work_end_date,
       recruit_start_date, recruit_end_date, created_at,
@@ -268,6 +268,7 @@ async function JobFavorites({
               recruitEndDate: job.recruit_end_date ?? "",
               companyName,
               thumbnailUrl: thumbnail,
+              status: job.status as "draft" | "open" | "closed",
             }}
             isFavorited={true}
             hasApplied={appliedJobIds.has(job.id)}

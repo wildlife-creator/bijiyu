@@ -54,7 +54,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
     .from("applications")
     .select(
       `id, status, created_at, applicant_id, scout_message_id,
-       jobs(id, title, owner_id, organization_id, trade_types, headcount,
+       jobs(id, title, status, owner_id, organization_id, trade_types, headcount,
             reward_lower, reward_upper,
             work_start_date, work_end_date,
             owner:users!owner_id(
@@ -170,6 +170,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
           const job = app.jobs as {
             id: string;
             title: string;
+            status: string;
             owner_id: string;
             organization_id: string | null;
             trade_types: string[];
@@ -242,9 +243,16 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
 
               <CardContent className="px-4 pb-4 pt-2">
                 {/* 2. Title */}
-                <p className="text-body-lg font-semibold text-foreground">
-                  {job?.title ?? "不明な案件"}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-body-lg font-semibold text-foreground">
+                    {job?.title ?? "不明な案件"}
+                  </p>
+                  {job?.status === "closed" && (
+                    <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-body-xs text-muted-foreground">
+                      掲載終了
+                    </span>
+                  )}
+                </div>
 
                 {/* 3. Company name */}
                 <p className="mt-1 text-body-sm text-muted-foreground">

@@ -24,6 +24,8 @@ interface ScoutJobInfo {
   /** 稼働期間（職人が実際に働く期間） */
   workStartDate: string | null;
   workEndDate: string | null;
+  /** 掲載終了(status='closed')案件のとき true */
+  isClosed?: boolean;
 }
 
 interface MessageBubbleProps {
@@ -163,6 +165,7 @@ export function MessageBubble({
           areas={scoutJob.areas}
           workStartDate={scoutJob.workStartDate}
           workEndDate={scoutJob.workEndDate}
+          isClosed={scoutJob.isClosed ?? false}
           showScoutActions={showScoutActions}
           scoutStatus={scoutStatus ?? null}
           messageId={messageId}
