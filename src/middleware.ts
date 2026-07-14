@@ -196,6 +196,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 退会完了ページ（COM-006）は退会直後に着地する。この時点でユーザーは
+  // deleted_at セット済み・ban 済みだが、signOut() の Cookie 反映が
+  // window.location.href のナビゲーションに間に合わないことがあり、その場合
+  // 下部の deleted_at ガード（redirectToLoginAndClearSession）で /login に
+  // 飛ばされて完了画面が出ない（staging で実際に発生）。ここで認証状態を問わず
+  // 早期に通し、同時に sb- Cookie を掃除してログアウトを確定させる。
+  // ページ自体は getUser に依存しない自己完結構成（src/app/withdrawal-complete）。
+  if (pathname === "/withdrawal-complete") {
+    const response = NextResponse.next();
+    request.cookies.getAll().forEach(({ name }) => {
+      if (name.startsWith("sb-")) {
+        response.cookies.delete(name);
+      }
+    });
+    return response;
+  }
+
   // /mypage/organization-setup は organization spec Task 6.1 で廃止済み。
   // 旧 URL を直接踏まれた場合は CLI-021 setup モードに 308 リダイレクト
   if (pathname === "/mypage/organization-setup") {
