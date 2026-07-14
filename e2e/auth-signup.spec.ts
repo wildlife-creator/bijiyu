@@ -70,10 +70,14 @@ test.describe("AUTH-006 プロフィール入力フォーム通し (master-area-
     await page.getByLabel("性別").click();
     await page.getByRole("option", { name: "男性", exact: true }).click();
 
-    // 5. 生年月日 — スマホ想定で「/」を打たず数字のみ入力すると
-    //    formatBirthDateInput が自動で "1990/04/01" に整形する（修正1）。
-    await page.locator("#birthDate").fill("19900401");
-    await expect(page.locator("#birthDate")).toHaveValue("1990/04/01");
+    // 5. 生年月日 — 年は数字入力、月・日は shadcn Select（2 段クリック）。
+    //    年月日が独立しているので途中修正は該当欄だけで済む。
+    await page.locator("#birthYear").fill("1990");
+    await page.getByLabel("月", { exact: true }).click();
+    await page.getByRole("option", { name: "4", exact: true }).click();
+    await page.getByLabel("日", { exact: true }).click();
+    await page.getByRole("option", { name: "1", exact: true }).click();
+    await expect(page.locator("#birthYear")).toHaveValue("1990");
 
     // 6. お住まい (ResidencePicker: 都道府県 + 市区町村。市区町村は任意なので
     //    ここでは都道府県のみ選択する)

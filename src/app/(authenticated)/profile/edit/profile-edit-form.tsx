@@ -33,8 +33,8 @@ import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
 } from "@/lib/master/deprecated";
+import { BirthDateField } from "@/components/shared/birth-date-field";
 import { GENDERS } from "@/lib/constants/options";
-import { formatBirthDateInput } from "@/lib/validations/birth-date";
 import {
   profileEditSchema,
   type ProfileEditInput,
@@ -554,27 +554,18 @@ export function ProfileEditForm({
 
             {/* 生年月日 */}
             <FieldGroup>
-              <FieldLabel htmlFor="birthDate">
+              <FieldLabel htmlFor="birthYear">
                 生年月日
                 <RequiredBadge />
               </FieldLabel>
-              <Input
-                id="birthDate"
-                type="text"
-                inputMode="numeric"
-                maxLength={10}
-                placeholder="例: 19900115"
-                className="bg-background"
+              <BirthDateField
+                yearInputId="birthYear"
                 value={watchedBirthDate ?? ""}
-                onChange={(e) =>
-                  setValue("birthDate", formatBirthDateInput(e.target.value), {
-                    shouldValidate: false,
-                  })
+                onChange={(v) =>
+                  setValue("birthDate", v, { shouldValidate: false })
                 }
+                invalid={!!validationErrors["birthDate"]}
               />
-              <p className="text-muted-foreground text-body-xs">
-                1985年1月23日生まれの場合 → 19850123 と入力
-              </p>
               <FieldError message={validationErrors["birthDate"]} />
             </FieldGroup>
 

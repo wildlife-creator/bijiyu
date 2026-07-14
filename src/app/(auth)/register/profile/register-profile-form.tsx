@@ -26,8 +26,8 @@ import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
 } from "@/lib/master/deprecated";
+import { BirthDateField } from "@/components/shared/birth-date-field";
 import { GENDERS } from "@/lib/constants/options";
-import { formatBirthDateInput } from "@/lib/validations/birth-date";
 import {
   registerProfileFormSchema,
   type RegisterProfileFormInput,
@@ -233,26 +233,18 @@ export function RegisterProfileForm({
 
         {/* 生年月日 */}
         <div className="space-y-1.5">
-          <Label htmlFor="birthDate">
+          <Label htmlFor="birthYear">
             生年月日
             <RequiredBadge />
           </Label>
-          <Input
-            id="birthDate"
-            type="text"
-            inputMode="numeric"
-            maxLength={10}
-            placeholder="例: 19900115"
+          <BirthDateField
+            yearInputId="birthYear"
             value={watchedBirthDate ?? ""}
-            onChange={(e) =>
-              setValue("birthDate", formatBirthDateInput(e.target.value), {
-                shouldValidate: false,
-              })
+            onChange={(v) =>
+              setValue("birthDate", v, { shouldValidate: false })
             }
+            invalid={!!errors.birthDate}
           />
-          <p className="text-muted-foreground text-body-xs">
-            1985年1月23日生まれの場合 → 19850123 と入力
-          </p>
           {errors.birthDate && (
             <p className="text-destructive text-body-sm">
               {errors.birthDate.message}

@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 
 import {
   birthDateSchema,
-  formatBirthDateInput,
+  splitBirthDate,
+  joinBirthDate,
+  daysInBirthMonth,
+  clampBirthDay,
 } from "@/lib/validations/birth-date";
 
 describe("birthDateSchema", () => {
@@ -26,6 +29,12 @@ describe("birthDateSchema", () => {
 
   it("空欄は弾く", () => {
     expect(birthDateSchema.safeParse("").success).toBe(false);
+  });
+
+  it("一部だけ入力した途中状態（区切りだけ残る）は弾く", () => {
+    expect(birthDateSchema.safeParse("1990//").success).toBe(false);
+    expect(birthDateSchema.safeParse("1990/1/").success).toBe(false);
+    expect(birthDateSchema.safeParse("/1/15").success).toBe(false);
   });
 
   it("形式不正（区切りなし）は弾く", () => {
@@ -56,66 +65,111 @@ describe("birthDateSchema", () => {
   });
 });
 
-describe("formatBirthDateInput", () => {
-  it("数字8桁を YYYY/MM/DD に整形する", () => {
-    expect(formatBirthDateInput("19900115")).toBe("1990/01/15");
+describe("splitBirthDate", () => {
+  it("スラッシュ区切りを年・月・日に分解し、月日の先頭ゼロを外す", () => {
+    expect(splitBirthDate("1990/01/15")).toEqual({
+      year: "1990",
+      month: "1",
+      day: "15",
+    });
   });
 
-  it("途中入力でも段階的に区切りを挿入する", () => {
-    expect(formatBirthDateInput("1")).toBe("1");
-    expect(formatBirthDateInput("1990")).toBe("1990");
-    expect(formatBirthDateInput("19900")).toBe("1990/0");
-    expect(formatBirthDateInput("199001")).toBe("1990/01");
-    expect(formatBirthDateInput("1990011")).toBe("1990/01/1");
+  it("ハイフン区切り（DB 形式）も分解できる", () => {
+    expect(splitBirthDate("1990-04-01")).toEqual({
+      year: "1990",
+      month: "4",
+      day: "1",
+    });
   });
 
-  it("スラッシュ入りのペーストを再整形する", () => {
-    expect(formatBirthDateInput("1990/01/15")).toBe("1990/01/15");
+  it("空文字・null・undefined はすべて空パーツを返す", () => {
+    const empty = { year: "", month: "", day: "" };
+    expect(splitBirthDate("")).toEqual(empty);
+    expect(splitBirthDate(null)).toEqual(empty);
+    expect(splitBirthDate(undefined)).toEqual(empty);
   });
 
-  it("ハイフン入りのペーストを再整形する", () => {
-    expect(formatBirthDateInput("1990-01-15")).toBe("1990/01/15");
+  it("年だけ・年月だけの途中状態を分解できる", () => {
+    expect(splitBirthDate("1990//")).toEqual({
+      year: "1990",
+      month: "",
+      day: "",
+    });
+    expect(splitBirthDate("1990/4/")).toEqual({
+      year: "1990",
+      month: "4",
+      day: "",
+    });
   });
 
-  it("区切り付き1桁月日のペーストをゼロ詰めして整形する", () => {
-    // 数字だけ抜き出す旧実装では "1990/15" に化けていたケース
-    expect(formatBirthDateInput("1990/1/5")).toBe("1990/01/05");
-    expect(formatBirthDateInput("1990/1/15")).toBe("1990/01/15");
-    expect(formatBirthDateInput("1990/12/5")).toBe("1990/12/05");
-    expect(formatBirthDateInput("1990-1-5")).toBe("1990/01/05");
+  it("年は数字4桁までに丸める", () => {
+    expect(splitBirthDate("199012/1/5").year).toBe("1990");
+  });
+});
+
+describe("joinBirthDate", () => {
+  it("3パーツを YYYY/MM/DD 形式に結合する", () => {
+    expect(joinBirthDate("1990", "4", "1")).toBe("1990/4/1");
   });
 
-  it("区切り付きでも成分が欠ける途中入力はゼロ詰めせず数字連結にフォールバックする", () => {
-    // "1990/01" に化けさせない（ユーザーが月を打ち切る前に確定させない）
-    expect(formatBirthDateInput("1990/1")).toBe("1990/1");
-    expect(formatBirthDateInput("1990/")).toBe("1990");
-  });
-
-  it("全角数字を半角に正規化して整形する", () => {
-    expect(formatBirthDateInput("１９９００１１５")).toBe("1990/01/15");
-  });
-
-  it("数字以外（空白・記号）を除去して整形する", () => {
-    expect(formatBirthDateInput(" 1990 01 15 ")).toBe("1990/01/15");
-    expect(formatBirthDateInput("1990年01月15日")).toBe("1990/01/15");
-  });
-
-  it("9桁以上は先頭8桁で切り捨てる", () => {
-    expect(formatBirthDateInput("199001159")).toBe("1990/01/15");
-  });
-
-  it("空文字はそのまま空を返す", () => {
-    expect(formatBirthDateInput("")).toBe("");
-  });
-
-  it("数字を含まない入力は空を返す", () => {
-    expect(formatBirthDateInput("abc//")).toBe("");
-  });
-
-  it("整形結果は birthDateSchema でそのまま検証を通せる", () => {
-    const formatted = formatBirthDateInput("19900401");
-    const r = birthDateSchema.safeParse(formatted);
+  it("結合結果は birthDateSchema でそのまま検証を通せる", () => {
+    const r = birthDateSchema.safeParse(joinBirthDate("1990", "4", "1"));
     expect(r.success).toBe(true);
     if (r.success) expect(r.data).toBe("1990-04-01");
+  });
+
+  it("3パーツすべて空なら空文字を返す（未入力）", () => {
+    expect(joinBirthDate("", "", "")).toBe("");
+  });
+
+  it("一部だけ埋まっている途中状態は区切りを残す（形式エラーとして検出させる）", () => {
+    expect(joinBirthDate("1990", "", "")).toBe("1990//");
+    expect(joinBirthDate("1990", "4", "")).toBe("1990/4/");
+  });
+});
+
+describe("daysInBirthMonth", () => {
+  it("31日の月", () => {
+    expect(daysInBirthMonth("1990", "1")).toBe(31);
+    expect(daysInBirthMonth("1990", "12")).toBe(31);
+  });
+
+  it("30日の月", () => {
+    expect(daysInBirthMonth("1990", "4")).toBe(30);
+  });
+
+  it("平年の2月は28日", () => {
+    expect(daysInBirthMonth("1990", "2")).toBe(28);
+  });
+
+  it("閏年の2月は29日", () => {
+    expect(daysInBirthMonth("2000", "2")).toBe(29);
+  });
+
+  it("月が未確定なら31を返す", () => {
+    expect(daysInBirthMonth("1990", "")).toBe(31);
+  });
+
+  it("年が4桁未満なら閏年扱いで2月は29日を許容する", () => {
+    expect(daysInBirthMonth("19", "2")).toBe(29);
+  });
+});
+
+describe("clampBirthDay", () => {
+  it("末日を超える日は末日にクランプする（4/31 → 4/30）", () => {
+    expect(clampBirthDay("31", "1990", "4")).toBe("30");
+  });
+
+  it("平年2月に31日を選んでいたら28にクランプする", () => {
+    expect(clampBirthDay("31", "1990", "2")).toBe("28");
+  });
+
+  it("範囲内の日はそのまま", () => {
+    expect(clampBirthDay("15", "1990", "4")).toBe("15");
+  });
+
+  it("日または月が未確定ならそのまま返す", () => {
+    expect(clampBirthDay("", "1990", "4")).toBe("");
+    expect(clampBirthDay("31", "1990", "")).toBe("31");
   });
 });
