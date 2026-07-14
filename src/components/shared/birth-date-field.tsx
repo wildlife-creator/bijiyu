@@ -80,7 +80,7 @@ export function BirthDateField({
           placeholder="1985"
           aria-label="生年（西暦）"
           aria-invalid={invalid || undefined}
-          className="w-20 bg-background"
+          className="w-20 bg-background md:text-base"
           value={year}
           onChange={(e) => handleYear(e.target.value)}
         />
@@ -92,7 +92,7 @@ export function BirthDateField({
           <SelectTrigger
             aria-label="月"
             aria-invalid={invalid || undefined}
-            className="w-16 bg-background text-sm"
+            className="w-16 bg-background text-base"
           >
             <SelectValue placeholder="--" />
           </SelectTrigger>
@@ -112,7 +112,7 @@ export function BirthDateField({
           <SelectTrigger
             aria-label="日"
             aria-invalid={invalid || undefined}
-            className="w-16 bg-background text-sm"
+            className="w-16 bg-background text-base"
           >
             <SelectValue placeholder="--" />
           </SelectTrigger>
