@@ -34,6 +34,18 @@ export async function completeRegistrationAction(
     return { success: false, error: "認証情報が見つかりません。再度ログインしてください。" };
   }
 
+  // パスワードは最初に設定する。この後のマスタ照合や RPC が一時的に失敗しても、
+  // ユーザーが選んだパスワードでログインでき、middleware が last_name=NULL を
+  // 見て /register/profile に戻すため自力でやり直せる。設定を最後に置くと、
+  // 途中失敗時に「メール確認済み・パスワード未設定」の復旧不能アカウントが残る。
+  const { error: passwordError } = await supabase.auth.updateUser({
+    password: data.password,
+  });
+
+  if (passwordError) {
+    return { success: false, error: "パスワードの設定に失敗しました。もう一度お試しください。" };
+  }
+
   // 新規登録時は previousLabels=[] で delta validate (= added 全件が active 必須)
   const tradeValid = await validateLabelChanges(
     data.skills.map((s) => s.tradeType),
@@ -82,15 +94,6 @@ export async function completeRegistrationAction(
 
   if (rpcError) {
     return { success: false, error: "プロフィールの保存に失敗しました。もう一度お試しください。" };
-  }
-
-  // Update password via Supabase Auth
-  const { error: passwordError } = await supabase.auth.updateUser({
-    password: data.password,
-  });
-
-  if (passwordError) {
-    return { success: false, error: "パスワードの設定に失敗しました。もう一度お試しください。" };
   }
 
   // §8.2 会員登録完了 welcome (non-blocking, do not fail registration).
