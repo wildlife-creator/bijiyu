@@ -80,6 +80,22 @@ function firstClientProfile(
 }
 
 /**
+ * 退会済み counterparty の表示名に「（退会済み）」を付す。
+ *
+ * 設計（名前＋退会済みバッジ・対称）:
+ * 退会しても氏名 / `client_profiles.display_name` は DB に保持されており（ソフト削除）、
+ * 名前自体は消さない。受注者・発注者どちらが退会しても、保持された実名を表示した上で
+ * 「（退会済み）」を付けて状態を示す。これにより「退会済みは発注者だけ実名が残る」
+ * という旧来の非対称を解消し、残った側が取引相手を識別できる状態を保つ。
+ */
+export function appendWithdrawnSuffix(
+  name: string,
+  deletedAt: string | null,
+): string {
+  return deletedAt ? `${name}（退会済み）` : name;
+}
+
+/**
  * viewer がどちらの席にいるかを identity ベースで判定する。
  *   1. participant_1_id === viewerId → side 1
  *   2. participant_2_id === viewerId → side 2
@@ -113,12 +129,18 @@ export function determineViewerSide(
 /**
  * viewer 反対側 (counterparty) の identity から表示情報を解決する。
  *
- * 優先順位 (resolveActorDisplayName 準拠):
+ * 名前解決の優先順位 (resolveActorDisplayName 準拠):
  *   1. counterparty が組織 identity → org Owner の client_profiles.display_name
  *   2. counterparty の individual client_profiles.display_name (発注者側)
  *   3. counterparty の users.company_name (受注者側屋号)
  *   4. 姓名 (スペース無し結合)
  *   5. "未設定"
+ *
+ * 退会済みの扱い（名前＋退会済みバッジ・対称）:
+ * resolveActorDisplayName には `deletedAt: null` を渡して「退会済みユーザー」への
+ * 置き換えを行わせず、上記 1〜5 で保持された実名を解決する。退会状態は返り値の
+ * `deletedAt` で持ち、`name` には `appendWithdrawnSuffix` で「（退会済み）」を付す。
+ * これにより受注者・発注者どちらの退会でも対称に「実名（退会済み）」を表示する。
  */
 export function resolveCounterpartyDisplay(
   thread: ThreadIdentitySides,
@@ -146,29 +168,33 @@ export function resolveCounterpartyDisplay(
 
   if (counterOrgId && counterOrgOwner) {
     const ownerProfile = firstClientProfile(counterOrgOwner.client_profiles);
-    name = resolveActorDisplayName({
+    deletedAt = counterOrgOwner.deleted_at;
+    // deletedAt: null で「退会済みユーザー」置換を抑止し、保持された実名を解決する
+    const baseName = resolveActorDisplayName({
       displayName: ownerProfile?.display_name ?? null,
       companyName: null,
       lastName: counterOrgOwner.last_name,
       firstName: counterOrgOwner.first_name,
-      deletedAt: counterOrgOwner.deleted_at,
+      deletedAt: null,
     });
+    name = appendWithdrawnSuffix(baseName, deletedAt);
     avatarUrl = ownerProfile?.image_url ?? null;
-    deletedAt = counterOrgOwner.deleted_at;
   } else {
     const participantProfile = firstClientProfile(
       counterParticipant?.client_profiles,
     );
-    name = resolveActorDisplayName({
+    deletedAt = counterParticipant?.deleted_at ?? null;
+    // deletedAt: null で「退会済みユーザー」置換を抑止し、保持された実名を解決する
+    const baseName = resolveActorDisplayName({
       displayName: participantProfile?.display_name ?? null,
       companyName: counterParticipant?.company_name ?? null,
       lastName: counterParticipant?.last_name ?? null,
       firstName: counterParticipant?.first_name ?? null,
-      deletedAt: counterParticipant?.deleted_at ?? null,
+      deletedAt: null,
     });
+    name = appendWithdrawnSuffix(baseName, deletedAt);
     avatarUrl =
       participantProfile?.image_url ?? counterParticipant?.avatar_url ?? null;
-    deletedAt = counterParticipant?.deleted_at ?? null;
   }
 
   // viewer 自身が org side (organization_X_id 非 null) にいるか
