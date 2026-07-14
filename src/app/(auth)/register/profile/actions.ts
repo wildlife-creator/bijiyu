@@ -42,7 +42,16 @@ export async function completeRegistrationAction(
     password: data.password,
   });
 
-  if (passwordError) {
+  // GoTrue は「新しいパスワードが現在のパスワードと同一」の場合に
+  // same_password (HTTP 422) で拒否する。これは次の復旧シナリオで起こる:
+  //   1. サインアップ→メール確認したが profile 未入力でページを閉じる
+  //      (auth ユーザーは一時パスワードのまま last_name=NULL で残る)
+  //   2. ログイン画面の「パスワードをお忘れの方」で本人がパスワード X を設定
+  //   3. ログイン→middleware が last_name=NULL を見て /register/profile に差し戻し
+  //   4. この画面で手順 2 と同じパスワード X を入力して「登録する」
+  // このとき「既に望みのパスワードが設定済み」なので、same_password は
+  // 実質的な成功として扱い、登録処理を続行する(エラーにすると詰む)。
+  if (passwordError && !isSamePasswordError(passwordError)) {
     return { success: false, error: "パスワードの設定に失敗しました。もう一度お試しください。" };
   }
 
@@ -114,4 +123,17 @@ export async function completeRegistrationAction(
   }
 
   return { success: true };
+}
+
+/**
+ * GoTrue の「新しいパスワードが現在のパスワードと同一」エラーかを判定する。
+ * updateUser は同一パスワードを HTTP 422 / code "same_password" で拒否する。
+ * supabase-js のバージョン差で code が乗らないケースに備え、メッセージ照合も併用する。
+ */
+function isSamePasswordError(error: {
+  code?: string | null;
+  message?: string;
+}): boolean {
+  if (error.code === "same_password") return true;
+  return /different from the old password/i.test(error.message ?? "");
 }

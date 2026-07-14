@@ -132,6 +132,41 @@ describe("completeRegistrationAction: パスワードは照合・RPC より前�
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
+  it("同一パスワード(same_password)エラーは成功扱いで登録を続行する", async () => {
+    // 復旧シナリオ: サインアップ→放置→パスワード再設定 X→再ログインで
+    // /register/profile に差し戻され、そこで X を再入力するケース。
+    // 既に望みのパスワードが設定済みなので、GoTrue の same_password は
+    // 実質成功として扱い、後続のマスタ照合・RPC を実行して完了させる。
+    mockUpdateUser.mockResolvedValue({
+      data: { user: null },
+      error: {
+        code: "same_password",
+        message: "New password should be different from the old password.",
+      },
+    });
+
+    const result = await completeRegistrationAction(validInput());
+
+    expect(result.success).toBe(true);
+    expect(mockValidateLabelChanges).toHaveBeenCalled();
+    expect(mockValidateAreaChanges).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalled();
+  });
+
+  it("同一パスワード判定は code 欠落時でもメッセージ照合でフォールバックする", async () => {
+    mockUpdateUser.mockResolvedValue({
+      data: { user: null },
+      error: {
+        message: "New password should be different from the old password.",
+      },
+    });
+
+    const result = await completeRegistrationAction(validInput());
+
+    expect(result.success).toBe(true);
+    expect(mockRpc).toHaveBeenCalled();
+  });
+
   it("RPC が失敗しても、その前にパスワードは設定済み(=復旧可能な状態)である", async () => {
     // last_name=NULL のまま失敗しても、パスワードが既に設定されていれば
     // ユーザーはログインして /register/profile でやり直せる。この不変条件を固定する。
