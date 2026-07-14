@@ -68,9 +68,12 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
 
   useEffect(() => {
     if (state.success) {
-      router.push("/");
+      // 退会でセッションを signOut() 済み。router.push（ソフト遷移）だと
+      // Router Cache / 退会画面の再レンダリング競合で Next.js 標準 404 に
+      // 落ちるため、window.location.href（ハード遷移）で確実に着地させる。
+      window.location.href = "/withdrawal-complete";
     }
-  }, [state, router]);
+  }, [state]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (!isCorporateOwner) return; // 通常フローはそのまま action へ

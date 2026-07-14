@@ -59,7 +59,9 @@ export const AUTH_PAGE_PATHS = [
 ] as const;
 
 // Public pages accessible without authentication (static/marketing pages)
-export const PUBLIC_PAGES = ["/", "/about", "/terms", "/privacy", "/contact", "/faq", "/legal"] as const;
+// /withdrawal-complete は退会直後（signOut 済み = 未認証）に着地する完了画面。
+// PUBLIC_PAGES に含めないと未認証扱いで /login に飛ばされてしまう。
+export const PUBLIC_PAGES = ["/", "/about", "/terms", "/privacy", "/contact", "/faq", "/legal", "/withdrawal-complete"] as const;
 
 // Paths that contractors (free users) can access under /billing
 const BILLING_PATH_PREFIX = "/billing";
