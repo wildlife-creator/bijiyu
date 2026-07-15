@@ -68,6 +68,18 @@ export async function sendBulkMessagesAction(
 
     for (const recipientId of parsed.data.recipientIds) {
       try {
+        // 退会済み / 存在しない宛先はスキップ (UI 側でも候補から除外しているが、
+        // 古い画面からの送信等に備えたサーバー側の防御)
+        const { data: recipientRow } = await admin
+          .from("users")
+          .select("deleted_at")
+          .eq("id", recipientId)
+          .maybeSingle();
+        if (!recipientRow || recipientRow.deleted_at) {
+          failed++;
+          continue;
+        }
+
         // 相手 (受信者) の組織 identity を admin 経由で解決
         const { data: recipientOrgRow } = await admin
           .from("organization_members")

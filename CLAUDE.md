@@ -402,6 +402,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - messages テーブルの UPDATE（read_at, scout_status）は **admin client** で実行すること（PERMISSIVE ポリシーの OR 結合問題を回避）
 - Server Action で FormData 経由の File を受け取る場合、Zod の `z.instanceof(File)` は使わないこと（サーバー側で instanceof が一致しない）。`file.size`、`file.type` を直接チェックするインラインバリデーションを使用する
 - 受注者のスレッド一覧・詳細で組織名を表示するため、organizations テーブルに `organizations_select_thread_participant` RLS ポリシーが必要
+- **スレッド経由の「退会済みユーザー / 解散済み組織」SELECT ポリシーは組織メンバーまで開放**（`20260715120000_thread_deleted_visibility_org_aware.sql`）: `message_threads_select` は同組織メンバー全員にスレッドを開放しているため、`users` / `organizations` の deleted 例外ポリシーを「当事者のみ」にすると、当事者でないスタッフには退会済み相手の embed が **silent null** になり、①宛先が「未設定」表示②`isCounterpartWithdrawn` ガードがすり抜けて退会者へ送信可能、の二重の穴になる（2026-07-15 実例）。「スレッドが見える範囲」と「スレッド上の退会済み相手が見える範囲」は必ず一致させること。回帰テスト: `supabase/tests/thread_deleted_visibility_org_aware.test.sql`
 - **代理メッセージ（`is_proxy`）の仕組み**: 代理アカウント（`organization_members.is_proxy_account = true`）は、ビジ友の運営スタッフが法人の担当者アカウントにログインして操作するためのもの。**sender_id の書き換えは行わない**（`proxy_sender_id` カラムは廃止済み）。Server Action が送信者の `is_proxy_account` を参照し、`messages.is_proxy = true` を自動設定するだけ。「代理」バッジは**発注者側の画面でのみ表示**し、受注者側には表示しない
 
 ### Supabase Realtime の購読は `await setAuth()` してから `subscribe()`（必ず守ること）

@@ -1047,7 +1047,13 @@ describe("sendBulkMessagesAction", () => {
         },
       }),
     );
-    // 3. Phase 2: admin で相手 (受注者) の org 解決 → 無し
+    // 3. 宛先の退会チェック (admin.users) → 在籍中
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { deleted_at: null }, error: null },
+      }),
+    );
+    // 3b. Phase 2: admin で相手 (受注者) の org 解決 → 無し
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: null, error: null } }),
     );
@@ -1103,7 +1109,13 @@ describe("sendBulkMessagesAction", () => {
         },
       }),
     );
-    // 3. Phase 2: admin で相手 (受注者) の org 解決 → 無し
+    // 3. 宛先の退会チェック (admin.users) → 在籍中
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: { deleted_at: null }, error: null },
+      }),
+    );
+    // 3b. Phase 2: admin で相手 (受注者) の org 解決 → 無し
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: null, error: null } }),
     );
@@ -1133,6 +1145,72 @@ describe("sendBulkMessagesAction", () => {
     if (result.success) {
       expect(result.data?.sent).toBe(1);
       expect(result.data?.failed).toBe(0);
+    }
+  });
+
+  it("退会済みの宛先はスキップして failed にカウントする", async () => {
+    mockAuth(USER_ID);
+    // 1. role check
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        single: { data: { role: "client" }, error: null },
+      }),
+    );
+    // 2. org member
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { organization_id: ORG_ID, is_proxy_account: false },
+          error: null,
+        },
+      }),
+    );
+    // 3. 宛先の退会チェック (admin.users) → 退会済み
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { deleted_at: "2026-07-01T00:00:00Z" },
+          error: null,
+        },
+      }),
+    );
+    // 以降の org 解決 / スレッド検索 / insert は呼ばれない
+
+    const result = await sendBulkMessagesAction(buildFormData([CONTRACTOR_ID]));
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data?.sent).toBe(0);
+      expect(result.data?.failed).toBe(1);
+    }
+  });
+
+  it("宛先ユーザーが存在しない場合もスキップして failed にカウントする", async () => {
+    mockAuth(USER_ID);
+    // 1. role check
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        single: { data: { role: "client" }, error: null },
+      }),
+    );
+    // 2. org member
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { organization_id: ORG_ID, is_proxy_account: false },
+          error: null,
+        },
+      }),
+    );
+    // 3. 宛先の退会チェック (admin.users) → 行なし
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+
+    const result = await sendBulkMessagesAction(buildFormData([CONTRACTOR_ID]));
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data?.sent).toBe(0);
+      expect(result.data?.failed).toBe(1);
     }
   });
 });

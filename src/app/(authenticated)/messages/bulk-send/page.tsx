@@ -13,6 +13,7 @@ interface ThreadParticipant {
   id: string;
   last_name: string | null;
   first_name: string | null;
+  deleted_at: string | null;
 }
 
 /**
@@ -50,8 +51,8 @@ export default async function BulkSendPage() {
     .select(
       `id, participant_1_id, participant_2_id,
        organization_1_id, organization_2_id,
-       participant_1:users!message_threads_participant_1_id_fkey(id, last_name, first_name),
-       participant_2:users!message_threads_participant_2_id_fkey(id, last_name, first_name)`,
+       participant_1:users!message_threads_participant_1_id_fkey(id, last_name, first_name, deleted_at),
+       participant_2:users!message_threads_participant_2_id_fkey(id, last_name, first_name, deleted_at)`,
     )
     .or(involvementOr.join(","));
 
@@ -84,10 +85,10 @@ export default async function BulkSendPage() {
     }
     const other = iAmOnSide2 ? p1 : p2;
 
-    if (other && !recipientMap.has(other.id)) {
+    // 退会済みユーザーはメッセージが届かないため宛先候補から除外する
+    if (other && !other.deleted_at && !recipientMap.has(other.id)) {
       const name =
-        `${other.last_name || ""}${other.first_name || ""}`.trim() ||
-        "退会済みユーザー";
+        `${other.last_name || ""}${other.first_name || ""}`.trim() || "未設定";
       recipientMap.set(other.id, name);
     }
   }
