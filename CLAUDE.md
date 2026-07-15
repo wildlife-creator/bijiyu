@@ -404,6 +404,18 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 受注者のスレッド一覧・詳細で組織名を表示するため、organizations テーブルに `organizations_select_thread_participant` RLS ポリシーが必要
 - **代理メッセージ（`is_proxy`）の仕組み**: 代理アカウント（`organization_members.is_proxy_account = true`）は、ビジ友の運営スタッフが法人の担当者アカウントにログインして操作するためのもの。**sender_id の書き換えは行わない**（`proxy_sender_id` カラムは廃止済み）。Server Action が送信者の `is_proxy_account` を参照し、`messages.is_proxy = true` を自動設定するだけ。「代理」バッジは**発注者側の画面でのみ表示**し、受注者側には表示しない
 
+### Supabase Realtime の購読は `await setAuth()` してから `subscribe()`（必ず守ること）
+- **`channel.subscribe()` の前に必ず `await supabase.realtime.setAuth()` を実行すること**。これを怠ると新着イベントが 1 件も届かない
+- 理由: `subscribe()` は**同期関数**で、呼ばれた時点の `socket.accessTokenValue` を join payload に焼き込む。一方 `socket.connect()` が内部で走らせる `setAuth()` は**非同期**のため、await しないと token 未解決のまま `access_token` 無しで join する。すると Realtime 側は **anon ロール扱い**になり、`TO authenticated` の RLS ポリシー（`messages_select` 等）で全行が不可視 → イベントがサーバー側で黙って捨てられる
+- **サイレントに壊れるのが最悪な点**: join 自体は `status=ok` を返し `"Subscribed to PostgreSQL"` まで来る。ブラウザにもサーバーにもエラーが出ないため、「動いていない」以外の手がかりが無い。`subscribe((status) => ...)` のコールバックも `SUBSCRIBED` を返すので気づけない
+- realtime-js の `_performAuth` は `accessTokenValue` が**変化したときだけ**チャンネルへ token を伝播する。join 直後に走る 2 回目の `setAuth()` は「値が同じ」で no-op になるため、**購読は永久に anon のまま自己回復しない**
+- **引数なしの `setAuth()` を使うこと**。`setAuth(token)` と引数を渡すと `_manuallySetToken` が立ち、以後の自動トークンリフレッシュが止まる。引数なしなら accessToken コールバック経由で解決され、リフレッシュ挙動は維持される
+- useEffect 内では `await` を挟む都合上 unmount 時に channel が未生成でありうる。`cancelled` フラグ + `if (channel) supabase.removeChannel(channel)` で cleanup すること
+- 基準実装: `src/components/messaging/message-thread-view.tsx` の Realtime useEffect
+- **Node スクリプト（`signInWithPassword` するテスト）では再現しない**ので注意。ログインが発火する `SIGNED_IN` イベントが `setAuth` を走らせてしまうため。ブラウザは既存 cookie セッションで開くので `INITIAL_SESSION` しか出ず、supabase-js の `_handleTokenChanged` は `SIGNED_IN` / `TOKEN_REFRESHED` しか拾わない。これが差分
+- **切り分け手段**: Playwright の `page.on("websocket")` で `framesent` を全文ログし、`phx_join` の payload に `access_token` が入っているか確認する。無ければこのバグ
+- 2026-07-15 実例: メッセージスレッド画面（`message-thread-view.tsx`）で相手の新着メッセージがリロードするまで出てこない現象。DB の publication・RLS・Realtime サーバーはすべて正常で、原因はこの race だった
+
 ### Vitest モック関連
 - Server Action のテストでは、Server Action 自体を vi.mock で差し替えてはならない。Supabase クライアントをモックし、Server Action の内部ロジックが実際に動くテストを書くこと
 - テストが通っても「このテストは実際のブラウザ操作で同じ結果になるか？」を自問すること。モックが現実と乖離していないか確認する

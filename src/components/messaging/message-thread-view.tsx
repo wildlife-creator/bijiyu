@@ -6,7 +6,7 @@ import { MessageBubble } from "./message-bubble";
 import { MessageInput } from "./message-input";
 import { markAsReadAction } from "@/app/(authenticated)/messages/[threadId]/actions";
 import { fetchScoutJobInfo } from "@/lib/messaging/fetch-scout-job";
-import type { Message } from "./message-list";
+import type { Message } from "./types";
 
 interface MessageThreadViewProps {
   threadId: string;
@@ -127,50 +127,70 @@ export function MessageThreadView({
   // Supabase Realtime (for messages from OTHER users)
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase
-      .channel(`messages:thread_id=${threadId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `thread_id=eq.${threadId}`,
-        },
-        async (payload) => {
-          const newMessage = payload.new as Message;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
 
-          // Skip if this is our own message (handled by onSendComplete)
-          if (newMessage.sender_id === currentUserId) return;
+    void (async () => {
+      // Realtime の join payload に access_token を確実に載せるため、
+      // subscribe の前に必ず setAuth() を await する。
+      //
+      // channel.subscribe() は同期関数で、その時点の socket.accessTokenValue を
+      // join payload に焼き込む。socket.connect() が走らせる setAuth() は非同期の
+      // ため、await しないと token 未解決のまま「access_token 無し」で join し、
+      // realtime 側は anon ロール扱い → messages_select RLS (TO authenticated) で
+      // 全行が不可視になり、INSERT イベントが 1 件も届かない。
+      // しかも join 自体は status=ok / "Subscribed to PostgreSQL" を返すため
+      // サイレントに壊れる（エラーもログも出ない）。
+      // 引数なしの setAuth() は accessToken コールバック経由なので、
+      // 自動トークンリフレッシュの挙動はそのまま維持される。
+      await supabase.realtime.setAuth();
+      if (cancelled) return;
+      channel = supabase
+        .channel(`messages:thread_id=${threadId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `thread_id=eq.${threadId}`,
+          },
+          async (payload) => {
+            const newMessage = payload.new as Message;
 
-          // Generate signed URL if image attached
-          if (newMessage.image_url) {
-            const { data: signedData } = await supabase.storage
-              .from("message-attachments")
-              .createSignedUrl(newMessage.image_url, 3600);
-            newMessage.signed_image_url = signedData?.signedUrl ?? null;
-          }
+            // Skip if this is our own message (handled by onSendComplete)
+            if (newMessage.sender_id === currentUserId) return;
 
-          // Realtime payload には join 済みの案件情報が無いので別途取得する。
-          // これを省くと ScoutInfoCard (承諾/辞退ボタン含む) がリロードまで
-          // 描画されない (2026-07-10 staging で実例発生)
-          if (newMessage.is_scout && newMessage.job_id) {
-            newMessage.scout_job = await fetchScoutJobInfo(
-              supabase,
-              newMessage.job_id,
-            );
-          }
+            // Generate signed URL if image attached
+            if (newMessage.image_url) {
+              const { data: signedData } = await supabase.storage
+                .from("message-attachments")
+                .createSignedUrl(newMessage.image_url, 3600);
+              newMessage.signed_image_url = signedData?.signedUrl ?? null;
+            }
 
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMessage.id)) return prev;
-            return [...prev, newMessage];
-          });
-        },
-      )
-      .subscribe();
+            // Realtime payload には join 済みの案件情報が無いので別途取得する。
+            // これを省くと ScoutInfoCard (承諾/辞退ボタン含む) がリロードまで
+            // 描画されない (2026-07-10 staging で実例発生)
+            if (newMessage.is_scout && newMessage.job_id) {
+              newMessage.scout_job = await fetchScoutJobInfo(
+                supabase,
+                newMessage.job_id,
+              );
+            }
+
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMessage.id)) return prev;
+              return [...prev, newMessage];
+            });
+          },
+        )
+        .subscribe();
+    })();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
     };
   }, [threadId, currentUserId]);
 

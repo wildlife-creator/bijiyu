@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { MessageThreadView } from "@/components/messaging/message-thread-view";
-import type { Message, ScoutJobInfo } from "@/components/messaging/message-list";
+import type { Message, ScoutJobInfo } from "@/components/messaging/types";
 import { MessageHeader } from "@/components/messaging/message-header";
 import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display";
 import { fetchScoutJobInfo } from "@/lib/messaging/fetch-scout-job";

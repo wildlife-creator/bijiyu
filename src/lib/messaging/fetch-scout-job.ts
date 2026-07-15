@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
-import type { ScoutJobInfo } from "@/components/messaging/message-list";
+import type { ScoutJobInfo } from "@/components/messaging/types";
 
 /**
  * スカウトメッセージに添付された案件情報 (ScoutInfoCard 表示用) を取得する。
