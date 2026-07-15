@@ -369,7 +369,7 @@ export const PRIVACY_ARTICLES: LegalArticle[] = [
           "個人データの提供先：株式会社東都",
           "**運営会社：株式会社東都**",
           "所在地：〒312-0034 茨城県ひたちなか市堀口218 堀口清水住宅6号室",
-          "**問い合わせ窓口：**[info@tou-to.com](mailto:info@tou-to.com)",
+          "**問い合わせ窓口：**info@tou-to.com",
           "受付時間：11時から17時まで",
         ],
       },

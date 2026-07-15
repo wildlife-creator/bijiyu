@@ -34,7 +34,7 @@ export const LEGAL_ARTICLES: LegalArticle[] = [
     blocks: [
       {
         type: "paragraph",
-        text: "[info@tou-to.com](mailto:info@tou-to.com)",
+        text: "info@tou-to.com",
       },
     ],
   },
