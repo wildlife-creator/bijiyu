@@ -20,7 +20,8 @@ import { BackButton } from "@/components/job-search/back-button";
 import { JobSearchFilter } from "./job-search-filter";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 
-const ITEMS_PER_PAGE = 20;
+// カード3列グリッド。3 と 2 の公倍数にして最終行の欠けを防ぐ（lg=3列 / md=2列）
+const ITEMS_PER_PAGE = 18;
 
 function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];

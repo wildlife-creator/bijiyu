@@ -13,7 +13,8 @@ import type { AreaForDisplay } from "@/lib/utils/format-areas";
 
 import { JobListClient } from "./job-list-client";
 
-const ITEMS_PER_PAGE = 20;
+// カード3列グリッド。3 と 2 の公倍数にして最終行の欠けを防ぐ（lg=3列 / md=2列）
+const ITEMS_PER_PAGE = 18;
 
 interface PageProps {
   searchParams: Promise<{ page?: string; status?: string }>;

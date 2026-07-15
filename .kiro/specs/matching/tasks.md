@@ -74,7 +74,7 @@
   - _Requirements: 1, 4, 7_
 
 - [x] 5.1 (P) 応募履歴一覧画面（CON-011）を実装する
-  - Server Component で自分の応募一覧を取得する（applicant_id = current_user、created_at DESC、20件ページネーション）
+  - Server Component で自分の応募一覧を取得する（applicant_id = current_user、created_at DESC、18件ページネーション）
   - jobs リレーション JOIN で案件タイトル・発注者名を取得し、各行に表示する
   - ステータスバッジを色分け表示する（応募結果待ち/稼働予定/評価登録未入力/評価登録済み/落選・キャンセル/取引完了）
   - 各行クリックで応募詳細画面に遷移する
@@ -103,7 +103,7 @@
 
 - [x] 6. 発注者系画面の実装（応募管理）
 - [x] 6.1 (P) 応募一覧画面（CLI-007）を実装する
-  - Server Component で自社案件への応募一覧を取得する（jobs.owner_id = current_user or 同一組織、20件ページネーション）
+  - Server Component で自社案件への応募一覧を取得する（jobs.owner_id = current_user or 同一組織、18件ページネーション）
   - searchParams の jobId パラメータで案件ごとにフィルタリングできるようにする
   - 表示項目: 応募者名、職種、応募日、ステータス
   - 各行クリックで応募詳細画面に遷移する

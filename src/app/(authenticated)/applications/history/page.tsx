@@ -24,7 +24,8 @@ import { SortButton } from "./sort-button";
 import { SuccessToast } from "./success-toast";
 import { formatDate } from "@/lib/utils/format-date";
 
-const ITEMS_PER_PAGE = 20;
+// カード3列グリッド。3 と 2 の公倍数にして最終行の欠けを防ぐ（lg=3列 / md=2列）
+const ITEMS_PER_PAGE = 18;
 
 interface Props {
   searchParams: Promise<{ page?: string; filter?: string; sort?: string }>;

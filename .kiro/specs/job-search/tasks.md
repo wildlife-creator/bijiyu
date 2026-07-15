@@ -54,7 +54,7 @@
   - _Requirements: 1, 4, 7_
 
 - [x] 2.3 (P) ページネーションコンポーネント（PaginationControls）の実装
-  - searchParams ベースのページネーションを実装する（20件ずつ）
+  - searchParams ベースのページネーションを実装する（1ページの件数は呼び出し側が `itemsPerPage` で必ず指定する。既定値は持たせない）
   - コンポーネント名は PaginationControls とする（design.md のアーキテクチャ図と一致させる）
   - Server Component でのデータ取得に対応し、ページ番号を searchParams で管理する
   - CON-002, CON-005, CON-007, CLI-005 の4画面で再利用する

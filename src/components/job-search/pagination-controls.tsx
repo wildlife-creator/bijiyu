@@ -8,13 +8,17 @@ import { PendingOverlay } from "@/components/shared/pending-overlay";
 
 interface PaginationControlsProps {
   totalCount: number;
-  itemsPerPage?: number;
+  /**
+   * 呼び出し側の ITEMS_PER_PAGE を必ず渡す。
+   * 既定値を持たせると、渡し忘れた画面でページ数だけが静かにずれる（一覧は正しく見えるため気づけない）。
+   */
+  itemsPerPage: number;
   pageParamName?: string;
 }
 
 export function PaginationControls({
   totalCount,
-  itemsPerPage = 20,
+  itemsPerPage,
   pageParamName = "page",
 }: PaginationControlsProps) {
   const router = useRouter();

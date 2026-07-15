@@ -201,7 +201,7 @@ stateDiagram-v2
 
 **Responsibilities & Constraints**
 - Server Component として Supabase から案件一覧を取得
-- ページネーション（20件/ページ）をクエリパラメータで制御
+- ページネーション（18件/ページ。カード3列グリッドのため 3・2 の公倍数）をクエリパラメータで制御
 - 法人プランの場合は組織内全案件を取得（作成者名を付記）
 
 **Implementation Notes**

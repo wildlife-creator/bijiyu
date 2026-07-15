@@ -260,7 +260,7 @@ sequenceDiagram
 | Requirements | 1 |
 
 **Responsibilities & Constraints**
-- Server Component で RSC データフェッチ。searchParams によるページネーション（20件）
+- Server Component で RSC データフェッチ。searchParams によるページネーション（18件。カード3列グリッドのため 3・2 の公倍数）
 - applications テーブルから `applicant_id = current_user` のレコードを取得
 - jobs リレーション JOIN で案件情報（タイトル、発注者名）を取得
 - ソート: `created_at` のデフォルト DESC。searchParams `sort=asc|desc` でトグル可能
@@ -362,7 +362,7 @@ sequenceDiagram
 - カードリスト: `max-w-6xl mx-auto` で中央寄せ。レスポンシブグリッド（`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4`）
 - ソート: searchParams `sort=asc|desc` で created_at の昇順/降順トグル。`icon-sort.png` アイコンをクリックでトグル
 - 空メッセージ: 「未対応の応募はありません」
-- ページネーション: 20件
+- ページネーション: 18件（カード3列グリッドのため 3・2 の公倍数）
 
 **Implementation Notes**
 - ファイル: `src/app/(authenticated)/applications/received/page.tsx`
