@@ -658,6 +658,20 @@ export async function cancelCompensationAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "ログインしてください" };
 
+  // Staff は課金アクション不可（契約主体は Owner 単一）。所有権チェックでも
+  // 弾かれるが、明示ガードで正しいエラー文言を返す（三重防御）。
+  const { data: roleRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (roleRow?.role === "staff") {
+    return {
+      success: false,
+      error: "担当者アカウントではオプションの解約はできません",
+    };
+  }
+
   const admin = createAdminClient();
   const { data: opt } = await admin
     .from("option_subscriptions")
@@ -713,6 +727,19 @@ export async function openCustomerPortalAction(): Promise<
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "ログインしてください" };
+
+  // Staff は Owner のサブスクに相乗りするだけで支払い情報を持たない
+  const { data: roleRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (roleRow?.role === "staff") {
+    return {
+      success: false,
+      error: "担当者アカウントではお支払い情報の管理はできません",
+    };
+  }
 
   const admin = createAdminClient();
   const { data: userRow } = await admin

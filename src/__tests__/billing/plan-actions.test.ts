@@ -183,6 +183,7 @@ const {
   cancelDowngradeReservationAction,
   scheduleCancelAction,
   cancelImmediatelyAction,
+  cancelCompensationAction,
   openCustomerPortalAction,
 } = await import("@/app/(authenticated)/billing/plan-actions");
 
@@ -668,5 +669,31 @@ describe("openCustomerPortalAction", () => {
     if (!result.success) {
       expect(result.error).toContain("お支払い情報が登録されていません");
     }
+  });
+
+  it("rejects staff role", async () => {
+    authState.userRow = { role: "staff" };
+    const result = await openCustomerPortalAction();
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("担当者アカウント");
+    }
+    expect(stripeMock.billingPortal.sessions.create).not.toHaveBeenCalled();
+  });
+});
+
+// ---- cancelCompensationAction ----
+
+describe("cancelCompensationAction", () => {
+  it("rejects staff role before touching Stripe", async () => {
+    authState.userRow = { role: "staff" };
+    const result = await cancelCompensationAction({
+      optionSubscriptionId: "opt-1",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("担当者アカウント");
+    }
+    expect(stripeMock.subscriptions.cancel).not.toHaveBeenCalled();
   });
 });

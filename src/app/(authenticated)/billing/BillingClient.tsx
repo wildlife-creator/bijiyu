@@ -484,7 +484,7 @@ export function BillingClient({
                         variant="outline"
                         size="sm"
                         className="rounded-full"
-                        disabled={pending}
+                        disabled={pending || isStaff}
                         pending={pendingKey === "cancel-reservation"}
                         onClick={handleCancelReservation}
                       >
@@ -501,7 +501,7 @@ export function BillingClient({
                         variant="outline"
                         size="sm"
                         className="rounded-full"
-                        disabled={pending}
+                        disabled={pending || isStaff}
                         pending={pendingKey === "cancel-reservation"}
                         onClick={handleCancelReservation}
                       >
@@ -598,7 +598,11 @@ export function BillingClient({
             ) : (
               <>
                 <div className="mt-3">
-                  <Select value={selectedJobId} onValueChange={setSelectedJobId}>
+                  <Select
+                    value={selectedJobId}
+                    onValueChange={setSelectedJobId}
+                    disabled={isStaff}
+                  >
                     <SelectTrigger className="w-full bg-background">
                       <SelectValue placeholder="案件を選択" />
                     </SelectTrigger>
@@ -649,7 +653,7 @@ export function BillingClient({
                 <Button
                   variant="outline"
                   className="w-full max-w-xs rounded-full text-destructive border-destructive/50"
-                  disabled={pending}
+                  disabled={pending || isStaff}
                   onClick={() => {
                     const opt = activeOptions.find(
                       (o) => o.optionType === "compensation_5000",
@@ -694,7 +698,7 @@ export function BillingClient({
                 <Button
                   variant="outline"
                   className="w-full max-w-xs rounded-full text-destructive border-destructive/50"
-                  disabled={pending}
+                  disabled={pending || isStaff}
                   onClick={() => {
                     const opt = activeOptions.find(
                       (o) => o.optionType === "compensation_9800",
