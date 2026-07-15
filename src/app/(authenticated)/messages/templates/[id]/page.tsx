@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 
 import { DeleteTemplateButton } from "./delete-template-button";
@@ -40,15 +41,25 @@ export default async function ScoutTemplateDetailPage({ params }: PageProps) {
 
   if (!user) redirect("/login");
 
-  const { data: template } = await supabase
+  // アクティブ組織（法人でなければ本人分）のテンプレのみ閲覧可。
+  // RLS は所属全組織を許可するため、URL 直叩きでの他組織テンプレ閲覧を
+  // ここで遮断する（複数組織所属の代理スタッフ対策）。
+  const { active } = await getActiveOrganizationContext(supabase);
+
+  let query = supabase
     .from("scout_templates")
     .select(
       `id, title, body, memo, created_at, updated_at, updated_by, organization_id,
        owner:users!owner_id(last_name, first_name, deleted_at),
        updater:users!updated_by(last_name, first_name, deleted_at)`,
     )
-    .eq("id", id)
-    .maybeSingle();
+    .eq("id", id);
+
+  query = active
+    ? query.eq("organization_id", active.organizationId)
+    : query.eq("owner_id", user.id);
+
+  const { data: template } = await query.maybeSingle();
 
   if (!template) notFound();
 

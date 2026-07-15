@@ -1917,6 +1917,17 @@ INSERT INTO messages (thread_id, sender_id, body, is_scout, is_proxy, created_at
   ('f777eeee-0001-0001-0001-000000000001', 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '法人 X からの代理メッセージです。', false, true, now()),
   ('f777eeee-0002-0002-0002-000000000002', 'f777aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '法人 Y からの代理メッセージです。', false, true, now());
 
+-- 組織スコープ絞り込み E2E 用（e2e/multi-org-data-scoping.spec.ts）。
+-- N 組織兼任の代理スタッフ（proxy-multi）に、アクティブ組織以外の
+-- スカウトテンプレ・求人お問い合わせが見えないことを検証する。
+INSERT INTO scout_templates (id, owner_id, organization_id, title, body) VALUES
+  ('f777dddd-0001-0001-0001-000000000001', 'f7771111-1111-1111-1111-111111111111', 'f777a111-1111-1111-1111-111111111111', '法人 X のスカウトテンプレ', '法人 X のテンプレ本文です。'),
+  ('f777dddd-0002-0002-0002-000000000002', 'f7772222-2222-2222-2222-222222222222', 'f777b222-2222-2222-2222-222222222222', '法人 Y のスカウトテンプレ', '法人 Y のテンプレ本文です。');
+
+INSERT INTO job_inquiries (id, sender_id, target_client_id, target_organization_id, name, email, topics, content) VALUES
+  ('f777ffff-0001-0001-0001-000000000001', 'f777cccc-cccc-cccc-cccc-cccccccccccc', 'f7771111-1111-1111-1111-111111111111', 'f777a111-1111-1111-1111-111111111111', '法人X宛の問い合わせ送信者', 'proxy-inq-x@example.com', ARRAY['仕事内容について'], '法人 X 宛のお問い合わせ内容です。'),
+  ('f777ffff-0002-0002-0002-000000000002', 'f777cccc-cccc-cccc-cccc-cccccccccccc', 'f7772222-2222-2222-2222-222222222222', 'f777b222-2222-2222-2222-222222222222', '法人Y宛の問い合わせ送信者', 'proxy-inq-y@example.com', ARRAY['仕事内容について'], '法人 Y 宛のお問い合わせ内容です。');
+
 -- ============================================================
 -- proxy-account-multi-org-support Phase 8 / Task 8.1〜8.5 E2E fixtures
 -- ============================================================

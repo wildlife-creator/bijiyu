@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { ScoutTemplateForm } from "../../scout-template-form";
 
@@ -16,11 +17,19 @@ export default async function ScoutTemplateEditPage({ params }: PageProps) {
 
   if (!user) redirect("/login");
 
-  const { data: template } = await supabase
+  // アクティブ組織（法人でなければ本人分）のテンプレのみ編集画面を開ける
+  const { active } = await getActiveOrganizationContext(supabase);
+
+  let query = supabase
     .from("scout_templates")
     .select("id, title, body, memo")
-    .eq("id", id)
-    .maybeSingle();
+    .eq("id", id);
+
+  query = active
+    ? query.eq("organization_id", active.organizationId)
+    : query.eq("owner_id", user.id);
+
+  const { data: template } = await query.maybeSingle();
 
   if (!template) notFound();
 

@@ -96,10 +96,19 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
   }
 
   // Fetch scout templates（最終更新日降順。CLI-018 編集直後に上位に来る）
-  const { data: templatesData } = await supabase
+  // 案件と同じくアクティブ組織（法人でなければ本人分）に絞る。RLS 任せだと
+  // 複数組織所属の代理スタッフに他組織のテンプレが混ざる
+  let templatesQuery = supabase
     .from("scout_templates")
-    .select("id, title, body")
-    .order("updated_at", { ascending: false });
+    .select("id, title, body");
+
+  templatesQuery = active
+    ? templatesQuery.eq("organization_id", active.organizationId)
+    : templatesQuery.eq("owner_id", user.id);
+
+  const { data: templatesData } = await templatesQuery.order("updated_at", {
+    ascending: false,
+  });
 
   return (
     <div className="min-h-screen bg-muted/40">

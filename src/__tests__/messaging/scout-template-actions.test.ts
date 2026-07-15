@@ -263,10 +263,10 @@ describe("updateScoutTemplateAction", () => {
     expect(result.success).toBe(false);
   });
 
-  it("UPDATE が成功すれば success を返す", async () => {
+  it("UPDATE が成功すれば success を返す（個人プランは owner_id で絞る）", async () => {
     mockAuth(USER_ID);
     const updateChain = createQueryMock({
-      thenable: { data: null, error: null },
+      thenable: { data: [{ id: TEMPLATE_ID }], error: null },
     });
     mockFrom.mockReturnValueOnce(updateChain);
 
@@ -281,6 +281,51 @@ describe("updateScoutTemplateAction", () => {
       }),
     );
     expect(updateChain.eq).toHaveBeenCalledWith("id", TEMPLATE_ID);
+    expect(updateChain.eq).toHaveBeenCalledWith("owner_id", USER_ID);
+  });
+
+  it("法人プランはアクティブ組織の organization_id で絞って UPDATE する", async () => {
+    mockAuth(USER_ID);
+    mockGetActiveOrgContext.mockResolvedValueOnce({
+      active: {
+        organizationId: ORG_ID,
+        orgRole: "staff",
+        isProxyAccount: true,
+        orgOwnerId: "99999999-9999-9999-9999-999999999999",
+        isCorporate: true,
+      },
+      all: [],
+    });
+    const updateChain = createQueryMock({
+      thenable: { data: [{ id: TEMPLATE_ID }], error: null },
+    });
+    mockFrom.mockReturnValueOnce(updateChain);
+
+    const result = await updateScoutTemplateAction(TEMPLATE_ID, validInput);
+    expect(result.success).toBe(true);
+    expect(updateChain.eq).toHaveBeenCalledWith("organization_id", ORG_ID);
+    expect(updateChain.eq).not.toHaveBeenCalledWith("owner_id", USER_ID);
+  });
+
+  it("影響行 0 件（アクティブ組織外のテンプレ）はエラーを返す", async () => {
+    mockAuth(USER_ID);
+    mockGetActiveOrgContext.mockResolvedValueOnce({
+      active: {
+        organizationId: ORG_ID,
+        orgRole: "staff",
+        isProxyAccount: true,
+        orgOwnerId: "99999999-9999-9999-9999-999999999999",
+        isCorporate: true,
+      },
+      all: [],
+    });
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
+    const result = await updateScoutTemplateAction(TEMPLATE_ID, validInput);
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error).toBe("テンプレートの更新に失敗しました");
   });
 
   it("UPDATE が RLS で拒否された場合はエラーを返す（別組織からの編集試行）", async () => {
@@ -308,10 +353,10 @@ describe("deleteScoutTemplateAction", () => {
     if (!result.success) expect(result.error).toBe("認証が必要です");
   });
 
-  it("DELETE が成功すれば success を返す", async () => {
+  it("DELETE が成功すれば success を返す（個人プランは owner_id で絞る）", async () => {
     mockAuth(USER_ID);
     const deleteChain = createQueryMock({
-      thenable: { data: null, error: null },
+      thenable: { data: [{ id: TEMPLATE_ID }], error: null },
     });
     mockFrom.mockReturnValueOnce(deleteChain);
 
@@ -319,6 +364,51 @@ describe("deleteScoutTemplateAction", () => {
     expect(result.success).toBe(true);
     expect(deleteChain.delete).toHaveBeenCalled();
     expect(deleteChain.eq).toHaveBeenCalledWith("id", TEMPLATE_ID);
+    expect(deleteChain.eq).toHaveBeenCalledWith("owner_id", USER_ID);
+  });
+
+  it("法人プランはアクティブ組織の organization_id で絞って DELETE する", async () => {
+    mockAuth(USER_ID);
+    mockGetActiveOrgContext.mockResolvedValueOnce({
+      active: {
+        organizationId: ORG_ID,
+        orgRole: "staff",
+        isProxyAccount: true,
+        orgOwnerId: "99999999-9999-9999-9999-999999999999",
+        isCorporate: true,
+      },
+      all: [],
+    });
+    const deleteChain = createQueryMock({
+      thenable: { data: [{ id: TEMPLATE_ID }], error: null },
+    });
+    mockFrom.mockReturnValueOnce(deleteChain);
+
+    const result = await deleteScoutTemplateAction(TEMPLATE_ID);
+    expect(result.success).toBe(true);
+    expect(deleteChain.eq).toHaveBeenCalledWith("organization_id", ORG_ID);
+    expect(deleteChain.eq).not.toHaveBeenCalledWith("owner_id", USER_ID);
+  });
+
+  it("影響行 0 件（アクティブ組織外のテンプレ）はエラーを返す", async () => {
+    mockAuth(USER_ID);
+    mockGetActiveOrgContext.mockResolvedValueOnce({
+      active: {
+        organizationId: ORG_ID,
+        orgRole: "staff",
+        isProxyAccount: true,
+        orgOwnerId: "99999999-9999-9999-9999-999999999999",
+        isCorporate: true,
+      },
+      all: [],
+    });
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: [], error: null } }),
+    );
+    const result = await deleteScoutTemplateAction(TEMPLATE_ID);
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error).toBe("テンプレートの削除に失敗しました");
   });
 
   it("DELETE が RLS で拒否された場合はエラー", async () => {

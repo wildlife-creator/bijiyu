@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -15,7 +16,9 @@ interface Props {
 }
 
 // COM-014 求人へのお問い合わせ 受信箱一覧（/mypage/job-inquiries）
-// RLS が「宛先 client 本人 / 同一組織メンバー」のみを返すため UI 側の追加フィルタは不要。
+// RLS は「宛先 client 本人 / 所属している全組織」を返すため、複数組織に
+// 所属する代理スタッフでは他組織宛が混ざる。アクティブ組織（法人でなければ
+// 本人宛）に必ず絞る。
 export default async function JobInquiriesInboxPage({ searchParams }: Props) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -31,15 +34,26 @@ export default async function JobInquiriesInboxPage({ searchParams }: Props) {
   const from = (currentPage - 1) * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
 
+  const { active } = await getActiveOrganizationContext(supabase);
+
+  let countQuery = supabase
+    .from("job_inquiries")
+    .select("*", { count: "exact", head: true });
+  let dataQuery = supabase
+    .from("job_inquiries")
+    .select("id, created_at, name, topics");
+
+  if (active) {
+    countQuery = countQuery.eq("target_organization_id", active.organizationId);
+    dataQuery = dataQuery.eq("target_organization_id", active.organizationId);
+  } else {
+    countQuery = countQuery.eq("target_client_id", user.id);
+    dataQuery = dataQuery.eq("target_client_id", user.id);
+  }
+
   const [{ count: totalCount }, { data: inquiries }] = await Promise.all([
-    supabase
-      .from("job_inquiries")
-      .select("*", { count: "exact", head: true }),
-    supabase
-      .from("job_inquiries")
-      .select("id, created_at, name, topics")
-      .order("created_at", { ascending: false })
-      .range(from, to),
+    countQuery,
+    dataQuery.order("created_at", { ascending: false }).range(from, to),
   ]);
 
   return (

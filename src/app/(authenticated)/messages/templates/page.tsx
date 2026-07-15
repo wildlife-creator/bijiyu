@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { ChevronRight } from "lucide-react";
 
@@ -50,14 +51,25 @@ export default async function ScoutTemplatesListPage({ searchParams }: PageProps
   const page = Math.max(1, Number(sp.page) || 1);
   const offset = (page - 1) * ITEMS_PER_PAGE;
 
-  const { data: templates, count } = await supabase
+  // RLS は「所属している全組織」を許可するため、複数組織に所属する代理
+  // スタッフではアクティブ組織以外のテンプレも返ってくる。表示は必ず
+  // アクティブ組織（法人でなければ本人分）に絞る。
+  const { active } = await getActiveOrganizationContext(supabase);
+
+  let query = supabase
     .from("scout_templates")
     .select(
       `id, title, body, memo, created_at, updated_at, updated_by, organization_id,
        owner:users!owner_id(last_name, first_name, deleted_at),
        updater:users!updated_by(last_name, first_name, deleted_at)`,
       { count: "exact" },
-    )
+    );
+
+  query = active
+    ? query.eq("organization_id", active.organizationId)
+    : query.eq("owner_id", user.id);
+
+  const { data: templates, count } = await query
     .order("updated_at", { ascending: false })
     .range(offset, offset + ITEMS_PER_PAGE - 1);
 

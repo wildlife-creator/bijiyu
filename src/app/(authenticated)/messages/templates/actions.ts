@@ -94,9 +94,13 @@ export async function updateScoutTemplateAction(
     };
   }
 
-  // RLS: 本人作成 or 同一組織メンバーのみ UPDATE 可
+  // RLS（本人作成 or 所属組織）に加えて、アクティブ組織（法人でなければ
+  // 本人分）のテンプレのみ更新可に絞る。複数組織所属の代理スタッフが
+  // 別組織のテンプレを更新できてしまうのを防ぐ。
   // updated_by に実行ユーザーを記録（updated_at は set_updated_at トリガーが自動更新）
-  const { error } = await supabase
+  const { active } = await getActiveOrganizationContext(supabase);
+
+  let updateQuery = supabase
     .from("scout_templates")
     .update({
       title: parsed.data.title,
@@ -106,7 +110,14 @@ export async function updateScoutTemplateAction(
     })
     .eq("id", id);
 
-  if (error) {
+  updateQuery = active
+    ? updateQuery.eq("organization_id", active.organizationId)
+    : updateQuery.eq("owner_id", user.id);
+
+  // RLS / スコープ外は error なしの影響 0 行になるため .select() で検出する
+  const { data: updatedRows, error } = await updateQuery.select("id");
+
+  if (error || !updatedRows || updatedRows.length === 0) {
     return { success: false, error: "テンプレートの更新に失敗しました" };
   }
 
@@ -130,13 +141,23 @@ export async function deleteScoutTemplateAction(
     return { success: false, error: "認証が必要です" };
   }
 
-  // RLS: 本人作成 or 同一組織メンバーのみ DELETE 可
-  const { error } = await supabase
+  // RLS（本人作成 or 所属組織）に加えて、アクティブ組織（法人でなければ
+  // 本人分）のテンプレのみ削除可に絞る
+  const { active } = await getActiveOrganizationContext(supabase);
+
+  let deleteQuery = supabase
     .from("scout_templates")
     .delete()
     .eq("id", id);
 
-  if (error) {
+  deleteQuery = active
+    ? deleteQuery.eq("organization_id", active.organizationId)
+    : deleteQuery.eq("owner_id", user.id);
+
+  // RLS / スコープ外は error なしの影響 0 行になるため .select() で検出する
+  const { data: deletedRows, error } = await deleteQuery.select("id");
+
+  if (error || !deletedRows || deletedRows.length === 0) {
     return { success: false, error: "テンプレートの削除に失敗しました" };
   }
 

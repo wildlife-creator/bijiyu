@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { BackButton } from "@/components/shared/back-button";
 import { formatDateTime } from "@/lib/utils/format-message-time";
@@ -33,12 +34,21 @@ export default async function JobInquiryDetailPage({ params }: PageProps) {
     redirect("/login");
   }
 
-  // RLS で見えない（宛先でも組織メンバーでもない）場合は null → notFound
-  const { data: inquiry } = await supabase
+  // RLS（宛先本人 / 所属全組織）に加えて、アクティブ組織（法人でなければ
+  // 本人宛）のみに絞る。複数組織所属の代理スタッフが URL 直叩きで他組織宛を
+  // 閲覧できてしまうのを防ぐ。スコープ外は null → notFound
+  const { active } = await getActiveOrganizationContext(supabase);
+
+  let query = supabase
     .from("job_inquiries")
     .select("id, created_at, name, email, topics, content")
-    .eq("id", id)
-    .maybeSingle();
+    .eq("id", id);
+
+  query = active
+    ? query.eq("target_organization_id", active.organizationId)
+    : query.eq("target_client_id", user.id);
+
+  const { data: inquiry } = await query.maybeSingle();
 
   if (!inquiry) {
     notFound();
