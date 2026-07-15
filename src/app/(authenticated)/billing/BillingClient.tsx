@@ -157,13 +157,29 @@ export function BillingClient({
   const isClientPlanActive =
     (PAID_PLAN_TYPES as readonly string[]).includes(currentPlan) && !isPastDue;
 
+  // 動画オプションは買い切りだが「作り直しのための再購入」が正当にありうるため、
+  // 購入済みでもボタンは活性のまま、押下時に再購入確認ダイアログを挟む。
+  const hasVideo = activeOptions.some((o) => o.optionType === "video");
+  const hasVideoWorkplace = activeOptions.some(
+    (o) => o.optionType === "video_workplace",
+  );
+
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<
-    "upgrade" | "downgrade" | "cancel" | "cancel_past_due" | "cancel_comp" | null
+    | "upgrade"
+    | "downgrade"
+    | "cancel"
+    | "cancel_past_due"
+    | "cancel_comp"
+    | "repurchase_video"
+    | null
   >(null);
   const [dialogTarget, setDialogTarget] = useState<PaidPlanType | null>(null);
   const [cancelCompId, setCancelCompId] = useState<string | null>(null);
+  const [repurchaseOption, setRepurchaseOption] = useState<
+    "video" | "video_workplace" | null
+  >(null);
 
   // Urgent option state
   const [selectedJobId, setSelectedJobId] = useState<string>("");
@@ -337,6 +353,23 @@ export function BillingClient({
         window.location.href = result.data.checkoutUrl;
       }
     });
+  }
+
+  function handleVideoOptionButton(optionType: "video" | "video_workplace") {
+    const purchased = optionType === "video" ? hasVideo : hasVideoWorkplace;
+    if (!purchased) {
+      handleOptionCheckout(optionType);
+      return;
+    }
+    setRepurchaseOption(optionType);
+    setDialogType("repurchase_video");
+    setDialogOpen(true);
+  }
+
+  function handleRepurchaseConfirm() {
+    if (!repurchaseOption) return;
+    setDialogOpen(false);
+    handleOptionCheckout(repurchaseOption);
   }
 
   function handleCancelCompensation(optId: string) {
@@ -519,9 +552,9 @@ export function BillingClient({
                 className="w-full max-w-xs rounded-full text-white"
                 disabled={pending || isStaff}
                 pending={pendingKey === "opt-video"}
-                onClick={() => handleOptionCheckout("video")}
+                onClick={() => handleVideoOptionButton("video")}
               >
-                自己PR動画掲載を申し込む
+                {hasVideo ? "購入済み" : "自己PR動画掲載を申し込む"}
               </Button>
             </div>
           </div>
@@ -542,9 +575,9 @@ export function BillingClient({
                 className="w-full max-w-xs rounded-full text-white"
                 disabled={pending || isStaff || !isClientPlanActive}
                 pending={pendingKey === "opt-video_workplace"}
-                onClick={() => handleOptionCheckout("video_workplace")}
+                onClick={() => handleVideoOptionButton("video_workplace")}
               >
-                職場紹介動画掲載を申し込む
+                {hasVideoWorkplace ? "購入済み" : "職場紹介動画掲載を申し込む"}
               </Button>
             </div>
           </div>
@@ -871,6 +904,39 @@ export function BillingClient({
                   onClick={handleCancelImmediatelyConfirm}
                 >
                   解約する
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {dialogType === "repurchase_video" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>再購入の確認</DialogTitle>
+                <DialogDescription>
+                  {repurchaseOption === "video"
+                    ? "自己PR動画掲載"
+                    : "職場紹介動画掲載"}
+                  は既にご購入済みです。改めて購入しますが、よろしいですか？
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2">
+                <DialogClose asChild>
+                  <Button variant="outline" className="rounded-full">
+                    キャンセルする
+                  </Button>
+                </DialogClose>
+                <Button
+                  variant="default"
+                  className="rounded-full text-white"
+                  disabled={pending}
+                  pending={
+                    repurchaseOption !== null &&
+                    pendingKey === `opt-${repurchaseOption}`
+                  }
+                  onClick={handleRepurchaseConfirm}
+                >
+                  購入する
                 </Button>
               </DialogFooter>
             </>
