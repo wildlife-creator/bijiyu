@@ -125,6 +125,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
         client_profiles(display_name, image_url)
       ),
       organization:organizations(
+        owner_id,
         owner_user:users!owner_id(
           last_name, first_name, deleted_at,
           client_profiles(display_name, image_url)
@@ -205,6 +206,17 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
   const canManage = isOwner || isOrganizationMember;
 
   const ownerResolution = resolveClientProfileForRow(job);
+
+  // 発注者詳細（CON-006 /clients/[id]）へのリンク先ユーザーID。
+  // CON-006 は role='client' のユーザーしか表示できないため、担当者（Staff）が
+  // 作成した法人案件で owner_id（= Staff）をそのまま使うと 404 になる。
+  // 名前解決（resolveClientProfileForRow）と同じ経路切替で、法人案件は
+  // 組織 Owner（社長）の ID にリンクする。組織 embed が取れない場合
+  // （解散済み組織等）は owner_id に落とすと同じ 404 を踏むため、リンク自体を出さない。
+  const clientDetailUserId = job.organization_id
+    ? (job.organization?.owner_id ?? null)
+    : job.owner_id;
+
   const ownerCompanyName = resolveParticipantName({
     displayName: ownerResolution.displayName,
     lastName: ownerResolution.lastName,
@@ -733,10 +745,10 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
       )}
 
       {/* Owner info link */}
-      {job.owner_id && (
+      {clientDetailUserId && (
         <section className="mt-6">
           <Link
-            href={`/clients/${job.owner_id}`}
+            href={`/clients/${clientDetailUserId}`}
             className="flex items-center justify-between rounded-[8px] border border-border p-4 transition-colors hover:bg-muted/50"
           >
             <span className="text-body-md font-medium text-foreground">

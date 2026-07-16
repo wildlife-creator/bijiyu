@@ -400,3 +400,70 @@ test.describe("応募済みバッジ（CON-002 案件一覧）", () => {
     await expect(page.getByText("応募済み", { exact: true })).toHaveCount(0);
   });
 });
+
+test.describe("CON-003 発注者情報リンク（担当者作成の法人案件でも社長の発注者詳細へ）", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+  });
+
+  test("担当者(staff)作成の法人案件: リンクが組織Owner(社長)を指し、発注者詳細が開ける", async ({
+    page,
+  }) => {
+    // 88888888...885 は staff(33333333) 作成・組織 55555555（Owner=22222222 鈴木工務店）の案件。
+    // 旧実装は /clients/<staff_id> にリンクし、CON-006 の role='client' ガードで 404 になっていた。
+    await page.goto("/jobs/88888888-8888-8888-8888-888888888885");
+    await expect(page.getByText("募集案件詳細")).toBeVisible();
+
+    const ownerLink = page.getByRole("link", { name: /発注者情報/ });
+    await expect(ownerLink).toHaveAttribute(
+      "href",
+      "/clients/22222222-2222-2222-2222-222222222222",
+    );
+    await ownerLink.click();
+    await page.waitForURL(/\/clients\/22222222-2222-2222-2222-222222222222$/);
+    await expect(
+      page.getByRole("heading", { name: "発注者詳細" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "鈴木工務店株式会社" }),
+    ).toBeVisible();
+  });
+
+  test("Owner本人作成の法人案件: 従来どおり社長の発注者詳細が開ける（回帰確認）", async ({
+    page,
+  }) => {
+    // 66666666...666 は Owner(22222222) 本人が作成した組織 55555555 の案件
+    await page.goto("/jobs/66666666-6666-6666-6666-666666666666");
+    await expect(page.getByText("募集案件詳細")).toBeVisible();
+
+    const ownerLink = page.getByRole("link", { name: /発注者情報/ });
+    await expect(ownerLink).toHaveAttribute(
+      "href",
+      "/clients/22222222-2222-2222-2222-222222222222",
+    );
+    await ownerLink.click();
+    await page.waitForURL(/\/clients\/22222222-2222-2222-2222-222222222222$/);
+    await expect(
+      page.getByRole("heading", { name: "発注者詳細" }),
+    ).toBeVisible();
+  });
+
+  test("個人発注者の案件: 従来どおり本人の発注者詳細が開ける（回帰確認）", async ({
+    page,
+  }) => {
+    // 99999999...999 は個人発注者 dd111111（中村リフォーム、organization_id なし）の案件
+    await page.goto("/jobs/99999999-9999-9999-9999-999999999999");
+    await expect(page.getByText("募集案件詳細")).toBeVisible();
+
+    const ownerLink = page.getByRole("link", { name: /発注者情報/ });
+    await expect(ownerLink).toHaveAttribute(
+      "href",
+      "/clients/dd111111-1111-2222-3333-444455556666",
+    );
+    await ownerLink.click();
+    await page.waitForURL(/\/clients\/dd111111-1111-2222-3333-444455556666$/);
+    await expect(
+      page.getByRole("heading", { name: "発注者詳細" }),
+    ).toBeVisible();
+  });
+});
