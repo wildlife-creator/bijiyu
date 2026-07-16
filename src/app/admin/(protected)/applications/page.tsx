@@ -12,13 +12,13 @@ import {
   KEYWORD_ID_SET_LIMIT,
 } from "@/lib/admin/applications-list";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
+import {
+  adminParticipantName,
+  adminUserDisplayName,
+} from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatDate, getJstToday } from "@/lib/utils/format-date";
-import {
-  getUserDisplayName,
-  resolveParticipantName,
-} from "@/lib/utils/display-name";
 import { AdminApplicationFilters } from "./filters";
 import { AdminApplicationSortButton } from "./sort-button";
 
@@ -105,7 +105,7 @@ export default async function AdminApplicationsPage({
           .maybeSingle(),
       ]);
       const ownerName = ownerUser
-        ? resolveParticipantName({
+        ? adminParticipantName({
             displayName: ownerProfile?.display_name ?? null,
             lastName: ownerUser.last_name,
             firstName: ownerUser.first_name,
@@ -130,7 +130,7 @@ export default async function AdminApplicationsPage({
         .maybeSingle(),
     ]);
     if (clientUser) {
-      drilldownLabel = `会社: ${resolveParticipantName({
+      drilldownLabel = `会社: ${adminParticipantName({
         displayName: profile?.display_name ?? null,
         lastName: clientUser.last_name,
         firstName: clientUser.first_name,
@@ -321,7 +321,7 @@ export default async function AdminApplicationsPage({
           </p>
         ) : (
           applications.map((app) => {
-            const name = getUserDisplayName({
+            const name = adminUserDisplayName({
               lastName: app.applicant?.last_name,
               firstName: app.applicant?.first_name,
               deletedAt: app.applicant?.deleted_at,

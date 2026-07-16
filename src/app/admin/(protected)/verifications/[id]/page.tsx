@@ -4,11 +4,11 @@ import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { DocumentView } from "@/components/admin/document-view";
+import { adminUserDisplayName } from "@/lib/admin/display-name";
 import { getSignedDocumentUrls } from "@/lib/admin/signed-urls";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
-import { getUserDisplayName } from "@/lib/utils/display-name";
 import { ReviewForm } from "./review-form";
 
 interface PageProps {
@@ -56,7 +56,7 @@ export default async function AdminVerificationDetailPage({
   if (!actor) redirect("/admin/login");
 
   const target = verification.user;
-  const name = getUserDisplayName({
+  const name = adminUserDisplayName({
     lastName: target?.last_name,
     firstName: target?.first_name,
     deletedAt: target?.deleted_at,
@@ -139,7 +139,7 @@ export default async function AdminVerificationDetailPage({
       {/* アイコン + 氏名（年齢） */}
       <div className="mt-6 flex items-center gap-4">
         <div className="size-16 shrink-0 overflow-hidden rounded-full border border-border/30 bg-background">
-          {target?.avatar_url && !target.deleted_at ? (
+          {target?.avatar_url ? (
             <img
               src={target.avatar_url}
               alt={name}

@@ -7,8 +7,8 @@ import {
   dedupeOrganizationIds,
   fetchAllRows,
 } from "@/lib/admin/proxy-threads";
+import { adminUserDisplayName } from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDateTime } from "@/lib/utils/format-date";
 
 import { ProxyThreadFilters } from "./filters";
@@ -116,7 +116,7 @@ export default async function AdminProxyMessagesPage({
     for (const u of contractors ?? []) {
       contractorNameById.set(
         u.id,
-        getUserDisplayName({
+        adminUserDisplayName({
           lastName: u.last_name,
           firstName: u.first_name,
           deletedAt: u.deleted_at,

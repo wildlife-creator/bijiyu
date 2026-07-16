@@ -13,12 +13,12 @@ import {
 } from "@/lib/admin/application-status";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { RATING_ITEMS } from "@/lib/constants/rating";
+import {
+  adminParticipantName,
+  adminUserDisplayName,
+} from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
-import {
-  getUserDisplayName,
-  resolveParticipantName,
-} from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatDate, getJstToday } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
@@ -138,7 +138,7 @@ export default async function AdminApplicationDetailPage({
         .maybeSingle(),
     ]);
     if (ownerUser) {
-      clientDisplayName = resolveParticipantName({
+      clientDisplayName = adminParticipantName({
         displayName: ownerProfile?.display_name ?? null,
         lastName: ownerUser.last_name,
         firstName: ownerUser.first_name,
@@ -174,7 +174,7 @@ export default async function AdminApplicationDetailPage({
     municipality: a.municipality,
   }));
 
-  const name = getUserDisplayName({
+  const name = adminUserDisplayName({
     lastName: app.applicant?.last_name,
     firstName: app.applicant?.first_name,
     deletedAt: app.applicant?.deleted_at,

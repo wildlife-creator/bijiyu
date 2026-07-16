@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { KeywordSearchForm } from "@/components/admin/keyword-search-form";
 import { KEYWORD_ID_SET_LIMIT } from "@/lib/admin/applications-list";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
+import { adminParticipantName } from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
-import { resolveParticipantName } from "@/lib/utils/display-name";
 
 const PAGE_SIZE = 20;
 
@@ -18,7 +18,7 @@ interface PageProps {
  * ADM-020: 求人問い合わせ一覧（デザインカンプなし・admin 共通スタイル）。
  * 受信日時降順・20件・絞込なし（共通方針）。
  * 宛先発注者の表示名はページ20行分の target_client_id をまとめてバッチ取得し
- * resolveParticipantName() で解決する（N+1 禁止）。
+ * adminParticipantName() で解決する（N+1 禁止）。
  */
 export default async function AdminJobInquiriesPage({
   searchParams,
@@ -101,7 +101,7 @@ export default async function AdminJobInquiriesPage({
     for (const u of targetUsers ?? []) {
       targetNameById.set(
         u.id,
-        resolveParticipantName({
+        adminParticipantName({
           displayName: profileByUser.get(u.id) ?? null,
           lastName: u.last_name,
           firstName: u.first_name,

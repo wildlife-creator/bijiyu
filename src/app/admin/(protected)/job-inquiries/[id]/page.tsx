@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
+import { adminParticipantName } from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
-import { resolveParticipantName } from "@/lib/utils/display-name";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -81,7 +81,7 @@ export default async function AdminJobInquiryDetailPage({
         .maybeSingle(),
     ]);
     if (targetUser) {
-      targetName = resolveParticipantName({
+      targetName = adminParticipantName({
         displayName: targetProfile?.display_name ?? null,
         lastName: targetUser.last_name,
         firstName: targetUser.first_name,

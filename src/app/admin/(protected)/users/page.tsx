@@ -105,10 +105,11 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
           </p>
         ) : (
           (users ?? []).map((u) => {
+            // 運営者には退会済みでも実名を見せる（状態は ※退会済み バッジで示す）
             const name = getUserDisplayName({
               lastName: u.last_name,
               firstName: u.first_name,
-              deletedAt: u.deleted_at,
+              deletedAt: null,
             });
             const age = u.birth_date ? calculateAge(u.birth_date) : null;
             return (

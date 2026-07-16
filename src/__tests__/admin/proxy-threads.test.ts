@@ -129,7 +129,7 @@ describe("buildProxyOrgOptions（会社絞込の選択肢導出）", () => {
     );
   });
 
-  it("退会済み Owner で display_name 保持があれば社名を表示する（C案退会）", () => {
+  it("退会済み Owner で display_name 保持があれば社名＋（退会済み）を表示する（C案退会）", () => {
     const options = buildProxyOrgOptions({
       organizations,
       ownerUsers,
@@ -137,11 +137,11 @@ describe("buildProxyOrgOptions（会社絞込の選択肢導出）", () => {
     });
 
     expect(options.find((o) => o.organizationId === "org-3")?.name).toBe(
-      "株式会社ベータ",
+      "株式会社ベータ（退会済み）",
     );
   });
 
-  it("退会済み Owner で display_name が無ければ退会済みユーザーと表示する", () => {
+  it("退会済み Owner で display_name が無ければ姓名＋（退会済み）を表示する（admin は実名可視）", () => {
     const options = buildProxyOrgOptions({
       organizations,
       ownerUsers,
@@ -149,7 +149,7 @@ describe("buildProxyOrgOptions（会社絞込の選択肢導出）", () => {
     });
 
     expect(options.find((o) => o.organizationId === "org-3")?.name).toBe(
-      "退会済みユーザー",
+      "鈴木一郎（退会済み）",
     );
   });
 
@@ -166,7 +166,7 @@ describe("buildProxyOrgOptions（会社絞込の選択肢導出）", () => {
 
     expect(options.map((o) => o.name)).toEqual([
       "あ建設",
-      "か建設",
+      "か建設（退会済み）",
       "わ建設",
     ]);
   });

@@ -111,10 +111,11 @@ export default async function AdminUserDetailPage({
     commentStartIndex + COMMENTS_PER_PAGE,
   );
 
+  // 運営者には退会済みでも実名を見せる（状態は ※退会済み バッジで示す）
   const displayName = getUserDisplayName({
     lastName: u.last_name,
     firstName: u.first_name,
-    deletedAt: u.deleted_at,
+    deletedAt: null,
   });
   const age = u.birth_date ? calculateAge(u.birth_date) : null;
 
@@ -132,8 +133,10 @@ export default async function AdminUserDetailPage({
   }));
   const skillTags = (u.skill_tags ?? []) as string[];
 
-  const showVideo = !!u.video_url && hasVideo;
+  // 退会済みはオプション契約も終了しているが、登録済みの動画は運営者が後から
+  // 確認できるよう表示を維持する（投稿/編集ボタンは非表示のまま）
   const isDeleted = !!u.deleted_at;
+  const showVideo = !!u.video_url && (hasVideo || isDeleted);
 
   return (
     <div className="px-5 py-8">
@@ -144,7 +147,7 @@ export default async function AdminUserDetailPage({
       {/* ヘッダー（アバター + 氏名 + バッジ） */}
       <div className="mt-6 flex items-center gap-4">
         <div className="size-16 shrink-0 overflow-hidden rounded-full bg-background border border-border/30">
-          {u.avatar_url && !isDeleted ? (
+          {u.avatar_url ? (
             <img
               src={u.avatar_url}
               alt={displayName}

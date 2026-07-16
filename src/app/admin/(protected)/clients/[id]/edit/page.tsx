@@ -23,8 +23,8 @@ export default async function AdminClientEditPage({ params }: PageProps) {
     .eq("id", id)
     .maybeSingle();
 
-  // 退会済みは編集不可（ADM-004 側でボタン非表示・URL 直叩きもブロック）
-  if (!target || target.role !== "client" || target.deleted_at) notFound();
+  // 内部メモのため退会済みアカウントも編集可能（退会後の対応記録用）
+  if (!target || target.role !== "client") notFound();
 
   const { data: profile } = await admin
     .from("client_profiles")

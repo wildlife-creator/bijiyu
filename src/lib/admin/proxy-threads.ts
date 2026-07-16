@@ -1,4 +1,4 @@
-import { resolveParticipantName } from "@/lib/utils/display-name";
+import { adminParticipantName } from "@/lib/admin/display-name";
 
 /**
  * ADM-023/024 代理メッセージ閲覧のヘルパー（admin spec Task 12）。
@@ -80,7 +80,7 @@ export function buildProxyOrgOptions(params: {
       const owner = userById.get(org.owner_id);
       return {
         organizationId: org.id,
-        name: resolveParticipantName({
+        name: adminParticipantName({
           displayName: profileByUser.get(org.owner_id) ?? null,
           lastName: owner?.last_name,
           firstName: owner?.first_name,

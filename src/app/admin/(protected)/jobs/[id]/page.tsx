@@ -8,11 +8,9 @@ import { AreaList } from "@/components/area/area-list";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { ZoomableImage } from "@/components/job-search/zoomable-image";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
+import { adminParticipantName } from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  resolveClientProfileForRow,
-  resolveParticipantName,
-} from "@/lib/utils/display-name";
+import { resolveClientProfileForRow } from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
@@ -132,7 +130,7 @@ export default async function AdminJobDetailPage({
 
   // 発注者名と ADM-004 への遷移先は契約主体（法人= org Owner / 個人・小規模= owner_id）
   const ownerResolution = resolveClientProfileForRow(job);
-  const ownerName = resolveParticipantName({
+  const ownerName = adminParticipantName({
     displayName: ownerResolution.displayName,
     lastName: ownerResolution.lastName,
     firstName: ownerResolution.firstName,

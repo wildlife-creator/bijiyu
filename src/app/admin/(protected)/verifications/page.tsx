@@ -2,8 +2,8 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { adminUserDisplayName } from "@/lib/admin/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
-import { getUserDisplayName } from "@/lib/utils/display-name";
 
 const PAGE_SIZE = 20;
 
@@ -71,7 +71,7 @@ export default async function AdminVerificationsPage({
           </p>
         ) : (
           (verifications ?? []).map((v) => {
-            const name = getUserDisplayName({
+            const name = adminUserDisplayName({
               lastName: v.user?.last_name,
               firstName: v.user?.first_name,
               deletedAt: v.user?.deleted_at,

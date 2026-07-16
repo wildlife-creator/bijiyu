@@ -72,10 +72,11 @@ async function notifyApplicant(
       .maybeSingle();
     if (!user?.email) return;
 
+    // メールの宛名。退会済みでも「退会済みユーザー様」ではなく実名で宛てる
     const name = getUserDisplayName({
       lastName: user.last_name,
       firstName: user.first_name,
-      deletedAt: user.deleted_at,
+      deletedAt: null,
     });
     const { subject, html } = buildMail({ name, email: user.email });
     await sendEmail({ to: user.email, subject, html });

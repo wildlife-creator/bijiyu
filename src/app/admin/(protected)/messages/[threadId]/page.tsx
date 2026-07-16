@@ -10,11 +10,11 @@ import {
 import { resolveBackTo } from "@/lib/admin/back-to";
 import { getSignedDocumentUrls } from "@/lib/admin/signed-urls";
 import { fetchAllRows } from "@/lib/admin/proxy-threads";
-import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  getUserDisplayName,
-  resolveParticipantName,
-} from "@/lib/utils/display-name";
+  adminParticipantName,
+  adminUserDisplayName,
+} from "@/lib/admin/display-name";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
 
 interface PageProps {
@@ -67,7 +67,7 @@ export default async function AdminProxyMessageDetailPage({
           .eq("user_id", org.owner_id)
           .maybeSingle(),
       ]);
-      clientName = resolveParticipantName({
+      clientName = adminParticipantName({
         displayName: ownerProfile?.display_name ?? null,
         lastName: owner?.last_name,
         firstName: owner?.first_name,
@@ -84,7 +84,7 @@ export default async function AdminProxyMessageDetailPage({
       .eq("id", proxyThread.contractor_id)
       .maybeSingle();
     if (contractor) {
-      contractorName = getUserDisplayName({
+      contractorName = adminUserDisplayName({
         lastName: contractor.last_name,
         firstName: contractor.first_name,
         deletedAt: contractor.deleted_at,

@@ -114,11 +114,12 @@ export default async function AdminClientDetailPage({
     ]);
 
   const orgId = org?.id ?? null;
+  // 運営者には退会済みでも実名/社名を見せる（状態は「このアカウントは退会済みです」バナーで示す）
   const displayName = resolveParticipantName({
     displayName: profile?.display_name ?? null,
     lastName: target.last_name,
     firstName: target.first_name,
-    deletedAt: target.deleted_at,
+    deletedAt: null,
   });
   const planLabel = derivePlanLabel(subscription?.plan_type ?? null);
 
@@ -247,8 +248,10 @@ export default async function AdminClientDetailPage({
     hasProxyThreads = (proxyRows ?? []).length > 0;
   }
 
+  // 退会済みはオプション契約も終了しているが、登録済みの動画は運営者が後から
+  // 確認できるよう表示を維持する（投稿/編集ボタンは非表示のまま）
   const showWorkplaceVideo =
-    hasWorkplaceVideoOption && !!profile?.workplace_video_url && !isDeleted;
+    !!profile?.workplace_video_url && (hasWorkplaceVideoOption || isDeleted);
 
   const snsLabels = SNS_ITEMS.filter(
     (s) => profile?.[s.key as keyof typeof profile],
@@ -278,16 +281,15 @@ export default async function AdminClientDetailPage({
             <span className="text-muted-foreground">メモはありません</span>
           )}
         </div>
-        {!isDeleted && (
-          <div className="mt-2 flex justify-end">
-            <Button
-              asChild
-              className="rounded-full bg-primary text-white hover:bg-primary/90"
-            >
-              <Link href={`/admin/clients/${id}/edit`}>メモを編集する</Link>
-            </Button>
-          </div>
-        )}
+        {/* 内部メモのため退会済みアカウントにも編集を許可する（退会後の対応記録用） */}
+        <div className="mt-2 flex justify-end">
+          <Button
+            asChild
+            className="rounded-full bg-primary text-white hover:bg-primary/90"
+          >
+            <Link href={`/admin/clients/${id}/edit`}>メモを編集する</Link>
+          </Button>
+        </div>
       </section>
 
       {/* 3. オプション加入状況 */}
@@ -339,7 +341,7 @@ export default async function AdminClientDetailPage({
         <h2 className="text-body-lg font-bold text-foreground">発注者情報</h2>
         <div className="mt-3 flex items-center gap-4">
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
-            {(profile?.image_url ?? target.avatar_url) && !isDeleted ? (
+            {(profile?.image_url ?? target.avatar_url) ? (
               <img
                 src={(profile?.image_url ?? target.avatar_url)!}
                 alt={displayName}
