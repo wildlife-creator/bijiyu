@@ -76,16 +76,18 @@ export async function executeWithdrawal(params: {
 
   // --- Guard 2: 発注責任者としての進行中案件 ---
   //    - 個人発注者 / 小規模プラン Owner（組織無し）: jobs.owner_id = target
-  //    - 法人プラン Owner: 組織全体の案件 (jobs.organization_id = org.id)
+  //    - 法人プラン Owner: 本人名義 OR 組織全体の案件
+  //      （法人化前に本人名義で作った案件は organization_id が NULL のため、
+  //      organization_id 単独だと accepted 応募を見落として退会を通してしまう）
   let ownedJobQuery = admin
     .from("applications")
     .select("id, jobs!inner(owner_id, organization_id)")
     .eq("status", "accepted");
 
   if (orgMembership?.org_role === "owner" && orgMembership.organization_id) {
-    ownedJobQuery = ownedJobQuery.eq(
-      "jobs.organization_id",
-      orgMembership.organization_id,
+    ownedJobQuery = ownedJobQuery.or(
+      `owner_id.eq.${targetUserId},organization_id.eq.${orgMembership.organization_id}`,
+      { referencedTable: "jobs" },
     );
   } else {
     ownedJobQuery = ownedJobQuery.eq("jobs.owner_id", targetUserId);
@@ -180,11 +182,24 @@ export async function executeWithdrawal(params: {
   }
 
   // 募集中・下書き案件のクローズ
-  await admin
+  //   - 個人発注者 / 組織なし: 本人名義（owner_id）のみ
+  //   - 法人プラン Owner: 本人名義 OR 会社全体（organization_id）。担当者
+  //     （Staff / Admin / 代理）作成の案件は owner_id が担当者を指すため、
+  //     owner_id 単独だと解散後も open のまま検索一覧に掲載され続け、
+  //     応募まで可能になってしまう（法人化前の本人名義案件は org NULL のため OR で拾う）
+  let closeJobsQuery = admin
     .from("jobs")
     .update({ status: "closed" })
-    .eq("owner_id", targetUserId)
     .in("status", ["draft", "open"]);
+
+  if (orgMembership?.org_role === "owner" && orgMembership.organization_id) {
+    closeJobsQuery = closeJobsQuery.or(
+      `owner_id.eq.${targetUserId},organization_id.eq.${orgMembership.organization_id}`,
+    );
+  } else {
+    closeJobsQuery = closeJobsQuery.eq("owner_id", targetUserId);
+  }
+  await closeJobsQuery;
 
   // 応募のキャンセル（実行者を記録。Guard 1 通過後の保険＝レース対策）
   await admin

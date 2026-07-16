@@ -62,6 +62,7 @@ interface ChainConfig {
 function makeChain(config: ChainConfig = {}) {
   const eqCalls: Array<[string, unknown]> = [];
   const inCalls: Array<[string, unknown[]]> = [];
+  const orCalls: Array<[string, unknown]> = [];
   const updates: Array<Record<string, unknown>> = [];
   const inserts: Array<Record<string, unknown>> = [];
 
@@ -89,6 +90,10 @@ function makeChain(config: ChainConfig = {}) {
       return chain;
     }),
     neq: vi.fn().mockReturnThis(),
+    or: vi.fn((filter: string, opts?: unknown) => {
+      orCalls.push([filter, opts]);
+      return chain;
+    }),
     in: vi.fn((col: string, vals: unknown[]) => {
       inCalls.push([col, vals]);
       return chain;
@@ -117,6 +122,7 @@ function makeChain(config: ChainConfig = {}) {
   return Object.assign(chain, {
     _eqCalls: eqCalls,
     _inCalls: inCalls,
+    _orCalls: orCalls,
     _updates: updates,
     _inserts: inserts,
   });
@@ -208,7 +214,7 @@ describe("executeWithdrawal: 退会前ガード", () => {
     }
   });
 
-  it("法人 Owner は jobs.organization_id でチェックされる（広義）", async () => {
+  it("法人 Owner は 本人名義 OR 組織全体 でチェックされる（法人化前の本人名義案件も対象）", async () => {
     const chains = setupTables({
       applications: { count: 0, thenable: { data: [], error: null } },
       organization_members: {
@@ -225,8 +231,10 @@ describe("executeWithdrawal: 退会前ガード", () => {
     expect(result.success).toBe(true);
     const appChain = chains.get("applications")!;
     expect(
-      appChain._eqCalls.some(
-        ([col, val]) => col === "jobs.organization_id" && val === ORG_ID,
+      appChain._orCalls.some(
+        ([filter, opts]) =>
+          filter === `owner_id.eq.${TARGET_ID},organization_id.eq.${ORG_ID}` &&
+          (opts as { referencedTable?: string })?.referencedTable === "jobs",
       ),
     ).toBe(true);
     expect(
@@ -299,6 +307,61 @@ describe("executeWithdrawal: カスケード処理", () => {
     expect(mockAdminAuthUpdate).toHaveBeenCalledWith(TARGET_ID, {
       ban_duration: "876600h",
     });
+  });
+
+  it("組織なしユーザーの退会では本人名義（owner_id）の案件のみ closed にする", async () => {
+    const chains = setupHappyPath();
+
+    const result = await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    expect(result.success).toBe(true);
+    const jobsChain = chains.get("jobs")!;
+    expect(jobsChain._updates.some((u) => u.status === "closed")).toBe(true);
+    expect(
+      jobsChain._eqCalls.some(
+        ([col, val]) => col === "owner_id" && val === TARGET_ID,
+      ),
+    ).toBe(true);
+    expect(jobsChain._orCalls).toHaveLength(0);
+    expect(
+      jobsChain._inCalls.some(
+        ([col, vals]) =>
+          col === "status" &&
+          (vals as string[]).includes("open") &&
+          (vals as string[]).includes("draft"),
+      ),
+    ).toBe(true);
+  });
+
+  it("法人 Owner の退会では 本人名義 OR 会社全体 の案件を closed にする（担当者作成分も閉じる）", async () => {
+    const chains = setupHappyPath({
+      organization_members: {
+        data: { org_role: "owner", organization_id: ORG_ID },
+        thenable: { data: [], error: null },
+      },
+    });
+
+    const result = await executeWithdrawal({
+      targetUserId: TARGET_ID,
+      cancelledBy: "contractor",
+    });
+
+    expect(result.success).toBe(true);
+    const jobsChain = chains.get("jobs")!;
+    expect(jobsChain._updates.some((u) => u.status === "closed")).toBe(true);
+    // owner_id 単独の eq ではなく、owner OR organization の or() で絞る
+    expect(
+      jobsChain._orCalls.some(
+        ([filter]) =>
+          filter === `owner_id.eq.${TARGET_ID},organization_id.eq.${ORG_ID}`,
+      ),
+    ).toBe(true);
+    expect(
+      jobsChain._eqCalls.some(([col]) => col === "owner_id"),
+    ).toBe(false);
   });
 
   it("カスケードで cancelled にする応募に cancelledBy を記録する（admin 削除）", async () => {
