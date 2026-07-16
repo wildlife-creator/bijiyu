@@ -28,14 +28,16 @@ const PLAYER_IFRAME = 'iframe[src*="tiktok.com/player/v1"]';
 
 test.describe("CLI-026: 職場紹介動画掲載オプション", () => {
   test("発注者プラン active なら申込ボタンが活性", async ({ page }) => {
+    // client@test.local は seed で active な 'video_workplace' オプションを持つ
+    // （CON-006 の職場紹介動画表示テスト用）。00eda8d の購入済み表示追加により、
+    // 購入済みユーザーのボタンラベルは「購入済み」になる（活性のまま・押下で再購入確認）。
+    // 自己PR動画（'video'）は未購入なのでラベル「購入済み」はこのボタン 1 つに定まる。
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/billing");
     await expect(
       page.getByText("職場紹介動画掲載", { exact: true }),
     ).toBeVisible();
-    const btn = page.getByRole("button", {
-      name: "職場紹介動画掲載を申し込む",
-    });
+    const btn = page.getByRole("button", { name: "購入済み", exact: true });
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
   });
