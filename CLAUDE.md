@@ -611,6 +611,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **症状の出方に注意**: fire-and-forget でも「送信直後に別の await（DB 問い合わせ等）がある」経路では偶然フラッシュされて届くため、**バグが経路によって出たり出なかったりする**。特に「後続処理が無く即 return する経路」（匿名フォーム submit・`redirect()` 直前）で確実に落ちる。ローカルはメールをファイル書き出しするため再現しない
 - ヘルパー関数（`sendVerificationEmails` 等）でメールを送る場合、呼び出し側が `await helper()` していても **ヘルパー内部が `void sendEmail` だと待てていない**。ヘルパー内部も await すること
 - 2026-07-13 実例: ログアウト状態のお問い合わせ（`(support)/contact/actions.ts`）で送信者控え・運営通知の両方が届かず（DB には保存済）。原因は `void sendEmail`。同パターンが trouble-report / job-inquiry(COM-013) / 本人確認申請メール / admin 強制削除通知 / メンバーのメール変更通知の計 7 系統に潜在しており一括で `await` 化。内部運営アラート `sendEmailRecycleFailureAlert`（audit_logs に耐久記録が残るため許容）のみ fire-and-forget を意図的に維持
+- 2026-07-16 追加修正: §8.5 カスケード凍結通知（`executeWithdrawal`）と §8.6 admin PW 変更通知の 2 系統に `void` が残存していたため `await` 化。カスケードメールは**関数末尾（凍結・Stripe 解約・ban 完了後）に移動**した — 大量送信中にタイムアウトしても業務処理は完了済みにするため。**組織全員宛 broadcast（最大31通 × 直列 0.6 秒 ≒ 約20秒）を送る Server Action を持つページには `export const maxDuration = 60` を設定すること**（退会・admin 削除・応募・応募キャンセル・発注可否・完了報告×2・メッセージ×2・スカウト・お問い合わせの計 12 ページ設定済）。新しい broadcast 送信画面を作る際も同様に設定する
 
 ### UI テキスト・ラベル（必ず守ること）
 - お気に入りボタンのラベルは「マイリスト登録」/「マイリスト解除」を使うこと（「興味する」等の不自然な日本語は禁止）

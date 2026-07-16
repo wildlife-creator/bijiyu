@@ -18,6 +18,10 @@ import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatResidence } from "@/lib/utils/format-residence";
 import { DeleteUserButton } from "./delete-user-button";
 
+// アカウント削除の退会カスケード（メール送信を含む）がタイムアウトしないよう
+// Server Action の実行時間上限を延長する
+export const maxDuration = 60;
+
 const COMMENTS_PER_PAGE = 20;
 
 interface PageProps {

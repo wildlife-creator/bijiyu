@@ -10,6 +10,10 @@ import {
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { InquiryForm } from "./inquiry-form";
 
+// お問い合わせ通知は発注者組織のメンバー全員宛にメールを直列送信する
+// （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
+export const maxDuration = 60;
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }

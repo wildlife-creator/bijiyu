@@ -37,7 +37,7 @@ vi.mock("@/lib/billing/stripe", () => ({
   }),
 }));
 
-// §8.5 / §8.5.5 cascade メール送信 (fire-and-forget Promise.all) を観察するため
+// §8.5 / §8.5.5 cascade メール送信 (関数末尾で await Promise.all) を観察するため
 // sendEmail を vi.hoisted で巻き上げて mock 化する。
 const { sendEmailMock } = vi.hoisted(() => ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -652,7 +652,7 @@ describe("executeWithdrawal: カスケード処理", () => {
 });
 
 // ===========================================================================
-// §8.5 / §8.5.5 cascade メール送信 (fire-and-forget Promise.all) のエラーパス
+// §8.5 / §8.5.5 cascade メール送信 (関数末尾で await Promise.all) のエラーパス
 //
 // 2026-06-28 通知メール runtime 監査の弱点補強。Owner 退会 → 配下メンバーへの
 // cascade 通知メールが下記 2 シナリオでも壊れないことを保証する:

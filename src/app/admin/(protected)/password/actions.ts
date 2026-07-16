@@ -75,11 +75,13 @@ export async function changeAdminPasswordAction(
       targetId: user.id,
     });
 
-    // §8.6 admin PW 変更完了通知 (fire-and-forget、admin session hijack 検知)。
+    // §8.6 admin PW 変更完了通知 (admin session hijack 検知)。
+    //   - 必ず await する (fire-and-forget は Vercel が Server Action の return 後に
+    //     実行コンテキストを凍結するため本番で届かない)
     //   - 失敗は console.error のみ (PW 更新は完了、Server Action 自体は success)
     //   - admin は complete_registration を経由しないため last_name + first_name が空のケースあり。
     //     その場合は「ビジ友 管理者 様」表記でフォールバック
-    void (async () => {
+    await (async () => {
       try {
         const adminClient = createAdminClient();
         const { data: profile } = await adminClient

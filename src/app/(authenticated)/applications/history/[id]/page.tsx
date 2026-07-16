@@ -20,6 +20,10 @@ import { formatDate, getJstToday } from "@/lib/utils/format-date";
 import { canContractorCancel } from "@/lib/matching";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 
+// 応募キャンセル通知は発注者組織のメンバー全員宛にメールを直列送信する
+// （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
+export const maxDuration = 60;
+
 interface Props {
   params: Promise<{ id: string }>;
 }

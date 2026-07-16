@@ -16,6 +16,10 @@ import {
 } from "@/lib/messaging/identity";
 import { fetchAllRows } from "@/lib/admin/proxy-threads";
 
+// メッセージ通知は相手組織のメンバー全員宛にメールを直列送信する
+// （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
+export const maxDuration = 60;
+
 interface Props {
   searchParams: Promise<{ to?: string }>;
 }

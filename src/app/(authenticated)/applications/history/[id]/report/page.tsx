@@ -8,6 +8,10 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { ContractorReportForm } from "./contractor-report-form";
 
+// 完了報告の通知は発注者組織のメンバー全員宛にメールを直列送信する
+// （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
+export const maxDuration = 60;
+
 interface Props {
   params: Promise<{ id: string }>;
 }

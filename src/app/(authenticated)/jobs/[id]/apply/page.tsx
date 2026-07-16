@@ -13,6 +13,10 @@ import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 import { ApplicationForm } from "./application-form";
 
+// 応募通知は発注者組織のメンバー全員宛にメールを直列送信する（最大31通 ≒ 約20秒）
+// ため、タイムアウトしないよう Server Action の実行時間上限を延長する
+export const maxDuration = 60;
+
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ scout_message_id?: string }>;

@@ -6,6 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 
 import { WithdrawalForm } from "./withdrawal-form";
 
+// 退会カスケード（配下メンバーの凍結 + 全員宛メールの直列送信、最大約20秒）が
+// タイムアウトしないよう Server Action の実行時間上限を延長する
+export const maxDuration = 60;
+
 /**
  * COM-006 退会手続き Server Component ラッパー
  *

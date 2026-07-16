@@ -34,6 +34,22 @@ export interface WithdrawalSurveyInput {
 
 const BAN_DURATION = "876600h"; // 約100年 = 恒久 ban
 
+/** §8.5 / §8.5.5 カスケード凍結メール 1 通分の宛先情報 */
+interface CascadeEmailSpec {
+  to: string;
+  recipientName: string;
+  kind: "proxy" | "staff";
+  hasRemainingMembership: boolean;
+}
+
+/** カスケード凍結メールの送信内容（凍結処理中に確保し、全処理完了後に送信する） */
+interface CascadeEmailContext {
+  specs: CascadeEmailSpec[];
+  organizationName: string;
+  ownerName: string;
+  withdrawnAt: string;
+}
+
 export async function executeWithdrawal(params: {
   targetUserId: string;
   /** 退会理由 survey を記録する場合に渡す（本人退会のみ） */
@@ -225,8 +241,11 @@ export async function executeWithdrawal(params: {
   // --- 組織カスケード（C案: organization spec Task 13.4 + §8 prereq cascade 修正） ---
   // Owner 退会時は組織ごとソフトデリートし、配下 Admin / Staff を本人種別に応じて処理。
   // §8 prereq (§8.5 関連): 代理 staff は他組織で代理継続中なら凍結しない (残存件数判定)。
-  // §8.5 / §8.5.5: カスケード完了後に本人宛通知メールを fire-and-forget で送信。
+  // §8.5 / §8.5.5: 配下メンバー宛の凍結通知メールはここでは送信内容の確保のみ行い、
+  //   関数末尾（Stripe 解約・ban 完了後）で await 送信する。
   // client_profiles / scout_templates は削除せず保持（履歴）。
+  let cascadeEmailContext: CascadeEmailContext | null = null;
+
   if (orgMembership) {
     const orgId = orgMembership.organization_id;
 
@@ -283,12 +302,6 @@ export async function executeWithdrawal(params: {
       const withdrawnAt = formatDateTime(new Date().toISOString());
 
       // メンバー単位で path を決定し、freeze 実行 → メール用 spec を蓄積
-      interface CascadeEmailSpec {
-        to: string;
-        recipientName: string;
-        kind: "proxy" | "staff";
-        hasRemainingMembership: boolean;
-      }
       const emailSpecs: CascadeEmailSpec[] = [];
 
       for (const m of members) {
@@ -372,39 +385,13 @@ export async function executeWithdrawal(params: {
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", orgId);
 
-      // §8.5 / §8.5.5 メール送信 (fire-and-forget で並列、失敗はログのみ)
-      void Promise.all(
-        emailSpecs.map(async (spec) => {
-          try {
-            const { subject, html } =
-              spec.kind === "proxy"
-                ? accountCascadeFrozenProxyEmail({
-                    recipientName: spec.recipientName,
-                    organizationName,
-                    ownerName,
-                    withdrawnAt,
-                    hasRemainingMembership: spec.hasRemainingMembership,
-                  })
-                : accountCascadeFrozenStaffEmail({
-                    recipientName: spec.recipientName,
-                    organizationName,
-                    ownerName,
-                    withdrawnAt,
-                  });
-            await sendEmail({ to: spec.to, subject, html });
-          } catch (err) {
-            console.error(
-              "[executeWithdrawal] §8.5 / §8.5.5 cascade email failed (non-blocking)",
-              { to: spec.to, kind: spec.kind, err },
-            );
-          }
-        }),
-      ).catch((err) =>
-        console.error(
-          "[executeWithdrawal] cascade email Promise.all threw (non-blocking)",
-          err,
-        ),
-      );
+      // §8.5 / §8.5.5 メール送信内容を確保（送信自体は関数末尾で行う）
+      cascadeEmailContext = {
+        specs: emailSpecs,
+        organizationName,
+        ownerName,
+        withdrawnAt,
+      };
     } else {
       // Owner 以外（現在は上部ガードで到達不可だが将来の仕様変更に備える）
       await admin
@@ -447,6 +434,43 @@ export async function executeWithdrawal(params: {
   await admin.auth.admin.updateUserById(targetUserId, {
     ban_duration: BAN_DURATION,
   });
+
+  // --- §8.5 / §8.5.5 カスケード凍結メール送信 ---
+  // 必ず await する（fire-and-forget は Vercel が Server Action 応答後に実行
+  // コンテキストを凍結するため本番で届かない）。関数の最後に置くことで、送信中に
+  // タイムアウトしても失われるのはメールのみで、凍結・Stripe 解約・ban は完了済み。
+  // 送信失敗は個別 catch でログのみ（退会は完了しており巻き戻さない）。
+  if (cascadeEmailContext) {
+    const { specs, organizationName, ownerName, withdrawnAt } =
+      cascadeEmailContext;
+    await Promise.all(
+      specs.map(async (spec) => {
+        try {
+          const { subject, html } =
+            spec.kind === "proxy"
+              ? accountCascadeFrozenProxyEmail({
+                  recipientName: spec.recipientName,
+                  organizationName,
+                  ownerName,
+                  withdrawnAt,
+                  hasRemainingMembership: spec.hasRemainingMembership,
+                })
+              : accountCascadeFrozenStaffEmail({
+                  recipientName: spec.recipientName,
+                  organizationName,
+                  ownerName,
+                  withdrawnAt,
+                });
+          await sendEmail({ to: spec.to, subject, html });
+        } catch (err) {
+          console.error(
+            "[executeWithdrawal] §8.5 / §8.5.5 cascade email failed (non-blocking)",
+            { to: spec.to, kind: spec.kind, err },
+          );
+        }
+      }),
+    );
+  }
 
   return { success: true };
 }

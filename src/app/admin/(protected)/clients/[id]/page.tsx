@@ -19,6 +19,10 @@ import { DeleteAccountButton } from "./delete-account-button";
 import { JobSiteList } from "./job-site-list";
 import { MemberList } from "./member-list";
 
+// アカウント削除の退会カスケード（配下メンバーの凍結 + 全員宛メールの直列送信、
+// 最大約20秒）がタイムアウトしないよう Server Action の実行時間上限を延長する
+export const maxDuration = 60;
+
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ backTo?: string }>;

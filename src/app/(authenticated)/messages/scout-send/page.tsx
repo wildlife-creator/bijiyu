@@ -6,6 +6,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { ScoutSendForm } from "./scout-send-form";
 
+// スカウト送信の控えメールは自組織のメンバー全員宛に直列送信する
+// （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
+export const maxDuration = 60;
+
 interface PageProps {
   searchParams: Promise<{ userId?: string }>;
 }
