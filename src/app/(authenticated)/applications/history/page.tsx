@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { createClient } from "@/lib/supabase/server";
+import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -207,12 +208,16 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
 
           const resolution = job ? resolveClientProfileForRow(job) : null;
           const companyName = resolution
-            ? resolveParticipantName({
-                displayName: resolution.displayName,
-                lastName: resolution.lastName,
-                firstName: resolution.firstName,
-                deletedAt: resolution.deletedAt,
-              })
+            ? // 取引履歴として退会後も実名/社名を残す（メッセージ画面の表示規約と統一）
+              appendWithdrawnSuffix(
+                resolveParticipantName({
+                  displayName: resolution.displayName,
+                  lastName: resolution.lastName,
+                  firstName: resolution.firstName,
+                  deletedAt: null,
+                }),
+                resolution.deletedAt,
+              )
             : "不明";
 
           const rewardText = formatRewardRange(

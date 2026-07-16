@@ -29,12 +29,14 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
   const { data: targetUser } = await supabase
     .from("users")
     .select(
-      "id, last_name, first_name, avatar_url, birth_date, identity_verified, ccus_verified",
+      "id, last_name, first_name, avatar_url, birth_date, identity_verified, ccus_verified, deleted_at",
     )
     .eq("id", targetUserId)
     .single();
 
-  if (!targetUser) notFound();
+  // 退会済みユーザーはスカウト対象外。RLS は生存中ユーザーのみ返すのが基本だが、
+  // 過去にスレッドがある相手は退会後も例外的に SELECT できるため明示的に弾く
+  if (!targetUser || targetUser.deleted_at) notFound();
 
   // Fetch target user's skills
   const { data: skills } = await supabase

@@ -11,6 +11,7 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaList } from "@/components/area/area-list";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
@@ -94,11 +95,15 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
   } | null;
 
   const applicantName = applicant
-    ? getUserDisplayName({
-        lastName: applicant.last_name,
-        firstName: applicant.first_name,
-        deletedAt: applicant.deleted_at,
-      })
+    ? // 取引履歴として退会後も実名を残す（メッセージ画面の表示規約と統一）
+      appendWithdrawnSuffix(
+        getUserDisplayName({
+          lastName: applicant.last_name,
+          firstName: applicant.first_name,
+          deletedAt: null,
+        }),
+        applicant.deleted_at,
+      )
     : "不明";
 
   // Calculate age

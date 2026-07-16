@@ -193,6 +193,32 @@ export async function sendScoutAction(
     // Find or create thread (Phase 2: identity ベース)
     const admin = createAdminClient();
 
+    // 退会済みユーザーへのスカウト送信を拒否する。通常導線では退会者にスカウト
+    // ボタンが出ないが、直 URL（?userId=...）ではここまで到達しうる。スレッド作成は
+    // admin client で行うため RLS では防げず、Server Action 側の明示ガードが必要
+    //（sendMessageAction の isCounterpartWithdrawn と対称）。
+    const { data: scoutTarget, error: scoutTargetError } = await admin
+      .from("users")
+      .select("id, deleted_at")
+      .eq("id", parsed.data.userId)
+      .maybeSingle();
+    // fail-closed: 照会失敗を「生存中」と誤判定しない
+    if (scoutTargetError) {
+      return {
+        success: false,
+        error: "一時的なエラーが発生しました。時間をおいて再度お試しください。",
+      };
+    }
+    if (!scoutTarget) {
+      return { success: false, error: "スカウト対象のユーザーが見つかりません" };
+    }
+    if (scoutTarget.deleted_at) {
+      return {
+        success: false,
+        error: "このユーザーは退会済みのためスカウトを送信できません",
+      };
+    }
+
     // 修正1: 応募済みの職人には同一案件のスカウトを送れない（全ステータス対象）。
     // お断り済み・発注済み・キャンセル等いずれの応募が存在しても拒否する。
     // job owner の RLS に依存しないよう admin client で照会する。

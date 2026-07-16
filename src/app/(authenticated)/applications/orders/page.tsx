@@ -14,6 +14,7 @@ import {
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
+import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatDate } from "@/lib/utils/format-date";
@@ -177,11 +178,15 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
           const displayCategory = getOrderDisplayCategory(app.status, hasUserReview, hasClientReview);
 
           const contractorName = applicant
-            ? getUserDisplayName({
-                lastName: applicant.last_name,
-                firstName: applicant.first_name,
-                deletedAt: applicant.deleted_at,
-              })
+            ? // 取引履歴として退会後も実名を残す（メッセージ画面の表示規約と統一）
+              appendWithdrawnSuffix(
+                getUserDisplayName({
+                  lastName: applicant.last_name,
+                  firstName: applicant.first_name,
+                  deletedAt: null,
+                }),
+                applicant.deleted_at,
+              )
             : "不明";
 
           const age = applicant?.birth_date

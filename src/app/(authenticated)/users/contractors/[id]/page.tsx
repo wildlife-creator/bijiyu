@@ -337,8 +337,8 @@ export default async function ContractorDetailPage({ params }: PageProps) {
 
       {/* 空き日程 & 発注者評価 — PC では横並び */}
       <div className="mx-5 mt-6 flex flex-col md:flex-row md:gap-6">
-        {/* 空き日程 */}
-        {schedules && schedules.length > 0 && (
+        {/* 空き日程（退会済みは非表示 — 連絡が取れない相手の未来の空きを見せると誤解のもと） */}
+        {schedules && schedules.length > 0 && !isDeleted && (
           <section className="flex-1 min-w-0">
             <h3 className="text-[15px] font-bold tracking-wider mb-2">空き日程</h3>
             <div className="rounded-[8px] border border-border bg-background overflow-hidden">

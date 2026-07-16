@@ -4,6 +4,7 @@ import { Clock, CheckCircle2, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { isPdfUrl } from "@/lib/utils/is-pdf-url";
+import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -116,12 +117,16 @@ export default async function ApplicationDetailPage({ params }: Props) {
 
   const resolution = job ? resolveClientProfileForRow(job) : null;
   const companyName = resolution
-    ? resolveParticipantName({
-        displayName: resolution.displayName,
-        lastName: resolution.lastName,
-        firstName: resolution.firstName,
-        deletedAt: resolution.deletedAt,
-      })
+    ? // 取引履歴として退会後も実名/社名を残す（メッセージ画面の表示規約と統一）
+      appendWithdrawnSuffix(
+        resolveParticipantName({
+          displayName: resolution.displayName,
+          lastName: resolution.lastName,
+          firstName: resolution.firstName,
+          deletedAt: null,
+        }),
+        resolution.deletedAt,
+      )
     : "不明";
 
   // Cancel check: accepted かつ「初回稼働日の5日前の当日(JST)まで」可能

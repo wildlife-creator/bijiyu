@@ -700,6 +700,15 @@ describe("sendScoutAction", () => {
         },
       }),
     );
+    // 宛先受注者の退会チェック (admin.users) → 在籍中
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { id: CONTRACTOR_ID, deleted_at: null },
+          error: null,
+        },
+      }),
+    );
     // 修正1: applications 応募済みチェック (admin) → 未応募
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: null, error: null } }),
@@ -791,6 +800,15 @@ describe("sendScoutAction", () => {
         },
       }),
     );
+    // 宛先受注者の退会チェック (admin.users) → 在籍中
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { id: CONTRACTOR_ID, deleted_at: null },
+          error: null,
+        },
+      }),
+    );
     // 修正1: applications 応募済みチェック (admin) → 未応募
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ maybeSingle: { data: null, error: null } }),
@@ -870,6 +888,15 @@ describe("sendScoutAction", () => {
         },
       }),
     );
+    // 宛先受注者の退会チェック (admin.users) → 在籍中
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { id: CONTRACTOR_ID, deleted_at: null },
+          error: null,
+        },
+      }),
+    );
     // 3. 修正1: applications 応募済みチェック (admin) → 応募あり（お断り済み等でも拒否）
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
@@ -881,6 +908,80 @@ describe("sendScoutAction", () => {
     expect(result.success).toBe(false);
     if (!result.success)
       expect(result.error).toBe("この職人はこの案件に既に応募しています");
+  });
+
+  it("退会済みの職人にはスカウトを送れない", async () => {
+    mockAuth(USER_ID);
+    // 1. role check → client
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ single: { data: { role: "client" }, error: null } }),
+    );
+    // 2. organization_members (getActiveOrganizationContext) → active=null
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    // 修正8: jobs 所有権チェック（owner_id === 送信者）→ 通過させる
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            title: "テスト案件",
+            owner_id: USER_ID,
+            organization_id: null,
+          },
+          error: null,
+        },
+      }),
+    );
+    // 宛先受注者の退会チェック (admin.users) → 退会済み
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { id: CONTRACTOR_ID, deleted_at: "2026-07-01T00:00:00Z" },
+          error: null,
+        },
+      }),
+    );
+
+    const result = await sendScoutAction(buildFormData());
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error).toBe(
+        "このユーザーは退会済みのためスカウトを送信できません",
+      );
+  });
+
+  it("宛先の退会チェックの照会が失敗したら fail-closed で拒否する", async () => {
+    mockAuth(USER_ID);
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ single: { data: { role: "client" }, error: null } }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ maybeSingle: { data: null, error: null } }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: {
+            title: "テスト案件",
+            owner_id: USER_ID,
+            organization_id: null,
+          },
+          error: null,
+        },
+      }),
+    );
+    // 宛先受注者の退会チェック (admin.users) → 照会エラー
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: { data: null, error: { message: "db error" } },
+      }),
+    );
+
+    const result = await sendScoutAction(buildFormData());
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error).toContain("一時的なエラー");
   });
 
   it("個人プラン（organization_id なし）で新規スレッドを作成してスカウト送信", async () => {
@@ -895,6 +996,15 @@ describe("sendScoutAction", () => {
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         maybeSingle: { data: null, error: null },
+      }),
+    );
+    // 宛先受注者の退会チェック (admin.users) → 在籍中
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        maybeSingle: {
+          data: { id: CONTRACTOR_ID, deleted_at: null },
+          error: null,
+        },
       }),
     );
     // 修正1: applications 応募済みチェック (admin) → 未応募
