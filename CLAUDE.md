@@ -290,6 +290,12 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 共通コンポーネント（BackButton 等）の中の `<Button>` でも漏らさないこと。コンポーネント内側で明示していないと、使用箇所のフォーム内で同じ罠が発生する
 - 2026-05-18 に `src/components/shared/back-button.tsx` / `src/components/job-search/back-button.tsx` の両方で実例発生（COM-002 で × → もどる の操作だけで `updateProfileAction` が発火し、特級ボイラー技士 chip が削除された）
 
+### useActionState のアクションを手動で呼ぶときは `startTransition` で包む（必ず守ること）
+- `useActionState` が返す `formAction` を `<form action={formAction}>` 以外（onClick ハンドラ・確認ダイアログの確定ボタン等）から直接 `formAction(fd)` と呼んではならない。必ず `startTransition(() => formAction(fd))` で包むこと
+- transition の外で呼ぶと、**Server Action 自体は実行される（DB 更新・メール送信は走る）のに、アクションからの `redirect()` がクライアントで処理されず画面が遷移しない**。`isPending` も更新されない。コンソールに React のエラー（"An async function with useActionState was called outside of a transition"）は出るが、画面上はエラーなしで固まるためサイレントバグになる
+- 「フォーム送信を preventDefault → 確認ダイアログ → 確定で送信」パターンを実装する際に踏みやすい。通常の form 経由の経路は正常に動くため、E2E がダイアログ経路をカバーしていないと検出できない
+- 2026-07-16 実例: 法人 Owner 退会（`withdrawal-form.tsx` の警告ダイアログ「それでも退会する」）で、退会処理・カスケードメールは完走するのに `/withdrawal-complete` へ遷移せず画面がそのまま残った。個人退会（form 直接経路）は正常だった
+
 ### CTA ボタン（`variant="default"`）の文字色
 - `bg-primary` ボタンの文字色が白（`text-primary-foreground`）になっていることを必ず確認すること
 - `asChild` + `<Link>` の組み合わせでは `<a>` タグのデフォルトスタイルが干渉し文字色が黒になる場合がある。その場合は明示的に `text-white` を `className` に追加する

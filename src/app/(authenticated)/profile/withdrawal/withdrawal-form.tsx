@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { startTransition, useActionState, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm, Controller } from "react-hook-form";
@@ -80,7 +80,10 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
     setIsDialogOpen(false);
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
-    formAction(fd);
+    // useActionState のアクションを transition の外で呼ぶと、サーバー処理は
+    // 実行されるのに redirect("/withdrawal-complete") がクライアントで処理されず
+    // 画面が遷移しない（isPending も更新されない）。必ず startTransition で包む
+    startTransition(() => formAction(fd));
   }
 
   return (
