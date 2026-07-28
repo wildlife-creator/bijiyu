@@ -296,7 +296,7 @@ Realtime はコストと複雑性が伴うため、使用箇所を限定する�
 
 メッセージ機能での標準パターン:
 
-1. **購読開始**: チャット画面マウント時に該当スレッドを購読
+1. **購読開始**: チャット画面マウント時に該当スレッドを購読。**`channel.subscribe()` の前に必ず `await supabase.realtime.setAuth()`（引数なし）を実行する**。subscribe は同期関数で、呼び出し時点の access token を join payload に焼き込むため、await しないと anon 扱いで join してしまい、RLS により全イベントがサイレントに落ちる（エラーも出ず `SUBSCRIBED` は返るので気づけない）。基準実装: `src/components/messaging/message-thread-view.tsx`
 2. **購読終了**: チャット画面アンマウント時に購読解除（メモリリーク防止）
 3. **楽観的UI**: 送信ボタン押下 → 即座にUIに反映 → Server Action実行
    → 失敗時はUIをロールバック＋エラートースト表示
@@ -358,8 +358,11 @@ SMTP設定にResendのクレデンシャルを設定する。
   - `send-email.ts` — Resend API呼び出しのラッパー
   - `templates/` — React Email テンプレート（.tsx）
 
+- レート制限・リトライ（`src/lib/email/send-email.ts` でアプリ側対策済み）:
+  - 全送信をモジュール内キューで直列化し、送信間隔 600ms を空ける（Resend の 2通/秒制限対応）
+  - それでも 429（rate_limit_exceeded）が返った場合は約1.1秒待って再試行（最大3試行）
+  - 組織全員宛 broadcast（最大31通）を送る Server Action を持つページには `export const maxDuration = 60` を設定する（直列送信で約20秒かかるため）
 - 送信失敗時の方針:
-  - リトライ: Resend の自動リトライに任せる（設定で3回まで）
   - ログ: 送信結果（成功/失敗）を監査ログに記録
   - ユーザーへの影響: メール送信失敗で本体処理をロールバックしない
     （例: マッチング承認は成功、通知メールだけ失敗 → 許容）

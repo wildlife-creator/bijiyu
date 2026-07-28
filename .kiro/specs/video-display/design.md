@@ -413,7 +413,7 @@ const VideoUrlSchema = z
 
 Summary-only（presentational）。既存「動画掲載」セクション（`BillingClient.tsx:473-493`）を複製し、文言・`handleOptionCheckout("video_workplace")`・`disabled` 条件を差し替えた「職場紹介動画掲載」行を直下に追加。
 
-**Implementation Note**: 既存「動画掲載」行は一切変更しない（要件 7.5）。新行は金額「100,000円/動画」・説明「現場や会社の雰囲気を伝える動画を、発注者詳細画面に掲載します。」・ボタン「職場紹介動画掲載を申し込む」。`disabled` は `pending || isStaff || !isClientPlanActive`。`isClientPlanActive` は BillingClient が既に受け取る props から導出する: `currentPlan` が `PAID_PLAN_TYPES`（`individual/small/corporate/corporate_premium`）に含まれ **かつ `!isPastDue`**（past_due は延滞解消まで購入不可、要件 7.3）。新規 prop 追加は不要。
+**Implementation Note**: 既存「動画掲載」行は一切変更しない（要件 7.5。本 spec 実装時＝移行時の要件）。**2026-07-15 更新（00eda8d）**: 動画オプション 2 行（自己PR動画・職場紹介動画）とも、購入済みの場合はボタンラベルを「購入済み」に切り替え（活性のまま）、押下時に再購入確認ダイアログ（「〜は既にご購入済みです。改めて購入しますが、よろしいですか？」）を挟んでから決済に進む仕様に変更（誤操作による二重購入の防止）。新行は金額「100,000円/動画」・説明「現場や会社の雰囲気を伝える動画を、発注者詳細画面に掲載します。」・ボタン「職場紹介動画掲載を申し込む」。`disabled` は `pending || isStaff || !isClientPlanActive`。`isClientPlanActive` は BillingClient が既に受け取る props から導出する: `currentPlan` が `PAID_PLAN_TYPES`（`individual/small/corporate/corporate_premium`）に含まれ **かつ `!isPastDue`**（past_due は延滞解消まで購入不可、要件 7.3）。新規 prop 追加は不要。
 
 ### Admin Screens（新規実装、要件 2, 6）
 

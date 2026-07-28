@@ -348,6 +348,7 @@ sequenceDiagram
 - Supabase Realtime:
   - 購読チャネル: `messages:thread_id={スレッドID}`（INSERT イベントのみ）
   - `createBrowserClient` を使用して Client Component で購読
+  - **`channel.subscribe()` の前に必ず `await supabase.realtime.setAuth()`（引数なし）を実行する**: `subscribe()` は同期関数で、呼び出し時点の access token を join payload に焼き込む。await しないと anon 扱いで join し、RLS によりイベントがサイレントに全て落ちる（2026-07-15 fc91b52 で修正。基準実装: `src/components/messaging/message-thread-view.tsx`）
   - 画面アンマウント時に購読解除（`useEffect` の cleanup）
   - 接続断→自動再接続後、最後の受信タイムスタンプ以降の差分メッセージを取得
 - 既読管理: デバウンス処理（3〜5秒）。スクロールが止まってからまとめて1回だけ markAsRead を呼び出す
@@ -367,6 +368,7 @@ sequenceDiagram
   - ボーダー付きカード（`border border-border rounded-[8px] p-4`）
   - タイトル（太字）+ 右矢印（ChevronRight）→ `/jobs/[id]` へのリンク、募集職種・人数 + 締め切り
   - 報酬（`/images/icons/icon-coin.png`）、エリア（`/images/icons/icon-pin.png`）、募集期間（`/images/icons/icon-calendar.png`）各プロジェクト専用アイコン付き
+  - **掲載終了案件（status = 'closed'）の場合**: カードに「掲載終了」バッジを表示。スカウトが未対応（scout_status = 'pending'）のままなら受諾/拒否ボタンを出さず、「この案件は掲載を終了しました」を中央寄せで案内する（`src/components/messaging/scout-info-card.tsx`）
 - スカウトボタン配置: 案件情報カード内に配置。SP: 横並び（`flex-row`、均等幅）、PC: 案件情報の右側に縦並び（`flex-row md:flex-col` + 親要素 `md:flex-row md:items-end md:justify-between`）。各スカウトメッセージごとに独立して表示・非表示が切り替わる
 - CLI-013 でのスカウトボタン非表示: props `showScoutActions={false}` で制御（ただしステータステキストは表示される）
 - 入力エリア（CON-010 統合）: 画面最下部に固定、左にカメラアイコン（画像添付）、中央にテキスト入力、右に送信ボタン（紫矢印アイコン）
@@ -413,6 +415,7 @@ sequenceDiagram
 **Responsibilities & Constraints**
 - Client Component（フォーム操作のため `"use client"`）
 - 送信先: これまでメッセージをやりとりしたユーザー（既存スレッドの相手）一覧をチェックボックスで複数選択
+- **退会済みユーザー（`users.deleted_at IS NOT NULL`）は宛先候補から除外する**（`bulk-send/page.tsx`、2026-07-15 b270ba4）
 - 入力フィールド: メッセージ本文（必須）
 - 送信先ごとにスレッドを検索（法人: organization_id + participant_2_id、個人: participant_1_id + participant_2_id）し、既存スレッドに追加 or 新規作成してメッセージを保存
 - 一斉送信の進捗表示
@@ -575,6 +578,7 @@ async function sendBulkMessagesAction(
 
 **Implementation Notes**
 - 認証チェック → 発注者プランチェック → 発注者の組織情報取得（法人プランの場合）→ 送信先ループ:
+  - **送信直前に宛先の `users.deleted_at` を確認し、退会済み・不存在ならその宛先をスキップ**（UI 側の候補除外との二重ガード、2026-07-15 b270ba4）
   - 既存スレッド検索: 法人の場合は `organization_id + participant_2_id` で、個人の場合は `participant_1_id + participant_2_id` で検索
   - 既存スレッドあり: そのスレッドに messages INSERT
   - 既存スレッドなし: message_threads INSERT（法人: organization_id 設定）+ messages INSERT
@@ -648,11 +652,11 @@ async function respondToScoutAction(
 
 ```mermaid
 erDiagram
-    organizations ||--o{ message_threads : "owns (corporate plan)"
+    organizations ||--o{ message_threads : "identity of seat (organization_1/2)"
     organizations ||--o{ organization_members : "has"
     users ||--o{ organization_members : "belongs to"
     users ||--o{ message_threads : "creates (as participant_1)"
-    users ||--o{ message_threads : "receives (as participant_2)"
+    users ||--o{ message_threads : "participates (as participant_2)"
     message_threads ||--o{ messages : "contains"
     users ||--o{ messages : "sends"
     jobs ||--o{ messages : "referenced in scout"
@@ -673,9 +677,11 @@ erDiagram
 
     message_threads {
         uuid id PK
-        uuid organization_id FK "nullable - set for corporate plan"
+        uuid organization_id FK "deprecated - to be dropped after code migration"
+        uuid organization_1_id FK "nullable - participant_1 side org"
+        uuid organization_2_id FK "nullable - participant_2 side org"
         uuid participant_1_id FK "thread creator (audit)"
-        uuid participant_2_id FK "contractor (always individual)"
+        uuid participant_2_id FK "participant_2 side user"
         text thread_type "'message' or 'scout'"
         timestamptz created_at
         timestamptz updated_at
@@ -702,10 +708,12 @@ erDiagram
 ```
 
 - message_threads : messages = 1:N（1スレッドに複数メッセージ）
-- message_threads.organization_id: 法人プランの場合に設定。is_same_org() で組織メンバー全員にアクセスを許可
+- **identity モデル**（migration `20260707150000_message_threads_identity_pair.sql`）: 各席の identity は「組織所属なら organization_X_id、そうでなければ participant_X_id」（`src/lib/messaging/identity.ts` の `actorIdentityKey`）。個人⇔個人／個人⇔組織／組織⇔組織を統一的に扱い、「席2 = 受注者（常に個人）」の前提は廃止
+- message_threads.organization_1_id / organization_2_id: 各席の所属組織（個人の場合 NULL）。is_same_org() で組織メンバー全員にアクセスを許可
+- message_threads.organization_id: **deprecated**（organization_1_id / organization_2_id に分離済み。コード完全移行後に drop 予定）。RLS は移行期間中の後方互換として新旧カラムを OR で判定する
 - messages.scout_status はメッセージレベルで管理（is_scout = true のメッセージのみ使用）。1スレッド内に複数のスカウトメッセージが共存可能で、それぞれ独立した scout_status を持つ
 - applications.scout_message_id はスカウト経由の応募の場合のみ設定。1スレッド内に複数スカウトが存在しうるため、スレッドIDではなくメッセージIDで特定する（messaging → matching の連携ポイント）
-- message_threads の UNIQUE 制約: `UNIQUE (organization_id, participant_2_id) WHERE organization_id IS NOT NULL`（1組織 x 1受注者で常に1スレッド）。個人スレッドの一意性は Server Action 内で検証
+- message_threads の UNIQUE 制約: `LEAST / GREATEST(COALESCE(organization_X_id, participant_X_id))` による順序無関係の identity ペア一意インデックス（`idx_message_threads_identity_pair_unique`）。1 identity ペア = 常に1スレッド。旧 `UNIQUE (organization_id, participant_2_id) WHERE organization_id IS NOT NULL` は当面残し、organization_id drop 時に併せて drop する
 
 ### Physical Data Model
 
@@ -881,7 +889,8 @@ CREATE POLICY "thread_participants_can_view_message_attachments"
 - **Middleware**: CON-008/009/010 は全認証済みユーザーがアクセス可能（CON 系画面のため、contractor に限定しない）。CLI-013 はユーザー詳細からの遷移で全認証済みユーザーがアクセス可能。CLI-014（一斉送信）・CLI-015（スカウト送信）は発注者（client）・担当者（staff）のみ。**実装時に src/middleware.ts の CLIENT_ONLY_PREFIXES に "/messages/bulk-send", "/messages/scout-send" を追加すること。**
 - **Server Action**: 全アクションで認証チェック + スレッド参加者チェック（participant_1_id, participant_2_id, または organization_id + is_same_org()）を実施。代理アカウント（is_proxy_account = true）からの送信時は is_proxy フラグを自動設定（特別な権限チェックは不要）
 - **RLS**:
-  - message_threads の SELECT: `participant_1_id = auth.uid() OR participant_2_id = auth.uid() OR (organization_id IS NOT NULL AND is_same_org(auth.uid(), organization_id))`
+  - message_threads の SELECT: `participant_1_id = auth.uid() OR participant_2_id = auth.uid() OR (organization_1_id IS NOT NULL AND is_same_org(auth.uid(), organization_1_id)) OR (organization_2_id IS NOT NULL AND is_same_org(auth.uid(), organization_2_id)) OR (organization_id IS NOT NULL AND is_same_org(auth.uid(), organization_id))`（旧 organization_id は移行期間中の後方互換。migration `20260707150000_message_threads_identity_pair.sql`）
+  - **退会済み users / 解散済み organizations のスレッド経由 SELECT 例外**（migration `20260715120000_thread_deleted_visibility_org_aware.sql`）: `users_select_thread_participant_deleted` / `organizations_select_thread_participant_deleted`（v2）の閲覧者条件は「スレッドの当事者のみ」ではなく、**スレッドが見える範囲（当事者 OR 同組織メンバー = message_threads_select と完全一致）**に揃える。organization_1_id / organization_2_id にも対応。範囲を「当事者のみ」に狭めると、当事者でない同組織メンバーには退会済み相手の embed が silent null になり、宛先「未設定」表示・退会者への送信ガードすり抜けの二重の穴になる（2026-07-15 実例）
   - message_threads の INSERT: 認証済みユーザー（Server Action で制限チェック）
   - message_threads の UPDATE: thread_type の更新のみ。スレッド参加者（個人 + 組織メンバー）が可能
   - messages の SELECT: スレッドのアクセス権に基づく（EXISTS サブクエリで message_threads を参照、organization_id + is_same_org() 含む）
@@ -915,12 +924,12 @@ src/app/(authenticated)/messages/
 
 src/components/messaging/
 ├── message-thread-view.tsx               # メッセージリスト + 入力の統合 Client Component（Realtime + 楽観的UI + onSendComplete）
-├── message-list.tsx                      # 型定義（Message, ScoutJobInfo）のエクスポート用
+├── types.ts                              # 型定義（Message, ScoutJobInfo）のエクスポート用（旧 message-list.tsx から移動。message-list.tsx は削除済み）
 ├── message-input.tsx                     # CON-010 メッセージ入力フォーム（Enter=改行、テキストエリア自動拡張）
 ├── message-bubble.tsx                    # 吹き出し型メッセージバブル（送信/受信、既読マーク、スカウトカードインライン表示）
 ├── message-header.tsx                    # メッセージ詳細ヘッダー（戻る矢印 + 相手名）
 ├── thread-list-item.tsx                  # スレッド一覧の各行
-├── scout-info-card.tsx                   # スカウト案件情報カード + 受諾/拒否ボタン内包
+├── scout-info-card.tsx                   # スカウト案件情報カード + 受諾/拒否ボタン内包（掲載終了バッジ対応）
 └── scout-action-buttons.tsx              # スカウト受諾/拒否ボタン（messageId ベース）
 
 src/lib/validations/

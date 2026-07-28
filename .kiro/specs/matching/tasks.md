@@ -116,7 +116,7 @@
   - 応募情報（応募人数、日程、初回稼働希望日、申し送り）を表示する
   - 応募者の評価履歴を user_reviews から集計して表示する（good/bad のカウント）
   - 「発注する/お断りする」ボタンで発注可否画面に遷移する
-  - 退会済みユーザーは getUserDisplayName() で「退会済みユーザー」と表示する
+  - 退会済みユーザーは取引履歴として「実名（退会済み）」と表示する（getUserDisplayName の deletedAt: null 指定でマスク抑止 + appendWithdrawnSuffix で「（退会済み）」付与）
   - 戻るボタン（router.back()）を設置する
   - デザインカンプ: design-assets/screens/CLI-008.png
   - _Requirements: 5_
@@ -147,7 +147,7 @@
   - 応募内容セクション: 人数、日程、希望初回稼働日、申し送りを CheckCircle2 アイコン付きで表示
   - ステータスが rejected または cancelled の場合: ステータスバッジ直下に注意書きボックスを表示する（rejected:「この応募はお断りしています。稼働は行われていません。」、cancelled:「この応募は応募者によりキャンセルされました。稼働は行われていません。」）
   - ステータスが accepted かつ評価未登録の場合は「評価入力」ボタンを表示し、CLI-012 へ遷移する
-  - 退会済みユーザーは getUserDisplayName() で表示名を処理する
+  - 退会済みユーザーは取引履歴として「実名（退会済み）」と表示する（getUserDisplayName の deletedAt: null 指定でマスク抑止 + appendWithdrawnSuffix で「（退会済み）」付与）
   - 戻るボタン（BackButton コンポーネント）を設置する
   - デザインカンプ: design-assets/screens/CLI-011.png
   - _Requirements: 8_

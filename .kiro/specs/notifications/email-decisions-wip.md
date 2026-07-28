@@ -146,6 +146,13 @@ spec §1〜§9 の全メール（Resend 経由 / Supabase Auth カスタムテ�
 
 **「未実装」ステータスのテンプレ = 0 通**（コード上はゼロ。残るは検証 + 本番設定のみ）
 
+### M-10 送信基盤の共通事項（2026-07-15/16 実装反映）
+
+- **直列化**: 全メール送信は `src/lib/email/send-email.ts` のモジュール内キューで直列化（送信間隔 `MIN_SEND_INTERVAL_MS = 600ms`、Resend の 2 通/秒制限対応）。429（rate_limit_exceeded）は約 1.1 秒待って最大 3 試行の自動リトライ（2026-07-15 d70cd6d）
+- **fire-and-forget 禁止**: Server Action / Route Handler からの送信は必ず `await sendEmail(...).catch(...)` で完了を待つ（Vercel は Server Action の return 後に実行コンテキストを凍結し、待たない送信はサイレント不達になる。2026-07-16 95fa8b6 で残存 2 系統も await 化）。唯一の例外は運営宛内部アラート `sendEmailRecycleFailureAlert`（audit_logs に耐久記録が残るため意図的に fire-and-forget を維持）
+- **broadcast ページの maxDuration**: 組織全員宛 broadcast（直列 600ms × 最大 31 通 ≒ 約 20 秒）を送る Server Action を持つページ 12 箇所に `export const maxDuration = 60` を設定済。新規 broadcast 送信画面も同様に設定する
+- 本メモ内の各カードに残る「fire-and-forget / 並列送信 / ループ内逐次送信」の旧記述は歴史的経緯。現行方式は本節と各カードの日付付き更新注記を正とする
+
 ---
 
 ## §1. 案件・応募・スカウト
@@ -671,7 +678,7 @@ ${memberName} 様
   - admin client 経由（M-03 broadcast 解決の既存パターン、§1.1.A と共有）
   - **送信した本人を除外しない**（送信本人含む組織メンバー全員、§1.1.A と一貫）
 - 個人プラン: 送信した本人 (`user.id`) の `users.email` 1 件のみ。`${actualSenderName}` = 自分自身の名前
-- 配信失敗は per-recipient で fire-and-forget（§1.1.A 同方針）、他の宛先を巻き戻さない
+- 配信失敗は per-recipient で握って続行（§1.1.A 同方針）、他の宛先を巻き戻さない。2026-07-16 更新: fire-and-forget は廃止し、各宛先とも `await sendEmail(...).catch(...)` で送信完了を待つ（失敗が業務処理を巻き戻さない点は従来どおり）
 
 ##### 代理アカウントの扱い
 
@@ -4005,7 +4012,7 @@ ${recipientName} 様
 ユーザー（受注者・発注者）からのサポート系インバウンド通信を扱う節。COM-008 お問い合わせ / COM-012 トラブル報告 / COM-013 求人問合せ の 3 系統を含む。
 
 - **新規 5 件 + 既存 E-4 改修 1 件 = 計 6 通体制**
-- 各 Server Action は INSERT 成功後に fire-and-forget で並列送信（失敗してもデータはロールバックしない、§1.6 / §6 系と一貫）
+- 各 Server Action は INSERT 成功後にメール送信（失敗してもデータはロールバックしない、§1.6 / §6 系と一貫）。2026-07-16 更新: 送信方式は fire-and-forget の並列送信ではなく、各 send を `await sendEmail(...).catch(...)` で完了待ち + `send-email.ts` モジュール内キューでの直列化（600ms 間隔・429 リトライ）が現行。broadcast 送信を持つページは `export const maxDuration = 60` を設定（M-10 参照）
 - **closing 完全削除（Resend 新規 5 通分）**: §6.7 と同形の「事実通知のみ」型。受領通知が長期記録として残るため、運営が連絡を約束する文言は入れない（運営判断で連絡しない場合との整合性確保）
 - **件名プレフィックス**: 控え/宛先通知 = `【ビジ友】` / 運営通知 = `【ビジ友 運営】`（§4.4 / §5.2.B / §6 系と一貫）
 - **添付ファイル情報は本文に含めない**: 控えでは本人が把握済、運営通知では admin 画面で signed URL 表示（M-07 minimal 原則）
@@ -4811,7 +4818,7 @@ admin 強制削除された本人 1 名
 
 #### 発火タイミング
 
-`executeWithdrawal` の組織カスケードブロック内、配下メンバーの `users.deleted_at` UPDATE + `applyDeletedSuffix` + auth ban 完了後、ループ内で逐次送信
+`executeWithdrawal` で配下メンバーの `users.deleted_at` UPDATE + `applyDeletedSuffix` + auth ban が完了した後に送信。2026-07-16 更新（95fa8b6）: 送信は「ループ内で逐次」ではなく、**関数末尾（メンバー凍結・Stripe 解約・auth ban がすべて完了した後）で `await Promise.all`** により完了を待つ方式。業務処理完了後に送るのは、大量送信中にタイムアウトしても退会処理自体は完了済みにするため（`src/lib/withdrawal/execute.ts` 末尾の送信ブロック）
 
 #### 件名（A-1 / A-2 共通）
 
@@ -4916,7 +4923,7 @@ admin 強制削除された本人 1 名
 
 #### 発火タイミング
 
-`executeWithdrawal` の組織カスケードブロック内、配下メンバーの `users.deleted_at` UPDATE + `applyDeletedSuffix` + auth ban 完了後、ループ内で逐次送信。配下メンバーの `is_proxy_account` を判定して §8.5（代理）or §8.5.5（通常）どちらのテンプレを使うか分岐
+`executeWithdrawal` で配下メンバーの `users.deleted_at` UPDATE + `applyDeletedSuffix` + auth ban が完了した後に送信。配下メンバーの `is_proxy_account` を判定して §8.5（代理）or §8.5.5（通常）どちらのテンプレを使うか分岐。2026-07-16 更新（95fa8b6）: §8.5 と同様、送信は関数末尾（凍結・Stripe 解約・auth ban 全完了後）で `await Promise.all` により完了を待つ方式（タイムアウトしても退会処理自体は完了済みにするため）
 
 #### 件名
 
@@ -4988,11 +4995,11 @@ admin 強制削除された本人 1 名
 #### コード改修事項（§8.5 / §8.5.5 共通）
 
 1. `src/lib/email/templates/account-cascade-frozen.ts` 新規作成（§8.5 と §8.5.5 を 1 ファイル内で受信者種別 + 残存有無で分岐、または 2 ファイル分割でも可）
-2. `executeWithdrawal` の組織カスケードブロック内、`memberIds` ループの auth ban 完了後に send 追加
+2. `executeWithdrawal` の関数末尾（メンバー凍結・Stripe 解約・auth ban がすべて完了した後）に send 追加（2026-07-16 更新: `await Promise.all` で送信完了を待つ。ループ内送信ではない）
 3. 配下メンバーの `users.last_name + first_name + email + is_proxy_account` + Owner の `client_profiles.display_name + users.last_name + first_name` を事前に admin client で取得して loop に渡す
 4. 受信者の `is_proxy_account` で §8.5（代理）or §8.5.5（通常）どちらのテンプレを使うか分岐
 5. 代理 staff（§8.5）の場合、対象組織を除いた `organization_members` 残存件数を SELECT で判定（A-1 残存あり / A-2 残存なし 分岐）
-6. 失敗時は非ブロッキング（try/catch、メンバー単位で隔離）
+6. 失敗はメンバー単位で `.catch` により隔離しつつ、`await Promise.all` で送信完了自体は待つ（2026-07-16 更新: fire-and-forget 禁止。失敗が退会処理を巻き戻さない点は従来どおり）
 7. **§8.5 prerequisite**: `executeWithdrawal` の組織カスケードバグ修正（proxy spec の `delete_staff_member v2` ロジック適用、現状の生 `UPDATE users SET deleted_at` は代理スタッフを誤って全凍結してしまうため）
 
 ---
@@ -5073,10 +5080,10 @@ PW 変更した admin 本人 1 名
 #### コード改修事項（spec 化後の tasks 候補）
 
 1. `src/lib/email/templates/admin-password-changed.ts` 新規作成
-2. `changeAdminPasswordAction`（`src/app/admin/(protected)/password/actions.ts:67-72`）の `writeAuditLog` の next 行に send 追加
+2. `changeAdminPasswordAction`（`src/app/admin/(protected)/password/actions.ts` の送信ブロック）の `writeAuditLog` の next 行に send 追加
 3. 受信者名は admin client で `public.users` から `last_name, first_name, email` を取得
 4. fallback: `recipientName = (last_name + first_name).trim() || "ビジ友 管理者"`
-5. 非ブロッキング（try/catch、失敗しても return success は進む）
+5. 2026-07-16 更新（95fa8b6）: `await sendEmail(...).catch(...)` で送信完了を待つ（fire-and-forget は Vercel が Server Action の return 後に実行コンテキストを凍結し不達になるため禁止）。失敗は `.catch` で握り、return success は進む
 
 ---
 

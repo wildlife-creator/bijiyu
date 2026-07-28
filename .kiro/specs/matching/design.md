@@ -426,7 +426,7 @@ sequenceDiagram
 - デザインカンプ: design-assets/screens/CLI-008.png
 - 「戻る」ボタン: router.back() で前の画面に戻る。`w-full max-w-xs` で他ボタンと幅統一
 - データ取得: applicant の users に加え、user_skills, user_available_areas, user_qualifications も並列取得
-- 退会済みユーザー: getUserDisplayName() で表示名を処理
+- 退会済みユーザー: 取引履歴として**「実名（退会済み）」**で表示する。`getUserDisplayName({ ..., deletedAt: null })` でマスクを抑止し、`appendWithdrawnSuffix()`（`src/lib/messaging/counterparty-display.ts`）で「（退会済み）」を付与（基準実装: `src/app/(authenticated)/applications/received/[id]/page.tsx`）
 
 #### DecisionPage (CLI-009)
 
@@ -514,7 +514,7 @@ sequenceDiagram
 - ファイル: `src/app/(authenticated)/applications/orders/[id]/page.tsx`
 - デザインカンプ: design-assets/screens/CLI-011.png
 - 「戻る」ボタン: BackButton コンポーネント（router.back()）
-- 退会済みユーザー: getUserDisplayName() で表示名を処理
+- 退会済みユーザー: 取引履歴として**「実名（退会済み）」**で表示する。`getUserDisplayName({ ..., deletedAt: null })` でマスクを抑止し、`appendWithdrawnSuffix()`（`src/lib/messaging/counterparty-display.ts`）で「（退会済み）」を付与（基準実装: `src/app/(authenticated)/applications/received/[id]/page.tsx`）
 
 #### ClientReportPage (CLI-012)
 

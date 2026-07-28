@@ -292,6 +292,7 @@ flowchart TB
 - 本人のテンプレ（`organization_id IS NULL`）と組織共有テンプレ（`organization_id = 所属組織`）の CRUD を扱う
 - `owner_id` は常に `auth.uid()`。`organization_id` は作成者の所属組織（`organization_members` を Server Action 内で参照して自動設定）
 - 編集・削除は RLS（`scout_templates_update` / `scout_templates_delete` ポリシー、既存 migration `20260415100100_*`）で組織メンバー全員に許可。
+- **2026-07-15 追記（97022be）**: 代理スタッフの複数組織兼任対応後、RLS だけでは所属全組織のテンプレが混ざるため、表示・編集・削除・スカウト送信のスコープはアプリ層でアクティブ組織コンテキスト（`getActiveOrganizationContext`）に絞る（RLS は防御層として残る）。update/delete は `.select()` で影響 0 行を検出しエラー化する
 - 文字数上限 `title ≤ 50`, `body ≤ 2000`, `memo ≤ 500` を Zod で検証
 
 **Dependencies**
@@ -979,6 +980,8 @@ GRANT EXECUTE ON FUNCTION is_org_admin_or_owner_of TO authenticated;
 #### `scout_templates` RLS
 
 既存マイグレーション `20260415100100_scout_templates_org_shared_crud.sql` を使用。追加変更なし。pgTAP テスト `supabase/tests/scout_templates_rls.test.sql` を新規追加し、10 シナリオを検証する。
+
+※2026-07-15 追記（97022be）: 代理スタッフの複数組織兼任対応後、表示スコープは RLS 任せにせず、アプリ層でアクティブ組織コンテキスト（`getActiveOrganizationContext`）に絞る運用に変更（RLS は防御層として残る）。
 
 ### Data Contracts & Integration
 

@@ -133,6 +133,7 @@
   - `first_work_date` / `work_end_date` のいずれかが NULL の場合、その側のガードはスキップする（後方互換）。
   - **二重防御**: report ページ（CON-013 / CLI-012）は期間外のときフォームを表示せず案内文言を出す。Server Action（`submitContractorReportAction` / `submitClientReportAction`）も期間外を日本語エラーで拒否する。
   - 案内・エラー文言: 開始前「評価・完了報告は初回稼働日（YYYY/MM/DD）以降に入力できます。」／ 終了後「評価・完了報告の入力期間（YYYY/MM/DDまで）を過ぎたため、入力できません。」
+  - 期間外の案内表示には共通 BackButton（「もどる」）を設置する（CON-013 = `applications/history/[id]/report`・CLI-012 = `applications/orders/[id]/report` の両ページ）。
   - 実装: `src/lib/matching.ts` の `evaluateReviewInputWindow()` / `reviewInputWindowMessage()`（猶予日数は `REVIEW_INPUT_GRACE_DAYS = 5`）。
 - **評価によるステータス遷移（双方向）**: 受注者（CON-013）・発注者（CLI-012）どちらが先に評価を登録してもよい。片方が評価を登録した時点では `accepted` のまま維持し、**両方の評価（client_reviews + user_reviews）が揃った時点で** status を `completed` または `lost` に遷移する。最終ステータスは発注者側の `operatingStatus` を `mapOperatingStatusToApplicationStatus()` でマッピングした値（'completed' / 'lost'）を採用する
 - client_reviews テーブルに operating_status（選択値をそのまま保存）、status_supplement、rating_again、comment を保存

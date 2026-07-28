@@ -15,7 +15,7 @@
 - 全24画面を「users パターン」（createAdminClient + サーバー側フィルタ + 20件ページング + searchParams SSOT）で統一実装する
 - 管理者の全操作（ログイン・書類アクセス・承認/否認・削除・招待・発注取消）を audit_logs に記録する
 - 一覧のフィルタ・count・ページネーションを全画面でサーバー側完結にする（post-filter 禁止ルール遵守）
-- 削除・評価表示・名前解決は既存資産（withdrawAction / fetchPerItemSummary / fetchClientReputation / resolveParticipantName）を流用し二重実装しない
+- 削除・評価表示・名前解決は既存資産（withdrawAction / fetchPerItemSummary / fetchClientReputation / resolveParticipantName）を流用し二重実装しない（2026-07-17 0daaad9: 名前解決は admin 専用ラッパー `adminParticipantName` / `adminUserDisplayName` 経由に変更。後述）
 
 ### Non-Goals
 - 問い合わせ系の対応状況管理・返信機能（閲覧のみ。ステータス列も追加しない）
@@ -130,7 +130,8 @@ graph TB
 **Architecture Integration**:
 - Selected pattern: **既存 users パターンの水平展開**。一覧 = RSC + createAdminClient + サーバー側フィルタ + 20件 `.range()` + searchParams SSOT、変更 = Server Action（role 再チェック → Zod → admin client → audit log → revalidate/redirect）
 - Domain boundaries: ルートは `/admin/{clients|users|jobs|verifications|applications|contacts|trouble-reports|job-inquiries|messages|login|password}` でドメインごとに分離。各ドメインの Server Action は同ディレクトリの `actions.ts` に閉じる
-- Existing patterns preserved: 三重防御、ActionResult 型、ID 集合の積によるフィルタ、`resolveParticipantName()` による発注者名解決、メール失敗時の非ロールバック、`<button type>` 明示
+- Existing patterns preserved: 三重防御、ActionResult 型、ID 集合の積によるフィルタ、`adminParticipantName()` / `adminUserDisplayName()`（`src/lib/admin/display-name.ts`）による名前解決、メール失敗時の非ロールバック、`<button type>` 明示
+  - **名前解決の現行方式（2026-07-17 0daaad9）**: admin 画面では退会済みユーザーもマスクせず「実名（退会済み）」で表示する。`resolveParticipantName` / `getUserDisplayName` を直接使わず、上記ラッパー（`deletedAt: null` でマスクを抑止し「（退会済み）」サフィックスを付与）を使う。あわせて退会済みユーザーの登録済み PR動画・職場紹介動画・アバターの閲覧、内部管理者メモの編集（ADM-005）も開放済み（動画の投稿/編集ボタンとアカウント削除は退会済みでは非表示のまま）
 - New components rationale: 新規 DB オブジェクトは `applications.cancelled_by`（8分類の判定材料）と `admin_proxy_threads` ビュー（1000件上限回避）のみ。他はすべて既存資産の組み替え
 - Steering compliance: security.md（監査ログ・署名付きURL・メール方針）、authentication.md（admin 分離・招待 implicit flow・password_set_at）、database-schema.md（発注者表示名ルール・org-scoping）
 
@@ -251,7 +252,7 @@ requirements.md の ID 体系（REQ-ADM-NNN、画面 ID と一致）をそのま
 | REQ-ADM-015 | パスワード変更 | AdminPasswordPage, changeAdminPasswordAction | changeAdminPasswordAction | — |
 | REQ-ADM-016/017 | お問い合わせ閲覧 | ContactsListPage, ContactDetailPage | getSupportAttachmentUrls | — |
 | REQ-ADM-018/019 | トラブル報告閲覧 | TroubleReportsListPage, TroubleReportDetailPage | getSupportAttachmentUrls | — |
-| REQ-ADM-020/021 | 求人問い合わせ閲覧 | JobInquiriesListPage, JobInquiryDetailPage | resolveParticipantName | — |
+| REQ-ADM-020/021 | 求人問い合わせ閲覧 | JobInquiriesListPage, JobInquiryDetailPage | adminParticipantName | — |
 | REQ-ADM-023 | 代理メッセージ一覧 | ProxyThreadsListPage, admin_proxy_threads view | — | — |
 | REQ-ADM-024 | メッセージ詳細（閲覧専用） | ProxyThreadDetailPage | — | — |
 | 非機能（セキュリティ/データ保護） | 監査ログ・署名付きURL・PII | writeAuditLog共有化, getSignedDocumentUrls | — | — |
@@ -488,7 +489,7 @@ export async function fetchClientListPage(filter: ClientListFilter):
 
 **Responsibilities & Constraints**
 - ルート: `/admin/clients/[id]`（id = 契約主体の userId）。`role='client'` でなければ `notFound()`
-- **退会済み（deleted_at あり）の契約主体も表示する**（ADM-003 が退会済み行を出すため、クリック先も閲覧可能にする）。その場合はヘッダーに「退会済み」を表示し、「アカウントを削除する」「編集する」「職場紹介動画を投稿/編集する」は非表示にする
+- **退会済み（deleted_at あり）の契約主体も表示する**（ADM-003 が退会済み行を出すため、クリック先も閲覧可能にする）。その場合は「このアカウントは退会済みです」バナーで状態を示し、氏名/社名は実名のまま表示する（2026-07-17 0daaad9: マスクしない）。「アカウントを削除する」「職場紹介動画を投稿/編集する」は非表示のまま。登録済みの職場紹介動画・アバターは閲覧可能、内部管理者メモの編集（ADM-005）は退会済みでも許可（退会後の対応記録用）
 - 表示構成は requirements の 13 セクション順に従う。ヘッダーは admin 共通レイアウト（カンプの LOGO/ハンバーガー/＜ は使わない）
 - **集計スコープ**: 法人（org あり）は organization_id 単位、個人・小規模は owner_id 単位（org-scoping 準拠）
   - 評判: `fetchClientReputation(supabase, scope)` をそのまま使用
@@ -500,7 +501,7 @@ export async function fetchClientListPage(filter: ClientListFilter):
 - **アカウント削除**: 確認ダイアログ（配下スタッフ連動削除の警告文）→ `deleteClientAccountAction`
 
 **Dependencies**
-- Outbound: admin client（P0）、`fetchClientReputation`（P1）、`executeWithdrawal`（P0）、`resolveParticipantName`（P1）
+- Outbound: admin client（P0）、`fetchClientReputation`（P1）、`executeWithdrawal`（P0）、`adminParticipantName`（P1、`src/lib/admin/display-name.ts`）
 
 **Contracts**: ☑ Service
 
@@ -569,7 +570,7 @@ export async function createClientInviteAction(formData: FormData): Promise<Acti
 
 #### AdminJobDetailPage（ADM-022・Summary）
 
-`/admin/jobs/[id]`。閲覧専用 RSC。admin client で jobs＋job_areas＋job_images＋発注者（resolveParticipantName）を取得し、案件内容（タイトル・ステータス・募集職種/人数・報酬レンジ・募集期間・工事期間・エリア=`<AreaList>`・詳細・添付）を表示。発注者操作（編集・発注）は持たない。導線: 「応募一覧」→ `/admin/applications?jobId={id}`、「発注者詳細」→ ADM-004、もどる → `router.back()`。
+`/admin/jobs/[id]`。閲覧専用 RSC。admin client で jobs＋job_areas＋job_images＋発注者（adminParticipantName）を取得し、案件内容（タイトル・ステータス・募集職種/人数・報酬レンジ・募集期間・工事期間・エリア=`<AreaList>`・詳細・添付）を表示。発注者操作（編集・発注）は持たない。導線: 「応募一覧」→ `/admin/applications?jobId={id}`、「発注者詳細」→ ADM-004、もどる → `router.back()`。
 
 **Implementation Note**: 存在しない id は `notFound()`。表示部品は CON-003 のセクション構成を参考にするが、データ取得は admin client で独立（既存画面に分岐を足さない＝案B）。
 
@@ -755,7 +756,7 @@ export async function adminCancelApplicationAction(applicationId: string): Promi
 | ADM-020/021 job_inquiries | `/admin/job-inquiries`, `/[id]` | name, email | 受信日時・送信者氏名・宛先発注者表示名・topics | sender_id → ADM-009、target_client_id → ADM-004 |
 
 **Implementation Notes**:
-- ADM-020 の宛先発注者表示名は、ページ20行分の `target_client_id` をまとめて client_profiles をバッチ取得し `resolveParticipantName()` で解決（N+1 禁止）
+- ADM-020 の宛先発注者表示名は、ページ20行分の `target_client_id` をまとめて client_profiles をバッチ取得し `adminParticipantName()` で解決（N+1 禁止）
 - 添付（contacts / trouble_reports の `attachments[]`）は `getSignedDocumentUrls({ bucket: "support-attachments" })` で署名付きURL化し、**拡張子判定で画像はインライン `<img>`、PDF はリンク**（job_inquiries は添付非対応）
 - 「登録ユーザー」バッジは contacts のみ（trouble/job_inquiries は常にログインユーザー送信のため不要）
 

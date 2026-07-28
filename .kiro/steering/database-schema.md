@@ -301,21 +301,24 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | カラム | 型 | 説明 |
 |--------|-----|------|
 | id | uuid (PK) | |
-| organization_id | uuid (FK → organizations, nullable) | 組織側の参加者。法人プランの場合に設定し、組織メンバー全員がスレッドにアクセス可能になる。個人プラン発注者の場合は null |
-| participant_1_id | uuid (FK → users) | スレッド作成者（監査用、変更不可）。organization_id が設定されている場合でも、最初にスレッドを作成したユーザーのIDを記録する |
-| participant_2_id | uuid (FK → users) | 受注者側の参加者（常に個人） |
+| organization_1_id | uuid (FK → organizations, nullable) | participant_1 側の所属組織。個人の場合は null |
+| organization_2_id | uuid (FK → organizations, nullable) | participant_2 側の所属組織。個人の場合は null |
+| organization_id | uuid (FK → organizations, nullable) | **deprecated**: organization_1_id / organization_2_id に分離済み（migration `20260707150000_message_threads_identity_pair.sql`）。コード完全移行後に drop 予定。RLS は移行期間中の後方互換として新旧両方の組織カラムを OR で判定する |
+| participant_1_id | uuid (FK → users) | スレッド作成者（監査用、変更不可）。組織カラムが設定されている場合でも、最初にスレッドを作成したユーザーのIDを記録する |
+| participant_2_id | uuid (FK → users) | 相手側の参加者 |
 | thread_type | text | 'message' / 'scout'。スカウトメッセージ（is_scout=true）を含むスレッドは 'scout' |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
 **制約:**
-- UNIQUE (organization_id, participant_2_id) WHERE organization_id IS NOT NULL — 1組織 × 1受注者で常に1スレッド
-- 個人スレッド（organization_id IS NULL）の一意性は participant_1_id + participant_2_id の組み合わせで Server Action 内で検証する
+- UNIQUE INDEX `idx_message_threads_identity_pair_unique` — `LEAST/GREATEST(COALESCE(organization_X_id, participant_X_id))` による**順序無関係の identity ペア一意**。「1 identity ペア = 常に1スレッド」を DB レベルで保証する
+- 旧 UNIQUE (organization_id, participant_2_id) WHERE organization_id IS NOT NULL は移行期間中残置（organization_id の drop 時に一緒に drop する）
 
-**スレッドモデル:**
-- **法人プラン（organization あり）**: organization_id を設定。同一組織のメンバー全員がスレッドを閲覧・送信可能。誰が送信しても同じスレッドに入る
-- **個人プラン（organization なし）**: organization_id = NULL。participant_1_id と participant_2_id の2者のみがアクセス可能（従来型）
-- 将来、全発注者に organization を自動作成する段階で、個人スレッドを組織スレッドに移行する
+**スレッドモデル（identity ペア）:**
+- 各席（participant_1 / participant_2）の identity は「組織所属なら organization_id、そうでなければ user_id」（`src/lib/messaging/identity.ts` の `actorIdentityKey`）
+- これにより個人⇔個人／個人⇔組織／組織⇔組織を統一的に扱う。旧モデルの「席2 = 受注者側（常に個人）」前提は廃止
+- **組織席**: 同一組織のメンバー全員がスレッドを閲覧・送信可能。誰が送信しても同じスレッドに入る
+- **個人席**: participant_X_id 本人のみがアクセス可能
 
 ### messages（メッセージ）
 
@@ -770,6 +773,7 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 - 一般ユーザー向け: `status = 'open' AND deleted_at IS NULL`
 - 作成者向け: `owner_id = auth.uid()`（全ステータス、削除済み含む）
 - 同一組織向け: `is_same_org(auth.uid(), organization_id) AND deleted_at IS NULL`（全ステータス、削除済みは除外）
+- 案件の関係者向け: `status = 'closed' AND deleted_at IS NULL AND has_job_relationship(auth.uid(), id)`（PERMISSIVE ポリシー `jobs_select_related_closed`。応募者（キャンセル済み含む）・お気に入り登録者（favorites の target_type = 'job'）・スカウト受信者（is_scout = true のメッセージを含むスレッドの参加者）に掲載終了案件の閲覧を追加許可する。migration `20260714120000_jobs_select_related_closed.sql`）
 - 管理者向け: `is_admin(auth.uid())`（deleted_at 条件なし = 削除済みも見える）
 
 ### ユーザーソフトデリート時の連鎖処理ルール
@@ -781,9 +785,9 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 | jobs（案件） | ステータスを 'closed' に変更 | 退会者の案件を掲載し続けないため |
 | applications（応募） | 進行中（status = 'applied' / 'accepted'）の応募を 'cancelled' に変更 | 相手への通知として。完了済みの応募はそのまま残す |
 | message_threads（スレッド） | そのまま残す | 相手が過去のやり取りを確認できるように |
-| messages（メッセージ） | そのまま残す | 同上。退会ユーザーの名前は画面上で「退会済みユーザー」と表示 |
-| user_reviews（受注者評価） | そのまま残す | 公開情報として継続表示（退会ユーザー名は「退会済みユーザー」） |
-| client_reviews（発注者評価） | そのまま残す | 被評価者本人・評価投稿者本人・同一組織メンバーへの限定公開として継続表示（退会ユーザー名は「退会済みユーザー」） |
+| messages（メッセージ） | そのまま残す | 同上。退会ユーザーの名前はメッセージ画面では「実名（退会済み）」と表示（下記「画面表示での注意」参照） |
+| user_reviews（受注者評価） | そのまま残す | 公開情報として継続表示（退会ユーザー名の表示方針は下記「画面表示での注意」参照） |
+| client_reviews（発注者評価） | そのまま残す | 被評価者本人・評価投稿者本人・同一組織メンバーへの限定公開として継続表示（退会ユーザー名の表示方針は下記「画面表示での注意」参照） |
 | subscriptions（課金） | Stripe API でサブスクリプションをキャンセル → ステータスを 'cancelled' に更新 | 退会後も課金が続かないように |
 | option_subscriptions（オプション） | 同上。Stripe でキャンセル → ステータスを 'cancelled' に更新 | 同上 |
 | user_skills / user_qualifications / user_available_areas | そのまま残す | RLS の `deleted_at IS NULL` 条件により、他のユーザーからは自動的に非表示になる |
@@ -793,7 +797,10 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 | organization_members | 退会ユーザーのレコードを物理削除 | 組織のメンバー枠を空けるため |
 
 **画面表示での注意:**
-- 退会済みユーザーの名前は「退会済みユーザー」と表示する（個人情報保護のため実名は非表示）
+- 退会済みユーザーの名前表示は、画面の性質に応じて2方式を使い分ける（2026-07 に「全画面一律マスク」から転換）:
+  - **「実名（退会済み）」表示**（取引履歴として実名を保持）: メッセージ画面（スレッド一覧・詳細の相手名/送信者名）、admin 管理画面全般、応募系画面（CLI-007 応募一覧 / CLI-007B / CLI-008 応募詳細 / CLI-010 発注管理 / CLI-011 発注詳細 等）
+  - **「退会済みユーザー」マスク維持**: CLI-005（職人一覧）は退会者を一覧から除外、CLI-006（職人詳細）は「退会済みユーザー」マスク表示＋退会案内バナー＋操作ボタン・空き日程非表示
+- 共通関数 `getUserDisplayName` / `resolveParticipantName` の既定挙動は deleted_at 有りで「退会済みユーザー」を返すまま。実名化する画面は呼び出し側で `deletedAt: null` を渡してマスクを抑止し、`appendWithdrawnSuffix`（`src/lib/messaging/counterparty-display.ts`）/ `adminUserDisplayName`・`adminParticipantName`（`src/lib/admin/display-name.ts`）で「（退会済み）」サフィックスを付与する
 - 退会済みユーザーのプロフィールページへのリンクは無効化する
 - メッセージスレッドで退会済みユーザーとの新規メッセージ送信は不可にする
 
@@ -822,9 +829,28 @@ CREATE FUNCTION is_same_org(uid uuid, org_id uuid) RETURNS boolean AS $$
     AND user_id IN (SELECT id FROM users WHERE deleted_at IS NULL)
   );
 $$ LANGUAGE sql SECURITY DEFINER;
+
+-- 案件との「関係」（応募・お気に入り・スカウト受信）があるかを判定する関数
+-- （掲載終了 = closed 案件の SELECT 許可判定に使用。migration 20260714120000）
+-- SECURITY DEFINER で RLS をバイパスするため、jobs の RLS ポリシーから
+-- applications / favorites / messages を参照しても無限再帰しない（is_same_org 等と同じパターン）
+CREATE FUNCTION has_job_relationship(uid uuid, target_job_id uuid) RETURNS boolean AS $$
+  SELECT
+    -- (1) 応募した（キャンセル済みも含む: 関わった事実は残る）
+    EXISTS (SELECT 1 FROM public.applications a
+            WHERE a.job_id = target_job_id AND a.applicant_id = uid)
+    -- (2) お気に入り（マイリスト）に登録した
+    OR EXISTS (SELECT 1 FROM public.favorites f
+               WHERE f.user_id = uid AND f.target_type = 'job' AND f.target_id = target_job_id)
+    -- (3) スカウトを受け取った/やり取りした（スレッド参加者）
+    OR EXISTS (SELECT 1 FROM public.messages m
+               JOIN public.message_threads t ON t.id = m.thread_id
+               WHERE m.job_id = target_job_id AND m.is_scout = true
+                 AND (t.participant_1_id = uid OR t.participant_2_id = uid));
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 ```
 
-**重要:** 3つの関数すべてに `deleted_at IS NULL`（= 退会していないユーザーのみ対象）の条件を含めている。これにより、退会済みユーザーが管理者権限を持ち続けたり、有料ユーザーとして扱われ続けることを防ぐ。
+**重要:** is_admin / is_paid_user / is_same_org の3つの関数すべてに `deleted_at IS NULL`（= 退会していないユーザーのみ対象）の条件を含めている。これにより、退会済みユーザーが管理者権限を持ち続けたり、有料ユーザーとして扱われ続けることを防ぐ。
 
 **RLS ポリシーでの使用例:**
 
@@ -888,7 +914,8 @@ is_paid_user() の呼び出しが多い場合、users テーブルに `is_paid_c
 #### jobs（案件）
 | 操作 | 対象 | 条件 |
 |------|------|------|
-| SELECT | 全案件 | 認証済みユーザー全員（status = 'open' かつ deleted_at IS NULL のみ。draft/closed は作成者または同一組織メンバーのみ） |
+| SELECT | 全案件 | 認証済みユーザー全員（status = 'open' かつ deleted_at IS NULL のみ。draft は作成者または同一組織メンバーのみ） |
+| SELECT | 掲載終了（closed）案件 | 作成者・同一組織メンバーに加え、案件の関係者（応募者（キャンセル済み含む）・お気に入り登録者・スカウト受信者）も閲覧可（`jobs_select_related_closed` ポリシー: `status = 'closed' AND deleted_at IS NULL AND has_job_relationship(auth.uid(), id)`） |
 | SELECT | 自分の案件（削除済み含む） | 作成者本人は deleted_at が設定された案件も閲覧可能（内容確認・復元検討のため。ただし編集は不可） |
 | SELECT | 同一組織の案件 | 同一組織メンバーは deleted_at IS NULL の案件のみ閲覧可能（全ステータス） |
 | INSERT（作成） | — | 課金済みユーザー（`is_paid_user(auth.uid())`） |

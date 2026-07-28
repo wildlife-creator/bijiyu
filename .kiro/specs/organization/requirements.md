@@ -125,7 +125,8 @@ CLI-024 は **法人プランの Admin / Staff（= Owner / Admin が CLI-025 で
 
 CLI-014/015 のスカウト送信フォームには既存の「スカウトテンプレートを選択」プルダウンを設置済み（messaging spec 実装時に配置）。CLI-016〜019 でテンプレが作成可能になった時点で、既存プルダウンがそのまま機能する。以下の挙動を確定する:
 
-- **表示対象**: RLS で絞り込み（個人発注者は自分のテンプレ、法人プランの組織メンバーは組織共有テンプレ全件）
+- **表示対象**: アクティブ組織コンテキスト（`getActiveOrganizationContext`）で絞り込み（法人プランの組織メンバーはアクティブ組織の共有テンプレ `.eq("organization_id", active.organizationId)`、個人発注者は本人のテンプレ）
+  - **2026-07-15 更新（97022be）**: 当初は「RLS で絞り込み」としていたが、proxy-account-multi-org-support で代理スタッフが複数組織を兼任できるようになり、RLS（所属している全組織を許可）だけでは他組織のテンプレが混ざるため変更。表示・編集・削除・スカウト送信はすべてアプリ層でアクティブ組織に絞る。update/delete は `.select()` で影響 0 行を検出しエラー化する（RLS は防御層として残す）。基準実装: `src/app/(authenticated)/messages/templates/page.tsx:57-70`
 - **並び順**: `updated_at` 降順（CLI-016 と同じ。直近に編集したテンプレが上位）
 - **選択時のプリフィル**:
   - タイトル・本文が両方空の場合 → 確認なしでテンプレ内容をプリフィル
@@ -819,7 +820,7 @@ CLI-025 で担当者作成 → 招待メール送信
 
 | 操作 | 何が起きるか | 実行場所 | 実行者 |
 |---|---|---|---|
-| 退会 | `users.deleted_at` をセット。サイト上で「退会済みユーザー」表示。ログイン不可 | COM-006（`/profile/withdrawal`） | 本人（対象ロールのみ） |
+| 退会 | `users.deleted_at` をセット。画面に応じて「実名（退会済み）」またはマスク表示（下記「退会時の処理」参照）。ログイン不可 | COM-006（`/profile/withdrawal`） | 本人（対象ロールのみ） |
 | プラン解約 | サブスクのみ停止。`users.role` が contractor に降格、アカウントは生存 | CLI-026 系（プラン画面） | Owner 本人 |
 | 全情報の物理削除 | users レコード含む全関連データを完全削除 | 問い合わせ（COM-008） | 運営が管理画面で対応 |
 
@@ -836,12 +837,12 @@ CLI-025 で担当者作成 → 招待メール送信
   - 法人プランの Admin（`org_role = 'admin'`）
   - 法人プランの Staff（`org_role = 'staff'`）
 - **退会時の処理**（2026-04-19 改訂: C 案採用）:
-  - `users.deleted_at` をセット → サイト上の全画面で「退会済みユーザー」表示に切り替わる
-  - 掲載中・下書きの案件 → `closed`、進行中応募（`applied` / `accepted`）→ `cancelled`
+  - `users.deleted_at` をセット → 退会済み表示に切り替わる（2026-07 改訂 d777b00 / 0daaad9 / c88a76d: 当初の「全画面で『退会済みユーザー』表示」から部分転換。メッセージ・admin・応募系画面は取引履歴として実名を保持し「実名（退会済み）」表示、CLI-006 職人詳細はマスク表示のまま）
+  - 掲載中・下書きの案件 → `closed`（法人 Owner の退会では本人名義 `owner_id` だけでなく**会社全体＝ `organization_id` 一致の案件（担当者作成の案件を含む）**を closed 化する。2026-07-16 52549b5、`src/lib/withdrawal/execute.ts:200-217`）、進行中応募（`applied` / `accepted`）→ `cancelled`
   - サブスクリプション → `cancelled`（DB 状態のみ。Stripe API キャンセル呼び出しは billing 連携時に TODO として残っている）
   - **Owner の場合（C 案）**: Admin の有無に関わらず、組織ごとソフトデリートする
     - `organizations.deleted_at` をセット（組織ソフトデリート）
-    - 所属メンバー全員の `organization_members` を物理削除
+    - 通常 Staff / Admin の `organization_members` 行は**保持**する（admin 監査用。`users.deleted_at` セットのみ）。物理削除するのは、代理（proxy）スタッフが他組織にも所属し続ける場合の**当該組織の行のみ**（`src/lib/withdrawal/execute.ts:327-343`）
     - Admin / Staff の `users.deleted_at` をセット（組織と連動してログイン不可化）
     - `client_profiles` レコードはそのまま残す（過去メッセージの表示整合性のため）
     - `scout_templates` は削除しない（組織ソフトデリート後は RLS でアクセス不能だが、履歴データとして保持）

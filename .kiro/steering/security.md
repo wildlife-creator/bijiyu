@@ -13,11 +13,13 @@
 - エラーメッセージに内部情報を含めない
 
 ### ファイルアップロード
-- 許可するファイルタイプを明示的に制限
-  - プロフィール画像: JPEG, PNG（最大5MB）
-  - 現場写真: JPEG, PNG（最大10MB）
-  - 本人確認書類: JPEG, PNG, PDF（最大10MB）
-  - メッセージ添付画像: JPEG, PNG（最大10MB）
+- 許可するファイルタイプを明示的に制限（バケットの `allowed_mime_types` でサーバー側強制。2026-07-12 のスマホ写真対応で WebP を全バケットに追加、job-attachments / message-attachments には PDF も追加）
+  - プロフィール画像（avatars）: JPEG, PNG, WebP（最大5MB）
+  - 現場写真・案件書類（job-attachments）: JPEG, PNG, WebP, PDF（最大10MB）
+  - 本人確認書類・CCUS書類・発注可否の書類（identity-documents / ccus-documents / application-documents）: JPEG, PNG, WebP, PDF（最大10MB）
+  - お問い合わせ・トラブル報告の添付（support-attachments）: JPEG, PNG, WebP, PDF（最大5MB）
+  - メッセージ添付（message-attachments）: JPEG, PNG, WebP, PDF（最大10MB）
+  - ※ iPhone の HEIC 写真はブラウザ側で JPEG に変換してからアップロードするため、バケットに HEIC は許可しない（常に image/jpeg で保存される）
 - MIMEタイプ（= ファイルの種類を表す識別子）とファイル拡張子の両方を検証（片方だけだと偽装される恐れがある）
 - アップロード先: Supabase Storage（バケットごとにアクセス制御）
 - ファイル名はUUID（ランダムな一意の文字列）に変換（元のファイル名を保存しない = ファイル名からの情報漏洩を防止）
@@ -56,7 +58,7 @@
 | job-attachments | 案件の現場写真・書類 | 公開（認証不要で閲覧可） |
 | identity-documents | 本人確認書類 | 非公開（本人 + システム管理者のみ） |
 | ccus-documents | CCUS書類 | 非公開（本人 + システム管理者のみ） |
-| message-attachments | メッセージ添付画像 | 非公開（スレッド参加者 or 同一組織メンバー） |
+| message-attachments | メッセージ添付ファイル（画像・PDF） | 非公開（スレッド参加者 or 同一組織メンバー） |
 
 ### Storage RLS ポリシー（= 誰がどのファイルを読み書きできるかのルール）
 
@@ -167,7 +169,8 @@ Next.js の Server Actions（サーバーアクション = フォーム送信や
 - **原則**: メール送信失敗で本体処理をロールバック（取り消し）しない
 - **理由**: メール送信は外部サービス（Resend）に依存するため、一時的なネットワーク障害で本体処理まで巻き戻すとデータの不整合が生じる
 - **処理**: 送信失敗をログに記録する（console.error + 必要に応じて audit_logs）
-- **リトライ**: Resend の自動リトライ機能に委任する。アプリ側での手動リトライは初期段階では実装しない
+- **リトライ**: アプリ側（`src/lib/email/send-email.ts`）で対応する。全送信をモジュール内キューで直列化（送信間隔 600ms、Resend の 2通/秒制限対応）し、429（rate_limit_exceeded）は約1.1秒待って最大3試行の自動リトライを行う（2026-07-15 変更。詳細は tech.md「メール」参照）
+- **送信の待機**: Server Action / Route Handler からの送信は必ず `await sendEmail(...).catch(...)` で完了を待つ（fire-and-forget 禁止。Vercel は応答返却後に実行コンテキストを凍結するため不達になる）
 - **適用箇所**: auth（登録完了通知）、admin（アカウント作成通知）、organization（担当者作成通知）、billing（支払い失敗通知・解約通知）、matching（発注/お断り通知）の全メール送信処理
 
 ## HTTPセキュリティヘッダー

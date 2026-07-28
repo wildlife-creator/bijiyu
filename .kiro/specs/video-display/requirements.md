@@ -104,6 +104,7 @@
 3. While ユーザーが発注者プラン加入者として有効でない (`subscriptions` レコードで `plan_type` が `'individual' / 'small' / 'corporate' / 'corporate_premium'` のいずれかかつ `status='active'` を満たさない) 場合、the billing screen shall 「職場紹介動画掲載を申し込む」ボタンを非活性にする (past_due 等のステータスは延滞解消まで購入不可)
 4. While ユーザーが staff (代理アカウント) の場合、the billing screen shall 既存「動画掲載」と新規「職場紹介動画掲載」の両方のボタンを非活性にする (admin はサーバー側で `billing/actions.ts:154` が拒否するため UI 層での明示非活性は不要)
 5. The billing screen shall 既存「動画掲載」セクションのレイアウト・文言・ボタン挙動を一切変更しない
+   - **2026-07-15 更新（00eda8d）**: 上記 7.5 は本 spec 実装時（移行時）の要件。現行仕様では動画オプション（自己PR動画・職場紹介動画とも）は購入済みの場合ボタンラベルを「購入済み」に切り替える（ボタンは活性のまま）。押下時は再購入確認ダイアログ（タイトル「再購入の確認」、本文「{自己PR動画掲載/職場紹介動画掲載}は既にご購入済みです。改めて購入しますが、よろしいですか？」）を挟んでから決済に進む（誤操作による二重購入の防止。作り直しのための再購入は正当にありうるため非活性にはしない）。実装: `src/app/(authenticated)/billing/BillingClient.tsx`
 
 ### Requirement 8: 既存運用・データ整合性との両立
 

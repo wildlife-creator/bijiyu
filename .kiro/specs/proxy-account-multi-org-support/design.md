@@ -383,7 +383,7 @@ export function resolveExistingProxyReuse(
 | Requirements | 7.1, 7.2, 7.3 |
 
 **Responsibilities & Constraints**
-- ヘッダー右側に配置（マイページ・案件管理・応募管理・メッセージ等の全スタッフ向け画面で表示）
+- ヘッダー右側に配置（マイページ・案件管理・応募管理・メッセージ等の全スタッフ向け画面で表示）。切替後に再フェッチされるアクティブ組織スコープの画面には、スカウトテンプレート（一覧・詳細・編集・送信画面）と求人お問い合わせ受信箱（一覧・詳細）も含む（2026-07-15 97022be、E2E: `e2e/multi-org-data-scoping.spec.ts`）
 - `memberships.length <= 1` の場合は完全に非表示（DOM にも出さない）
 - 選択時は `setActiveOrganizationContext(orgId)` Server Action を呼び、Server Action 内で `window.location.href = '/mypage'` 相当のハードナビゲーションを発火（直接のリダイレクト指示は Server Action の応答に含める）
 - **遷移先は常に `/mypage` に固定**。現在 URL が組織スコープのリソース（`/jobs/[id]/applicants`、`/applications/orders/[id]`、`/messages/[threadId]` 等）の場合、切替後の組織で当該リソースが存在しないため、同一 URL リロードはしない

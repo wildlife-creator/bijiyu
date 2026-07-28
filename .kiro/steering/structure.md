@@ -81,10 +81,9 @@ src/lib/
 
 ### 退会済みユーザーの表示名処理（共通ユーティリティ）
 
-退会済みユーザー（`deleted_at` が null でない）の名前を表示する際、全画面で統一的に「退会済みユーザー」と表示する。
-この処理は `src/lib/utils/display-name.ts` に共通関数として定義し、各画面から呼び出す。
+退会済みユーザー（`deleted_at` が null でない）の名前表示は、画面の性質に応じて2方式を使い分ける（2026-07 に「全画面一律マスク」から転換）。
 
-**対象関数:**
+**対象関数（既定挙動は「退会済みユーザー」マスクのまま）:**
 
 ```typescript
 // 受注者の表示名を返す。退会済みの場合は「退会済みユーザー」を返す
@@ -94,15 +93,18 @@ getUserDisplayName(user: { first_name: string; last_name: string; deleted_at: st
 getClientDisplayName(profile: { display_name: string; user: { deleted_at: string | null } }): string
 ```
 
-**使用する画面（退会済みユーザーが表示される可能性がある箇所）:**
-- CON-008（メッセージ一覧）: 相手の名前
-- CON-009（メッセージ詳細）: 送信者名
-- CON-011（応募履歴一覧）: 発注者名
-- CLI-007（応募一覧・未対応）/ CLI-007B（案件応募者一覧）: 応募者名
-- CLI-008〜012（マッチング詳細）: 相手方の名前
-- CLI-028（発注者評価）: 評価対象者名
-- CON-005, CLI-005（ユーザー検索）: 表示名
-- ADM-008（管理画面ユーザー一覧）: 退会済み表示
+`getUserDisplayName` / `resolveParticipantName` の既定挙動は deleted_at 有りで「退会済みユーザー」を返すまま維持する。実名化する画面は、呼び出し側で `deletedAt: null` を渡してマスクを抑止した上で、以下のヘルパーで「（退会済み）」サフィックスを付与する:
+- メッセージ系: `appendWithdrawnSuffix`（`src/lib/messaging/counterparty-display.ts`）
+- admin 系: `adminUserDisplayName` / `adminParticipantName`（`src/lib/admin/display-name.ts`）
+
+**「実名（退会済み）」表示の画面（取引履歴として実名を保持）:**
+- メッセージ画面（スレッド一覧・詳細の相手名/送信者名）
+- admin 管理画面全般
+- 応募系画面（CLI-007 応募一覧 / CLI-007B 案件応募者一覧 / CLI-008 応募詳細 / CLI-010 発注管理 / CLI-011 発注詳細 等）
+
+**「退会済みユーザー」マスク維持の画面:**
+- CLI-005（職人一覧）: 退会者は一覧から除外する
+- CLI-006（職人詳細）: 「退会済みユーザー」マスク表示＋退会案内バナー表示。操作ボタン・空き日程は非表示
 
 ### 型定義
 **場所**: `src/types/`

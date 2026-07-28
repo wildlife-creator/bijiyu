@@ -85,7 +85,7 @@
   - 変更なし（組織ベースの影響を受けない）
   - _Requirements: 3_
 
-- [x] 4.3 message-list コンポーネントの更新
+- [x] 4.3 message-list コンポーネントの更新（※ message-list.tsx はその後削除され、型定義は `src/components/messaging/types.ts` に移動済み）
   - Realtime 購読ロジックは変更なし（thread_id ベース）
   - 既読管理ロジックは変更なし
   - _Requirements: 2, 4_
