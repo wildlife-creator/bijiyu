@@ -45,3 +45,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 画面キャプチャ集の生成物（PNG/PDF、約70MB）は Git 管理外
+scripts/capture/output/
