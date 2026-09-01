@@ -86,7 +86,7 @@ export async function executeWithdrawal(params: {
     return {
       success: false,
       error:
-        "法人プランの管理責任者のみ退会手続きが可能です。管理責任者にお問い合わせください。",
+        "プレミアム・ハイエンドプランの管理責任者のみ退会手続きが可能です。管理責任者にお問い合わせください。",
     };
   }
 

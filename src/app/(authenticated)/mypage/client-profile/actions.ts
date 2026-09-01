@@ -122,7 +122,7 @@ export async function saveClientProfileAction(
     if (isCorporate) {
       return {
         success: false,
-        error: "法人プランでは社名の入力が必要です",
+        error: "プレミアム・ハイエンドプランでは社名の入力が必要です",
       };
     }
     return { success: true, data: { redirectTo: "/mypage" } };
