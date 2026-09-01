@@ -3,7 +3,15 @@ import { redirect } from "next/navigation";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PLAN_LABELS, PLAN_LIMITS, type PlanType, type PaidPlanType, PAID_PLAN_TYPES } from "@/lib/constants/plans";
+import { BILLING_CYCLE_LABELS, PLAN_LABELS, PLAN_LIMITS, type PlanType, type PaidPlanType, PAID_PLAN_TYPES } from "@/lib/constants/plans";
+import {
+  BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE,
+  BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
+  BANK_TRANSFER_STATUS_LABELS,
+  OPEN_BANK_TRANSFER_STATUSES,
+  describeBankTransferTarget,
+  targetFromRequestRow,
+} from "@/lib/billing/bank-transfer";
 import { comparePlans } from "@/lib/billing/compare-plans";
 import { FEE_COOKIE_NAME, readFeeCookie } from "@/lib/billing/fee-cookie";
 import { cookies } from "next/headers";
@@ -41,10 +49,10 @@ export default async function BillingPage({
   // Single query for user + subscription + options + client_profiles
   const admin = createAdminClient();
 
-  const [userResult, subResult, optionResult, profileResult] = await Promise.all([
+  const [userResult, subResult, optionResult, profileResult, bankRequestResult] = await Promise.all([
     admin.from("users").select("id, role, email, last_name, first_name").eq("id", user.id).single(),
     admin.from("subscriptions")
-      .select("id, plan_type, status, schedule_id, scheduled_plan_type, scheduled_at, cancel_at_period_end, current_period_end, stripe_subscription_id")
+      .select("id, plan_type, status, schedule_id, scheduled_plan_type, scheduled_at, cancel_at_period_end, current_period_end, stripe_subscription_id, payment_method, billing_cycle")
       .eq("user_id", billingOwnerId)
       .in("status", ["active", "past_due"])
       .order("created_at", { ascending: false })
@@ -58,6 +66,12 @@ export default async function BillingPage({
       .select("is_urgent_option")
       .eq("user_id", billingOwnerId)
       .maybeSingle(),
+    // 銀行振込（P2）: 処理中の申込（申込受付 / 請求書送付済）
+    admin.from("bank_transfer_requests")
+      .select("id, target_kind, plan_type, option_type, job_id, billing_cycle, status")
+      .eq("user_id", billingOwnerId)
+      .in("status", [...OPEN_BANK_TRANSFER_STATUSES])
+      .order("created_at", { ascending: false }),
   ]);
 
   const userData = userResult.data;
@@ -73,6 +87,20 @@ export default async function BillingPage({
 
   const currentPlan: PlanType = subscription ? (subscription.plan_type as PlanType) : "free";
   const isFirstPurchase = !subscription;
+
+  // 銀行振込（P2）
+  const isBankTransferPlan = subscription?.payment_method === "bank_transfer";
+  const openBankRequests = (bankRequestResult.data ?? []).map((r) => {
+    const target = targetFromRequestRow(r);
+    return {
+      targetKind: r.target_kind,
+      optionType: r.option_type,
+      jobId: r.job_id,
+      targetLabel: target ? describeBankTransferTarget(target) : "お申し込み",
+      statusLabel: BANK_TRANSFER_STATUS_LABELS[r.status],
+    };
+  });
+  const hasOpenBankPlanRequest = openBankRequests.some((r) => r.targetKind === "plan");
 
   // Fee=free cookie check
   const cookieStore = await cookies();
@@ -99,6 +127,18 @@ export default async function BillingPage({
       buttonLabel = "ご利用中";
       buttonDisabled = true;
       buttonAction = "none";
+    } else if (isBankTransferPlan) {
+      // 銀行振込契約中のプラン変更は運営が管理画面で行う（D3 / D6）
+      buttonLabel = "このプランに変更する";
+      buttonDisabled = true;
+      buttonAction = "none";
+      disabledReason = BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE;
+    } else if (hasOpenBankPlanRequest) {
+      // 銀行振込の申込を処理中は Stripe 決済にも進ませない（二重契約防止）
+      buttonLabel = "申し込む";
+      buttonDisabled = true;
+      buttonAction = "none";
+      disabledReason = BANK_TRANSFER_REQUEST_PENDING_MESSAGE;
     } else if (isPastDue) {
       buttonLabel = comparison === "upgrade" ? "このプランに変更する" : "このプランに変更する";
       buttonDisabled = true;
@@ -177,6 +217,14 @@ export default async function BillingPage({
             currentPeriodEnd: subscription.current_period_end,
             stripeSubscriptionId: subscription.stripe_subscription_id,
           } : null}
+          bankTransfer={{
+            isBankTransferPlan,
+            billingCycleLabel: isBankTransferPlan && subscription
+              ? BILLING_CYCLE_LABELS[subscription.billing_cycle]
+              : null,
+            currentPeriodEnd: isBankTransferPlan ? (subscription?.current_period_end ?? null) : null,
+            openRequests: openBankRequests,
+          }}
           planStates={planStates}
           showInitialFee={showInitialFee}
           activeOptions={activeOptions.map((o) => ({

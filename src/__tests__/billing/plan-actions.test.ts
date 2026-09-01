@@ -27,6 +27,7 @@ const subState = {
     schedule_id: string | null;
     cancel_at_period_end: boolean;
     current_period_end: string | null;
+    payment_method?: "stripe" | "bank_transfer";
   },
 };
 
@@ -332,6 +333,17 @@ describe("changePlanAction", () => {
     if (!result.success) {
       expect(result.error).toContain("担当者");
     }
+  });
+
+  it("P2: 銀行振込契約中は Stripe 前提のプラン変更に流入させず運営連絡を案内する", async () => {
+    subState.row!.payment_method = "bank_transfer";
+    const result = await changePlanAction({ targetPlan: "small" });
+    expect(result).toEqual({
+      success: false,
+      error:
+        "銀行振込でご契約中のプラン・オプションの変更や解約は、運営までご連絡ください",
+    });
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
   });
 
   it("returns validation errors on downgrade prerequisites failure", async () => {

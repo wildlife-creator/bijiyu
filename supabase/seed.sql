@@ -2308,3 +2308,57 @@ VALUES ('c105ed00-0000-4000-8000-00000000ba01', 'c105ed00-0000-4000-8000-0000000
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date)
 VALUES ('c105ed00-0000-4000-8000-00000000aa01', 'c105ed00-0000-4000-8000-00000000ba01',
   'c105ed00-0000-4000-8000-000000000002', 1, '常勤', CURRENT_DATE - 3, 'accepted', CURRENT_DATE - 3);
+
+-- ============================================================
+-- 銀行振込（P2 / spec-changes-202608 §2.1(1)）テストデータ
+--   id 帯 ba100000-...（他の seed と重複しない）
+--   ① bank-transfer-e2e@test.local : 無料の受注者。E2E で「銀行振込で申し込む → 運営が有効化」を通す
+--      （他の E2E が使う contractor@test.local は role が変わると壊れるため専用ユーザー）
+--   ② bank-client@test.local        : 銀行振込（スタンダード・月払い）で契約中の発注者。期限 10 日後 = 「期限間近」バッジ
+--   ③ bank-requested@test.local     : ライト（月払い）を銀行振込で申込済（申込受付）。ADM-025/026 の一覧・詳細・操作の E2E 用
+-- ============================================================
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('ba100000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bank-transfer-e2e@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ba100000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bank-client@test.local',       crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('ba100000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bank-requested@test.local',    crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (user_id, id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at) VALUES
+  ('ba100000-0000-4000-8000-000000000001', 'ba100000-0000-4000-8000-000000000001', 'bank-transfer-e2e@test.local', '{"sub":"ba100000-0000-4000-8000-000000000001","email":"bank-transfer-e2e@test.local"}', 'email', now(), now(), now()),
+  ('ba100000-0000-4000-8000-000000000002', 'ba100000-0000-4000-8000-000000000002', 'bank-client@test.local',       '{"sub":"ba100000-0000-4000-8000-000000000002","email":"bank-client@test.local"}',       'email', now(), now(), now()),
+  ('ba100000-0000-4000-8000-000000000003', 'ba100000-0000-4000-8000-000000000003', 'bank-requested@test.local',    '{"sub":"ba100000-0000-4000-8000-000000000003","email":"bank-requested@test.local"}',    'email', now(), now(), now());
+
+UPDATE public.users SET role = 'contractor', last_name = '振込', first_name = '一郎', prefecture = '東京都', skill_tags = ARRAY['造作大工']
+WHERE id = 'ba100000-0000-4000-8000-000000000001';
+UPDATE public.users SET role = 'client', last_name = '振込', first_name = '花子', prefecture = '東京都', skill_tags = ARRAY['外壁塗装工']
+WHERE id = 'ba100000-0000-4000-8000-000000000002';
+UPDATE public.users SET role = 'contractor', last_name = '振込', first_name = '次郎', prefecture = '神奈川県', skill_tags = ARRAY['型枠設置工']
+WHERE id = 'ba100000-0000-4000-8000-000000000003';
+
+INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
+  ('ba100000-0000-4000-8000-000000000001', '建築/躯体｜大工', 3),
+  ('ba100000-0000-4000-8000-000000000002', '建築/仕上げ｜塗装工', 12),
+  ('ba100000-0000-4000-8000-000000000003', '建築/躯体｜大工', 6);
+
+INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
+  ('ba100000-0000-4000-8000-000000000001', '東京都', NULL),
+  ('ba100000-0000-4000-8000-000000000002', '東京都', NULL),
+  ('ba100000-0000-4000-8000-000000000003', '神奈川県', NULL);
+
+-- ② 銀行振込で契約中（スタンダード・月払い、期限 10 日後）
+INSERT INTO subscriptions (id, user_id, plan_type, status, payment_method, billing_cycle, stripe_subscription_id, current_period_start, current_period_end)
+VALUES ('ba100000-0000-4000-8000-00000000cc02', 'ba100000-0000-4000-8000-000000000002', 'small', 'active', 'bank_transfer', 'monthly', NULL,
+        (CURRENT_DATE - 20)::timestamptz, ((CURRENT_DATE + 10)::timestamptz + interval '23 hours 59 minutes 59 seconds'));
+
+INSERT INTO client_profiles (user_id, display_name) VALUES
+  ('ba100000-0000-4000-8000-000000000002', '振込商店');
+
+-- ②' 入金確認済の申込履歴（上の契約を作った申込）
+INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status, invoiced_at, paid_at, start_date, activated_subscription_id, created_at)
+VALUES ('ba100000-0000-4000-8000-00000000dd02', 'ba100000-0000-4000-8000-000000000002', 'plan', 'small', 'monthly', 14800, 20000, 'paid',
+        now() - interval '25 days', now() - interval '20 days', CURRENT_DATE - 20, 'ba100000-0000-4000-8000-00000000cc02', now() - interval '27 days');
+
+-- ③ 申込受付のまま（ライト・月払い・初回事務手数料あり）
+INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status, created_at)
+VALUES ('ba100000-0000-4000-8000-00000000dd03', 'ba100000-0000-4000-8000-000000000003', 'plan', 'individual', 'monthly', 3800, 20000, 'requested', now() - interval '1 day');

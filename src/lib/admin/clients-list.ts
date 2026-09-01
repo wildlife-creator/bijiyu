@@ -1,3 +1,9 @@
+import {
+  deriveExpiryBadge,
+  todayJstDateString,
+  type ExpiryBadge,
+} from "@/lib/billing/bank-transfer";
+import type { PaymentMethod } from "@/lib/constants/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -64,6 +70,31 @@ export function deriveClientCategory(params: {
   return null;
 }
 
+/**
+ * 銀行振込契約の期限バッジ（純粋関数）。Stripe 契約は Stripe が自動更新するため対象外。
+ * 期限日は timestamptz を JST の暦日に落として比較する。
+ */
+export function deriveBankTransferExpiryBadge(
+  sub: { paymentMethod: PaymentMethod; currentPeriodEnd: string | null } | null,
+  today: string,
+): ExpiryBadge | null {
+  if (!sub || sub.paymentMethod !== "bank_transfer" || !sub.currentPeriodEnd) {
+    return null;
+  }
+  return deriveExpiryBadge(isoToJstDate(sub.currentPeriodEnd), today);
+}
+
+function isoToJstDate(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 /** プラン列の表記（純粋関数）。有効サブスクなし・未知の値は null（画面では「—」） */
 export function derivePlanLabel(planType: string | null): string | null {
   if (!planType) return null;
@@ -106,6 +137,10 @@ export interface ClientListRow {
   category: ClientCategory | null;
   /** ライト/スタンダード/プレミアム/ハイエンド */
   planLabel: string | null;
+  /** 契約主体の支払方法（有効サブスクなしは null） */
+  paymentMethod: PaymentMethod | null;
+  /** 銀行振込契約の期限バッジ（Stripe 契約・有効サブスクなしは null） */
+  expiryBadge: ExpiryBadge | null;
   optionBadges: ClientOptionBadge[];
   isDeleted: boolean;
 }
@@ -313,6 +348,10 @@ export async function fetchClientListPage(
   // 3. 会社名 / 4. プラン / 5. オプションバッジ（契約主体 id でバッチ）
   const companyByHolder = new Map<string, string | null>();
   const planByHolder = new Map<string, string>();
+  const subInfoByHolder = new Map<
+    string,
+    { paymentMethod: PaymentMethod; currentPeriodEnd: string | null }
+  >();
   const badgesByHolder = new Map<string, Set<ClientOptionBadge>>();
   if (holderIds.length > 0) {
     const [{ data: profileRows }, { data: subRows }, { data: optRows }] =
@@ -323,7 +362,7 @@ export async function fetchClientListPage(
           .in("user_id", holderIds),
         admin
           .from("subscriptions")
-          .select("user_id, plan_type")
+          .select("user_id, plan_type, payment_method, current_period_end")
           .in("user_id", holderIds)
           .in("status", ["active", "past_due"]),
         admin
@@ -338,6 +377,10 @@ export async function fetchClientListPage(
     }
     for (const s of subRows ?? []) {
       planByHolder.set(s.user_id, s.plan_type);
+      subInfoByHolder.set(s.user_id, {
+        paymentMethod: s.payment_method,
+        currentPeriodEnd: s.current_period_end,
+      });
     }
     for (const o of optRows ?? []) {
       const set = badgesByHolder.get(o.user_id) ?? new Set<ClientOptionBadge>();
@@ -346,10 +389,12 @@ export async function fetchClientListPage(
     }
   }
 
+  const today = todayJstDateString();
   const rows: ClientListRow[] = pageUsers.map((u) => {
     const membership = membershipByUser.get(u.id);
     const holderId = holderIdByUser.get(u.id) ?? null;
     const planType = holderId ? (planByHolder.get(holderId) ?? null) : null;
+    const subInfo = holderId ? (subInfoByHolder.get(holderId) ?? null) : null;
     return {
       userId: u.id,
       contractHolderId: holderId,
@@ -362,6 +407,8 @@ export async function fetchClientListPage(
         planType,
       }),
       planLabel: derivePlanLabel(planType),
+      paymentMethod: subInfo?.paymentMethod ?? null,
+      expiryBadge: deriveBankTransferExpiryBadge(subInfo, today),
       optionBadges: holderId
         ? Array.from(badgesByHolder.get(holderId) ?? [])
         : [],

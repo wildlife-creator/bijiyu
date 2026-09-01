@@ -8,13 +8,24 @@ import { AreaList } from "@/components/area/area-list";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { VideoEmbed } from "@/components/video-embed/video-embed";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
-import { derivePlanLabel } from "@/lib/admin/clients-list";
+import { fetchBankTransferRequestsForUser } from "@/lib/admin/bank-transfers";
+import {
+  deriveBankTransferExpiryBadge,
+  derivePlanLabel,
+} from "@/lib/admin/clients-list";
+import { EXPIRY_BADGE_LABELS, todayJstDateString } from "@/lib/billing/bank-transfer";
+import {
+  BILLING_CYCLE_LABELS,
+  PAYMENT_METHOD_LABELS,
+  type PaidPlanType,
+} from "@/lib/constants/plans";
 import { fetchClientReputation } from "@/lib/client-review/aggregate";
 import { hasActiveOption } from "@/lib/billing/options";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatDateTime } from "@/lib/utils/format-date";
+import { formatDateJst, formatDateTime } from "@/lib/utils/format-date";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { BankSubscriptionPanel } from "./bank-subscription-panel";
 import { DeleteAccountButton } from "./delete-account-button";
 import { JobSiteList } from "./job-site-list";
 import { MemberList } from "./member-list";
@@ -102,7 +113,7 @@ export default async function AdminClientDetailPage({
       admin.from("client_profiles").select("*").eq("user_id", id).maybeSingle(),
       admin
         .from("subscriptions")
-        .select("plan_type")
+        .select("id, plan_type, status, payment_method, billing_cycle, current_period_end")
         .eq("user_id", id)
         .in("status", ["active", "past_due"])
         .maybeSingle(),
@@ -122,6 +133,18 @@ export default async function AdminClientDetailPage({
     deletedAt: null,
   });
   const planLabel = derivePlanLabel(subscription?.plan_type ?? null);
+  // 銀行振込契約（P2）: 期限バッジ + 運営操作パネル + 申込履歴
+  const isBankTransfer = subscription?.payment_method === "bank_transfer";
+  const bankExpiryBadge = deriveBankTransferExpiryBadge(
+    subscription
+      ? {
+          paymentMethod: subscription.payment_method,
+          currentPeriodEnd: subscription.current_period_end,
+        }
+      : null,
+    todayJstDateString(),
+  );
+  const bankTransferRequests = await fetchBankTransferRequestsForUser(id);
 
   // 募集エリア
   const { data: areaRows } = await admin
@@ -336,6 +359,43 @@ export default async function AdminClientDetailPage({
         </div>
       </section>
 
+      {/* 3.5 銀行振込（P2）: 契約の運営操作 + 申込履歴。該当がなければ非表示 */}
+      {(isBankTransfer || bankTransferRequests.length > 0) && (
+        <section className="mt-6">
+          <h2 className="text-body-lg font-bold text-foreground">銀行振込</h2>
+          {isBankTransfer && subscription && !isDeleted && (
+            <BankSubscriptionPanel
+              subscriptionId={subscription.id}
+              currentPlanType={subscription.plan_type as PaidPlanType}
+              billingCycleLabel={BILLING_CYCLE_LABELS[subscription.billing_cycle]}
+              periodEndLabel={formatDateJst(subscription.current_period_end)}
+            />
+          )}
+          {bankTransferRequests.length > 0 && (
+            <div className="mt-3 overflow-hidden rounded-[8px] border border-border/20 bg-background">
+              {bankTransferRequests.map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/admin/bank-transfers/${r.id}`}
+                  className="flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3 text-body-sm last:border-b-0 hover:bg-muted/50"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {r.targetLabel}
+                    <span className="ml-2 text-muted-foreground">
+                      {formatDateJst(r.createdAt)} 申込
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-body-xs">
+                    {r.statusLabel}
+                  </span>
+                  <span className="text-muted-foreground">›</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* 4. 発注者情報（ここから受注者に見える発注者情報。運営の管理情報＝メモ／オプションと間隔を空ける） */}
       <section className="mt-16">
         <h2 className="text-body-lg font-bold text-foreground">発注者情報</h2>
@@ -368,6 +428,23 @@ export default async function AdminClientDetailPage({
             )}
             <p className="text-body-sm text-muted-foreground">
               プラン: {planLabel ?? "—"}
+              {subscription && (
+                <>
+                  （{PAYMENT_METHOD_LABELS[subscription.payment_method]}
+                  {isBankTransfer && `・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}）
+                </>
+              )}
+              {bankExpiryBadge && (
+                <span
+                  className={`ml-2 rounded-full px-2 py-0.5 text-body-xs font-bold ${
+                    bankExpiryBadge === "expired"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {EXPIRY_BADGE_LABELS[bankExpiryBadge]}
+                </span>
+              )}
             </p>
           </div>
         </div>

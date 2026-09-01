@@ -48,6 +48,9 @@ Deno.serve(async (req: Request) => {
     .from("subscriptions")
     .select("id, user_id, plan_type, stripe_subscription_id, past_due_since")
     .eq("status", "past_due")
+    // 銀行振込（payment_method='bank_transfer'）は Stripe にサブスクが無く、
+    // 期限管理は運営の手動運用（D3）。Stripe 行だけを対象にする
+    .eq("payment_method", "stripe")
     .not("past_due_since", "is", null)
     .lt("past_due_since", new Date(Date.now() - 7 * 86_400_000).toISOString());
 

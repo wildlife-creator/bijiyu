@@ -22,7 +22,15 @@ export type AuditAction =
   | "admin_password_change"
   | "admin_memo_update"
   // 動画 URL 更新（ADM-010 / ADM-010B）
-  | "video_url_update";
+  | "video_url_update"
+  // 銀行振込（P2）: 申込レコードの状態遷移と、振込契約の運営操作
+  | "bank_transfer_invoiced"
+  | "bank_transfer_activate"
+  | "bank_transfer_cancel"
+  | "bank_transfer_memo_update"
+  | "bank_transfer_plan_change"
+  | "bank_transfer_extend"
+  | "bank_transfer_cancel_subscription";
 
 /**
  * 監査ログ用のメールマスク: 先頭1文字 + *** + @domain
