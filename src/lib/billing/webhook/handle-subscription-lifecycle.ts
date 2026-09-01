@@ -552,7 +552,9 @@ interface PostUpdateState {
  * Decide which subscriptionChangedEmail variant to send (if any) and dispatch.
  *
  * §6.1 サブケース (webhook 判定軸):
- *   (a) plan_type changed                              → upgrade-immediate (A-1)
+ *   (a) plan_type changed, before.schedule_id == null  → upgrade-immediate (A-1)
+ *   (a') plan_type changed, before.schedule_id != null → downgrade-applied (A-1')
+ *        = ダウングレード予約 (b) が期末に適用されたケース。予約時と件名を分ける
  *   (b) schedule_id null → non-null                    → downgrade-reserved (A-2)
  *   (c) cancel_at_period_end false → true              → cancel-reserved (B)
  *   (d-1) schedule_id non-null → null                  → reservation-removed-downgrade (C-1)
@@ -574,9 +576,17 @@ async function maybeSendChangedEmail(
   // Webhook 到着時には before.plan_type === after.planType になっていて
   // ここに入らない。フォールバック（先行 UPDATE の失敗など）では
   // Webhook 側でもこの分岐で送信され、ユーザーが一切メールを受け取らない事態を防ぐ。
+  //
+  // (a') ダウングレード予約の期末適用もここに入る（Stripe の Subscription Schedule が
+  // 次フェーズに進むと subscription.updated が plan_type 変化として届く）。
+  // 直前スナップショットに schedule_id があれば「予約の適用」と判定し、予約時
+  // （A-2「承りました」）と件名を分けた「プラン変更が完了しました」を送る。
+  // 予約あり状態では他プランへの即時アップグレードは UI で非活性のため、
+  // schedule_id の有無で A-1 / A-1' を一意に切り分けられる。
   if (before.plan_type !== after.planType) {
     await sendChangedEmail(admin, send, before.user_id, {
-      eventType: "upgrade-immediate",
+      eventType:
+        before.schedule_id != null ? "downgrade-applied" : "upgrade-immediate",
       oldPlanName: PLAN_LABELS[before.plan_type as PlanType],
       newPlanName: PLAN_LABELS[after.planType],
     });

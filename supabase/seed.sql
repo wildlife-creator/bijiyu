@@ -403,7 +403,7 @@ UPDATE public.users SET
   skill_tags = ARRAY['壁装（クロス）工', '内装仕上工', '床施工']
 WHERE id = 'cc333333-3333-3333-3333-333333333333';
 
--- 個人発注者（組織なし）— 個人発注者様向けプラン
+-- 個人発注者（組織なし）— ライトプラン（旧: 個人発注者様向けプラン）
 UPDATE public.users SET
   role = 'client',
   last_name = '中村',

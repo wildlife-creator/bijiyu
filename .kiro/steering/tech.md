@@ -52,7 +52,7 @@ Next.js（App Router）をフルスタックフレームワークとして採用
 | 項目 | 技術 |
 |------|------|
 | **決済基盤** | Stripe |
-| **サブスク管理** | Stripe Billing（5プラン：無料〜法人高サポート） |
+| **サブスク管理** | Stripe Billing（5プラン：無料 / ライト / スタンダード / プレミアム / ハイエンド） |
 | **Webhook** | Stripe → Next.js API Route で課金イベント処理 |
 | **顧客ポータル** | Stripe Customer Portal（プラン変更・解約） |
 

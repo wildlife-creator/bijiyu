@@ -1,8 +1,10 @@
 import { listItem, paragraph, renderLayout } from "@/lib/email/components";
 
 /**
- * §6.1 プラン変更通知の 5 サブケース。webhook 側で diff を見て判定する:
- *   - upgrade-immediate          : (a) plan_type 変化
+ * §6.1 プラン変更通知の 6 サブケース。webhook 側で diff を見て判定する:
+ *   - upgrade-immediate          : (a) plan_type 変化（予約なし = 即時アップグレード）
+ *   - downgrade-applied          : (a') plan_type 変化 + 直前まで schedule_id あり
+ *                                   （= ダウングレード予約の期末適用）
  *   - downgrade-reserved         : (b) schedule_id null → non-null
  *   - cancel-reserved            : (c) cancel_at_period_end false → true
  *   - reservation-removed-downgrade : (d-1) schedule_id non-null → null
@@ -10,6 +12,7 @@ import { listItem, paragraph, renderLayout } from "@/lib/email/components";
  */
 export type SubscriptionChangedEventType =
   | "upgrade-immediate"
+  | "downgrade-applied"
   | "downgrade-reserved"
   | "cancel-reserved"
   | "reservation-removed-downgrade"
@@ -18,9 +21,9 @@ export type SubscriptionChangedEventType =
 interface SubscriptionChangedEmailProps {
   recipientName: string;
   eventType: SubscriptionChangedEventType;
-  /** A-1 / A-2 で使用（変更前のプラン名）。 */
+  /** A-1 / A-1' / A-2 で使用（変更前のプラン名）。 */
   oldPlanName?: string;
-  /** A-1 / A-2 で使用（変更後のプラン名）。 */
+  /** A-1 / A-1' / A-2 で使用（変更後のプラン名）。 */
   newPlanName?: string;
   /** B / C-1 / C-2 で使用（現プラン名）。 */
   planName?: string;
@@ -33,8 +36,10 @@ interface SubscriptionChangedEmailProps {
 /**
  * §6.1 プラン変更通知。eventType ごとに subject / body を切り替える。
  *
- * - 件名 3 種類（A-1/A-2 は同一、B / C-1+C-2 が別）
- * - 本文 5 種類（A-1/A-2 は表ブロック、B / C-1 / C-2 はプレーン文）
+ * - 件名 4 種類（A-1/A-2 は同一「承りました」、A-1' は「完了しました」、B / C-1+C-2 が別）
+ *   ※ 予約時（A-2）と期末適用時（A-1'）の件名が同一だと受信箱で区別できないため分離
+ *     （docs/requirements/spec-changes-202608.md §2.1(4)）
+ * - 本文 6 種類（A-1/A-1'/A-2 は表ブロック、B / C-1 / C-2 はプレーン文）
  * - M-04 / §6 全体方針: opening マーケ調・CTA を削除、事実通知のみ
  * - closing は基本なし（事実通知）
  */
@@ -44,6 +49,8 @@ export function subscriptionChangedEmail(
   switch (props.eventType) {
     case "upgrade-immediate":
       return renderUpgradeImmediate(props);
+    case "downgrade-applied":
+      return renderDowngradeApplied(props);
     case "downgrade-reserved":
       return renderDowngradeReserved(props);
     case "cancel-reserved":
@@ -65,6 +72,25 @@ function renderUpgradeImmediate(
       bodyContent: [
         paragraph(`${props.recipientName} 様`),
         paragraph("以下の内容でプラン変更を承りました。"),
+        listItem("変更前のプラン", props.oldPlanName ?? ""),
+        listItem("変更後のプラン", props.newPlanName ?? ""),
+        listItem("適用開始日", "ただ今より適用", { last: true }),
+      ].join(""),
+    }),
+  };
+}
+
+function renderDowngradeApplied(
+  props: SubscriptionChangedEmailProps,
+): { subject: string; html: string } {
+  // A-1' ダウングレード予約の期末適用 — 予約時（A-2）と件名を分ける
+  return {
+    subject: `【ビジ友】プラン変更が完了しました`,
+    html: renderLayout({
+      title: "プラン変更が完了しました",
+      bodyContent: [
+        paragraph(`${props.recipientName} 様`),
+        paragraph("ご予約いただいていたプラン変更が適用され、以下の内容に切り替わりました。"),
         listItem("変更前のプラン", props.oldPlanName ?? ""),
         listItem("変更後のプラン", props.newPlanName ?? ""),
         listItem("適用開始日", "ただ今より適用", { last: true }),

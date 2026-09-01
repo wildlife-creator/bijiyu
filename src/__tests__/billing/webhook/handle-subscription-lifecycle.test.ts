@@ -343,8 +343,8 @@ describe("customer.subscription.updated", () => {
     expect(args.to).toBe("user1@test.local");
     expect(args.subject).toBe("【ビジ友】プラン変更を承りました");
     expect(args.html).toContain("山田太郎 様");
-    expect(args.html).toContain("個人発注者様向けプラン");
-    expect(args.html).toContain("小規模事業主様向けプラン");
+    expect(args.html).toContain("ライトプラン");
+    expect(args.html).toContain("スタンダードプラン");
     expect(args.html).toContain("ただ今");
   });
 
@@ -396,6 +396,88 @@ describe("customer.subscription.updated", () => {
     expect(SEND).not.toHaveBeenCalled();
   });
 
+  it("§6.1-A-1' downgrade applied at period end (plan_type changed + snapshot had schedule_id): subject「プラン変更が完了しました」", async () => {
+    // Stripe の Subscription Schedule が次フェーズへ進み、価格が individual になった
+    const sub = buildSubscription({ priceId: "price_individual" });
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-1",
+            user_id: "user-2",
+            plan_type: "corporate", // 予約前のプラン
+            schedule_id: "sub_sched_1", // 予約が存在していた = 期末適用
+            cancel_at_period_end: false,
+          },
+        },
+        "select:users": {
+          data: {
+            email: "user2@test.local",
+            last_name: "佐藤",
+            first_name: "花子",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_updated: { data: {}, error: null },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.updated", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
+    expect(args.subject).toBe("【ビジ友】プラン変更が完了しました");
+    expect(args.html).toContain("佐藤花子 様");
+    expect(args.html).toContain("プレミアムプラン");
+    expect(args.html).toContain("ライトプラン");
+  });
+
+  it("upgrade without prior reservation (snapshot schedule_id null) keeps subject「プラン変更を承りました」", async () => {
+    const sub = buildSubscription({ priceId: "price_corporate" });
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-1",
+            user_id: "user-1",
+            plan_type: "small",
+            schedule_id: null,
+            cancel_at_period_end: false,
+          },
+        },
+        "select:users": {
+          data: {
+            email: "user1@test.local",
+            last_name: "山田",
+            first_name: "太郎",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_updated: { data: {}, error: null },
+      },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.updated", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { subject: string };
+    expect(args.subject).toBe("【ビジ友】プラン変更を承りました");
+  });
+
   it("downgrade reservation appears: sends reservation email", async () => {
     const sub = buildSubscription({ schedule: "sub_sched_1" });
     const { admin } = makeAdmin({
@@ -434,7 +516,7 @@ describe("customer.subscription.updated", () => {
     const args = SEND.mock.calls[0]![0]! as { html: string };
     // Default fake schedule.next_phase price is 'price_individual' (=individual),
     // and the user already has individual; downgrade case 'b' uses scheduled_plan_type
-    // which here resolves back to individual, so the html still mentions 個人発注者様向けプラン.
+    // which here resolves back to individual, so the html still mentions ライトプラン.
     expect(args.html).toContain("佐藤花子 様");
   });
 
@@ -528,7 +610,7 @@ describe("customer.subscription.updated", () => {
     expect(args.subject).toBe("【ビジ友】ご予約を取り消しました");
     expect(args.html).toContain("中村一郎 様");
     expect(args.html).toContain("先日ご予約いただいたプラン変更を取り消しました");
-    expect(args.html).toContain("法人向けプラン");
+    expect(args.html).toContain("プレミアムプラン");
   });
 
   it("§6.1-C-2 cancel reservation removed (cancel_at_period_end true → false): subject 「ご予約を取り消しました」, 本文「解約を取り消しました」", async () => {
@@ -573,7 +655,7 @@ describe("customer.subscription.updated", () => {
     expect(args.subject).toBe("【ビジ友】ご予約を取り消しました");
     expect(args.html).toContain("渡辺良子 様");
     expect(args.html).toContain("先日ご予約いただいた解約を取り消しました");
-    expect(args.html).toContain("個人発注者様向けプラン");
+    expect(args.html).toContain("ライトプラン");
     expect(args.html).toContain("今後も引き続き");
   });
 
@@ -689,7 +771,7 @@ describe("customer.subscription.deleted", () => {
     expect(SEND).toHaveBeenCalledOnce();
     const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
     expect(args.subject).toBe("【ビジ友】有料プランのご解約が完了しました");
-    expect(args.html).toContain("法人向けプラン");
+    expect(args.html).toContain("プレミアムプラン");
     // §6.4: past_due_since 未設定 → reason='manual' (default)、7 日プレフィックスなし
     expect(args.html).not.toContain("お支払い方法での決済が 7 日間");
     expect(args.html).toContain("以下の内容で有料プランの解約が完了しました。");

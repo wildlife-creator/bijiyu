@@ -71,6 +71,20 @@ describe("PLAN_LABELS", () => {
       expect(typeof PLAN_LABELS[plan]).toBe("string");
     }
   });
+
+  it("2026-08 仕様変更のプラン名（ライト/スタンダード/プレミアム/ハイエンド）を返す", () => {
+    expect(PLAN_LABELS.free).toBe("無料プラン");
+    expect(PLAN_LABELS.individual).toBe("ライトプラン");
+    expect(PLAN_LABELS.small).toBe("スタンダードプラン");
+    expect(PLAN_LABELS.corporate).toBe("プレミアムプラン");
+    expect(PLAN_LABELS.corporate_premium).toBe("ハイエンドプラン");
+  });
+
+  it("旧プラン名（個人発注者様向け / 小規模事業主様向け / 法人向け）を含まない", () => {
+    for (const plan of ALL_PLANS) {
+      expect(PLAN_LABELS[plan]).not.toMatch(/個人発注者|小規模事業主|法人向け|高サポート/);
+    }
+  });
 });
 
 describe("ACTION_TYPES", () => {

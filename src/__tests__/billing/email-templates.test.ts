@@ -17,7 +17,7 @@ describe("paymentFailedEmail", () => {
   it("件名で「有料プラン」を明記し過去形で締める（§6.3 disambiguation）", () => {
     const out = paymentFailedEmail({
       recipientName: "山田太郎",
-      planName: "個人発注者様向けプラン",
+      planName: "ライトプラン",
       nextRetryDate: "2026/04/15",
     });
     expect(out.subject).toBe("【ビジ友】有料プランのお支払いが確認できませんでした");
@@ -26,11 +26,11 @@ describe("paymentFailedEmail", () => {
   it("html に宛名・プラン名・次回お支払い予定日・forward fact 警告・closing を含む", () => {
     const out = paymentFailedEmail({
       recipientName: "山田太郎",
-      planName: "個人発注者様向けプラン",
+      planName: "ライトプラン",
       nextRetryDate: "2026/04/15",
     });
     expect(out.html).toContain("山田太郎 様");
-    expect(out.html).toContain("個人発注者様向けプラン");
+    expect(out.html).toContain("ライトプラン");
     expect(out.html).toContain("2026/04/15");
     expect(out.html).toContain("ご利用中のプラン");
     expect(out.html).toContain("次回お支払い予定日");
@@ -41,7 +41,7 @@ describe("paymentFailedEmail", () => {
   it("マーケ調 opening・CTA・「リトライ」用語・退会フレーミングを含まない（§6.3 改修）", () => {
     const out = paymentFailedEmail({
       recipientName: "山田太郎",
-      planName: "個人発注者様向けプラン",
+      planName: "ライトプラン",
       nextRetryDate: "2026/04/15",
     });
     expect(out.html).not.toContain("いつもビジ友をご利用いただきありがとうございます");
@@ -56,15 +56,15 @@ describe("subscriptionChangedEmail §6.1-A-1 即時アップグレード", () =>
     const out = subscriptionChangedEmail({
       recipientName: "山田太郎",
       eventType: "upgrade-immediate",
-      oldPlanName: "個人発注者様向けプラン",
-      newPlanName: "小規模事業主様向けプラン",
+      oldPlanName: "ライトプラン",
+      newPlanName: "スタンダードプラン",
     });
     expect(out.subject).toBe("【ビジ友】プラン変更を承りました");
     expect(out.html).toContain("山田太郎 様");
     expect(out.html).toContain("変更前のプラン");
     expect(out.html).toContain("変更後のプラン");
-    expect(out.html).toContain("個人発注者様向けプラン");
-    expect(out.html).toContain("小規模事業主様向けプラン");
+    expect(out.html).toContain("ライトプラン");
+    expect(out.html).toContain("スタンダードプラン");
     expect(out.html).toContain("適用開始日");
     expect(out.html).toContain("ただ今より適用");
   });
@@ -73,11 +73,33 @@ describe("subscriptionChangedEmail §6.1-A-1 即時アップグレード", () =>
     const out = subscriptionChangedEmail({
       recipientName: "山田太郎",
       eventType: "upgrade-immediate",
-      oldPlanName: "個人発注者様向けプラン",
-      newPlanName: "小規模事業主様向けプラン",
+      oldPlanName: "ライトプラン",
+      newPlanName: "スタンダードプラン",
     });
     expect(out.html).not.toContain("いつもビジ友をご利用いただきありがとうございます");
     expect(out.html).not.toContain("プラン状況を確認する");
+  });
+});
+
+describe("subscriptionChangedEmail §6.1-A-1' ダウングレード期末適用", () => {
+  it("件名は「プラン変更が完了しました」（予約時の「承りました」と分離）、本文に変更前後のプランを含む", () => {
+    const out = subscriptionChangedEmail({
+      recipientName: "山田太郎",
+      eventType: "downgrade-applied",
+      oldPlanName: "プレミアムプラン",
+      newPlanName: "ライトプラン",
+    });
+    expect(out.subject).toBe("【ビジ友】プラン変更が完了しました");
+    expect(out.subject).not.toBe("【ビジ友】プラン変更を承りました");
+    expect(out.html).toContain("プラン変更が完了しました");
+    expect(out.html).toContain("山田太郎 様");
+    expect(out.html).toContain("変更前のプラン");
+    expect(out.html).toContain("プレミアムプラン");
+    expect(out.html).toContain("変更後のプラン");
+    expect(out.html).toContain("ライトプラン");
+    expect(out.html).toContain("ただ今より適用");
+    // 「承りました」は予約時（A-2）/ 即時アップグレード（A-1）専用
+    expect(out.html).not.toContain("承りました");
   });
 });
 
@@ -86,14 +108,14 @@ describe("subscriptionChangedEmail §6.1-A-2 ダウングレード予約", () =>
     const out = subscriptionChangedEmail({
       recipientName: "山田太郎",
       eventType: "downgrade-reserved",
-      oldPlanName: "法人向けプラン",
-      newPlanName: "個人発注者様向けプラン",
+      oldPlanName: "プレミアムプラン",
+      newPlanName: "ライトプラン",
       scheduledDate: "2026/07/15",
     });
     expect(out.subject).toBe("【ビジ友】プラン変更を承りました");
     expect(out.html).toContain("山田太郎 様");
-    expect(out.html).toContain("法人向けプラン");
-    expect(out.html).toContain("個人発注者様向けプラン");
+    expect(out.html).toContain("プレミアムプラン");
+    expect(out.html).toContain("ライトプラン");
     expect(out.html).toContain("2026/07/15");
     // 「ただ今より適用」は A-1 専用、A-2 では含めない
     expect(out.html).not.toContain("ただ今より適用");
@@ -133,12 +155,12 @@ describe("subscriptionChangedEmail §6.1-C-1 ダウングレード予約取消",
     const out = subscriptionChangedEmail({
       recipientName: "山田太郎",
       eventType: "reservation-removed-downgrade",
-      planName: "法人向けプラン",
+      planName: "プレミアムプラン",
     });
     expect(out.subject).toBe("【ビジ友】ご予約を取り消しました");
     expect(out.html).toContain("山田太郎 様");
     expect(out.html).toContain("先日ご予約いただいたプラン変更を取り消しました");
-    expect(out.html).toContain("法人向けプラン");
+    expect(out.html).toContain("プレミアムプラン");
     expect(out.html).toContain("継続");
   });
 });
@@ -148,12 +170,12 @@ describe("subscriptionChangedEmail §6.1-C-2 解約予約取消", () => {
     const out = subscriptionChangedEmail({
       recipientName: "山田太郎",
       eventType: "reservation-removed-cancel",
-      planName: "個人発注者様向けプラン",
+      planName: "ライトプラン",
     });
     expect(out.subject).toBe("【ビジ友】ご予約を取り消しました");
     expect(out.html).toContain("山田太郎 様");
     expect(out.html).toContain("先日ご予約いただいた解約を取り消しました");
-    expect(out.html).toContain("個人発注者様向けプラン");
+    expect(out.html).toContain("ライトプラン");
     expect(out.html).toContain("今後も引き続き");
   });
 });
@@ -162,7 +184,7 @@ describe("subscriptionCancelledEmail", () => {
   it("件名で「有料プラン」を明記して退会通知との誤読を防ぐ（§6.2 改修）", () => {
     const out = subscriptionCancelledEmail({
       recipientName: "山田太郎",
-      planName: "法人向けプラン",
+      planName: "プレミアムプラン",
       cancelledAt: "2026/04/12",
     });
     expect(out.subject).toBe("【ビジ友】有料プランのご解約が完了しました");
@@ -171,11 +193,11 @@ describe("subscriptionCancelledEmail", () => {
   it("html に宛名・プラン名・解約日・forward fact closing を含む", () => {
     const out = subscriptionCancelledEmail({
       recipientName: "山田太郎",
-      planName: "法人向けプラン",
+      planName: "プレミアムプラン",
       cancelledAt: "2026/04/12",
     });
     expect(out.html).toContain("山田太郎 様");
-    expect(out.html).toContain("法人向けプラン");
+    expect(out.html).toContain("プレミアムプラン");
     expect(out.html).toContain("2026/04/12");
     expect(out.html).toContain("引き続き、無料プランでビジ友をご利用いただけます");
   });
@@ -183,7 +205,7 @@ describe("subscriptionCancelledEmail", () => {
   it("退会フレーミング・マーケ調 opening・CTA を含まない（§6.2 改修）", () => {
     const out = subscriptionCancelledEmail({
       recipientName: "山田太郎",
-      planName: "法人向けプラン",
+      planName: "プレミアムプラン",
       cancelledAt: "2026/04/12",
     });
     expect(out.html).not.toContain("いつもビジ友をご利用いただきありがとうございます");
@@ -195,7 +217,7 @@ describe("subscriptionCancelledEmail", () => {
   it("§6.4 reason='manual'（default）: opening は「以下の内容で〜」+ 7 日プレフィックスなし", () => {
     const out = subscriptionCancelledEmail({
       recipientName: "山田太郎",
-      planName: "法人向けプラン",
+      planName: "プレミアムプラン",
       cancelledAt: "2026/04/12",
     });
     expect(out.html).toContain("以下の内容で有料プランの解約が完了しました。");
@@ -206,7 +228,7 @@ describe("subscriptionCancelledEmail", () => {
   it("§6.4 reason='auto-past-due': opening が 7 日プレフィックス付きに切替", () => {
     const out = subscriptionCancelledEmail({
       recipientName: "山田太郎",
-      planName: "法人向けプラン",
+      planName: "プレミアムプラン",
       cancelledAt: "2026/04/12",
       reason: "auto-past-due",
     });
@@ -222,13 +244,13 @@ describe("subscriptionCancelledEmail", () => {
   it("§6.4: reason 別関係なく 件名・closing は共通", () => {
     const manual = subscriptionCancelledEmail({
       recipientName: "山田太郎",
-      planName: "法人向けプラン",
+      planName: "プレミアムプラン",
       cancelledAt: "2026/04/12",
       reason: "manual",
     });
     const auto = subscriptionCancelledEmail({
       recipientName: "山田太郎",
-      planName: "法人向けプラン",
+      planName: "プレミアムプラン",
       cancelledAt: "2026/04/12",
       reason: "auto-past-due",
     });
@@ -532,14 +554,14 @@ describe("planActivatedEmail §6.7 基本プラン契約完了", () => {
   it("件名は「【ビジ友】プランのお申し込みを承りました」 (プラン名は subject に含めない)", () => {
     const out = planActivatedEmail({
       recipientName: "山田工務店",
-      planName: "法人向けプラン",
+      planName: "プレミアムプラン",
       activatedAt: "2026/06/30",
     });
     expect(out.subject).toBe("【ビジ友】プランのお申し込みを承りました");
     expect(out.html).toContain("山田工務店 様");
     expect(out.html).toContain("以下の内容でプランのお申し込みを承りました");
     expect(out.html).toContain("お申し込みプラン");
-    expect(out.html).toContain("法人向けプラン");
+    expect(out.html).toContain("プレミアムプラン");
     expect(out.html).toContain("ご利用開始日");
     expect(out.html).toContain("2026/06/30");
   });
@@ -547,7 +569,7 @@ describe("planActivatedEmail §6.7 基本プラン契約完了", () => {
   it("マーケ調 opening・CTA・「ご契約ありがとうございます」を含まない (§6 全体方針)", () => {
     const out = planActivatedEmail({
       recipientName: "山田太郎",
-      planName: "個人発注者様向けプラン",
+      planName: "ライトプラン",
       activatedAt: "2026/06/30",
     });
     expect(out.html).not.toContain("いつもビジ友をご利用いただきありがとうございます");
