@@ -3,13 +3,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE } from "@/lib/billing/bank-transfer";
-import { comparePlans } from "@/lib/billing/compare-plans";
+import { comparePlanChange } from "@/lib/billing/compare-plans";
 import { getStripeClient } from "@/lib/billing/stripe";
 import { extractPeriodEnd } from "@/lib/billing/subscription-periods";
 import { validateDowngradePrerequisites } from "@/lib/billing/validate-downgrade";
 import {
   ACTION_TYPES,
   PLAN_LABELS,
+  planDisplayName,
+  priceIdFor,
+  type BillingCycle,
   type PaidPlanType,
   type PlanType,
 } from "@/lib/constants/plans";
@@ -32,6 +35,8 @@ interface ActiveSubscription {
   id: string;
   user_id: string;
   plan_type: string;
+  /** P3: 月払い / 年払い */
+  billing_cycle: BillingCycle;
   status: string;
   stripe_subscription_id: string;
   schedule_id: string | null;
@@ -39,10 +44,19 @@ interface ActiveSubscription {
   current_period_end: string | null;
 }
 
-interface ChangePlanResult {
-  performedType: "upgrade" | "downgrade";
-  newPlanName: string;
-  scheduledAt?: string;
+/**
+ * P3: アップグレード（上位プラン / 月払い→年払い）は Stripe ホスト画面で確定するため、
+ * Server Action は遷移先 URL を返すだけ（DB 更新・メールは Webhook が担う）。
+ * ダウングレードは従来どおり期末切替の予約。
+ */
+export type ChangePlanResult =
+  | { performedType: "upgrade"; newPlanName: string; portalUrl: string }
+  | { performedType: "downgrade"; newPlanName: string; scheduledAt?: string };
+
+export interface ChangePlanInput {
+  targetPlan: PaidPlanType;
+  /** 省略時は現在の支払サイクルを維持 */
+  targetCycle?: BillingCycle;
 }
 
 interface CancelReservationResult {
@@ -79,7 +93,7 @@ async function getAuthenticatedClientSubscription(): Promise<
   const { data: sub } = await admin
     .from("subscriptions")
     .select(
-      "id, user_id, plan_type, status, stripe_subscription_id, schedule_id, cancel_at_period_end, current_period_end, payment_method",
+      "id, user_id, plan_type, billing_cycle, status, stripe_subscription_id, schedule_id, cancel_at_period_end, current_period_end, payment_method",
     )
     .eq("user_id", user.id)
     .in("status", ["active", "past_due"])
@@ -111,15 +125,17 @@ async function getAuthenticatedClientSubscription(): Promise<
 // 6.6 changePlanAction — 唯一の外部公開 API
 // ---------------------------------------------------------------------------
 
-export async function changePlanAction(input: {
-  targetPlan: PaidPlanType;
-}): Promise<ActionResult<ChangePlanResult>> {
+export async function changePlanAction(
+  input: ChangePlanInput,
+): Promise<ActionResult<ChangePlanResult>> {
   const auth = await getAuthenticatedClientSubscription();
   if (!auth.success) return auth;
 
   const { userId, subscription } = auth;
   const currentPlan = subscription.plan_type as PlanType;
+  const currentCycle: BillingCycle = subscription.billing_cycle ?? "monthly";
   const targetPlan = input.targetPlan;
+  const targetCycle: BillingCycle = input.targetCycle ?? currentCycle;
 
   // past_due check
   if (subscription.status === "past_due") {
@@ -138,43 +154,50 @@ export async function changePlanAction(input: {
     };
   }
 
-  const comparison = comparePlans(currentPlan, targetPlan);
+  const comparison = comparePlanChange(
+    { planType: currentPlan, billingCycle: currentCycle },
+    { planType: targetPlan, billingCycle: targetCycle },
+  );
 
   if (comparison === "same") {
     return { success: false, error: "同じプランへの変更はできません" };
   }
 
   if (comparison === "upgrade") {
-    return await upgradePlanAction(subscription, targetPlan);
+    return await createUpgradePortalSession(userId, subscription, targetPlan, targetCycle);
   }
 
-  // downgrade
-  return await scheduleDowngradeAction(userId, subscription, targetPlan);
+  // downgrade（年払い → 月払いの同一プラン切替も含む）
+  return await scheduleDowngradeAction(userId, subscription, targetPlan, targetCycle);
 }
 
 // ---------------------------------------------------------------------------
-// 6.2 upgradePlanAction (internal)
+// 6.2 createUpgradePortalSession (internal) — P3: Stripe ホスト画面でのアップグレード
 // ---------------------------------------------------------------------------
 
-async function upgradePlanAction(
+/**
+ * アップグレード（上位プラン / 月払い→年払い）は Stripe Customer Portal の
+ * `subscription_update_confirm` フローに委ねる（spec-changes-202608 §2.1(3) / D5）。
+ * 変更後プラン・日割り差額・次回請求の表示、決済失敗・3D セキュアは Stripe 側で処理。
+ *
+ * 確定後は `customer.subscription.updated` Webhook が plan_type / billing_cycle の変化を
+ * 検知して DB を更新し、「【ビジ友】プラン変更を承りました」を送る
+ * （handle-subscription-lifecycle.ts の (a) 分岐）。ここでは DB 更新・メール送信を行わない
+ * ＝ A5 の先行 UPDATE / 先行送信は廃止（ホスト画面で離脱・失敗した場合に DB だけ進む事故を防ぐ）。
+ *
+ * ポータル設定は STRIPE_PORTAL_UPDATE_CONFIGURATION_ID（プラン変更を許可した専用設定、
+ * scripts/stripe/setup-yearly-prices.mjs が作成）。既存の STRIPE_PORTAL_CONFIGURATION_ID
+ * （カード更新 + 請求履歴のみ）とは分ける。
+ */
+async function createUpgradePortalSession(
+  userId: string,
   subscription: ActiveSubscription,
   targetPlan: PaidPlanType,
+  targetCycle: BillingCycle,
 ): Promise<ActionResult<ChangePlanResult>> {
   const stripe = getStripeClient();
 
-  // Retrieve the current subscription to get item ID
-  const stripeSub = await stripe.subscriptions.retrieve(
-    subscription.stripe_subscription_id,
-  );
-  const itemId = stripeSub.items.data[0]?.id;
-  if (!itemId) {
-    return {
-      success: false,
-      error: "サブスクリプション情報の取得に失敗しました",
-    };
-  }
-
-  const newPriceId = priceIdForPlan(targetPlan);
+  const newPriceId = priceIdFor(targetPlan, targetCycle);
   if (!newPriceId) {
     return {
       success: false,
@@ -182,76 +205,95 @@ async function upgradePlanAction(
     };
   }
 
+  // Stripe サブスクの item ID と customer を取得
+  let itemId: string | undefined;
+  let customerId: string | undefined;
   try {
-    await stripe.subscriptions.update(subscription.stripe_subscription_id, {
-      items: [{ id: itemId, price: newPriceId }],
-      proration_behavior: "create_prorations",
-    });
+    const stripeSub = await stripe.subscriptions.retrieve(
+      subscription.stripe_subscription_id,
+    );
+    itemId = stripeSub.items.data[0]?.id;
+    customerId =
+      typeof stripeSub.customer === "string"
+        ? stripeSub.customer
+        : stripeSub.customer?.id;
   } catch (err) {
-    console.error("[upgradePlanAction] stripe.subscriptions.update failed", err);
+    console.error("[createUpgradePortalSession] stripe.subscriptions.retrieve failed", err);
+  }
+  if (!itemId || !customerId) {
     return {
       success: false,
-      error: "プラン変更に失敗しました。しばらくしてから再度お試しください",
+      error: "サブスクリプション情報の取得に失敗しました",
     };
   }
 
-  // Webhook 処理を待たず、UI 表示に必要な DB 更新を同期的に行う。
-  // Webhook（handle_subscription_lifecycle_updated）でも同じ更新が実行されるが、
-  // 冪等な操作なので二重実行しても安全。
-  // これにより、クライアントが直後にページ遷移した時点でガードチェックを通過できる。
-  const admin = createAdminClient();
-
-  // 1. subscriptions.plan_type を先行更新
-  const { error: planUpdateError } = await admin
-    .from("subscriptions")
-    .update({ plan_type: targetPlan })
-    .eq("id", subscription.id);
-  if (planUpdateError) {
+  const updateConfigId = process.env.STRIPE_PORTAL_UPDATE_CONFIGURATION_ID;
+  if (!updateConfigId) {
     console.error(
-      "[upgradePlanAction] subscriptions plan_type update failed",
-      planUpdateError,
+      "[createUpgradePortalSession] STRIPE_PORTAL_UPDATE_CONFIGURATION_ID is not set",
     );
-    // Webhook で再度更新されるため続行
+    return {
+      success: false,
+      error: "プラン変更の設定が未完了です。管理者にお問い合わせください",
+    };
   }
 
-  // 2. 法人プランへのアップグレード時は organizations を確保
-  if (targetPlan === "corporate" || targetPlan === "corporate_premium") {
-    const { error: ensureOrgError } = await admin.rpc(
-      "ensure_organization_exists",
-      { uid: subscription.user_id },
-    );
-    if (ensureOrgError) {
-      console.error(
-        "[upgradePlanAction] ensure_organization_exists failed",
-        ensureOrgError,
-      );
-    }
+  const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000"}/billing?plan_change=confirmed`;
+
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      configuration: updateConfigId,
+      return_url: returnUrl,
+      flow_data: {
+        type: "subscription_update_confirm",
+        subscription_update_confirm: {
+          subscription: subscription.stripe_subscription_id,
+          items: [{ id: itemId, price: newPriceId, quantity: 1 }],
+        },
+        after_completion: {
+          type: "redirect",
+          redirect: { return_url: returnUrl },
+        },
+      },
+    });
+
+    // 監査: 遷移した事実だけ残す（確定は Webhook 側の subscription_updated で記録される）
+    const admin = createAdminClient();
+    await admin.from("audit_logs").insert({
+      actor_id: userId,
+      action: ACTION_TYPES.subscription_updated,
+      target_type: "subscription",
+      target_id: subscription.id,
+      metadata: {
+        step: "portal_session_created",
+        from: { plan_type: subscription.plan_type, billing_cycle: subscription.billing_cycle },
+        to: { plan_type: targetPlan, billing_cycle: targetCycle },
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        performedType: "upgrade",
+        newPlanName: planDisplayName(targetPlan, targetCycle),
+        portalUrl: session.url,
+      },
+    };
+  } catch (err) {
+    console.error("[createUpgradePortalSession] billingPortal.sessions.create failed", err);
+    return {
+      success: false,
+      error: "プラン変更画面の表示に失敗しました。しばらくしてから再度お試しください",
+    };
   }
-
-  // A5: 「【ビジ友】プラン変更を承りました」メールを Server Action から同期送信する。
-  // Webhook 側（handle_subscription_lifecycle_updated (a) 分岐）は
-  // 「snapshot.plan_type と after.planType の差分」でメール送信を判定するため、
-  // 上記の先行 UPDATE で snapshot が新プランに揃うと差分が消えて自然に skip される
-  // ＝ 二重送信にはならない。詳細は handle-subscription-lifecycle.ts の (a) 分岐コメント参照。
-  await sendSubscriptionChangedEmail(admin, subscription.user_id, {
-    eventType: "upgrade-immediate",
-    oldPlanName: PLAN_LABELS[subscription.plan_type as PlanType],
-    newPlanName: PLAN_LABELS[targetPlan],
-  });
-
-  return {
-    success: true,
-    data: {
-      performedType: "upgrade",
-      newPlanName: PLAN_LABELS[targetPlan],
-    },
-  };
 }
 
 /**
- * A5 / A5-follow-up: subscriptionChangedEmail の 4 バリアント
- * （upgrade-immediate / cancel-reserved / reservation-removed-downgrade
- *   / reservation-removed-cancel）を Server Action から同期送信するための共通ヘルパー。
+ * A5-follow-up: subscriptionChangedEmail の 3 バリアント
+ * （cancel-reserved / reservation-removed-downgrade / reservation-removed-cancel）を
+ * Server Action から同期送信するための共通ヘルパー。
+ * ※ upgrade-immediate は P3 で Stripe ホスト画面化に伴い Webhook 側の送信に一本化した。
  *
  * 背景: Webhook (handle_subscription_lifecycle_updated) の (a)/(c)/(d-1)/(d-2)
  * 分岐は「snapshot と after の差分」でメール送信を判定するが、対応する
@@ -307,11 +349,12 @@ async function scheduleDowngradeAction(
   userId: string,
   subscription: ActiveSubscription,
   targetPlan: PaidPlanType,
+  targetCycle: BillingCycle,
 ): Promise<ActionResult<ChangePlanResult>> {
   const admin = createAdminClient();
   const currentPlan = subscription.plan_type as PlanType;
 
-  // Validate prerequisites
+  // Validate prerequisites（同一プランで年払い→月払いの場合は制限が変わらないので自然に通る）
   const validation = await validateDowngradePrerequisites(
     admin,
     userId,
@@ -323,7 +366,7 @@ async function scheduleDowngradeAction(
   }
 
   const stripe = getStripeClient();
-  const newPriceId = priceIdForPlan(targetPlan);
+  const newPriceId = priceIdFor(targetPlan, targetCycle);
   if (!newPriceId) {
     return { success: false, error: "プランの価格設定が見つかりません" };
   }
@@ -363,7 +406,7 @@ async function scheduleDowngradeAction(
       success: true,
       data: {
         performedType: "downgrade",
-        newPlanName: PLAN_LABELS[targetPlan],
+        newPlanName: planDisplayName(targetPlan, targetCycle),
         scheduledAt: subscription.current_period_end ?? undefined,
       },
     };
@@ -413,6 +456,7 @@ export async function cancelDowngradeReservationAction(): Promise<
         .update({
           schedule_id: null,
           scheduled_plan_type: null,
+          scheduled_billing_cycle: null,
           scheduled_at: null,
         })
         .eq("id", subscription.id);
@@ -437,7 +481,7 @@ export async function cancelDowngradeReservationAction(): Promise<
       // メールを同期送信する。
       await sendSubscriptionChangedEmail(admin, subscription.user_id, {
         eventType: "reservation-removed-downgrade",
-        planName: PLAN_LABELS[subscription.plan_type as PlanType],
+        planName: planDisplayName(subscription.plan_type as PlanType, subscription.billing_cycle),
       });
 
       return {
@@ -798,15 +842,3 @@ export async function openCustomerPortalAction(): Promise<
 // Helpers
 // ---------------------------------------------------------------------------
 
-function priceIdForPlan(planType: PaidPlanType): string | null {
-  switch (planType) {
-    case "individual":
-      return process.env.STRIPE_PRICE_INDIVIDUAL ?? null;
-    case "small":
-      return process.env.STRIPE_PRICE_SMALL ?? null;
-    case "corporate":
-      return process.env.STRIPE_PRICE_CORPORATE ?? null;
-    case "corporate_premium":
-      return process.env.STRIPE_PRICE_CORPORATE_PREMIUM ?? null;
-  }
-}

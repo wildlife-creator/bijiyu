@@ -585,6 +585,12 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 該当 Webhook ハンドラのロジックはできるだけ冪等に保つ。Server Action の先行更新とぶつかっても問題ないように設計する
 - **先行 UPDATE を追加したら Webhook 側の diff ベースメール送信が黙って skip されないか必ず確認する（必ず守ること）**: `handle-subscription-lifecycle.ts` の `maybeSendChangedEmail` は (a) `plan_type` / (c) `cancel_at_period_end false→true` / (d-1) `schedule_id non-null→null` / (d-2) `cancel_at_period_end true→false` の 4 分岐を **「snapshot と after の差分」** で判定してメール送信する。Server Action で先行 UPDATE を入れると snapshot がすでに新状態になっていて diff が消え、**メールがサイレントに飛ばなくなる**。対策: 先行 UPDATE を入れる Server Action は該当メールも **Server Action 側で同期送信** し、Webhook 側は先行 UPDATE 失敗時のフォールバックにする。実装基準: `plan-actions.ts` の `sendSubscriptionChangedEmail(admin, userId, params)` ヘルパー。**2026-07-07 A5 (upgrade-immediate) + 2026-07-08 A5-follow-up (cancel-reserved / reservation-removed-downgrade / reservation-removed-cancel) で連続再発**。新しい billing Server Action で先行 UPDATE を追加する際は、それが `maybeSendChangedEmail` のどの分岐の diff を潰すか目視でチェックし、潰す場合はセットでメール送信も足すこと
 
+### アップグレードは Stripe ホスト画面で確定、DB 更新とメールは Webhook 側（P3、必ず守ること）
+- 2026-09 P3 で、アップグレード（上位プラン / 月払い→年払い）は `changePlanAction` が Stripe Customer Portal の `subscription_update_confirm` セッション URL を返し、ユーザーが Stripe 側で確定する方式に変わった。**Server Action は DB を先行 UPDATE せず、完了メールも送らない**（ホスト画面で離脱・決済失敗した場合に DB だけ進む事故を防ぐ）
+- 完了処理は `customer.subscription.updated` Webhook の (a) 分岐（`plan_type` または `billing_cycle` の差分）が担う。上記「先行 UPDATE を追加したら…」ルールのうち、アップグレード（upgrade-immediate）については **先行 UPDATE を追加してはならない**（Webhook の差分が消えてメールが飛ばなくなる）。解約予約・予約取消は従来どおり Server Action 側で先行 UPDATE + 同期送信
+- 支払サイクルは Stripe の Price ID から `resolvePlanPriceFromId()` で解決する。月額 4 + 年額 4 の環境変数（`STRIPE_PRICE_*` / `STRIPE_PRICE_*_YEARLY`）が揃っていないと Webhook が「unknown price id」で failed になる。Price を追加・変更したら `scripts/stripe/setup-yearly-prices.mjs` と `.env.local.example` も更新する
+- ポータル設定は 2 つ: `STRIPE_PORTAL_CONFIGURATION_ID`（お支払い情報の管理 = カード更新・請求履歴）と `STRIPE_PORTAL_UPDATE_CONFIGURATION_ID`（プラン変更確認専用、subscription_update のみ許可）。混ぜないこと
+
 ### Next.js Router Cache とリダイレクトキャッシュ（必ず守ること）
 - Next.js の App Router は Server Component のレスポンス（redirect 含む）をクライアント側 Router Cache に保持することがある
 - DB 状態が変化してから同一 URL に遷移する場合、古い redirect 結果が使われて**意図しないページに飛ばされる**ことがある（例: 組織名入力画面への遷移で `/mypage` に即リダイレクトされ続ける）

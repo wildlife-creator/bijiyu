@@ -372,7 +372,8 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | current_period_end | timestamptz | 現在の課金期間終了 |
 | past_due_since | timestamptz (nullable) | past_due 開始日時（支払い遅延がいつ始まったか） |
 | payment_method | payment_method_type | 'stripe'（既定）/ 'bank_transfer'（銀行振込、P2）。銀行振込行は stripe_subscription_id が NULL（CHECK） |
-| billing_cycle | billing_cycle_type | 'monthly'（既定）/ 'yearly'。Stripe 行は P3（年額 Price 追加）まで monthly のみ |
+| billing_cycle | billing_cycle_type | 'monthly'（既定）/ 'yearly'。Stripe 行は Webhook が Price ID から解決（`resolvePlanPriceFromId`）、銀行振込行は申込時の選択 |
+| scheduled_billing_cycle | billing_cycle_type (nullable) | 期末切替予約の切替先サイクル（scheduled_plan_type と対。P3） |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
@@ -380,6 +381,11 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 - UNIQUE (user_id) WHERE status IN ('active', 'past_due')
   — 1ユーザーにつき有効なサブスクリプションは1つだけ（解約済みは複数存在してOK）。Stripe と銀行振込の共存もこの制約で防ぐ
 - CHECK `payment_method <> 'bank_transfer' OR stripe_subscription_id IS NULL`
+
+**Stripe の年払い・サイクル切替（2026-09 P3）:**
+- `handle_checkout_completed_plan` v2 / `handle_subscription_lifecycle_updated` v2 が `event_data.billing_cycle` / `scheduled_billing_cycle` を保存する。Webhook 側は Stripe の Price ID を `resolvePlanPriceFromId()` で（プラン, サイクル）に解決して渡す
+- アップグレード（上位プラン / 月→年）は Stripe ホスト画面で確定するため Server Action は DB を触らない。`customer.subscription.updated` Webhook の (a) 分岐（plan_type または billing_cycle の差分）が DB 更新と「プラン変更を承りました」メールの本経路
+- ダウングレード（下位プラン / 年→月）は Subscription Schedule の次フェーズに切替先 Price を入れる。Webhook が次フェーズの Price から `scheduled_plan_type` / `scheduled_billing_cycle` を解決
 
 **銀行振込（payment_method = 'bank_transfer'）の運用（2026-09 P2）:**
 - 決済はアプリ外。申込は `bank_transfer_requests`、契約はこのテーブルに `bank_transfer` 行として運営が管理画面（ADM-026）で有効化時に作成する

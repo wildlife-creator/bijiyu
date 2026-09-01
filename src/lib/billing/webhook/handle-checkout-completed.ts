@@ -12,7 +12,11 @@ import {
   extractPeriodEnd,
   extractPeriodStart,
 } from "@/lib/billing/subscription-periods";
-import type { PlanType } from "@/lib/constants/plans";
+import {
+  resolvePlanPriceFromId,
+  type BillingCycle,
+  type PlanType,
+} from "@/lib/constants/plans";
 import { sendEmail } from "@/lib/email/send-email";
 import type { Database } from "@/types/database";
 
@@ -143,11 +147,13 @@ async function handlePlanCheckout(
   // scheduleCancelAction のバックフィルで補完される。
   let periodStart: string | null = null;
   let periodEnd: string | null = null;
+  let fetchedPriceId: string | null = null;
   try {
     const stripe = stripeClient ?? getStripeClient();
     const sub = await stripe.subscriptions.retrieve(subscriptionId);
     periodStart = extractPeriodStart(sub);
     periodEnd = extractPeriodEnd(sub);
+    fetchedPriceId = sub.items?.data?.[0]?.price?.id ?? null;
   } catch (err) {
     console.error(
       "[handlePlanCheckout] failed to fetch subscription periods (non-blocking)",
@@ -155,9 +161,17 @@ async function handlePlanCheckout(
     );
   }
 
+  // P3: 支払サイクル。Checkout metadata を優先し、無ければ Stripe の Price ID から解決
+  // （旧セッション / metadata 欠落時の保険）。どちらも取れなければ monthly。
+  let billingCycle: BillingCycle = metadata.billing_cycle === "yearly" ? "yearly" : "monthly";
+  if (!metadata.billing_cycle && fetchedPriceId) {
+    billingCycle = resolvePlanPriceFromId(fetchedPriceId)?.billingCycle ?? "monthly";
+  }
+
   const eventData = {
     user_id: userId,
     plan_type: planType,
+    billing_cycle: billingCycle,
     stripe_subscription_id: subscriptionId,
     stripe_customer_id: customerId,
     current_period_start: periodStart,
