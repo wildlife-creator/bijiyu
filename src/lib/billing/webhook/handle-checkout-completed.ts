@@ -1,31 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
-import { headers } from "next/headers";
-
-import { OPTION_LABELS } from "@/lib/billing/options";
+import {
+  sendCompensationActivatedEmail,
+  sendPlanActivatedEmail,
+  sendUrgentActivatedEmails,
+  sendVideoActivatedEmails,
+} from "@/lib/billing/activation-emails";
 import { getStripeClient } from "@/lib/billing/stripe";
 import {
   extractPeriodEnd,
   extractPeriodStart,
 } from "@/lib/billing/subscription-periods";
-import { PLAN_LABELS, type PlanType } from "@/lib/constants/plans";
-import { resolveApplicantCompanyName } from "@/lib/email/recipients/applicant-company-name";
-import {
-  fetchBillingRecipient,
-  formatBillingDate,
-  formatBillingDateTime,
-} from "@/lib/email/recipients/billing-recipient";
-import {
-  getJobClientRecipients,
-  getUserOrganizationRecipients,
-} from "@/lib/email/recipients/organization-members";
+import type { PlanType } from "@/lib/constants/plans";
 import { sendEmail } from "@/lib/email/send-email";
-import { optionSubscriptionActivatedEmail } from "@/lib/email/templates/option-subscription-activated";
-import { planActivatedEmail } from "@/lib/email/templates/plan-activated";
-import { urgentOptionActivatedEmail } from "@/lib/email/templates/urgent-option-activated";
-import { videoOptionActivatedEmail } from "@/lib/email/templates/video-option-activated";
-import { videoOptionAppliedOpsEmail } from "@/lib/email/templates/video-option-applied-ops";
 import type { Database } from "@/types/database";
 
 /**
@@ -196,26 +184,6 @@ async function handlePlanCheckout(
   await sendPlanActivatedEmail(admin, send, userId, planType as PlanType);
 }
 
-async function sendPlanActivatedEmail(
-  admin: SupabaseClient<Database>,
-  send: typeof sendEmail,
-  userId: string,
-  planType: PlanType,
-): Promise<void> {
-  try {
-    const recipient = await fetchBillingRecipient(admin, userId);
-    if (!recipient) return;
-    const tpl = planActivatedEmail({
-      recipientName: recipient.name,
-      planName: PLAN_LABELS[planType],
-      activatedAt: formatBillingDate(new Date().toISOString()),
-    });
-    await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
-  } catch (err) {
-    console.error("[handlePlanCheckout] sendPlanActivatedEmail failed", err);
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Option branch (compensation / urgent / video)
 // ---------------------------------------------------------------------------
@@ -316,30 +284,6 @@ async function handleCompensationOption(
   );
 }
 
-async function sendCompensationActivatedEmail(
-  admin: SupabaseClient<Database>,
-  send: typeof sendEmail,
-  userId: string,
-  optionType: "compensation_5000" | "compensation_9800",
-  activatedAtIso: string,
-): Promise<void> {
-  try {
-    const recipient = await fetchBillingRecipient(admin, userId);
-    if (!recipient) return;
-    const tpl = optionSubscriptionActivatedEmail({
-      recipientName: recipient.name,
-      optionLabel: OPTION_LABELS[optionType],
-      activatedAt: formatBillingDate(activatedAtIso),
-    });
-    await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
-  } catch (err) {
-    console.error(
-      "[handleCheckoutCompleted] sendCompensationActivatedEmail failed",
-      err,
-    );
-  }
-}
-
 async function handleUrgentOption(
   admin: SupabaseClient<Database>,
   session: Stripe.Checkout.Session,
@@ -399,51 +343,6 @@ async function handleUrgentOption(
   // §6.6.A 急募オプション申し込み完了 (M-03 broadcast、jobs 起点で配信先解決)。
   // 失敗はサイレント (DB 整合は完了している)。
   await sendUrgentActivatedEmails(admin, send, jobId, sevenDaysLater);
-}
-
-async function sendUrgentActivatedEmails(
-  admin: SupabaseClient<Database>,
-  send: typeof sendEmail,
-  jobId: string,
-  endDate: Date,
-): Promise<void> {
-  try {
-    const { data: job, error: jobErr } = await admin
-      .from("jobs")
-      .select("title, owner_id, organization_id")
-      .eq("id", jobId)
-      .maybeSingle();
-    if (jobErr || !job) return;
-
-    const recipients = await getJobClientRecipients(admin, {
-      owner_id: job.owner_id as string,
-      organization_id: (job.organization_id as string | null) ?? null,
-    });
-    if (recipients.length === 0) return;
-
-    const tpl = (recipientName: string) =>
-      urgentOptionActivatedEmail({
-        recipientName,
-        jobTitle: (job.title as string) ?? "",
-        endDate: formatBillingDate(endDate.toISOString()),
-      });
-
-    await Promise.all(
-      recipients.map(async (r) => {
-        const built = tpl(r.displayName);
-        try {
-          await send({ to: r.email, subject: built.subject, html: built.html });
-        } catch (err) {
-          console.error(
-            "[handleUrgentOption] §6.6.A send failed",
-            { to: r.email, err },
-          );
-        }
-      }),
-    );
-  } catch (err) {
-    console.error("[handleUrgentOption] sendUrgentActivatedEmails failed", err);
-  }
 }
 
 async function handleVideoOption(
@@ -527,83 +426,6 @@ async function handleVideoWorkplaceOption(
     "video_workplace",
     insert.data?.created_at ?? new Date().toISOString(),
   );
-}
-
-/**
- * §6.6.B-User + §6.6.B-Ops 並列送信ヘルパー (動画 / 職場紹介動画共通)。
- *
- * - B-User: 申込者本人 + 法人プランなら組織メンバー全員 (M-03 broadcast)
- * - B-Ops: `process.env.OPS_NOTIFICATION_EMAIL` 単一宛先 (M-07)
- *
- * 失敗はサイレント (片方失敗でも他方は送信)。
- */
-async function sendVideoActivatedEmails(
-  admin: SupabaseClient<Database>,
-  send: typeof sendEmail,
-  userId: string,
-  optionType: "video" | "video_workplace",
-  activatedAtIso: string,
-): Promise<void> {
-  const optionLabel = OPTION_LABELS[optionType];
-
-  // B-User broadcast
-  try {
-    const recipients = await getUserOrganizationRecipients(admin, userId);
-    await Promise.all(
-      recipients.map(async (r) => {
-        const built = videoOptionActivatedEmail({
-          recipientName: r.displayName,
-          optionLabel,
-          activatedAt: formatBillingDate(activatedAtIso),
-        });
-        try {
-          await send({ to: r.email, subject: built.subject, html: built.html });
-        } catch (err) {
-          console.error("[handleVideoOption] §6.6.B-User send failed", {
-            to: r.email,
-            err,
-          });
-        }
-      }),
-    );
-  } catch (err) {
-    console.error("[handleVideoOption] §6.6.B-User broadcast failed", err);
-  }
-
-  // B-Ops single
-  try {
-    const opsEmail = process.env.OPS_NOTIFICATION_EMAIL;
-    if (!opsEmail) return;
-
-    const { data: applicant } = await admin
-      .from("users")
-      .select("last_name, first_name")
-      .eq("id", userId)
-      .maybeSingle();
-    const applicantName =
-      `${applicant?.last_name ?? ""}${applicant?.first_name ?? ""}`.trim() ||
-      "申込者";
-    const companyName = await resolveApplicantCompanyName(admin, userId);
-
-    const hdrs = await headers();
-    const host = hdrs.get("host");
-    const proto = hdrs.get("x-forwarded-proto") ?? "http";
-    const siteUrl = host
-      ? `${proto}://${host}`
-      : (process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000");
-
-    const tpl = videoOptionAppliedOpsEmail({
-      applicantName,
-      companyName,
-      appliedAt: formatBillingDateTime(activatedAtIso),
-      optionLabel,
-      userId,
-      siteUrl,
-    });
-    await send({ to: opsEmail, subject: tpl.subject, html: tpl.html });
-  } catch (err) {
-    console.error("[handleVideoOption] §6.6.B-Ops send failed", err);
-  }
 }
 
 // ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ADMIN_PLAN_LABELS,
   CLIENT_CATEGORY_LABELS,
+  deriveBankTransferExpiryBadge,
   deriveClientCategory,
   derivePlanLabel,
   resolveContractHolderId,
@@ -149,5 +150,58 @@ describe("ラベル定義の網羅", () => {
       "individual",
       "small",
     ]);
+  });
+});
+
+describe("deriveBankTransferExpiryBadge（銀行振込契約の期限バッジ、P2）", () => {
+  const today = "2026-09-01";
+
+  it("Stripe 契約は自動更新なのでバッジなし", () => {
+    expect(
+      deriveBankTransferExpiryBadge(
+        { paymentMethod: "stripe", currentPeriodEnd: "2026-09-05T14:59:59.000Z" },
+        today,
+      ),
+    ).toBeNull();
+  });
+
+  it("銀行振込: 期限が 30 日以内なら「期限間近」、過去なら「期限切れ」", () => {
+    // 2026-09-10 23:59:59 JST
+    expect(
+      deriveBankTransferExpiryBadge(
+        { paymentMethod: "bank_transfer", currentPeriodEnd: "2026-09-10T14:59:59.000Z" },
+        today,
+      ),
+    ).toBe("expiring_soon");
+    // 2026-08-31 23:59:59 JST
+    expect(
+      deriveBankTransferExpiryBadge(
+        { paymentMethod: "bank_transfer", currentPeriodEnd: "2026-08-31T14:59:59.000Z" },
+        today,
+      ),
+    ).toBe("expired");
+  });
+
+  it("銀行振込でも 31 日以上先・期限未設定・サブスクなしはバッジなし", () => {
+    expect(
+      deriveBankTransferExpiryBadge(
+        { paymentMethod: "bank_transfer", currentPeriodEnd: "2026-12-01T14:59:59.000Z" },
+        today,
+      ),
+    ).toBeNull();
+    expect(
+      deriveBankTransferExpiryBadge({ paymentMethod: "bank_transfer", currentPeriodEnd: null }, today),
+    ).toBeNull();
+    expect(deriveBankTransferExpiryBadge(null, today)).toBeNull();
+  });
+
+  it("期限日は JST の暦日で判定する（UTC では前日でも JST 当日なら期限間近）", () => {
+    // 2026-09-01T00:00 JST = 2026-08-31T15:00Z → 期限日 = 09/01（当日）
+    expect(
+      deriveBankTransferExpiryBadge(
+        { paymentMethod: "bank_transfer", currentPeriodEnd: "2026-08-31T15:00:00.000Z" },
+        today,
+      ),
+    ).toBe("expiring_soon");
   });
 });

@@ -195,6 +195,111 @@ export type Database = {
           },
         ]
       }
+      bank_transfer_requests: {
+        Row: {
+          activated_option_subscription_id: string | null
+          activated_subscription_id: string | null
+          admin_memo: string | null
+          amount: number
+          billing_cycle: Database["public"]["Enums"]["billing_cycle_type"]
+          cancelled_at: string | null
+          created_at: string
+          handled_by: string | null
+          id: string
+          initial_fee: number
+          invoiced_at: string | null
+          job_id: string | null
+          option_type: string | null
+          paid_at: string | null
+          plan_type: string | null
+          start_date: string | null
+          status: Database["public"]["Enums"]["bank_transfer_request_status"]
+          target_kind: Database["public"]["Enums"]["bank_transfer_target_kind"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activated_option_subscription_id?: string | null
+          activated_subscription_id?: string | null
+          admin_memo?: string | null
+          amount: number
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_type"]
+          cancelled_at?: string | null
+          created_at?: string
+          handled_by?: string | null
+          id?: string
+          initial_fee?: number
+          invoiced_at?: string | null
+          job_id?: string | null
+          option_type?: string | null
+          paid_at?: string | null
+          plan_type?: string | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["bank_transfer_request_status"]
+          target_kind: Database["public"]["Enums"]["bank_transfer_target_kind"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activated_option_subscription_id?: string | null
+          activated_subscription_id?: string | null
+          admin_memo?: string | null
+          amount?: number
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_type"]
+          cancelled_at?: string | null
+          created_at?: string
+          handled_by?: string | null
+          id?: string
+          initial_fee?: number
+          invoiced_at?: string | null
+          job_id?: string | null
+          option_type?: string | null
+          paid_at?: string | null
+          plan_type?: string | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["bank_transfer_request_status"]
+          target_kind?: Database["public"]["Enums"]["bank_transfer_target_kind"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transfer_requests_activated_option_subscription_id_fkey"
+            columns: ["activated_option_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "option_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transfer_requests_activated_subscription_id_fkey"
+            columns: ["activated_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transfer_requests_handled_by_fkey"
+            columns: ["handled_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transfer_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transfer_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_profiles: {
         Row: {
           address: string | null
@@ -1027,6 +1132,7 @@ export type Database = {
           id: string
           job_id: string | null
           option_type: string
+          payment_method: Database["public"]["Enums"]["payment_method_type"]
           payment_type: Database["public"]["Enums"]["option_payment_type"]
           start_date: string
           status: Database["public"]["Enums"]["option_status"]
@@ -1042,6 +1148,7 @@ export type Database = {
           id?: string
           job_id?: string | null
           option_type: string
+          payment_method?: Database["public"]["Enums"]["payment_method_type"]
           payment_type: Database["public"]["Enums"]["option_payment_type"]
           start_date?: string
           status?: Database["public"]["Enums"]["option_status"]
@@ -1057,6 +1164,7 @@ export type Database = {
           id?: string
           job_id?: string | null
           option_type?: string
+          payment_method?: Database["public"]["Enums"]["payment_method_type"]
           payment_type?: Database["public"]["Enums"]["option_payment_type"]
           start_date?: string
           status?: Database["public"]["Enums"]["option_status"]
@@ -1259,12 +1367,14 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          billing_cycle: Database["public"]["Enums"]["billing_cycle_type"]
           cancel_at_period_end: boolean
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
           id: string
           past_due_since: string | null
+          payment_method: Database["public"]["Enums"]["payment_method_type"]
           plan_type: string
           schedule_id: string | null
           scheduled_at: string | null
@@ -1275,12 +1385,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_type"]
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
           past_due_since?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method_type"]
           plan_type: string
           schedule_id?: string | null
           scheduled_at?: string | null
@@ -1291,12 +1403,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_type"]
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
           past_due_since?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method_type"]
           plan_type?: string
           schedule_id?: string | null
           scheduled_at?: string | null
@@ -1658,22 +1772,7 @@ export type Database = {
           proxy_count: number | null
           thread_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "message_threads_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "message_threads_participant_2_id_fkey"
-            columns: ["contractor_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
@@ -1725,6 +1824,10 @@ export type Database = {
       handle_subscription_lifecycle_updated: {
         Args: { event_data: Json }
         Returns: Json
+      }
+      has_job_relationship: {
+        Args: { target_job_id: string; uid: string }
+        Returns: boolean
       }
       insert_staff_member_with_limit: {
         Args: {
@@ -1784,10 +1887,18 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "lost"
+      bank_transfer_request_status:
+        | "requested"
+        | "invoiced"
+        | "paid"
+        | "cancelled"
+      bank_transfer_target_kind: "plan" | "option"
+      billing_cycle_type: "monthly" | "yearly"
       job_status: "draft" | "open" | "closed"
       option_payment_type: "one_time" | "subscription"
       option_status: "active" | "expired" | "cancelled"
       org_role: "owner" | "admin" | "staff"
+      payment_method_type: "stripe" | "bank_transfer"
       subscription_status: "active" | "past_due" | "cancelled"
       thread_type: "message" | "scout"
       user_role: "contractor" | "client" | "staff" | "admin"
@@ -1931,10 +2042,19 @@ export const Constants = {
         "cancelled",
         "lost",
       ],
+      bank_transfer_request_status: [
+        "requested",
+        "invoiced",
+        "paid",
+        "cancelled",
+      ],
+      bank_transfer_target_kind: ["plan", "option"],
+      billing_cycle_type: ["monthly", "yearly"],
       job_status: ["draft", "open", "closed"],
       option_payment_type: ["one_time", "subscription"],
       option_status: ["active", "expired", "cancelled"],
       org_role: ["owner", "admin", "staff"],
+      payment_method_type: ["stripe", "bank_transfer"],
       subscription_status: ["active", "past_due", "cancelled"],
       thread_type: ["message", "scout"],
       user_role: ["contractor", "client", "staff", "admin"],
@@ -1943,3 +2063,4 @@ export const Constants = {
     },
   },
 } as const
+

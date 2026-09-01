@@ -22,7 +22,7 @@ Next.js（App Router）をフルスタックフレームワークとして採用
 |------|------|
 | **API** | Next.js API Routes（App Router: Route Handlers） |
 | **DB操作** | Supabase Client SDK（`@supabase/supabase-js`） |
-| **複雑なサーバー処理** | Supabase Edge Functions（必要に応じて） |
+| **複雑なサーバー処理** | Supabase Edge Functions（`auto-cancel-past-due`: 未払い 7 日で Stripe 解約 / `bank-transfer-expiry-notify`: 銀行振込契約の期限 30 日前・当日に運営宛通知。いずれも pg_cron + pg_net から毎日呼出） |
 | **決済連携** | Stripe SDK + Webhook（API Routesで受信） |
 | **メール送信** | Resend |
 | **リアルタイム通知** | Supabase Realtime（アプリ内通知）。Web Push通知は将来検討 |

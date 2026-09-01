@@ -5,7 +5,7 @@ import { TEST_ADMIN, TEST_CONTRACTOR, TEST_CLIENT, TEST_STAFF, login } from "./h
 /**
  * admin spec Task 14: 管理者機能の E2E。
  *
- * - 14.1 導線スモーク: ADM-001 ログイン → ダッシュボード → 全9メニューをクリック到達 →
+ * - 14.1 導線スモーク: ADM-001 ログイン → ダッシュボード → 全10メニューをクリック到達 →
  *   ログアウト → /admin/login。非 admin / 未認証のブロック検証
  * - 14.2 ドメイン別: 本人確認審査・応募履歴 8分類と発注取消・管理責任者 招待フロー・
  *   発注者管理ドリルダウン・代理メッセージ閲覧
@@ -39,12 +39,12 @@ async function adminLogout(page: Page) {
 // ============================================================
 
 test.describe("ADM-001/002: admin 導線スモーク", () => {
-  test("ログイン → 全9メニューをクリックで到達 → ログアウト → /admin/login に戻る", async ({
+  test("ログイン → 全10メニューをクリックで到達 → ログアウト → /admin/login に戻る", async ({
     page,
   }) => {
     await adminLogin(page);
 
-    // ダッシュボードの8メニュー＋パスワード再設定（計9メニュー）をクリックで巡回。
+    // ダッシュボードの9メニュー＋パスワード再設定（計10メニュー）をクリックで巡回。
     // 各画面から共通ヘッダーのロゴ（accessible name「ビジ友 管理画面」）でダッシュボードへ戻る
     const menus: Array<[string, RegExp, string]> = [
       ["発注者アカウント一覧", /\/admin\/clients/, "発注者 アカウント一覧"],
@@ -55,6 +55,7 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
       ["トラブル報告一覧", /\/admin\/trouble-reports/, "トラブル報告一覧"],
       ["求人問い合わせ一覧", /\/admin\/job-inquiries/, "求人問い合わせ一覧"],
       ["代理メッセージ一覧", /\/admin\/messages/, "代理メッセージ一覧"],
+      ["銀行振込申込一覧", /\/admin\/bank-transfers/, "銀行振込申込一覧"],
       ["パスワード再設定", /\/admin\/password/, "パスワード再設定"],
     ];
 

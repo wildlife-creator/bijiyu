@@ -5,6 +5,10 @@ import { z } from "zod";
 
 import { ensureStripeCustomer } from "@/lib/billing/ensure-stripe-customer";
 import { readFeeCookie, FEE_COOKIE_NAME } from "@/lib/billing/fee-cookie";
+import {
+  BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
+  OPEN_BANK_TRANSFER_STATUSES,
+} from "@/lib/billing/bank-transfer";
 import type { OptionType } from "@/lib/billing/options";
 import { getStripeClient } from "@/lib/billing/stripe";
 import { PAID_PLAN_TYPES, type PaidPlanType } from "@/lib/constants/plans";
@@ -178,7 +182,40 @@ export async function startCheckoutAction(
           "すでにご契約中のプランがあります。プラン変更ボタンからお手続きください",
       };
     }
+    // 銀行振込のプラン申込（P2）を処理中なら Stripe 決済へ進ませない（二重契約防止）
+    const openBankPlan = await admin
+      .from("bank_transfer_requests")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("target_kind", "plan")
+      .in("status", [...OPEN_BANK_TRANSFER_STATUSES])
+      .limit(1);
+    if ((openBankPlan.data?.length ?? 0) > 0) {
+      return {
+        success: false,
+        error: BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
+      };
+    }
   } else {
+    // 同じオプションの銀行振込申込（P2）を処理中なら Stripe 決済へ進ませない
+    let openBankOption = admin
+      .from("bank_transfer_requests")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("target_kind", "option")
+      .eq("option_type", input.optionType)
+      .in("status", [...OPEN_BANK_TRANSFER_STATUSES]);
+    if (input.optionType === "urgent") {
+      openBankOption = openBankOption.eq("job_id", input.jobId);
+    }
+    const { data: openBankOptionRows } = await openBankOption.limit(1);
+    if ((openBankOptionRows?.length ?? 0) > 0) {
+      return {
+        success: false,
+        error: BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
+      };
+    }
+
     // Option-specific checks
     if (
       input.optionType === "compensation_5000" ||

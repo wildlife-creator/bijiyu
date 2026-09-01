@@ -36,6 +36,30 @@ export const OPTION_LABELS: Record<OptionType, string> = {
 };
 
 /**
+ * オプション価格（税込 JPY）。Stripe の Price と一致させること
+ * （STRIPE_PRICE_VIDEO / STRIPE_PRICE_VIDEO_WORKPLACE / STRIPE_PRICE_URGENT /
+ *   STRIPE_PRICE_COMPENSATION_5000 / STRIPE_PRICE_COMPENSATION_9800）。
+ * 銀行振込（P2）の申込金額と、料金プラン画面の表示に使う。補償は月額。
+ */
+export const OPTION_PRICES_TAX_INCLUDED: Record<OptionType, number> = {
+  video: 100000,
+  video_workplace: 100000,
+  urgent: 20000,
+  compensation_5000: 5000,
+  compensation_9800: 9800,
+};
+
+/** 月額課金型（subscription）のオプション。それ以外は買い切り（one_time）。 */
+export const SUBSCRIPTION_OPTION_TYPES: readonly OptionType[] = [
+  "compensation_5000",
+  "compensation_9800",
+];
+
+export function isSubscriptionOption(optionType: OptionType): boolean {
+  return SUBSCRIPTION_OPTION_TYPES.includes(optionType);
+}
+
+/**
  * 指定ユーザーが指定 option_type の active レコードを持つか判定する。
  *
  * - status='active' のみ true。'cancelled'/'expired' は（DB 側フィルタで除外され）false。

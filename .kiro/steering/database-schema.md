@@ -371,18 +371,58 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | current_period_start | timestamptz | 現在の課金期間開始 |
 | current_period_end | timestamptz | 現在の課金期間終了 |
 | past_due_since | timestamptz (nullable) | past_due 開始日時（支払い遅延がいつ始まったか） |
+| payment_method | payment_method_type | 'stripe'（既定）/ 'bank_transfer'（銀行振込、P2）。銀行振込行は stripe_subscription_id が NULL（CHECK） |
+| billing_cycle | billing_cycle_type | 'monthly'（既定）/ 'yearly'。Stripe 行は P3（年額 Price 追加）まで monthly のみ |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
 **制約:**
 - UNIQUE (user_id) WHERE status IN ('active', 'past_due')
-  — 1ユーザーにつき有効なサブスクリプションは1つだけ（解約済みは複数存在してOK）
+  — 1ユーザーにつき有効なサブスクリプションは1つだけ（解約済みは複数存在してOK）。Stripe と銀行振込の共存もこの制約で防ぐ
+- CHECK `payment_method <> 'bank_transfer' OR stripe_subscription_id IS NULL`
+
+**銀行振込（payment_method = 'bank_transfer'）の運用（2026-09 P2）:**
+- 決済はアプリ外。申込は `bank_transfer_requests`、契約はこのテーブルに `bank_transfer` 行として運営が管理画面（ADM-026）で有効化時に作成する
+- `current_period_start` / `current_period_end` が利用期間（開始日 00:00 JST 〜 期限日 23:59:59 JST）。期限が来ても **自動停止しない**（D3）。ADM-003/004 に「期限間近（30 日以内）/ 期限切れ」バッジ、Edge Function `bank-transfer-expiry-notify`（pg_cron 毎日 03:30 JST）が 30 日前・当日に運営宛通知
+- プラン変更・期限延長・解約は ADM-004 の運営操作のみ（`/billing` の Stripe 前提の操作には流入させない。`plan-actions.ts` でガード）。解約は `handle_subscription_lifecycle_deleted`（v4: `subscription_id` 指定）で Stripe 解約と同じ後処理
+- `is_paid_user()` は status のみを見るため、銀行振込行でも発注機能は解放される。未払い自動解約 Edge Function（`auto-cancel-past-due`）は Stripe 行のみ対象
 
 **past_due_since の運用ルール:**
 - Stripe Webhook で `invoice.payment_failed` を受信し status が past_due に変わった時点で、past_due_since に現在日時を設定する
 - 支払いが成功して status が active に戻った場合は、past_due_since を NULL にリセットする
 - 7日間猶予の自動解約判定: `past_due_since + INTERVAL '7 days' < NOW()` が true になった時点で、Edge Function（定期実行の処理）が自動解約を実行する
 - 猶予期間中はユーザーに「残りX日で自動解約されます」の警告バナーを表示する
+
+### bank_transfer_requests（銀行振込の申込、2026-09 P2）
+
+決済はアプリ外。「誰が・何を・いくらで申し込んだか」と処理状態だけを持つ。入金確認後に運営が有効化すると `subscriptions` / `option_subscriptions` に `payment_method = 'bank_transfer'` の行が作られる（申込と契約は別テーブル）。
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | uuid (PK) | |
+| user_id | uuid (FK → users) | 申込者 |
+| target_kind | bank_transfer_target_kind | 'plan' / 'option' |
+| plan_type | text (nullable) | plan のとき必須（individual / small / corporate / corporate_premium） |
+| option_type | text (nullable) | option のとき必須（video / video_workplace / urgent / compensation_5000 / compensation_9800） |
+| job_id | uuid (FK → jobs, nullable) | 急募の対象案件 |
+| billing_cycle | billing_cycle_type | 'monthly' / 'yearly'（プランと補償で選択可） |
+| amount | integer | 本体価格（税込 JPY） |
+| initial_fee | integer | 初回事務手数料（税込 JPY、該当時のみ > 0。`INITIAL_FEE_TAX_INCLUDED` = 20,000） |
+| status | bank_transfer_request_status | 'requested'（申込受付）→ 'invoiced'（請求書送付済）→ 'paid'（入金確認済＝有効化済）/ 'cancelled'（取消） |
+| invoiced_at / paid_at / cancelled_at | timestamptz (nullable) | 状態遷移の日時 |
+| start_date | date (nullable) | 有効化時に運営が指定した利用開始日（既定は当日。D8: Stripe 会員の切替は Stripe の期間終了日の翌日） |
+| handled_by | uuid (FK → users, nullable) | 最後に操作した管理者 |
+| admin_memo | text (nullable) | 運営メモ（請求書番号・入金日・取消理由） |
+| activated_subscription_id / activated_option_subscription_id | uuid (nullable) | 有効化で作成した契約行 |
+| created_at / updated_at | timestamptz | |
+
+**制約:**
+- CHECK `bank_transfer_requests_target_consistency`（plan と option の排他・値の範囲）
+- 部分 UNIQUE `(user_id, target_kind, COALESCE(option_type,''), COALESCE(job_id, zero-uuid)) WHERE status IN ('requested','invoiced')` — 処理中の同一対象を二重に受け付けない（plan は種類を問わず 1 件）
+
+**RLS:** SELECT は本人（`user_id = auth.uid()`）と admin（`is_admin()`）。INSERT / UPDATE は service_role（Server Action）のみ。
+
+**申込の金額:** `computeBankTransferAmount()`（`src/lib/billing/bank-transfer.ts`）。プランは月額 = `PLAN_LIMITS`、年額 = `YEARLY_PRICE_TAX_INCLUDED`（**暫定: 月額 × 12。P3 で Stripe 年額 Price と一致させる**）。オプションは `OPTION_PRICES_TAX_INCLUDED`。
 
 ### option_subscriptions（オプション契約）
 
@@ -398,6 +438,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | payment_type | text | 'one_time'（単発課金）/ 'subscription'（月額課金） |
 | stripe_subscription_id | text (nullable) | Stripe Subscription ID（月額課金の場合のみ。単発課金では null） |
 | stripe_payment_intent_id | text (nullable) | Stripe Payment Intent ID（単発課金の場合のみ。月額課金では null） |
+| payment_method | payment_method_type | 'stripe'（既定）/ 'bank_transfer'（P2）。銀行振込行は Stripe ID が両方 NULL（CHECK）。銀行振込の補償は end_date を期限として持つが `expire-options` の自動停止対象外（手動運用） |
 | option_type | text | 'urgent'（急募）/ 'compensation_5000'（補償¥5,000）/ 'compensation_9800'（補償¥9,800）/ 'video'（動画掲載＝受注者PR動画）/ 'video_workplace'（職場紹介動画掲載）。CHECK 制約なし |
 | status | text | 'active' / 'expired' / 'cancelled' |
 | start_date | timestamptz | オプション有効開始日 |

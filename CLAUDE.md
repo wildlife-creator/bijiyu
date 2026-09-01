@@ -329,6 +329,15 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   テスト決済後に users.role が 'client' に変わることを手動で確認すること
 - Stripe Webhook の署名検証（STRIPE_WEBHOOK_SECRET）が .env.local に設定されていることを確認すること
 
+### 銀行振込（payment_method = 'bank_transfer'）と Stripe 前提処理の分離（必ず守ること）
+- 2026-09 P2 で `subscriptions` / `option_subscriptions` に `payment_method`（stripe / bank_transfer）が追加された。銀行振込行は **Stripe にサブスクが存在しない**（`stripe_subscription_id` / `stripe_payment_intent_id` が NULL、CHECK 制約で保証）
+- **Stripe API を呼ぶ処理（プラン変更・解約・ポータル・未払い自動解約 Edge Function 等）を新しく書く／触るときは、必ず `payment_method = 'stripe'` に絞るか、`bank_transfer` 行を早期 return でガードすること**。既存の `!sub.stripe_subscription_id` チェックだけに頼ると、銀行振込ユーザーに「有効なサブスクリプションが見つかりません」という誤った文言が出る。案内文は `BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE`（`src/lib/billing/bank-transfer.ts`）を使う
+- 逆に **有料判定（`is_paid_user()` / `resolveEffectiveSubscription` / `status IN ('active','past_due')`）は Stripe ID を要求してはならない**。銀行振込行でも発注機能は解放される設計
+- 銀行振込契約の有効化・プラン変更・期限延長・解約は管理画面（ADM-026 / ADM-004）の Server Action で行う。契約行の作成は Stripe 経路の RPC `handle_checkout_completed_plan` と同じ副作用（role 昇格・client_profiles・`ensure_organization_exists`・監査ログ・有効化メール）を `src/app/admin/(protected)/bank-transfers/actions.ts` が再現している。副作用を追加する場合は **両経路に入れる**こと
+- 有効化メール等の送信ヘルパーは `src/lib/billing/activation-emails.ts` に共通化済み（Webhook と管理画面の両方から呼ぶ）。Webhook ファイル内に新しい送信関数を閉じ込めないこと
+- 期限管理は手動運用（D3）。`current_period_end` を過ぎても自動停止せず、`expire-options` cron も銀行振込の補償は対象外。期限バッジ（`deriveExpiryBadge`）と運営宛通知（Edge Function `bank-transfer-expiry-notify`）で運営に知らせる
+- 詳細: `docs/requirements/spec-changes-202608.md` §2.1(1)、`.kiro/steering/database-schema.md`「bank_transfer_requests」「銀行振込の運用」
+
 ### Stripe 二重課金防止（必ず守ること）
 - Checkout Session 作成前の二重課金防止は **DB チェック + Stripe API チェックの二段構え** で行うこと。DB（subscriptions テーブル）のチェックだけでは、Webhook 遅延時に DB が未更新のままガードをすり抜ける
 - Stripe API チェック: `ensureStripeCustomer` で customerId 確定後、`stripe.subscriptions.list({ customer, status: 'active', limit: 1 })` を呼び、active subscription が存在すれば拒否する

@@ -2,6 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE } from "@/lib/billing/bank-transfer";
 import { comparePlans } from "@/lib/billing/compare-plans";
 import { getStripeClient } from "@/lib/billing/stripe";
 import { extractPeriodEnd } from "@/lib/billing/subscription-periods";
@@ -78,13 +79,22 @@ async function getAuthenticatedClientSubscription(): Promise<
   const { data: sub } = await admin
     .from("subscriptions")
     .select(
-      "id, user_id, plan_type, status, stripe_subscription_id, schedule_id, cancel_at_period_end, current_period_end",
+      "id, user_id, plan_type, status, stripe_subscription_id, schedule_id, cancel_at_period_end, current_period_end, payment_method",
     )
     .eq("user_id", user.id)
     .in("status", ["active", "past_due"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // 銀行振込契約（P2）は Stripe にサブスクが無く、変更・解約・期限延長は運営が
+  // 管理画面で行う（D3 / D6）。この画面の Stripe 前提の操作には流入させない
+  if (sub && sub.payment_method === "bank_transfer") {
+    return {
+      success: false,
+      error: BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE,
+    };
+  }
 
   if (!sub || !sub.stripe_subscription_id) {
     return { success: false, error: "有効なサブスクリプションが見つかりません" };
@@ -675,7 +685,7 @@ export async function cancelCompensationAction(input: {
   const admin = createAdminClient();
   const { data: opt } = await admin
     .from("option_subscriptions")
-    .select("id, user_id, stripe_subscription_id, option_type, status")
+    .select("id, user_id, stripe_subscription_id, option_type, status, payment_method")
     .eq("id", input.optionSubscriptionId)
     .maybeSingle();
 
@@ -690,6 +700,14 @@ export async function cancelCompensationAction(input: {
     return {
       success: false,
       error: "このオプションは既に解約されています",
+    };
+  }
+
+  // 銀行振込で契約した補償（P2）は Stripe に無い。解約は運営に連絡（手動運用）
+  if (opt.payment_method === "bank_transfer") {
+    return {
+      success: false,
+      error: BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE,
     };
   }
 

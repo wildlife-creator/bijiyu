@@ -19,4 +19,5 @@ export const ADMIN_MENU_ITEMS: readonly AdminMenuItem[] = [
   { label: "トラブル報告一覧", href: "/admin/trouble-reports" },
   { label: "求人問い合わせ一覧", href: "/admin/job-inquiries" },
   { label: "代理メッセージ一覧", href: "/admin/messages" },
+  { label: "銀行振込申込一覧", href: "/admin/bank-transfers" },
 ] as const;

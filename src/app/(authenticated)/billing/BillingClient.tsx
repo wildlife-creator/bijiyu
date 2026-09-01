@@ -29,6 +29,8 @@ import {
   type PaidPlanType,
   type PlanType,
 } from "@/lib/constants/plans";
+import { BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE } from "@/lib/billing/bank-transfer";
+import { BankTransferApplyButton } from "./bank-transfer-apply-button";
 import { startCheckoutAction } from "./actions";
 import {
   changePlanAction,
@@ -76,6 +78,23 @@ interface ClientProfile {
   isUrgentOption: boolean;
 }
 
+interface OpenBankTransferRequest {
+  targetKind: "plan" | "option";
+  optionType: string | null;
+  jobId: string | null;
+  targetLabel: string;
+  statusLabel: string;
+}
+
+interface BankTransferInfo {
+  /** 現在の有料プランが銀行振込契約か（変更・解約は運営が管理画面で行う） */
+  isBankTransferPlan: boolean;
+  billingCycleLabel: string | null;
+  currentPeriodEnd: string | null;
+  /** 処理中（申込受付 / 請求書送付済）の銀行振込申込 */
+  openRequests: OpenBankTransferRequest[];
+}
+
 interface BillingClientProps {
   userId: string;
   isStaff: boolean;
@@ -90,6 +109,7 @@ interface BillingClientProps {
   clientProfile: ClientProfile;
   urgentEligibleJobs: Array<{ id: string; title: string }>;
   checkoutSuccess?: string;
+  bankTransfer: BankTransferInfo;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +145,7 @@ export function BillingClient({
   clientProfile,
   urgentEligibleJobs,
   checkoutSuccess,
+  bankTransfer,
 }: BillingClientProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -163,6 +184,22 @@ export function BillingClient({
   const hasVideoWorkplace = activeOptions.some(
     (o) => o.optionType === "video_workplace",
   );
+
+  // 銀行振込（P2）
+  const { isBankTransferPlan } = bankTransfer;
+  const openBankPlanRequest = bankTransfer.openRequests.find(
+    (r) => r.targetKind === "plan",
+  );
+  function openBankOptionRequest(optionType: string, jobId?: string) {
+    return bankTransfer.openRequests.find(
+      (r) =>
+        r.targetKind === "option" &&
+        r.optionType === optionType &&
+        (optionType !== "urgent" || !jobId || r.jobId === jobId),
+    );
+  }
+  // 初回事務手数料の表示判定（確定はサーバー側）
+  const bankNeedsInitialFee = showInitialFee;
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -428,6 +465,23 @@ export function BillingClient({
           </p>
         ) : null}
 
+        {openBankPlanRequest && (
+          <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-body-sm">
+            <p className="font-bold text-primary">銀行振込でのお申し込みを受付中です</p>
+            <p className="mt-1 text-muted-foreground">
+              {openBankPlanRequest.targetLabel}（{openBankPlanRequest.statusLabel}）。担当より請求書をお送りします。ご入金の確認後にご利用開始となります。
+            </p>
+          </div>
+        )}
+        {isBankTransferPlan && (
+          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-body-sm text-muted-foreground">
+            お支払い方法: 銀行振込（{bankTransfer.billingCycleLabel}）
+            {bankTransfer.currentPeriodEnd && ` ／ 有効期限 ${formatDate(bankTransfer.currentPeriodEnd)}`}
+            <br />
+            {BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE}
+          </div>
+        )}
+
         <div className="mt-4 divide-y divide-border">
           {planStates.map((plan) => (
             <div key={plan.planType} className="py-4 first:pt-0 last:pb-0">
@@ -448,8 +502,8 @@ export function BillingClient({
                       お支払い確認中
                     </Badge>
                   )}
-                  {/* 解約ボタン（現在のプラン枠内） */}
-                  {!isStaff && (
+                  {/* 解約ボタン（現在のプラン枠内）。銀行振込契約は運営が管理するため出さない */}
+                  {!isStaff && !isBankTransferPlan && (
                     <div className="mt-3 flex justify-center">
                       {isPastDue ? (
                         <Button
@@ -511,7 +565,7 @@ export function BillingClient({
                   )}
                 </div>
               ) : (
-                <div className="mt-3 flex justify-center">
+                <div className="mt-3 flex flex-col items-center gap-2">
                   <Button
                     variant="default"
                     className="w-full max-w-xs rounded-full text-white"
@@ -524,6 +578,15 @@ export function BillingClient({
                       ? `${formatPrice(plan.price)}円/月 申し込む`
                       : plan.buttonLabel}
                   </Button>
+                  {/* 銀行振込（P2）: 新規申込のみ。契約中のプラン変更は運営対応 */}
+                  {!isStaff && isFirstPurchase && (
+                    <BankTransferApplyButton
+                      target={{ kind: "plan", planType: plan.planType }}
+                      needsInitialFee={bankNeedsInitialFee}
+                      disabled={!!openBankPlanRequest || pending}
+                      disabledReason={openBankPlanRequest ? "銀行振込でのお申し込みを受付中です" : null}
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -546,16 +609,23 @@ export function BillingClient({
               あなたの仕事ぶりや人柄を動画でアピール。<br />
               プロフィール画面とビジ友のTikTok紹介ページに掲載します。
             </p>
-            <div className="mt-3 flex justify-center">
+            <div className="mt-3 flex flex-col items-center gap-2">
               <Button
                 variant="default"
                 className="w-full max-w-xs rounded-full text-white"
-                disabled={pending || isStaff}
+                disabled={pending || isStaff || !!openBankOptionRequest("video")}
                 pending={pendingKey === "opt-video"}
                 onClick={() => handleVideoOptionButton("video")}
               >
                 {hasVideo ? "購入済み" : "自己PR動画掲載を申し込む"}
               </Button>
+              {!isStaff && (
+                <BankTransferOptionRow
+                  request={openBankOptionRequest("video")}
+                  target={{ kind: "option", optionType: "video" }}
+                  disabled={pending}
+                />
+              )}
             </div>
           </div>
 
@@ -569,16 +639,24 @@ export function BillingClient({
               現場や会社の雰囲気を動画でアピール。<br />
               職人が見る会社詳細ページとビジ友のTikTok紹介ページに掲載します。
             </p>
-            <div className="mt-3 flex justify-center">
+            <div className="mt-3 flex flex-col items-center gap-2">
               <Button
                 variant="default"
                 className="w-full max-w-xs rounded-full text-white"
-                disabled={pending || isStaff || !isClientPlanActive}
+                disabled={pending || isStaff || !isClientPlanActive || !!openBankOptionRequest("video_workplace")}
                 pending={pendingKey === "opt-video_workplace"}
                 onClick={() => handleVideoOptionButton("video_workplace")}
               >
                 {hasVideoWorkplace ? "購入済み" : "職場紹介動画掲載を申し込む"}
               </Button>
+              {!isStaff && (
+                <BankTransferOptionRow
+                  request={openBankOptionRequest("video_workplace")}
+                  target={{ kind: "option", optionType: "video_workplace" }}
+                  disabled={pending || !isClientPlanActive}
+                  disabledReason={!isClientPlanActive ? "職場紹介動画掲載は発注者プラン加入者のみご利用いただけます" : null}
+                />
+              )}
             </div>
           </div>
 
@@ -615,11 +693,11 @@ export function BillingClient({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="mt-3 flex justify-center">
+                <div className="mt-3 flex flex-col items-center gap-2">
                   <Button
                     variant="default"
                     className="w-full max-w-xs rounded-full text-white"
-                    disabled={!selectedJobId || pending || isStaff}
+                    disabled={!selectedJobId || pending || isStaff || !!openBankOptionRequest("urgent", selectedJobId)}
                     pending={pendingKey === "opt-urgent"}
                     onClick={() =>
                       handleOptionCheckout("urgent", selectedJobId)
@@ -627,6 +705,14 @@ export function BillingClient({
                   >
                     急募を申し込む
                   </Button>
+                  {!isStaff && (
+                    <BankTransferOptionRow
+                      request={selectedJobId ? openBankOptionRequest("urgent", selectedJobId) : undefined}
+                      target={{ kind: "option", optionType: "urgent", jobId: selectedJobId }}
+                      disabled={!selectedJobId || pending}
+                      disabledReason={!selectedJobId ? "案件を選択してください" : null}
+                    />
+                  )}
                 </div>
               </>
             )}
@@ -664,15 +750,24 @@ export function BillingClient({
                   解約する
                 </Button>
               ) : (
-                <Button
-                  variant="default"
-                  className="w-full max-w-xs rounded-full text-white"
-                  disabled={hasComp9800 || pending || isStaff}
-                  pending={pendingKey === "opt-compensation_5000"}
-                  onClick={() => handleOptionCheckout("compensation_5000")}
-                >
-                  補償（5,000円）を申し込む
-                </Button>
+                <div className="flex w-full flex-col items-center gap-2">
+                  <Button
+                    variant="default"
+                    className="w-full max-w-xs rounded-full text-white"
+                    disabled={hasComp9800 || pending || isStaff || !!openBankOptionRequest("compensation_5000")}
+                    pending={pendingKey === "opt-compensation_5000"}
+                    onClick={() => handleOptionCheckout("compensation_5000")}
+                  >
+                    補償（5,000円）を申し込む
+                  </Button>
+                  {!isStaff && (
+                    <BankTransferOptionRow
+                      request={openBankOptionRequest("compensation_5000")}
+                      target={{ kind: "option", optionType: "compensation_5000" }}
+                      disabled={hasComp9800 || pending}
+                    />
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -709,23 +804,32 @@ export function BillingClient({
                   解約する
                 </Button>
               ) : (
-                <Button
-                  variant="default"
-                  className="w-full max-w-xs rounded-full text-white"
-                  disabled={hasComp5000 || pending || isStaff}
-                  pending={pendingKey === "opt-compensation_9800"}
-                  onClick={() => handleOptionCheckout("compensation_9800")}
-                >
-                  補償（9,800円）を申し込む
-                </Button>
+                <div className="flex w-full flex-col items-center gap-2">
+                  <Button
+                    variant="default"
+                    className="w-full max-w-xs rounded-full text-white"
+                    disabled={hasComp5000 || pending || isStaff || !!openBankOptionRequest("compensation_9800")}
+                    pending={pendingKey === "opt-compensation_9800"}
+                    onClick={() => handleOptionCheckout("compensation_9800")}
+                  >
+                    補償（9,800円）を申し込む
+                  </Button>
+                  {!isStaff && (
+                    <BankTransferOptionRow
+                      request={openBankOptionRequest("compensation_9800")}
+                      target={{ kind: "option", optionType: "compensation_9800" }}
+                      disabled={hasComp5000 || pending}
+                    />
+                  )}
+                </div>
               )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Customer Portal */}
-      {currentPlan !== "free" && !isStaff && (
+      {/* Customer Portal（銀行振込契約には Stripe の支払情報が無いため出さない） */}
+      {currentPlan !== "free" && !isStaff && !isBankTransferPlan && (
         <section className="mt-6 flex justify-center">
           <Button
             variant="outline"
@@ -990,4 +1094,35 @@ function comparePlansLocal(a: PlanType, b: PlanType): "upgrade" | "downgrade" | 
   if (ranks[b] > ranks[a]) return "upgrade";
   if (ranks[b] < ranks[a]) return "downgrade";
   return "same";
+}
+
+// ---------------------------------------------------------------------------
+// 銀行振込（P2）: オプション行の「銀行振込で申し込む」/「申込中」表示（ヘルパー）
+// ---------------------------------------------------------------------------
+
+function BankTransferOptionRow({
+  request,
+  target,
+  disabled,
+  disabledReason = null,
+}: {
+  request: OpenBankTransferRequest | undefined;
+  target: Parameters<typeof BankTransferApplyButton>[0]["target"];
+  disabled: boolean;
+  disabledReason?: string | null;
+}) {
+  if (request) {
+    return (
+      <p className="text-body-xs text-muted-foreground">
+        銀行振込で申込中（{request.statusLabel}）。請求書のご案内をお待ちください。
+      </p>
+    );
+  }
+  return (
+    <BankTransferApplyButton
+      target={target}
+      disabled={disabled}
+      disabledReason={disabledReason}
+    />
+  );
 }

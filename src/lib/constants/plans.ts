@@ -76,6 +76,51 @@ export const PLAN_LABELS: Record<PlanType, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// 支払方法 / 支払サイクル（銀行振込 P2: docs/requirements/spec-changes-202608.md §2.1）
+// ---------------------------------------------------------------------------
+
+export type PaymentMethod = "stripe" | "bank_transfer";
+export type BillingCycle = "monthly" | "yearly";
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  stripe: "クレジットカード",
+  bank_transfer: "銀行振込",
+};
+
+export const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
+  monthly: "月払い",
+  yearly: "年払い",
+};
+
+/**
+ * 初回事務手数料（税込 JPY）。基本プランへ初めて申し込むときのみ。
+ * Stripe 経路は STRIPE_PRICE_INITIAL_FEE（¥20,000）の Price を line item に足す。
+ * 銀行振込経路はこの定数で申込金額を組み立てる。金額は両者で一致させること。
+ */
+export const INITIAL_FEE_TAX_INCLUDED = 20000;
+
+/**
+ * 年払いの料金（税込 JPY）。
+ *
+ * TODO(P3-yearly-price): 年払い金額はクライアント未確定のため「月額 × 12」を暫定値とする。
+ * P3 で Stripe の年額 Price を作成する際に正式金額へ差し替え、Stripe 側と一致させること。
+ * PLAN_LIMITS（月額）は変更しない。
+ */
+export const YEARLY_PRICE_TAX_INCLUDED: Record<PaidPlanType, number> = {
+  individual: PLAN_LIMITS.individual.monthlyPriceTaxIncluded * 12,
+  small: PLAN_LIMITS.small.monthlyPriceTaxIncluded * 12,
+  corporate: PLAN_LIMITS.corporate.monthlyPriceTaxIncluded * 12,
+  corporate_premium: PLAN_LIMITS.corporate_premium.monthlyPriceTaxIncluded * 12,
+};
+
+/** プラン本体の料金（税込 JPY）を支払サイクルで解決する。 */
+export function planPriceFor(planType: PaidPlanType, cycle: BillingCycle): number {
+  return cycle === "yearly"
+    ? YEARLY_PRICE_TAX_INCLUDED[planType]
+    : PLAN_LIMITS[planType].monthlyPriceTaxIncluded;
+}
+
+// ---------------------------------------------------------------------------
 // audit_logs.action constants
 // ---------------------------------------------------------------------------
 //
