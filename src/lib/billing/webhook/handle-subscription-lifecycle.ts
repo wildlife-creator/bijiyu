@@ -21,7 +21,9 @@ import {
 import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
 import {
   PLAN_LABELS,
-  resolvePlanTypeFromPriceId,
+  planDisplayName,
+  resolvePlanPriceFromId,
+  type BillingCycle,
   type PaidPlanType,
   type PlanType,
 } from "@/lib/constants/plans";
@@ -46,6 +48,8 @@ interface SubscriptionSnapshot {
   id: string;
   user_id: string;
   plan_type: string;
+  /** P3: 支払サイクル。旧行は monthly */
+  billing_cycle?: BillingCycle | null;
   schedule_id: string | null;
   cancel_at_period_end: boolean;
 }
@@ -112,7 +116,7 @@ async function handleSubscriptionUpdated(
   // 1. SELECT existing subscription row (capture pre-update snapshot for email diff)
   const existingSubscription = await admin
     .from("subscriptions")
-    .select("id, user_id, plan_type, schedule_id, cancel_at_period_end")
+    .select("id, user_id, plan_type, billing_cycle, schedule_id, cancel_at_period_end")
     .eq("stripe_subscription_id", sub.id)
     .maybeSingle();
 
@@ -120,24 +124,27 @@ async function handleSubscriptionUpdated(
     const snapshot: SubscriptionSnapshot = existingSubscription.data;
 
     // 2. Build event_data from the live Stripe Subscription
-    const newPlanType = extractPlanType(sub);
-    if (!newPlanType) {
+    const newPlanPrice = extractPlanPrice(sub);
+    if (!newPlanPrice) {
       throw new Error(
         `handleSubscriptionUpdated: unknown price id on subscription ${sub.id}`,
       );
     }
+    const newPlanType = newPlanPrice.planType;
 
-    const { scheduledPlanType, scheduledAt } =
+    const { scheduledPlanType, scheduledBillingCycle, scheduledAt } =
       await resolveScheduleNextPhase(stripe, sub);
 
     const eventData = {
       stripe_subscription_id: sub.id,
       plan_type: newPlanType,
+      billing_cycle: newPlanPrice.billingCycle,
       status: sub.status,
       current_period_start: extractPeriodStart(sub),
       current_period_end: extractPeriodEnd(sub),
       schedule_id: extractScheduleId(sub),
       scheduled_plan_type: scheduledPlanType,
+      scheduled_billing_cycle: scheduledBillingCycle,
       scheduled_at: scheduledAt,
       cancel_at_period_end: sub.cancel_at_period_end,
     };
@@ -157,8 +164,10 @@ async function handleSubscriptionUpdated(
     // 4. Diff snapshot vs new state to decide which email to send
     await maybeSendChangedEmail(admin, snapshot, {
       planType: newPlanType,
+      billingCycle: newPlanPrice.billingCycle,
       scheduleId: eventData.schedule_id,
       scheduledPlanType: scheduledPlanType,
+      scheduledBillingCycle: scheduledBillingCycle,
       scheduledAt: scheduledAt,
       currentPeriodEnd: eventData.current_period_end,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
@@ -462,10 +471,12 @@ async function handleInvoicePaymentSucceeded(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function extractPlanType(sub: Stripe.Subscription): PaidPlanType | null {
+function extractPlanPrice(
+  sub: Stripe.Subscription,
+): { planType: PaidPlanType; billingCycle: BillingCycle } | null {
   const priceId = sub.items?.data?.[0]?.price?.id;
   if (!priceId) return null;
-  return resolvePlanTypeFromPriceId(priceId);
+  return resolvePlanPriceFromId(priceId);
 }
 
 function extractScheduleId(sub: Stripe.Subscription): string | null {
@@ -503,46 +514,51 @@ function extractInvoiceSubscriptionId(
 async function resolveScheduleNextPhase(
   stripe: Stripe,
   sub: Stripe.Subscription,
-): Promise<{ scheduledPlanType: string | null; scheduledAt: string | null }> {
+): Promise<{
+  scheduledPlanType: string | null;
+  scheduledBillingCycle: BillingCycle | null;
+  scheduledAt: string | null;
+}> {
+  const none = { scheduledPlanType: null, scheduledBillingCycle: null, scheduledAt: null };
   const scheduleId = extractScheduleId(sub);
-  if (!scheduleId) {
-    return { scheduledPlanType: null, scheduledAt: null };
-  }
+  if (!scheduleId) return none;
 
   let schedule: Stripe.SubscriptionSchedule;
   try {
     schedule = await stripe.subscriptionSchedules.retrieve(scheduleId);
   } catch {
-    return { scheduledPlanType: null, scheduledAt: null };
+    return none;
   }
 
   const nextPhase = schedule.phases?.[1];
-  if (!nextPhase) {
-    return { scheduledPlanType: null, scheduledAt: null };
-  }
+  if (!nextPhase) return none;
 
   const priceField = nextPhase.items?.[0]?.price;
   const priceId =
     typeof priceField === "string" ? priceField : (priceField?.id ?? null);
-  if (!priceId) {
-    return { scheduledPlanType: null, scheduledAt: null };
-  }
+  if (!priceId) return none;
 
-  const planType = resolvePlanTypeFromPriceId(priceId);
-  if (!planType) {
+  const planPrice = resolvePlanPriceFromId(priceId);
+  if (!planPrice) {
     throw new Error(`unknown price id: ${priceId}`);
   }
 
   const startDate = nextPhase.start_date
     ? new Date(nextPhase.start_date * 1000).toISOString()
     : null;
-  return { scheduledPlanType: planType, scheduledAt: startDate };
+  return {
+    scheduledPlanType: planPrice.planType,
+    scheduledBillingCycle: planPrice.billingCycle,
+    scheduledAt: startDate,
+  };
 }
 
 interface PostUpdateState {
   planType: PaidPlanType;
+  billingCycle: BillingCycle;
   scheduleId: string | null;
   scheduledPlanType: string | null;
+  scheduledBillingCycle: BillingCycle | null;
   scheduledAt: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
@@ -583,12 +599,18 @@ async function maybeSendChangedEmail(
   // （A-2「承りました」）と件名を分けた「プラン変更が完了しました」を送る。
   // 予約あり状態では他プランへの即時アップグレードは UI で非活性のため、
   // schedule_id の有無で A-1 / A-1' を一意に切り分けられる。
-  if (before.plan_type !== after.planType) {
+  //
+  // P3: アップグレード（上位プラン / 月払い→年払い）は Stripe ホスト画面
+  // （subscription_update_confirm）で確定するため Server Action の先行 UPDATE は無く、
+  // この Webhook 分岐が「【ビジ友】プラン変更を承りました」の本経路になる。
+  // 支払サイクルだけが変わった場合（同一プランで月→年）もここで通知する。
+  const beforeCycle: BillingCycle = before.billing_cycle ?? "monthly";
+  if (before.plan_type !== after.planType || beforeCycle !== after.billingCycle) {
     await sendChangedEmail(admin, send, before.user_id, {
       eventType:
         before.schedule_id != null ? "downgrade-applied" : "upgrade-immediate",
-      oldPlanName: PLAN_LABELS[before.plan_type as PlanType],
-      newPlanName: PLAN_LABELS[after.planType],
+      oldPlanName: planDisplayName(before.plan_type as PlanType, beforeCycle),
+      newPlanName: planDisplayName(after.planType, after.billingCycle),
     });
     return;
   }
@@ -598,8 +620,8 @@ async function maybeSendChangedEmail(
     const newPlan = (after.scheduledPlanType as PlanType) ?? after.planType;
     await sendChangedEmail(admin, send, before.user_id, {
       eventType: "downgrade-reserved",
-      oldPlanName: PLAN_LABELS[before.plan_type as PlanType],
-      newPlanName: PLAN_LABELS[newPlan],
+      oldPlanName: planDisplayName(before.plan_type as PlanType, beforeCycle),
+      newPlanName: planDisplayName(newPlan, after.scheduledBillingCycle ?? after.billingCycle),
       scheduledDate: formatDate(after.scheduledAt),
     });
     return;
@@ -626,7 +648,7 @@ async function maybeSendChangedEmail(
   if (before.schedule_id != null && after.scheduleId == null) {
     await sendChangedEmail(admin, send, before.user_id, {
       eventType: "reservation-removed-downgrade",
-      planName: PLAN_LABELS[before.plan_type as PlanType],
+      planName: planDisplayName(before.plan_type as PlanType, beforeCycle),
     });
     return;
   }
@@ -639,7 +661,7 @@ async function maybeSendChangedEmail(
   if (before.cancel_at_period_end && !after.cancelAtPeriodEnd) {
     await sendChangedEmail(admin, send, before.user_id, {
       eventType: "reservation-removed-cancel",
-      planName: PLAN_LABELS[before.plan_type as PlanType],
+      planName: planDisplayName(before.plan_type as PlanType, beforeCycle),
     });
     return;
   }

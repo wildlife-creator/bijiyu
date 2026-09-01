@@ -1378,6 +1378,9 @@ export type Database = {
           plan_type: string
           schedule_id: string | null
           scheduled_at: string | null
+          scheduled_billing_cycle:
+            | Database["public"]["Enums"]["billing_cycle_type"]
+            | null
           scheduled_plan_type: string | null
           status: Database["public"]["Enums"]["subscription_status"]
           stripe_subscription_id: string | null
@@ -1396,6 +1399,9 @@ export type Database = {
           plan_type: string
           schedule_id?: string | null
           scheduled_at?: string | null
+          scheduled_billing_cycle?:
+            | Database["public"]["Enums"]["billing_cycle_type"]
+            | null
           scheduled_plan_type?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_subscription_id?: string | null
@@ -1414,6 +1420,9 @@ export type Database = {
           plan_type?: string
           schedule_id?: string | null
           scheduled_at?: string | null
+          scheduled_billing_cycle?:
+            | Database["public"]["Enums"]["billing_cycle_type"]
+            | null
           scheduled_plan_type?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_subscription_id?: string | null

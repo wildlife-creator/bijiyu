@@ -23,9 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  BILLING_CYCLE_LABELS,
   PAID_PLAN_TYPES,
-  PLAN_LABELS,
-  PLAN_LIMITS,
+  planDisplayName,
+  planPriceFor,
+  type BillingCycle,
   type PaidPlanType,
   type PlanType,
 } from "@/lib/constants/plans";
@@ -47,10 +49,12 @@ import {
 
 interface PlanState {
   planType: PaidPlanType;
+  billingCycle: BillingCycle;
   label: string;
   price: number;
   isCurrent: boolean;
   isPastDue: boolean;
+  comparison: "upgrade" | "downgrade" | "same";
   buttonLabel: string;
   buttonDisabled: boolean;
   buttonAction: "checkout" | "change" | "none";
@@ -60,6 +64,7 @@ interface PlanState {
 interface SubscriptionInfo {
   scheduleId: string | null;
   scheduledPlanType: string | null;
+  scheduledBillingCycle: BillingCycle | null;
   scheduledAt: string | null;
   cancelAtPeriodEnd: boolean;
   currentPeriodEnd: string | null;
@@ -101,14 +106,19 @@ interface BillingClientProps {
   isPastDue: boolean;
   hasReservation: boolean;
   currentPlan: PlanType;
+  /** P3: 現在の支払サイクル（無料プランは monthly） */
+  currentCycle: BillingCycle;
   isFirstPurchase: boolean;
   subscription: SubscriptionInfo | null;
-  planStates: PlanState[];
+  /** P3: 月払い / 年払い それぞれのボタン状態 */
+  planStatesByCycle: Record<BillingCycle, PlanState[]>;
   showInitialFee: boolean;
   activeOptions: ActiveOption[];
   clientProfile: ClientProfile;
   urgentEligibleJobs: Array<{ id: string; title: string }>;
   checkoutSuccess?: string;
+  /** P3: Stripe ホスト画面でプラン変更を確定して戻ってきた */
+  planChangeConfirmed?: boolean;
   bankTransfer: BankTransferInfo;
 }
 
@@ -137,14 +147,16 @@ export function BillingClient({
   isPastDue,
   hasReservation,
   currentPlan,
+  currentCycle,
   isFirstPurchase,
   subscription,
-  planStates,
+  planStatesByCycle,
   showInitialFee,
   activeOptions,
   clientProfile,
   urgentEligibleJobs,
   checkoutSuccess,
+  planChangeConfirmed = false,
   bankTransfer,
 }: BillingClientProps) {
   const router = useRouter();
@@ -185,6 +197,10 @@ export function BillingClient({
     (o) => o.optionType === "video_workplace",
   );
 
+  // P3: 月払い / 年払いの表示切替。既定は現在の契約サイクル（無料は月払い）
+  const [selectedCycle, setSelectedCycle] = useState<BillingCycle>(currentCycle);
+  const planStates = planStatesByCycle[selectedCycle];
+
   // 銀行振込（P2）
   const { isBankTransferPlan } = bankTransfer;
   const openBankPlanRequest = bankTransfer.openRequests.find(
@@ -213,6 +229,7 @@ export function BillingClient({
     | null
   >(null);
   const [dialogTarget, setDialogTarget] = useState<PaidPlanType | null>(null);
+  const [dialogTargetCycle, setDialogTargetCycle] = useState<BillingCycle>("monthly");
   const [cancelCompId, setCancelCompId] = useState<string | null>(null);
   const [repurchaseOption, setRepurchaseOption] = useState<
     "video" | "video_workplace" | null
@@ -220,6 +237,14 @@ export function BillingClient({
 
   // Urgent option state
   const [selectedJobId, setSelectedJobId] = useState<string>("");
+
+  // P3: Stripe ホスト画面からの戻り（確定はメールと画面の再描画で確認できる）
+  useEffect(() => {
+    if (planChangeConfirmed) {
+      toast.success("プラン変更を受け付けました。反映まで少しお待ちください");
+      router.replace("/billing");
+    }
+  }, [planChangeConfirmed, router]);
 
   // Show checkout success toast
   useEffect(() => {
@@ -249,6 +274,7 @@ export function BillingClient({
         const result = await startCheckoutAction({
           type: "plan",
           planType: plan.planType,
+          billingCycle: plan.billingCycle,
         });
         if (!result.success) {
           toast.error(result.error);
@@ -259,13 +285,10 @@ export function BillingClient({
         }
       });
     } else if (plan.buttonAction === "change") {
-      const comparison = comparePlansLocal(currentPlan, plan.planType);
-      if (comparison === "upgrade") {
-        setDialogType("upgrade");
-      } else {
-        setDialogType("downgrade");
-      }
+      // 向き（アップグレード / ダウングレード）はサーバー側で算出済み（プラン + サイクル）
+      setDialogType(plan.comparison === "upgrade" ? "upgrade" : "downgrade");
       setDialogTarget(plan.planType);
+      setDialogTargetCycle(plan.billingCycle);
       setDialogOpen(true);
     }
   }
@@ -274,17 +297,18 @@ export function BillingClient({
     if (!dialogTarget) return;
     setDialogOpen(false);
     runPending("dialog", async () => {
-      const result = await changePlanAction({ targetPlan: dialogTarget });
+      const result = await changePlanAction({
+        targetPlan: dialogTarget,
+        targetCycle: dialogTargetCycle,
+      });
       if (!result.success) {
         toast.error(result.error);
         return;
       }
       if (result.data?.performedType === "upgrade") {
-        toast.success(`${result.data.newPlanName}にアップグレードしました`);
-        // 全プラン共通で CLI-021（発注者情報編集）の setup モードに遷移。
-        // Next.js の Router Cache によるリダイレクト結果キャッシュ回避のため
-        // window.location.href でハードナビゲーションする。
-        window.location.href = "/mypage/client-profile/edit?setup=true";
+        // P3: アップグレードは Stripe のホスト画面で確定する（日割り差額・次回請求を Stripe が表示）。
+        // 確定後は /billing?plan_change=confirmed に戻り、DB 更新とメールは Webhook が行う
+        window.location.href = result.data.portalUrl;
         return;
       } else if (result.data?.performedType === "downgrade") {
         toast.success(
@@ -482,13 +506,42 @@ export function BillingClient({
           </div>
         )}
 
+        {/* P3: 月払い / 年払い 切替 */}
+        <div
+          className="mt-4 inline-flex w-full rounded-full border border-border bg-muted/40 p-1 text-body-sm"
+          role="tablist"
+          aria-label="お支払いサイクル"
+        >
+          {(["monthly", "yearly"] as const).map((cycle) => (
+            <button
+              key={cycle}
+              type="button"
+              role="tab"
+              aria-selected={selectedCycle === cycle}
+              onClick={() => setSelectedCycle(cycle)}
+              className={`flex-1 rounded-full px-3 py-1.5 font-medium transition-colors ${
+                selectedCycle === cycle
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {BILLING_CYCLE_LABELS[cycle]}
+            </button>
+          ))}
+        </div>
+        {currentPlan !== "free" && (
+          <p className="mt-2 text-body-xs text-muted-foreground">
+            現在は{BILLING_CYCLE_LABELS[currentCycle]}でご契約中です。月払い → 年払いは即時、年払い → 月払いは次回更新日に切り替わります。
+          </p>
+        )}
+
         <div className="mt-4 divide-y divide-border">
           {planStates.map((plan) => (
-            <div key={plan.planType} className="py-4 first:pt-0 last:pb-0">
+            <div key={`${plan.planType}-${plan.billingCycle}`} className="py-4 first:pt-0 last:pb-0">
               <div className="flex items-center justify-between">
                 <span className="text-body-md font-bold">{plan.label}</span>
                 <span className="text-body-md">
-                  {formatPrice(plan.price)}円/月
+                  {formatPrice(plan.price)}円/{plan.billingCycle === "yearly" ? "年" : "月"}
                 </span>
               </div>
 
@@ -497,6 +550,9 @@ export function BillingClient({
                   <Badge variant="outline" className="border-emerald-600 bg-emerald-50 text-xs text-emerald-700">
                     ご利用中
                   </Badge>
+                  <span className="ml-2 text-body-xs text-muted-foreground">
+                    {BILLING_CYCLE_LABELS[currentCycle]}
+                  </span>
                   {plan.isPastDue && (
                     <Badge variant="destructive" className="ml-2 text-xs">
                       お支払い確認中
@@ -531,7 +587,10 @@ export function BillingClient({
                     <div className="mt-3 space-y-2">
                       <p className="text-body-sm text-muted-foreground">
                         {formatDate(subscription.scheduledAt)}に
-                        {PLAN_LABELS[(subscription.scheduledPlanType as PlanType) ?? "free"]}
+                        {planDisplayName(
+                          (subscription.scheduledPlanType as PlanType) ?? "free",
+                          subscription.scheduledBillingCycle ?? currentCycle,
+                        )}
                         に変更予定
                       </p>
                       <Button
@@ -575,7 +634,7 @@ export function BillingClient({
                     title={plan.disabledReason ?? undefined}
                   >
                     {plan.buttonAction === "checkout"
-                      ? `${formatPrice(plan.price)}円/月 申し込む`
+                      ? `${formatPrice(plan.price)}円/${plan.billingCycle === "yearly" ? "年" : "月"} 申し込む`
                       : plan.buttonLabel}
                   </Button>
                   {/* 銀行振込（P2）: 新規申込のみ。契約中のプラン変更は運営対応 */}
@@ -862,14 +921,15 @@ export function BillingClient({
               <DialogHeader>
                 <DialogTitle>プラン変更の確認</DialogTitle>
                 <DialogDescription>
-                  以下のプランにアップグレードします。日割り差額が即時課金されます。
+                  以下の内容に変更します。このあと Stripe の確認画面に移動し、日割りの差額と次回請求額を確認してから確定できます。
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-2 text-body-sm">
-                <p>現在のプラン: {PLAN_LABELS[currentPlan]}</p>
-                <p>変更後のプラン: {PLAN_LABELS[dialogTarget]}</p>
+                <p>現在のプラン: {planDisplayName(currentPlan, currentCycle)}</p>
+                <p>変更後のプラン: {planDisplayName(dialogTarget, dialogTargetCycle)}</p>
                 <p className="text-muted-foreground">
-                  次回課金額: ¥{formatPrice(PLAN_LIMITS[dialogTarget].monthlyPriceTaxIncluded)}/月
+                  変更後の料金: ¥{formatPrice(planPriceFor(dialogTarget, dialogTargetCycle))}/
+                  {dialogTargetCycle === "yearly" ? "年" : "月"}
                 </p>
               </div>
               <DialogFooter className="gap-2">
@@ -900,13 +960,14 @@ export function BillingClient({
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-2 text-body-sm">
-                <p>現在のプラン: {PLAN_LABELS[currentPlan]}</p>
-                <p>変更後のプラン: {PLAN_LABELS[dialogTarget]}</p>
+                <p>現在のプラン: {planDisplayName(currentPlan, currentCycle)}</p>
+                <p>変更後のプラン: {planDisplayName(dialogTarget, dialogTargetCycle)}</p>
                 <p className="text-muted-foreground">
                   {formatDate(subscription?.currentPeriodEnd)}まで現在のプランでご利用いただけます
                 </p>
                 <p className="text-muted-foreground">
-                  次回課金日と金額: ¥{formatPrice(PLAN_LIMITS[dialogTarget].monthlyPriceTaxIncluded)}/月
+                  次回課金日と金額: ¥{formatPrice(planPriceFor(dialogTarget, dialogTargetCycle))}/
+                  {dialogTargetCycle === "yearly" ? "年" : "月"}
                 </p>
               </div>
               <DialogFooter className="gap-2">
@@ -1083,18 +1144,6 @@ export function BillingClient({
 }
 
 // Local helper — same as server-side comparePlans but avoids importing server modules
-function comparePlansLocal(a: PlanType, b: PlanType): "upgrade" | "downgrade" | "same" {
-  const ranks: Record<PlanType, number> = {
-    free: 0,
-    individual: 1,
-    small: 2,
-    corporate: 3,
-    corporate_premium: 4,
-  };
-  if (ranks[b] > ranks[a]) return "upgrade";
-  if (ranks[b] < ranks[a]) return "downgrade";
-  return "same";
-}
 
 // ---------------------------------------------------------------------------
 // 銀行振込（P2）: オプション行の「銀行振込で申し込む」/「申込中」表示（ヘルパー）

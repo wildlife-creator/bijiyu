@@ -35,6 +35,10 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_SMALL = "price_small";
   process.env.STRIPE_PRICE_CORPORATE = "price_corporate";
   process.env.STRIPE_PRICE_CORPORATE_PREMIUM = "price_corporate_premium";
+  process.env.STRIPE_PRICE_INDIVIDUAL_YEARLY = "price_individual_yearly";
+  process.env.STRIPE_PRICE_SMALL_YEARLY = "price_small_yearly";
+  process.env.STRIPE_PRICE_CORPORATE_YEARLY = "price_corporate_yearly";
+  process.env.STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY = "price_corporate_premium_yearly";
   applyDeletedSuffixMock.mockReset();
   applyDeletedSuffixMock.mockResolvedValue({
     kind: "applied",
@@ -346,6 +350,45 @@ describe("customer.subscription.updated", () => {
     expect(args.html).toContain("ライトプラン");
     expect(args.html).toContain("スタンダードプラン");
     expect(args.html).toContain("ただ今");
+  });
+
+  it("P3: 同一プランで 月払い → 年払い（Stripe ホスト画面で確定）も (a) 分岐で「承りました」を送り、RPC に billing_cycle を渡す", async () => {
+    const sub = buildSubscription({ priceId: "price_individual_yearly" });
+    const { admin, calls } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-1",
+            user_id: "user-1",
+            plan_type: "individual",
+            billing_cycle: "monthly",
+            schedule_id: null,
+            cancel_at_period_end: false,
+          },
+        },
+        "select:users": {
+          data: { email: "user1@test.local", last_name: "山田", first_name: "太郎", company_name: null },
+        },
+      },
+      rpcResults: { handle_subscription_lifecycle_updated: { data: {}, error: null } },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.updated", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    const rpcCall = calls.find((c) => c.op === "rpc");
+    expect(rpcCall?.payload).toMatchObject({
+      event_data: { plan_type: "individual", billing_cycle: "yearly", scheduled_billing_cycle: null },
+    });
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
+    expect(args.subject).toBe("【ビジ友】プラン変更を承りました");
+    expect(args.html).toContain("ライトプラン（月払い）");
+    expect(args.html).toContain("ライトプラン（年払い）");
   });
 
   it("hits option_subscriptions only: updates status, no RPC, no email", async () => {

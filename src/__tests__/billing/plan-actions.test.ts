@@ -28,13 +28,16 @@ const subState = {
     cancel_at_period_end: boolean;
     current_period_end: string | null;
     payment_method?: "stripe" | "bank_transfer";
+    billing_cycle?: "monthly" | "yearly";
   },
 };
 
 const stripeMock = {
   subscriptions: {
-    retrieve: vi.fn(async () => ({
+    // 戻り値は Record 型にしておく（テストごとに customer / schedule の有無が異なるため）
+    retrieve: vi.fn(async (): Promise<Record<string, unknown>> => ({
       id: "sub_1",
+      customer: "cus_test_1",
       items: { data: [{ id: "si_1", price: { id: "price_individual" } }] },
       // 型を string | null に広げる（mockResolvedValueOnce で "sub_sched_xxx" を返せるように）
       schedule: null as string | null,
@@ -196,8 +199,13 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_SMALL = "price_small";
   process.env.STRIPE_PRICE_CORPORATE = "price_corporate";
   process.env.STRIPE_PRICE_CORPORATE_PREMIUM = "price_corporate_premium";
+  process.env.STRIPE_PRICE_INDIVIDUAL_YEARLY = "price_individual_yearly";
+  process.env.STRIPE_PRICE_SMALL_YEARLY = "price_small_yearly";
+  process.env.STRIPE_PRICE_CORPORATE_YEARLY = "price_corporate_yearly";
+  process.env.STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY = "price_corporate_premium_yearly";
   process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
   process.env.STRIPE_PORTAL_CONFIGURATION_ID = "bpc_test";
+  process.env.STRIPE_PORTAL_UPDATE_CONFIGURATION_ID = "bpc_update_test";
 
   authState.user = { id: "user-1" };
   authState.userRow = { role: "client" };
@@ -210,6 +218,7 @@ beforeEach(() => {
     schedule_id: null,
     cancel_at_period_end: false,
     current_period_end: "2026-05-01T00:00:00Z",
+    billing_cycle: "monthly",
   };
   adminInserts.length = 0;
   adminUpdates.length = 0;
@@ -232,56 +241,85 @@ afterEach(() => {
 // ---- changePlanAction ----
 
 describe("changePlanAction", () => {
-  it("routes to upgrade when target > current", async () => {
+  // ---- P3: アップグレードは Stripe ホスト画面（subscription_update_confirm）へ遷移 ----
+  it("上位プランへの変更は Stripe ポータルの確認画面 URL を返し、DB 更新・Stripe 更新・メールは行わない", async () => {
     const result = await changePlanAction({ targetPlan: "small" });
     expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data?.performedType).toBe("upgrade");
-      expect(result.data?.newPlanName).toBe("スタンダードプラン");
+    if (result.success && result.data?.performedType === "upgrade") {
+      expect(result.data.newPlanName).toBe("スタンダードプラン（月払い）");
+      expect(result.data.portalUrl).toBe("https://billing.stripe.com/test");
+    } else {
+      throw new Error("expected upgrade result");
     }
-    expect(stripeMock.subscriptions.update).toHaveBeenCalledOnce();
-    // Webhook race 回避のため subscriptions.plan_type を同期的に先行 UPDATE している
-    const planTypeUpdate = adminUpdates.find(
-      (u) =>
-        u.table === "subscriptions" &&
-        (u.payload as { plan_type?: string }).plan_type === "small",
-    );
-    expect(planTypeUpdate).toBeDefined();
-    // 法人プラン以外なので ensure_organization_exists は呼ばれない
-    expect(
-      adminRpcCalls.find((r) => r.fn === "ensure_organization_exists"),
-    ).toBeUndefined();
+    // 確定は Stripe 側 → Webhook。ここでは何も更新しない
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    expect(adminUpdates.find((u) => u.table === "subscriptions")).toBeUndefined();
+    expect(adminRpcCalls.find((r) => r.fn === "ensure_organization_exists")).toBeUndefined();
+    expect(sendEmailMock).not.toHaveBeenCalled();
+
+    // ポータルセッションは専用設定 + 現在の item を新 Price に差し替える flow_data
+    const createCall = (stripeMock.billingPortal.sessions.create.mock.calls[0] as unknown[])[0] as {
+      customer: string;
+      configuration: string;
+      return_url: string;
+      flow_data: {
+        type: string;
+        subscription_update_confirm: { subscription: string; items: Array<{ id: string; price: string }> };
+      };
+    };
+    expect(createCall.customer).toBe("cus_test_1");
+    expect(createCall.configuration).toBe("bpc_update_test");
+    expect(createCall.return_url).toContain("/billing?plan_change=confirmed");
+    expect(createCall.flow_data.type).toBe("subscription_update_confirm");
+    expect(createCall.flow_data.subscription_update_confirm.subscription).toBe("sub_1");
+    expect(createCall.flow_data.subscription_update_confirm.items).toEqual([
+      { id: "si_1", price: "price_small", quantity: 1 },
+    ]);
+    // 監査: 遷移の事実だけ残す
+    expect(adminInserts.find((i) => i.table === "audit_logs")).toBeDefined();
   });
 
-  it("法人プランへのアップグレード時に ensure_organization_exists RPC を同期的に呼ぶ", async () => {
+  it("同一プランで 月払い → 年払い はアップグレード扱い（年額 Price でポータルへ）", async () => {
+    const result = await changePlanAction({ targetPlan: "individual", targetCycle: "yearly" });
+    expect(result.success).toBe(true);
+    if (result.success && result.data?.performedType === "upgrade") {
+      expect(result.data.newPlanName).toBe("ライトプラン（年払い）");
+    } else {
+      throw new Error("expected upgrade result");
+    }
+    const createCall = (stripeMock.billingPortal.sessions.create.mock.calls[0] as unknown[])[0] as {
+      flow_data: { subscription_update_confirm: { items: Array<{ price: string }> } };
+    };
+    expect(createCall.flow_data.subscription_update_confirm.items[0]!.price).toBe(
+      "price_individual_yearly",
+    );
+  });
+
+  it("同一プランで 年払い → 月払い はダウングレード扱い（期末切替の予約）", async () => {
+    subState.row!.billing_cycle = "yearly";
+    const result = await changePlanAction({ targetPlan: "individual", targetCycle: "monthly" });
+    expect(result.success).toBe(true);
+    if (result.success && result.data?.performedType === "downgrade") {
+      expect(result.data.newPlanName).toBe("ライトプラン（月払い）");
+    } else {
+      throw new Error("expected downgrade result");
+    }
+    expect(stripeMock.subscriptionSchedules.create).toHaveBeenCalledOnce();
+    expect(stripeMock.billingPortal.sessions.create).not.toHaveBeenCalled();
+  });
+
+  it("STRIPE_PORTAL_UPDATE_CONFIGURATION_ID 未設定なら設定未完了エラー（Stripe には触らない）", async () => {
+    delete process.env.STRIPE_PORTAL_UPDATE_CONFIGURATION_ID;
     const result = await changePlanAction({ targetPlan: "corporate" });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data?.performedType).toBe("upgrade");
-    }
-    // subscriptions.plan_type 先行 UPDATE
-    const planTypeUpdate = adminUpdates.find(
-      (u) =>
-        u.table === "subscriptions" &&
-        (u.payload as { plan_type?: string }).plan_type === "corporate",
-    );
-    expect(planTypeUpdate).toBeDefined();
-    // ensure_organization_exists 先行 RPC（Webhook 到達前にクライアントが
-    // /mypage/client-profile/edit?setup=true へ遷移してもガードを通れるようにするため）
-    const ensureOrgCall = adminRpcCalls.find(
-      (r) => r.fn === "ensure_organization_exists",
-    );
-    expect(ensureOrgCall).toBeDefined();
-    expect((ensureOrgCall!.args as { uid: string }).uid).toBe("user-1");
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("設定が未完了");
+    expect(stripeMock.billingPortal.sessions.create).not.toHaveBeenCalled();
   });
 
-  it("ハイエンドプランへのアップグレード時も ensure_organization_exists を呼ぶ", async () => {
-    const result = await changePlanAction({ targetPlan: "corporate_premium" });
-    expect(result.success).toBe(true);
-    const ensureOrgCall = adminRpcCalls.find(
-      (r) => r.fn === "ensure_organization_exists",
-    );
-    expect(ensureOrgCall).toBeDefined();
+  it("年額 Price が未設定なら価格設定エラー", async () => {
+    delete process.env.STRIPE_PRICE_SMALL_YEARLY;
+    const result = await changePlanAction({ targetPlan: "small", targetCycle: "yearly" });
+    expect(result).toEqual({ success: false, error: "プランの価格設定が見つかりません" });
   });
 
   it("routes to downgrade when target < current", async () => {
@@ -359,90 +397,72 @@ describe("changePlanAction", () => {
     }
   });
 
-  // ---- A5: プラン変更完了メール（upgrade-immediate） ----
+  // ---- P3: アップグレード完了メールは Webhook に一本化（A5 の先行送信は廃止） ----
   //
-  // Webhook 側の差分判定は先行 UPDATE により「差分なし」となりメール送信を skip する。
-  // このため upgradePlanAction 自身が同期送信する必要がある（案 A / 案 B 非採用）。
-  //
-  // 参考: `修正指示書_テスト前修正まとめ.md` A5 節、`A5_upgrade_email_briefing.md`
-  //
-  it("A5: アップグレード時に「【ビジ友】プラン変更を承りました」メールを Server Action から送信する", async () => {
+  // Stripe ホスト画面で確定するため、Server Action の時点では変更が成立していない。
+  // 「【ビジ友】プラン変更を承りました」は customer.subscription.updated Webhook の
+  // (a) 分岐（plan_type / billing_cycle の差分検知）が送る。
+  // 受信者名の解決ルール（display_name 優先 → 姓名 → お客様）は解約予約メールで検証する。
+  it("P3: アップグレード時に Server Action からメールを送らない（Webhook に一本化）", async () => {
     const result = await changePlanAction({ targetPlan: "corporate" });
     expect(result.success).toBe(true);
-    expect(sendEmailMock).toHaveBeenCalledTimes(1);
-    const call = sendEmailMock.mock.calls[0]![0] as {
-      to: string;
-      subject: string;
-      html: string;
-    };
-    expect(call.to).toBe("user1@test.local");
-    expect(call.subject).toBe("【ビジ友】プラン変更を承りました");
-    // 姓名スペースなし結合 + 旧プラン + 新プランがテンプレに埋め込まれる
-    expect(call.html).toContain("田中太郎");
-    expect(call.html).toContain("ライトプラン");
-    expect(call.html).toContain("プレミアムプラン");
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
-  it("A5: 受信者名は client_profiles.display_name を優先する", async () => {
+  it("受信者名は client_profiles.display_name を優先する（解約予約メールで検証）", async () => {
     adminRecipientState.row = {
       email: "biz@test.local",
       last_name: "田中",
       first_name: "太郎",
       client_profiles: { display_name: "鈴木工務店株式会社" },
     };
-    await changePlanAction({ targetPlan: "corporate" });
-    const call = sendEmailMock.mock.calls[0]![0] as { html: string; to: string };
+    await scheduleCancelAction();
+    const call = sendEmailMock.mock.calls[0]![0] as { html: string; to: string; subject: string };
     expect(call.to).toBe("biz@test.local");
+    expect(call.subject).toBe("【ビジ友】解約をご予約いただきました");
     expect(call.html).toContain("鈴木工務店株式会社 様");
     expect(call.html).not.toContain("田中太郎 様");
   });
 
-  it("A5: display_name が空文字なら姓名フォールバック", async () => {
+  it("display_name が空文字なら姓名フォールバック", async () => {
     adminRecipientState.row = {
       email: "user2@test.local",
       last_name: "山田",
       first_name: "花子",
       client_profiles: { display_name: "   " }, // trim すると空
     };
-    await changePlanAction({ targetPlan: "corporate" });
+    await scheduleCancelAction();
     const call = sendEmailMock.mock.calls[0]![0] as { html: string };
     expect(call.html).toContain("山田花子 様");
   });
 
-  it("A5: client_profiles が配列でも先頭を採用する（Supabase nested select 挙動）", async () => {
+  it("client_profiles が配列でも先頭を採用する（Supabase nested select 挙動）", async () => {
     adminRecipientState.row = {
       email: "user3@test.local",
       last_name: "田中",
       first_name: "太郎",
       client_profiles: [{ display_name: "配列プロフィール株式会社" }],
     };
-    await changePlanAction({ targetPlan: "corporate" });
+    await scheduleCancelAction();
     const call = sendEmailMock.mock.calls[0]![0] as { html: string };
     expect(call.html).toContain("配列プロフィール株式会社 様");
   });
 
-  it("A5: ダウングレードでは A5 のアップグレード完了メールを送らない", async () => {
+  it("ダウングレード予約では完了メールを送らない（Webhook (b) 分岐が担当）", async () => {
     subState.row!.plan_type = "corporate";
     await changePlanAction({ targetPlan: "individual" });
     expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
-  it("A5: 同プラン・エラー系ではメール送信されない", async () => {
-    // schedule_id あり → 予約チェックで弾かれる
+  it("予約あり等のエラー系ではメール送信されない", async () => {
     subState.row!.schedule_id = "sub_sched_999";
     await changePlanAction({ targetPlan: "corporate" });
     expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
-  it("A5: メール送信が例外を投げても Server Action は成功を返す（fire-and-forget）", async () => {
-    sendEmailMock.mockRejectedValueOnce(new Error("resend down"));
-    const result = await changePlanAction({ targetPlan: "corporate" });
-    expect(result.success).toBe(true);
-  });
-
-  it("A5: 受信者行が取れない場合はメール送信を skip する", async () => {
+  it("受信者行が取れない場合は解約予約メールを skip する", async () => {
     adminRecipientState.row = null;
-    const result = await changePlanAction({ targetPlan: "corporate" });
+    const result = await scheduleCancelAction();
     expect(result.success).toBe(true);
     expect(sendEmailMock).not.toHaveBeenCalled();
   });

@@ -5,9 +5,15 @@ import {
   ACTION_TYPES,
   PLAN_LABELS,
   PLAN_LIMITS,
+  planDisplayName,
+  planPriceFor,
+  priceIdFor,
+  resolvePlanPriceFromId,
   resolvePlanTypeFromPriceId,
+  YEARLY_PRICE_TAX_INCLUDED,
   type PlanType,
 } from "@/lib/constants/plans";
+import { comparePlanChange } from "@/lib/billing/compare-plans";
 
 const ALL_PLANS: PlanType[] = [
   "free",
@@ -150,6 +156,30 @@ describe("resolvePlanTypeFromPriceId", () => {
     process.env.STRIPE_PRICE_SMALL = "price_test_small";
     process.env.STRIPE_PRICE_CORPORATE = "price_test_corporate";
     process.env.STRIPE_PRICE_CORPORATE_PREMIUM = "price_test_corporate_premium";
+    process.env.STRIPE_PRICE_INDIVIDUAL_YEARLY = "price_test_individual_yearly";
+    process.env.STRIPE_PRICE_SMALL_YEARLY = "price_test_small_yearly";
+    process.env.STRIPE_PRICE_CORPORATE_YEARLY = "price_test_corporate_yearly";
+    process.env.STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY = "price_test_corporate_premium_yearly";
+  });
+
+  it("P3: 年額 Price ID は (plan, yearly) に解決される。月額は monthly", () => {
+    expect(resolvePlanPriceFromId("price_test_small_yearly")).toEqual({
+      planType: "small",
+      billingCycle: "yearly",
+    });
+    expect(resolvePlanPriceFromId("price_test_small")).toEqual({
+      planType: "small",
+      billingCycle: "monthly",
+    });
+    expect(resolvePlanTypeFromPriceId("price_test_corporate_premium_yearly")).toBe("corporate_premium");
+    expect(resolvePlanPriceFromId("price_unknown")).toBeNull();
+  });
+
+  it("P3: priceIdFor は (plan, cycle) → 環境変数の Price ID。未設定は null", () => {
+    expect(priceIdFor("corporate", "monthly")).toBe("price_test_corporate");
+    expect(priceIdFor("corporate", "yearly")).toBe("price_test_corporate_yearly");
+    delete process.env.STRIPE_PRICE_CORPORATE_YEARLY;
+    expect(priceIdFor("corporate", "yearly")).toBeNull();
   });
 
   it("resolves known individual price ID", () => {
@@ -179,5 +209,54 @@ describe("resolvePlanTypeFromPriceId", () => {
     expect(resolvePlanTypeFromPriceId("price_test_small")).toBeNull();
     // others still work
     expect(resolvePlanTypeFromPriceId("price_test_individual")).toBe("individual");
+  });
+});
+
+describe("P3: 年払いの料金・表示名・比較", () => {
+  it("planPriceFor: 月払いは PLAN_LIMITS、年払いは YEARLY_PRICE_TAX_INCLUDED（暫定 月額×12）", () => {
+    expect(planPriceFor("individual", "monthly")).toBe(3800);
+    expect(planPriceFor("individual", "yearly")).toBe(YEARLY_PRICE_TAX_INCLUDED.individual);
+    expect(YEARLY_PRICE_TAX_INCLUDED.individual).toBe(3800 * 12);
+    expect(YEARLY_PRICE_TAX_INCLUDED.corporate_premium).toBe(148000 * 12);
+  });
+
+  it("planDisplayName: 「プラン名（月払い/年払い）」。サイクル未指定・無料はプラン名のみ", () => {
+    expect(planDisplayName("small", "monthly")).toBe("スタンダードプラン（月払い）");
+    expect(planDisplayName("small", "yearly")).toBe("スタンダードプラン（年払い）");
+    expect(planDisplayName("small")).toBe("スタンダードプラン");
+    expect(planDisplayName("free", "monthly")).toBe("無料プラン");
+  });
+
+  it("comparePlanChange: プランのランクが優先。同一プランでは 月→年 = upgrade、年→月 = downgrade", () => {
+    expect(
+      comparePlanChange(
+        { planType: "individual", billingCycle: "yearly" },
+        { planType: "small", billingCycle: "monthly" },
+      ),
+    ).toBe("upgrade");
+    expect(
+      comparePlanChange(
+        { planType: "corporate", billingCycle: "monthly" },
+        { planType: "small", billingCycle: "yearly" },
+      ),
+    ).toBe("downgrade");
+    expect(
+      comparePlanChange(
+        { planType: "small", billingCycle: "monthly" },
+        { planType: "small", billingCycle: "yearly" },
+      ),
+    ).toBe("upgrade");
+    expect(
+      comparePlanChange(
+        { planType: "small", billingCycle: "yearly" },
+        { planType: "small", billingCycle: "monthly" },
+      ),
+    ).toBe("downgrade");
+    expect(
+      comparePlanChange(
+        { planType: "small", billingCycle: "yearly" },
+        { planType: "small", billingCycle: "yearly" },
+      ),
+    ).toBe("same");
   });
 });

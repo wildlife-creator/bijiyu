@@ -9,6 +9,7 @@ import {
   BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
   OPEN_BANK_TRANSFER_STATUSES,
 } from "@/lib/billing/bank-transfer";
+import { priceIdFor } from "@/lib/constants/plans";
 import type { OptionType } from "@/lib/billing/options";
 import { getStripeClient } from "@/lib/billing/stripe";
 import { PAID_PLAN_TYPES, type PaidPlanType } from "@/lib/constants/plans";
@@ -25,6 +26,8 @@ import { cookies } from "next/headers";
 const planInputSchema = z.object({
   type: z.literal("plan"),
   planType: z.enum(PAID_PLAN_TYPES),
+  /** P3: 月払い / 年払い。省略時は月払い（既存呼出との互換） */
+  billingCycle: z.enum(["monthly", "yearly"]).default("monthly"),
 });
 
 const compensationOptionInputSchema = z.object({
@@ -57,7 +60,8 @@ const startCheckoutInputSchema = z.union([
   videoWorkplaceOptionInputSchema,
 ]);
 
-export type StartCheckoutInput = z.infer<typeof startCheckoutInputSchema>;
+/** 呼出側の入力型（billingCycle は省略可 = monthly）。関数内では parse 後の値を使う */
+export type StartCheckoutInput = z.input<typeof startCheckoutInputSchema>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,18 +71,6 @@ function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
 }
 
-function priceIdForPlan(planType: PaidPlanType): string {
-  switch (planType) {
-    case "individual":
-      return process.env.STRIPE_PRICE_INDIVIDUAL ?? "";
-    case "small":
-      return process.env.STRIPE_PRICE_SMALL ?? "";
-    case "corporate":
-      return process.env.STRIPE_PRICE_CORPORATE ?? "";
-    case "corporate_premium":
-      return process.env.STRIPE_PRICE_CORPORATE_PREMIUM ?? "";
-  }
-}
 
 function priceIdForOption(optionType: OptionType): string {
   switch (optionType) {
@@ -375,7 +367,7 @@ export async function startCheckoutAction(
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
 
   if (input.type === "plan") {
-    const planPrice = priceIdForPlan(input.planType);
+    const planPrice = priceIdFor(input.planType, input.billingCycle);
     if (!planPrice) {
       return {
         success: false,
@@ -426,6 +418,7 @@ export async function startCheckoutAction(
   };
   if (input.type === "plan") {
     metadata.plan_type = input.planType;
+    metadata.billing_cycle = input.billingCycle;
   } else {
     metadata.option_type = input.optionType;
     if (input.optionType === "urgent") {

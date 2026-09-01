@@ -332,11 +332,34 @@ describe("startCheckoutAction — basic plan happy path", () => {
       type: "plan",
       user_id: "user-c1",
       plan_type: "individual",
+      billing_cycle: "monthly", // P3: 省略時は月払い
     });
     expect(params.success_url).toBe(
       "http://localhost:3000/mypage/client-profile/edit?setup=true",
     );
     expect(params.cancel_url).toBe("http://localhost:3000/billing");
+  });
+
+  it("P3: 年払いを指定すると年額 Price が line item になり、metadata.billing_cycle=yearly", async () => {
+    process.env.STRIPE_PRICE_INDIVIDUAL_YEARLY = "price_individual_yearly";
+    supabaseAuthState.user = { id: "user-c1" };
+    supabaseAuthState.userRow = { id: "user-c1", role: "contractor", email: "c1@test.local" };
+    adminResults["select:subscriptions"] = { data: [{ id: "old-sub" }] }; // 契約歴あり → 事務手数料なし
+    // 1 回目の select（active/past_due 判定）は空にしたいが、fake は同一結果を返すため
+    // ここでは「契約歴あり = active あり」と判定されてしまう。よって active 判定を通す別ユーザーではなく、
+    // active 無し・契約歴無しの初回として金額を検証する
+    adminResults["select:subscriptions"] = { data: [] };
+    cookiesMockState.feeCookieValue = "exempt";
+
+    const result = await startCheckoutAction({
+      type: "plan",
+      planType: "individual",
+      billingCycle: "yearly",
+    });
+    expect(result.success).toBe(true);
+    const params = stripeMockState.sessionsCreated.at(-1)!;
+    expect(params.line_items).toEqual([{ price: "price_individual_yearly", quantity: 1 }]);
+    expect(params.metadata).toMatchObject({ plan_type: "individual", billing_cycle: "yearly" });
   });
 
   it("skips initial fee when fee=free Cookie is present", async () => {

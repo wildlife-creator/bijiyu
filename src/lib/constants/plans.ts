@@ -120,6 +120,42 @@ export function planPriceFor(planType: PaidPlanType, cycle: BillingCycle): numbe
     : PLAN_LIMITS[planType].monthlyPriceTaxIncluded;
 }
 
+/**
+ * 表示名「プラン名（月払い / 年払い）」。メール本文・予約表示・管理画面で共用する。
+ * サイクル未指定（null / undefined）はプラン名のみ（旧データ・無料プラン向け）。
+ */
+export function planDisplayName(
+  planType: PlanType,
+  cycle?: BillingCycle | null,
+): string {
+  const base = PLAN_LABELS[planType];
+  if (!cycle || planType === "free") return base;
+  return `${base}（${BILLING_CYCLE_LABELS[cycle]}）`;
+}
+
+/** Stripe Price ID を返す環境変数名（月額 4 + 年額 4、P3 で年額を追加）。 */
+export const STRIPE_PRICE_ENV_KEYS: Record<PaidPlanType, Record<BillingCycle, string>> = {
+  individual: {
+    monthly: "STRIPE_PRICE_INDIVIDUAL",
+    yearly: "STRIPE_PRICE_INDIVIDUAL_YEARLY",
+  },
+  small: { monthly: "STRIPE_PRICE_SMALL", yearly: "STRIPE_PRICE_SMALL_YEARLY" },
+  corporate: {
+    monthly: "STRIPE_PRICE_CORPORATE",
+    yearly: "STRIPE_PRICE_CORPORATE_YEARLY",
+  },
+  corporate_premium: {
+    monthly: "STRIPE_PRICE_CORPORATE_PREMIUM",
+    yearly: "STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY",
+  },
+};
+
+/** （プラン, サイクル）→ Stripe Price ID。未設定なら null。 */
+export function priceIdFor(planType: PaidPlanType, cycle: BillingCycle): string | null {
+  const value = process.env[STRIPE_PRICE_ENV_KEYS[planType][cycle]];
+  return value && value.length > 0 ? value : null;
+}
+
 // ---------------------------------------------------------------------------
 // audit_logs.action constants
 // ---------------------------------------------------------------------------
@@ -146,33 +182,39 @@ export type ActionType = (typeof ACTION_TYPES)[keyof typeof ACTION_TYPES];
 // up module evaluation. Tests can override env vars (e.g. via vi.stubEnv) and
 // re-call resolvePlanTypeFromPriceId() to verify lookups.
 
-function buildPriceIdMap(): Record<string, PaidPlanType> {
-  const entries: Array<[string | undefined, PaidPlanType]> = [
-    [process.env.STRIPE_PRICE_INDIVIDUAL, "individual"],
-    [process.env.STRIPE_PRICE_SMALL, "small"],
-    [process.env.STRIPE_PRICE_CORPORATE, "corporate"],
-    [process.env.STRIPE_PRICE_CORPORATE_PREMIUM, "corporate_premium"],
-  ];
+export interface PlanPrice {
+  planType: PaidPlanType;
+  billingCycle: BillingCycle;
+}
 
-  const map: Record<string, PaidPlanType> = {};
-  for (const [priceId, planType] of entries) {
-    if (priceId && priceId.length > 0) {
-      map[priceId] = planType;
+function buildPriceIdMap(): Record<string, PlanPrice> {
+  const map: Record<string, PlanPrice> = {};
+  for (const planType of PAID_PLAN_TYPES) {
+    for (const billingCycle of ["monthly", "yearly"] as const) {
+      const priceId = process.env[STRIPE_PRICE_ENV_KEYS[planType][billingCycle]];
+      if (priceId && priceId.length > 0) {
+        map[priceId] = { planType, billingCycle };
+      }
     }
   }
   return map;
 }
 
 /**
- * Resolve a Stripe price ID to a paid plan type.
+ * Resolve a Stripe price ID to (plan type, billing cycle).
  *
  * Returns null if the price ID is unknown so callers can record the
  * Webhook as failed (`stripe_webhook_events.status='failed'`).
  *
  * The lookup map is rebuilt on every call so tests can override
- * STRIPE_PRICE_* env vars between cases. The map is small (4 entries)
+ * STRIPE_PRICE_* env vars between cases. The map is small (8 entries)
  * so the cost is negligible.
  */
-export function resolvePlanTypeFromPriceId(priceId: string): PaidPlanType | null {
+export function resolvePlanPriceFromId(priceId: string): PlanPrice | null {
   return buildPriceIdMap()[priceId] ?? null;
+}
+
+/** 後方互換: Price ID → plan type のみ（サイクル不要な呼出向け）。 */
+export function resolvePlanTypeFromPriceId(priceId: string): PaidPlanType | null {
+  return resolvePlanPriceFromId(priceId)?.planType ?? null;
 }
