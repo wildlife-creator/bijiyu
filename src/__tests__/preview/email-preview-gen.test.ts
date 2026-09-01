@@ -1094,8 +1094,8 @@ const fixtures: Fixture[] = [
       subscriptionChangedEmail({
         recipientName: "山田工務店",
         eventType: "upgrade-immediate",
-        oldPlanName: "個人プラン",
-        newPlanName: "法人プラン",
+        oldPlanName: "ライトプラン",
+        newPlanName: "プレミアムプラン",
       }),
     meta: {
       recipient: "契約者 (個人 = Owner 本人 / 法人 = Owner)",
@@ -1103,6 +1103,27 @@ const fixtures: Fixture[] = [
       actionFile: "src/lib/billing/webhook/handle-subscription-lifecycle.ts",
       specRef: "§6.1-A-1",
       classification: "改修",
+    },
+  },
+  {
+    id: "6.1-A-1'",
+    section: "§6 課金・サブスクリプション",
+    title: "プラン変更 (ダウングレード期末適用)",
+    templateFile: "src/lib/email/templates/subscription-changed.ts",
+    invoke: () =>
+      subscriptionChangedEmail({
+        recipientName: "山田工務店",
+        eventType: "downgrade-applied",
+        oldPlanName: "プレミアムプラン",
+        newPlanName: "ライトプラン",
+      }),
+    meta: {
+      recipient: "契約者 (個人 = Owner 本人 / 法人 = Owner)",
+      trigger:
+        "ダウングレード予約が期末に適用され、webhook で plan_type 変化 + 直前 schedule_id あり を検知",
+      actionFile: "src/lib/billing/webhook/handle-subscription-lifecycle.ts",
+      specRef: "§6.1-A-1' (docs/requirements/spec-changes-202608.md §2.1(4))",
+      classification: "新規",
     },
   },
   {
@@ -1114,8 +1135,8 @@ const fixtures: Fixture[] = [
       subscriptionChangedEmail({
         recipientName: "山田工務店",
         eventType: "downgrade-reserved",
-        oldPlanName: "法人プラン",
-        newPlanName: "個人プラン",
+        oldPlanName: "プレミアムプラン",
+        newPlanName: "ライトプラン",
         scheduledDate: "2026/07/22",
       }),
     meta: {
@@ -1135,7 +1156,7 @@ const fixtures: Fixture[] = [
       subscriptionChangedEmail({
         recipientName: "山田工務店",
         eventType: "cancel-reserved",
-        planName: "個人プラン",
+        planName: "ライトプラン",
         endDate: "2026/07/22",
       }),
     meta: {
@@ -1155,7 +1176,7 @@ const fixtures: Fixture[] = [
       subscriptionChangedEmail({
         recipientName: "山田工務店",
         eventType: "reservation-removed-downgrade",
-        planName: "法人プラン",
+        planName: "プレミアムプラン",
       }),
     meta: {
       recipient: "契約者",
@@ -1174,7 +1195,7 @@ const fixtures: Fixture[] = [
       subscriptionChangedEmail({
         recipientName: "山田工務店",
         eventType: "reservation-removed-cancel",
-        planName: "個人プラン",
+        planName: "ライトプラン",
       }),
     meta: {
       recipient: "契約者",
@@ -1192,7 +1213,7 @@ const fixtures: Fixture[] = [
     invoke: () =>
       subscriptionCancelledEmail({
         recipientName: "山田工務店",
-        planName: "個人プラン",
+        planName: "ライトプラン",
         cancelledAt: "2026/07/22",
         reason: "manual",
       }),
@@ -1212,7 +1233,7 @@ const fixtures: Fixture[] = [
     invoke: () =>
       subscriptionCancelledEmail({
         recipientName: "山田工務店",
-        planName: "個人プラン",
+        planName: "ライトプラン",
         cancelledAt: "2026/06/29",
         reason: "auto-past-due",
       }),
@@ -1233,7 +1254,7 @@ const fixtures: Fixture[] = [
     invoke: () =>
       paymentFailedEmail({
         recipientName: "山田工務店",
-        planName: "個人プラン",
+        planName: "ライトプラン",
         nextRetryDate: "2026/06/26",
       }),
     meta: {
@@ -1435,7 +1456,7 @@ const fixtures: Fixture[] = [
     invoke: () =>
       planActivatedEmail({
         recipientName: "山田工務店",
-        planName: "個人プラン",
+        planName: "ライトプラン",
         activatedAt: "2026/06/22",
       }),
     meta: {

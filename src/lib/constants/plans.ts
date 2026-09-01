@@ -69,10 +69,10 @@ export type PaidPlanType = (typeof PAID_PLAN_TYPES)[number];
 
 export const PLAN_LABELS: Record<PlanType, string> = {
   free: "無料プラン",
-  individual: "個人発注者様向けプラン",
-  small: "小規模事業主様向けプラン",
-  corporate: "法人向けプラン",
-  corporate_premium: "法人向けプラン（高サポート）",
+  individual: "ライトプラン",
+  small: "スタンダードプラン",
+  corporate: "プレミアムプラン",
+  corporate_premium: "ハイエンドプラン",
 };
 
 // ---------------------------------------------------------------------------

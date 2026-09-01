@@ -236,7 +236,7 @@ describe("changePlanAction", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data?.performedType).toBe("upgrade");
-      expect(result.data?.newPlanName).toBe("小規模事業主様向けプラン");
+      expect(result.data?.newPlanName).toBe("スタンダードプラン");
     }
     expect(stripeMock.subscriptions.update).toHaveBeenCalledOnce();
     // Webhook race 回避のため subscriptions.plan_type を同期的に先行 UPDATE している
@@ -274,7 +274,7 @@ describe("changePlanAction", () => {
     expect((ensureOrgCall!.args as { uid: string }).uid).toBe("user-1");
   });
 
-  it("法人高サポートプランへのアップグレード時も ensure_organization_exists を呼ぶ", async () => {
+  it("ハイエンドプランへのアップグレード時も ensure_organization_exists を呼ぶ", async () => {
     const result = await changePlanAction({ targetPlan: "corporate_premium" });
     expect(result.success).toBe(true);
     const ensureOrgCall = adminRpcCalls.find(
@@ -367,8 +367,8 @@ describe("changePlanAction", () => {
     expect(call.subject).toBe("【ビジ友】プラン変更を承りました");
     // 姓名スペースなし結合 + 旧プラン + 新プランがテンプレに埋め込まれる
     expect(call.html).toContain("田中太郎");
-    expect(call.html).toContain("個人発注者様向けプラン");
-    expect(call.html).toContain("法人向けプラン");
+    expect(call.html).toContain("ライトプラン");
+    expect(call.html).toContain("プレミアムプラン");
   });
 
   it("A5: 受信者名は client_profiles.display_name を優先する", async () => {
@@ -569,7 +569,7 @@ describe("cancelDowngradeReservationAction (A5-follow-up: reservation-removed-* 
     expect(call.html).toContain("田中太郎 様");
     expect(call.html).toContain("先日ご予約いただいたプラン変更を取り消しました");
     // planName = 現プラン（corporate）
-    expect(call.html).toContain("法人向けプラン");
+    expect(call.html).toContain("プレミアムプラン");
   });
 
   it("解約予約取消時に「【ビジ友】ご予約を取り消しました」（解約予約取消）メールを送信する", async () => {
@@ -594,7 +594,7 @@ describe("cancelDowngradeReservationAction (A5-follow-up: reservation-removed-* 
     expect(call.subject).toBe("【ビジ友】ご予約を取り消しました");
     expect(call.html).toContain("先日ご予約いただいた解約を取り消しました");
     // planName = 現プラン（individual）
-    expect(call.html).toContain("個人発注者様向けプラン");
+    expect(call.html).toContain("ライトプラン");
     expect(call.html).toContain("今後も引き続き");
   });
 

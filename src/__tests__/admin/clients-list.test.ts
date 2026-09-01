@@ -84,11 +84,11 @@ describe("deriveClientCategory（区分の導出）", () => {
 });
 
 describe("derivePlanLabel（プラン列の表記）", () => {
-  it("4プランを 個人/小規模/法人/法人・高サポート で表記する", () => {
-    expect(derivePlanLabel("individual")).toBe("個人");
-    expect(derivePlanLabel("small")).toBe("小規模");
-    expect(derivePlanLabel("corporate")).toBe("法人");
-    expect(derivePlanLabel("corporate_premium")).toBe("法人・高サポート");
+  it("4プランを ライト/スタンダード/プレミアム/ハイエンド で表記する", () => {
+    expect(derivePlanLabel("individual")).toBe("ライト");
+    expect(derivePlanLabel("small")).toBe("スタンダード");
+    expect(derivePlanLabel("corporate")).toBe("プレミアム");
+    expect(derivePlanLabel("corporate_premium")).toBe("ハイエンド");
   });
 
   it("有効サブスクなし（null）・未知の値は null", () => {

@@ -821,7 +821,7 @@ describe("handleCheckoutCompleted §6.5.A compensation email", () => {
     expect(args.to).toBe("owner@test.local");
     expect(args.subject).toBe("【ビジ友】プランのお申し込みを承りました");
     expect(args.html).toContain("山田太郎 様");
-    expect(args.html).toContain("法人向けプラン");
+    expect(args.html).toContain("プレミアムプラン");
     expect(args.html).toContain("お申し込みプラン");
     expect(args.html).toContain("ご利用開始日");
   });

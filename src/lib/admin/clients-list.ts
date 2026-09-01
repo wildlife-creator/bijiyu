@@ -29,12 +29,12 @@ export const CLIENT_CATEGORY_LABELS: Record<ClientCategory, string> = {
   small: "小規模発注者",
 };
 
-/** ADM-003 のプラン列表記（短縮形。法人と高サポートをここで見分ける） */
+/** ADM-003 のプラン列表記（「プラン」サフィックス無しの短縮形） */
 export const ADMIN_PLAN_LABELS: Record<string, string> = {
-  individual: "個人",
-  small: "小規模",
-  corporate: "法人",
-  corporate_premium: "法人・高サポート",
+  individual: "ライト",
+  small: "スタンダード",
+  corporate: "プレミアム",
+  corporate_premium: "ハイエンド",
 };
 
 export const CLIENT_OPTION_BADGE_LABELS: Record<ClientOptionBadge, string> = {
@@ -104,7 +104,7 @@ export interface ClientListRow {
   companyName: string | null;
   email: string;
   category: ClientCategory | null;
-  /** 個人/小規模/法人/法人・高サポート */
+  /** ライト/スタンダード/プレミアム/ハイエンド */
   planLabel: string | null;
   optionBadges: ClientOptionBadge[];
   isDeleted: boolean;

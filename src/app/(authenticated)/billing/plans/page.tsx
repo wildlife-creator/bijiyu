@@ -12,14 +12,10 @@ import { Button } from "@/components/ui/button";
 
 const PLAN_COLUMNS = [
   { key: "free", label: "無料", price: null },
-  { key: "individual", label: "個人発注者様向け", price: "¥3,800" },
-  { key: "small", label: "小規模事業主様向け", price: "¥14,800" },
-  { key: "corporate", label: "法人向け", price: "¥48,000" },
-  {
-    key: "corporate_premium",
-    label: "法人向け（高サポート）",
-    price: "¥148,000",
-  },
+  { key: "individual", label: "ライト", price: "¥3,800" },
+  { key: "small", label: "スタンダード", price: "¥14,800" },
+  { key: "corporate", label: "プレミアム", price: "¥48,000" },
+  { key: "corporate_premium", label: "ハイエンド", price: "¥148,000" },
 ] as const;
 
 interface FeatureRow {
