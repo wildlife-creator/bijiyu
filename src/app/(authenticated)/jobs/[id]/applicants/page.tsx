@@ -16,7 +16,11 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { StatusFilter } from "@/app/(authenticated)/applications/orders/status-filter";
-import { SortButton } from "@/app/(authenticated)/applications/orders/sort-button";
+import { SortSelect } from "@/components/shared/sort-select";
+import {
+  APPLICATION_SORT_OPTIONS,
+  resolveSortValue,
+} from "@/lib/constants/sort-options";
 
 // NOTE: 応募者一覧 UI は src/app/(authenticated)/applications/orders/page.tsx と
 // ほぼ同一。将来的に共通化候補（現時点では YAGNI で個別実装）。
@@ -70,7 +74,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
   const from = (currentPage - 1) * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
   const filterCategory = sp.status || "";
-  const sortOrder = sp.sort === "asc" ? true : false;
+  const sortOrder = resolveSortValue(APPLICATION_SORT_OPTIONS, sp.sort) === "asc";
 
   // Fetch applications for this job (all statuses)
   let query = supabase
@@ -174,7 +178,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
           検索結果: {totalCount}件
         </p>
         <Suspense fallback={null}>
-          <SortButton basePath={basePath} />
+          <SortSelect options={APPLICATION_SORT_OPTIONS} />
         </Suspense>
       </div>
 

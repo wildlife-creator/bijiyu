@@ -19,7 +19,11 @@ import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatDate } from "@/lib/utils/format-date";
 import { StatusFilter } from "./status-filter";
-import { SortButton } from "./sort-button";
+import { SortSelect } from "@/components/shared/sort-select";
+import {
+  APPLICATION_SORT_OPTIONS,
+  resolveSortValue,
+} from "@/lib/constants/sort-options";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -43,7 +47,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
   const from = (currentPage - 1) * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
   const filterCategory = params.status || "";
-  const sortOrder = params.sort === "asc" ? true : false;
+  const sortOrder = resolveSortValue(APPLICATION_SORT_OPTIONS, params.sort) === "asc";
 
   // 会社単位スコープ（jobs/manage の正準パターン）: 組織所属なら会社全体の発注履歴、
   // 個人発注者なら従来どおり本人の案件のみ。
@@ -137,7 +141,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
           検索結果: {totalCount}件
         </p>
         <Suspense fallback={null}>
-          <SortButton />
+          <SortSelect options={APPLICATION_SORT_OPTIONS} />
         </Suspense>
       </div>
 

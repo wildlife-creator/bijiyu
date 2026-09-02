@@ -10,7 +10,11 @@ import { JobListCard } from "@/components/job-search/job-list-card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
 import { FavoriteTypeSelect } from "./favorite-type-select";
-import { FavoriteSortButton } from "./favorite-sort-button";
+import { SortSelect } from "@/components/shared/sort-select";
+import {
+  FAVORITE_JOB_SORT_OPTIONS,
+  resolveSortValue,
+} from "@/lib/constants/sort-options";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import { HighRatingBadge } from "@/components/shared/high-rating-badge";
@@ -71,7 +75,7 @@ export default async function FavoritesPage({ searchParams }: PageProps) {
   const offset = (page - 1) * ITEMS_PER_PAGE;
 
   // 案件は締切順で並べ替え可能。sort 未指定なら締切が近い順 (asc) が既定。
-  const sortAsc = (sp.sort as string) !== "desc";
+  const sortAsc = resolveSortValue(FAVORITE_JOB_SORT_OPTIONS, sp.sort) === "asc";
 
   let targetIds: string[] = [];
   let totalCount = 0;
@@ -125,7 +129,9 @@ export default async function FavoritesPage({ searchParams }: PageProps) {
           </p>
           <div className="flex items-center gap-3">
             <FavoriteTypeSelect options={tabs} value={activeType} />
-            {activeType === "job" && <FavoriteSortButton />}
+            {activeType === "job" && (
+              <SortSelect options={FAVORITE_JOB_SORT_OPTIONS} />
+            )}
           </div>
         </div>
 

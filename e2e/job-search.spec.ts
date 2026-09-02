@@ -267,18 +267,18 @@ test.describe("お気に入り機能", () => {
     await page.waitForLoadState("networkidle");
 
     await page.goto("/favorites?type=job");
-    // 種類プルダウンに「案件」が表示される
-    await expect(page.getByRole("combobox")).toContainText("案件");
+    // 種類プルダウンに「案件」が表示される（P6 で並び替えプルダウンも combobox になったため first）
+    await expect(page.getByRole("combobox").first()).toContainText("案件");
     // 案件カードが表示される
     await expect(page.locator("a[href^='/jobs/']").first()).toBeVisible();
-    // 並べ替えボタン（既定: 応募締め切りが近い順）→ クリックで遠い順に切り替わる
-    await expect(
-      page.getByRole("button", { name: /応募締め切りが近い順/ }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: /応募締め切りが近い順/ }).click();
-    await expect(
-      page.getByRole("button", { name: /応募締め切りが遠い順/ }),
-    ).toBeVisible();
+    // 並び替えプルダウン（P6: 既定「応募締め切りが近い順」）→ 「遠い順」を選ぶと URL と表示が切り替わる
+    const sortSelect = page.getByLabel("並び替え");
+    await expect(sortSelect).toContainText("応募締め切りが近い順");
+    await sortSelect.click();
+    await page.getByRole("option", { name: "応募締め切りが遠い順" }).click();
+    await expect(page).toHaveURL(/sort=desc/);
+    await expect(page).toHaveURL(/type=job/);
+    await expect(page.getByLabel("並び替え")).toContainText("応募締め切りが遠い順");
   });
 });
 

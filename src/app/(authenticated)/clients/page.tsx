@@ -19,6 +19,11 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { resolveParticipantName } from "@/lib/utils/display-name";
+import { SortSelect } from "@/components/shared/sort-select";
+import {
+  CLIENT_LIST_SORT_OPTIONS,
+  resolveSortValue,
+} from "@/lib/constants/sort-options";
 
 import { ClientSearchForm } from "./client-search-form";
 
@@ -65,6 +70,8 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   const employeeScaleLabel = (sp.employeeScale as string) ?? "";
   const workingWay = (sp.workingWay as string) ?? "";
   const language = (sp.language as string) ?? "";
+  // 並び順は URL を正とし、未知の値は既定（おすすめ順）に倒す（P6）
+  const sort = resolveSortValue(CLIENT_LIST_SORT_OPTIONS, sp.sort);
 
   const employeeScaleRange = employeeScaleLabel
     ? EMPLOYEE_SCALE_RANGES.find((r) => r.label === employeeScaleLabel) ?? null
@@ -185,6 +192,11 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     query = query.overlaps("client_profiles.language", [language]);
   }
 
+  // P6 一覧改修: おすすめ順（既定）= プランランク（ハイエンド 2 → プレミアム 1 → その他 0）→ 新着。
+  // ランクは users.list_plan_rank（契約の作成・変更・解約にトリガーで自動追従）。「新着順」は created_at のみ。
+  if (sort === "recommended") {
+    query = query.order("list_plan_rank", { ascending: false });
+  }
   query = query
     .order("created_at", { ascending: false })
     .range(offset, offset + ITEMS_PER_PAGE - 1);
@@ -231,6 +243,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
             全{count ?? 0}件
           </p>
           <div className="flex items-center gap-2">
+            <SortSelect options={CLIENT_LIST_SORT_OPTIONS} />
             <ClientSearchForm
               activeTradeTypes={activeTradeTypes}
               candidateMunicipalitiesByPrefecture={
