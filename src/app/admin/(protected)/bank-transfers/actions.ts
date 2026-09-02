@@ -19,6 +19,7 @@ import {
   targetFromRequestRow,
   type BankTransferTarget,
 } from "@/lib/billing/bank-transfer";
+import { grantBankTransferPlan } from "@/lib/billing/grant-plan";
 import { isSubscriptionOption } from "@/lib/billing/options";
 import { formatBillingDate } from "@/lib/email/recipients/billing-recipient";
 import { sendEmail } from "@/lib/email/send-email";
@@ -345,85 +346,22 @@ async function activatePlan(
     };
   }
 
+  // 契約行の作成と副作用（role 昇格・client_profiles・組織作成・監査・有効化メール）は
+  // 管理運営アカウントの付与（P5）と共通の grantBankTransferPlan に集約
   const periodEnd = computePeriodEnd(startDate, target.billingCycle);
-  const insert = await admin
-    .from("subscriptions")
-    .insert({
-      user_id: userId,
-      plan_type: target.planType,
-      status: "active",
-      payment_method: "bank_transfer",
-      billing_cycle: target.billingCycle,
-      stripe_subscription_id: null,
-      current_period_start: startIso,
-      current_period_end: dateStringToJstIso(periodEnd, "end"),
-    })
-    .select("id")
-    .single();
-  if (insert.error || !insert.data) {
-    if (insert.error?.code === POSTGRES_UNIQUE_VIOLATION) {
-      return { ok: false, error: "この方には有効なプランが既にあります" };
-    }
-    console.error("[activateBankTransferAction] subscriptions insert failed", insert.error);
-    return { ok: false, error: "契約の作成に失敗しました" };
-  }
-  const subscriptionId = insert.data.id;
-
-  // role: contractor → client（handle_checkout_completed_plan と同じ）
-  if (params.userRole === "contractor") {
-    const { error: roleError } = await admin
-      .from("users")
-      .update({ role: "client" })
-      .eq("id", userId);
-    if (roleError) {
-      console.error("[activateBankTransferAction] role update failed", roleError);
-    } else {
-      await admin.from("audit_logs").insert({
-        actor_id: null,
-        action: "role_changed",
-        target_type: "user",
-        target_id: userId,
-        metadata: { from: "contractor", to: "client", via: "bank_transfer" },
-      });
-    }
-  }
-
-  // client_profiles を作成（既存があれば display_name を維持）
-  const { error: profileError } = await admin
-    .from("client_profiles")
-    .upsert(
-      { user_id: userId, display_name: params.fullName },
-      { onConflict: "user_id", ignoreDuplicates: true },
-    );
-  if (profileError) {
-    console.error("[activateBankTransferAction] client_profiles upsert failed", profileError);
-  }
-
-  // 法人プラン: 組織を用意
-  if (target.planType === "corporate" || target.planType === "corporate_premium") {
-    const { error: orgError } = await admin.rpc("ensure_organization_exists", {
-      uid: userId,
-    });
-    if (orgError) {
-      console.error("[activateBankTransferAction] ensure_organization_exists failed", orgError);
-    }
-  }
-
-  await admin.from("audit_logs").insert({
-    actor_id: null,
-    action: "subscription_created",
-    target_type: "subscription",
-    target_id: subscriptionId,
-    metadata: {
-      plan_type: target.planType,
-      payment_method: "bank_transfer",
-      billing_cycle: target.billingCycle,
-      user_id: userId,
-    },
+  const granted = await grantBankTransferPlan(admin, {
+    userId,
+    userRole: params.userRole,
+    fullName: params.fullName,
+    planType: target.planType,
+    billingCycle: target.billingCycle,
+    startDate,
+    periodEndDate: periodEnd,
+    via: "bank_transfer",
+    sendActivationEmail: true,
   });
-
-  // §6.7 プラン契約完了メール（Stripe 経路と同じテンプレ）
-  await sendPlanActivatedEmail(admin, sendEmail, userId, target.planType, startIso);
+  if (!granted.ok) return granted;
+  const subscriptionId = granted.subscriptionId;
 
   return { ok: true, subscriptionId, periodEndLabel: formatBillingDate(dateStringToJstIso(periodEnd, "end")) };
 }

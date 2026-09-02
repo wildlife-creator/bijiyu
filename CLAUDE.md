@@ -329,6 +329,12 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   テスト決済後に users.role が 'client' に変わることを手動で確認すること
 - Stripe Webhook の署名検証（STRIPE_WEBHOOK_SECRET）が .env.local に設定されていることを確認すること
 
+### 管理運営アカウント（users.is_hidden、P5、必ず守ること）
+- 管理運営アカウント = 運営が使うハイエンド相当の一般会員（`role='client'` + `is_hidden=true`）。**他の会員が「人を探す」画面・導線には出さない**: 職人一覧 / 職人詳細 / 発注者一覧 / 発注者詳細 / 求人お問い合わせ / マイリスト（表示・登録）/ 評価詳細 / スカウト送信 / 新規スレッド作成（`/messages/new`）は `.eq("is_hidden", false)` またはサーバー側ガードで除外済み。**ユーザーを列挙・検索・選択させる画面を新設するときは同じ除外を入れること**
+- **RLS では隠さない**（`users_select_public` を触らない）。隠すとメッセージ相手・応募者・案件の発注者 embed がサイレントに null になる。メッセージ一覧 / スレッド / 一斉送信の宛先 / 応募・発注履歴 / メール宛先 / 管理画面は意図的に除外しない（運営が始めたスレッドに返信できる必要がある）
+- 課金は手動サブスク行（`payment_method='bank_transfer'`, `plan_type='corporate_premium'`, 期限 2099-12-31）。新しい支払方法 enum を足さないこと。付与は `grantBankTransferPlan()`（`src/lib/billing/grant-plan.ts`、ADM-026 の銀行振込有効化と共通）。有効化メールは送らない
+- メッセージの「自分側 / 相手側」判定は **side の user id 集合**（`ownSideUserIds` / `counterpartSideUserIds`）で行う（`message-thread-view.tsx` の `computeIsMine`）。「個人 identity 側 = 受注者」を前提にしたコード（`contractorId` 比較等）を復活させないこと。`messages` の RLS は identity ペア対応済み（`20260902130000_ops_account.sql`）
+
 ### 動画基盤（videos テーブル・Cloudflare Stream、P4、必ず守ること）
 - 動画は **`videos` テーブル**（1 行 = 1 本、`placement` = contractor_page / client_page、`sort_order`、`provider` = cloudflare / external、`status` = processing / ready）で管理する。旧 `users.video_url` / `client_profiles.workplace_video_url` は【廃止予定】でアプリから参照してはならない（staging マージ時に DROP）
 - **表示はオプション購入の有無でゲートしない**（承認済み D4）。`option_subscriptions` を見て動画を出し分けるコードを書かないこと。表示は `getReadyVideos(client, userId, placement)`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />` の 1 パターンに統一。公開中（ready）の行は RLS で全 authenticated が読めるため cross-user 参照でも admin client 不要

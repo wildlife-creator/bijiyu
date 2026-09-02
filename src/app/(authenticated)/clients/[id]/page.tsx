@@ -60,6 +60,10 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
   if (!user) redirect("/login");
 
+  // Self-access guard: 自分自身の発注者詳細は表示しない（CLI-006 と同じ。
+  // 自分宛の /messages/new を防ぐ）
+  if (id === user.id) notFound();
+
   // Fetch client user data with profile
   const { data: client } = await supabase
     .from("users")
@@ -76,6 +80,8 @@ export default async function ClientDetailPage({ params }: PageProps) {
     )
     .eq("id", id)
     .eq("role", "client")
+    // 管理運営アカウント（P5）は直リンクでも表示しない
+    .eq("is_hidden", false)
     .single();
 
   if (!client) notFound();

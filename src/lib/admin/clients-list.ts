@@ -143,6 +143,8 @@ export interface ClientListRow {
   expiryBadge: ExpiryBadge | null;
   optionBadges: ClientOptionBadge[];
   isDeleted: boolean;
+  /** 管理運営アカウント（users.is_hidden、P5） */
+  isOpsAccount: boolean;
 }
 
 function intersect(sets: Set<string>[]): Set<string> {
@@ -278,7 +280,7 @@ export async function fetchClientListPage(
   // ----- メインクエリ（登録日時の新しい順・20件・count exact） -----
   let query = admin
     .from("users")
-    .select("id, role, last_name, first_name, email, deleted_at", {
+    .select("id, role, last_name, first_name, email, deleted_at, is_hidden", {
       count: "exact",
     })
     .in("role", ["client", "staff"]);
@@ -413,6 +415,7 @@ export async function fetchClientListPage(
         ? Array.from(badgesByHolder.get(holderId) ?? [])
         : [],
       isDeleted: !!u.deleted_at,
+      isOpsAccount: u.is_hidden === true,
     };
   });
 

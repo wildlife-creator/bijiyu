@@ -473,6 +473,8 @@ export async function toggleFavoriteAction(
         .select("id")
         .eq("id", targetId)
         .is("deleted_at", null)
+        // 管理運営アカウント（P5）はマイリスト登録できない
+        .eq("is_hidden", false)
         .maybeSingle();
       targetExists = !!data;
     }

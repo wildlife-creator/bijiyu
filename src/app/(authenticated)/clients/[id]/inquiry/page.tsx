@@ -40,6 +40,7 @@ export default async function JobInquiryPage({ params }: PageProps) {
     )
     .eq("id", id)
     .eq("role", "client")
+    .eq("is_hidden", false)
     .maybeSingle();
 
   if (!target) {

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { MessageThreadView } from "@/components/messaging/message-thread-view";
 import type { Message, ScoutJobInfo } from "@/components/messaging/types";
@@ -88,14 +89,28 @@ export default async function ThreadDetailPage({ params }: Props) {
   // 代理バッジは viewer が組織側 (送信元組織メンバー) のときのみ表示
   const showProxyBadge = counterparty.viewerIsOrgSide;
 
-  // MessageThreadView が期待する contractorId (個人 identity 側の participant)
-  const contractorId = counterparty.viewerOnSide2
+  // 吹き出しの左右（自分側 / 相手側）判定用に、両 side の user id 集合を解決する（P5）。
+  // 旧実装は「個人 identity 側 = 受注者」前提で contractorId と比較していたため、
+  // 両側が組織のスレッド（運営の組織 ⇔ 法人発注者）で崩れていた。
+  // 組織側は organization_members 全員（代理スタッフの送信も自分側に含める）、
+  // 個人側は participant 本人のみ。他組織のメンバーは RLS で読めないため admin client。
+  const admin = createAdminClient();
+  const mySideParticipantId = counterparty.viewerOnSide2
+    ? thread.participant_2_id
+    : thread.participant_1_id;
+  const counterSideParticipantId = counterparty.viewerOnSide2
     ? thread.participant_1_id
     : thread.participant_2_id;
-
-  // MessageBubble の isMine 判定用 isContractorSide フラグ:
-  // 「viewer が個人 identity (組織所属していない) 側」のとき true
-  const isContractorSide = !counterparty.viewerIsOrgSide;
+  const mySideOrgId = counterparty.viewerOnSide2
+    ? thread.organization_2_id
+    : thread.organization_1_id;
+  const counterSideOrgId = counterparty.viewerOnSide2
+    ? thread.organization_1_id
+    : thread.organization_2_id;
+  const [ownSideUserIds, counterpartSideUserIds] = await Promise.all([
+    resolveSideUserIds(admin, mySideOrgId, mySideParticipantId),
+    resolveSideUserIds(admin, counterSideOrgId, counterSideParticipantId),
+  ]);
 
   const isCounterpartDeleted = counterparty.deletedAt !== null;
 
@@ -146,12 +161,13 @@ export default async function ThreadDetailPage({ params }: Props) {
         <MessageThreadView
           threadId={threadId}
           currentUserId={user.id}
-          contractorId={contractorId}
+          ownSideUserIds={ownSideUserIds}
+          counterpartSideUserIds={counterpartSideUserIds}
+          viewerIsOrgSide={counterparty.viewerIsOrgSide}
           initialMessages={messages}
           participantAvatarUrl={counterparty.avatarUrl}
           participantName={counterparty.name}
           showScoutActions={showScoutActions}
-          isContractorSide={isContractorSide}
           isProxyAccount={isProxyAccount}
           disabledMessage={
             isCounterpartDeleted ? "このユーザーは退会されました" : null
@@ -160,5 +176,24 @@ export default async function ThreadDetailPage({ params }: Props) {
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * スレッドの片側（組織 identity なら組織メンバー全員 + participant、個人 identity なら
+ * participant のみ）の user id 集合。吹き出しの自分側 / 相手側判定に使う。
+ */
+async function resolveSideUserIds(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string | null,
+  participantId: string,
+): Promise<string[]> {
+  if (!organizationId) return [participantId];
+  const { data } = await admin
+    .from("organization_members")
+    .select("user_id")
+    .eq("organization_id", organizationId);
+  return Array.from(
+    new Set([participantId, ...(data ?? []).map((m) => m.user_id)]),
   );
 }

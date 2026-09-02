@@ -9,6 +9,7 @@ import {
   type ClientOptionBadge,
 } from "@/lib/admin/clients-list";
 import { EXPIRY_BADGE_LABELS } from "@/lib/billing/bank-transfer";
+import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { AdminClientFilters } from "./filters";
 
 const VALID_CATEGORIES = [
@@ -122,6 +123,7 @@ export default async function AdminClientsPage({ searchParams }: PageProps) {
                         ※退会済み
                       </span>
                     )}
+                    {row.isOpsAccount && <OpsAccountBadge className="ml-2" />}
                   </p>
                   <p className="truncate text-body-sm text-muted-foreground">
                     {row.email}

@@ -81,6 +81,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | bio | text | 自己紹介 |
 | avatar_url | text | プロフィール画像URL（Supabase Storage） |
 | video_url | text | 【廃止予定】旧 PR動画URL。P4（2026-09）で `videos` テーブルへ移行済み・アプリからは参照しない。staging マージ時に DROP |
+| is_hidden | boolean (DEFAULT false NOT NULL) | 管理運営アカウント（P5、2026-09）の非表示フラグ。true なら職人一覧（CLI-005/006）・発注者一覧（CON-005/006）・求人お問い合わせ・マイリスト・評価詳細・スカウト対象・新規スレッド作成（/messages/new）から除外。**RLS では絞らない**（メッセージ相手・応募者・案件の発注者名として見える必要がある）。管理画面 ADM-009 で設定 / 解除 |
 | is_active | boolean (DEFAULT true) | ログイン有効フラグ。false の場合 Middleware でログインをブロックする。past_due 超過時の担当者停止や、管理者によるアカウント一時停止に使用 |
 | identity_verified | boolean | 本人確認済みフラグ |
 | ccus_verified | boolean | CCUS登録済みフラグ |
@@ -805,6 +806,15 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 - 監査: `video_create` / `video_update` / `video_reorder` / `video_delete`（旧 `video_url_update` は過去ログの値として残す）
 - 表示部品: `getReadyVideos()`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />`（`src/components/video-embed/video-list.tsx`）。Cloudflare 連携は `src/lib/cloudflare/stream.ts`（env: `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` / `CLOUDFLARE_STREAM_WEBHOOK_SECRET`。未設定なら URL 登録のみ動く）
 - pgTAP: `supabase/tests/videos_rls.test.sql`
+
+## 管理運営アカウント（P5、2026-09）
+
+- 運営が「職人を発注者へ提案 / 案件を職人へ提案」するために使う、ハイエンド相当の一般会員（`users.role = 'client'`。admin ロールは `/admin/*` 以外に入れないため別アカウント）
+- 作成: ADM-006/007 の招待で通常どおり作成 → ADM-009「管理運営アカウントに設定する」で `users.is_hidden = true` + 手動サブスク行を付与（`grantBankTransferPlan`、`src/lib/billing/grant-plan.ts`。ADM-026 の銀行振込有効化と共通）
+- 手動サブスク行: `subscriptions(plan_type='corporate_premium', payment_method='bank_transfer', billing_cycle='yearly', current_period_end='2099-12-31 JST')`。新しい支払方法（enum）は追加しない。有料判定（`is_paid_user()` / `resolveEffectiveSubscription`）は支払方法・期限を見ないためそのままハイエンド会員として動き、Stripe 前提の処理（プラン変更・解約・未払い自動解約）には流入しない。期限バッジ・期限通知（30 日前）も発火しない
+- 監査: `ops_account_set` / `ops_account_unset`（+ 付与時は `subscription_created` / `role_changed` に `via: 'ops_account'`）
+- メッセージ: 新しい入口は無し。既存の「メッセージを送る」（CLI-006 → 職人、CON-006 → 発注者、`/messages/new?to=`）を使う。`messages` の SELECT / INSERT RLS は `20260902130000_ops_account.sql` で identity ペア（`organization_1_id` / `organization_2_id`）対応済み（組織⇔組織スレッドで相手組織の担当者も本文を読め・返信できる）
+- pgTAP: `supabase/tests/ops_account.test.sql`。seed: `ops-account@test.local`（`0b500000-…0001`、is_hidden）/ `ops-candidate@test.local`（`…0002`、設定 E2E 用）
 
 ## 監査ログ
 

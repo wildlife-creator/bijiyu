@@ -12,6 +12,8 @@ export type Row = Record<string, unknown>;
 
 export interface InMemoryDb {
   tables: Record<string, Row[]>;
+  /** admin.rpc() の呼び出し履歴 */
+  rpcCalls: Array<{ name: string; args: Record<string, unknown> }>;
   /** テーブルごとの強制エラー（例: { videos: { insert: { message } } }） */
   failures: Record<string, Partial<Record<"select" | "insert" | "update" | "delete", { message: string }>>>;
 }
@@ -27,11 +29,12 @@ export function nextId(): string {
 export function createInMemoryDb(
   tables: Record<string, Row[]> = {},
 ): InMemoryDb {
-  return { tables, failures: {} };
+  return { tables, failures: {}, rpcCalls: [] };
 }
 
 class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown; count?: number | null }> {
   private filters: Array<[string, unknown]> = [];
+  private inFilters: Array<[string, unknown[]]> = [];
   private orders: Array<[string, boolean]> = [];
   private limitN: number | null = null;
   private countMode = false;
@@ -59,6 +62,19 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown; count
     this.payload = payload;
     return this;
   }
+  /** onConflict のキーが一致する行があれば（ignoreDuplicates なら）何もしない、無ければ insert */
+  upsert(payload: Row, opts?: { onConflict?: string; ignoreDuplicates?: boolean }) {
+    const key = opts?.onConflict;
+    const rows = this.db.tables[this.table] ?? [];
+    const dup = key ? rows.find((r) => r[key] === payload[key]) : undefined;
+    if (dup) {
+      if (!opts?.ignoreDuplicates) Object.assign(dup, payload);
+      this.op = "select";
+      this.filters.push(["id", "__no_match__"]);
+      return this;
+    }
+    return this.insert(payload);
+  }
   update(payload: Row) {
     this.op = "update";
     this.payload = payload;
@@ -70,6 +86,10 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown; count
   }
   eq(col: string, value: unknown) {
     this.filters.push([col, value]);
+    return this;
+  }
+  in(col: string, values: unknown[]) {
+    this.inFilters.push([col, values]);
     return this;
   }
   order(col: string, opts?: { ascending?: boolean }) {
@@ -104,7 +124,11 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown; count
 
   private matching(): Row[] {
     const rows = this.db.tables[this.table] ?? [];
-    return rows.filter((r) => this.filters.every(([c, v]) => r[c] === v));
+    return rows.filter(
+      (r) =>
+        this.filters.every(([c, v]) => r[c] === v) &&
+        this.inFilters.every(([c, vs]) => vs.includes(r[c])),
+    );
   }
 
   private async run(): Promise<{ data: unknown; error: unknown; count?: number | null }> {
@@ -154,5 +178,10 @@ class QueryBuilder implements PromiseLike<{ data: unknown; error: unknown; count
 export function createInMemoryAdminClient(db: InMemoryDb) {
   return {
     from: (table: string) => new QueryBuilder(db, table),
+    /** RPC 呼び出しは db.rpcCalls に記録し、常に成功を返す */
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      db.rpcCalls.push({ name, args });
+      return { data: null, error: null };
+    },
   };
 }

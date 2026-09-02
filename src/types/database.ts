@@ -1668,6 +1668,7 @@ export type Database = {
           id: string
           identity_verified: boolean
           is_active: boolean
+          is_hidden: boolean
           last_name: string | null
           municipality: string | null
           password_set_at: string | null
@@ -1693,6 +1694,7 @@ export type Database = {
           id: string
           identity_verified?: boolean
           is_active?: boolean
+          is_hidden?: boolean
           last_name?: string | null
           municipality?: string | null
           password_set_at?: string | null
@@ -1718,6 +1720,7 @@ export type Database = {
           id?: string
           identity_verified?: boolean
           is_active?: boolean
+          is_hidden?: boolean
           last_name?: string | null
           municipality?: string | null
           password_set_at?: string | null

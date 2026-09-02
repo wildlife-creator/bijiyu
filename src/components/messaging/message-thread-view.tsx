@@ -11,67 +11,66 @@ import type { Message } from "./types";
 interface MessageThreadViewProps {
   threadId: string;
   currentUserId: string;
-  /** 受注者の user id（participant_2_id）。
-   *  代理メッセージは法人スタッフの id で送信されるため、isMine 判定を
-   *  「currentUserId と一致するか」だけで行うと、オーナーが自社スタッフの
-   *  代理メッセージを「相手側」と誤認する（左側＋相手アバター表示）。
-   *  side ベースで判定するために受注者 id を渡す。 */
-  contractorId: string;
+  /** 自分側（組織 identity なら組織メンバー全員 + participant、個人なら本人）の user id。
+   *  代理メッセージは法人スタッフの id で送信されるため、isMine を
+   *  「currentUserId と一致するか」だけで判定すると自社スタッフの発言を
+   *  相手側と誤認する。side 単位の集合で判定する（P5 で両側組織にも対応）。 */
+  ownSideUserIds: string[];
+  /** 相手側の user id 集合（同上） */
+  counterpartSideUserIds: string[];
+  /** viewer が組織 identity 側にいるか */
+  viewerIsOrgSide: boolean;
   initialMessages: Message[];
   participantAvatarUrl?: string | null;
   participantName?: string;
   showScoutActions: boolean;
-  isContractorSide: boolean;
   isProxyAccount: boolean;
   /** A7: 相手が退会済みの場合の入力欄無効化メッセージ */
   disabledMessage?: string | null;
   /** Phase 2 (A4): 「代理」バッジを表示するかを親コンポーネントから明示する。
-   *  未指定の場合は !isContractorSide の旧挙動（発注者側のみ表示）を継続。 */
+   *  未指定の場合は viewerIsOrgSide の旧挙動（組織側のみ表示）を継続。 */
   showProxyBadge?: boolean;
 }
 
 /**
  * メッセージが「自分側の発信」かを判定する。
  *
- * 個人 identity 側 (isContractorSide=true): 側が 1 人しかいないので
- *   単純に `sender_id === currentUserId` で判定。個人⇔個人スレッドは
- *   両側個人 identity なので双方向でこの分岐を使う。
- * 組織 identity 側 (isContractorSide=false): 代理送信 (法人スタッフの
- *   sender_id で送られる) を吸収するため、"contractor side ではない"
- *   (= senderId !== contractorId) を「自分側」とする。組織 Owner が自社
- *   代理スタッフのメッセージを「相手側」と誤認しない。
+ * 1. 送信者が自分本人 → 自分側
+ * 2. 送信者が自分側の集合（自組織メンバー）に含まれる → 自分側
+ * 3. 送信者が相手側の集合に含まれる → 相手側
+ * 4. どちらにも無い（組織から外れた元スタッフ等）: 組織側の viewer は自分側として
+ *    吸収（旧 shim と同じ）、個人側の viewer は相手側とみなす
  *
- * Phase 2 で「席2=受注者」を廃止した結果、旧 `contractorId` 比較 shim は
- *   個人⇔個人ケースで対称性が崩れるため上記に切り替えた。
+ * 個人⇔個人・個人⇔組織・組織⇔組織のいずれでも対称に動く（P5）。
  */
 function computeIsMine(
   senderId: string,
   currentUserId: string,
-  contractorId: string,
-  isContractorSide: boolean,
+  ownSideUserIds: string[],
+  counterpartSideUserIds: string[],
+  viewerIsOrgSide: boolean,
 ): boolean {
-  if (isContractorSide) {
-    // 個人 identity 側は 1 人しかいないので直判定
-    return senderId === currentUserId;
-  }
-  // 組織 identity 側: contractor でなければ全員自分側 (代理送信 shim)
-  return senderId !== contractorId;
+  if (senderId === currentUserId) return true;
+  if (ownSideUserIds.includes(senderId)) return true;
+  if (counterpartSideUserIds.includes(senderId)) return false;
+  return viewerIsOrgSide;
 }
 
 export function MessageThreadView({
   threadId,
   currentUserId,
-  contractorId,
+  ownSideUserIds,
+  counterpartSideUserIds,
+  viewerIsOrgSide,
   initialMessages,
   participantAvatarUrl,
   participantName,
   showScoutActions,
-  isContractorSide,
   isProxyAccount,
   disabledMessage,
   showProxyBadge,
 }: MessageThreadViewProps) {
-  const resolvedShowProxyBadge = showProxyBadge ?? !isContractorSide;
+  const resolvedShowProxyBadge = showProxyBadge ?? viewerIsOrgSide;
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const scrollRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,8 +94,9 @@ export function MessageThreadView({
             !computeIsMine(
               m.sender_id,
               currentUserId,
-              contractorId,
-              isContractorSide,
+              ownSideUserIds,
+              counterpartSideUserIds,
+              viewerIsOrgSide,
             ) && !m.read_at,
         )
         .map((m) => m.id);
@@ -115,7 +115,7 @@ export function MessageThreadView({
         });
       }
     }, 4000);
-  }, [messages, contractorId, isContractorSide]);
+  }, [messages, currentUserId, ownSideUserIds, counterpartSideUserIds, viewerIsOrgSide]);
 
   useEffect(() => {
     markUnreadAsRead();
@@ -268,8 +268,9 @@ export function MessageThreadView({
           const messageIsMine = computeIsMine(
             message.sender_id,
             currentUserId,
-            contractorId,
-            isContractorSide,
+            ownSideUserIds,
+            counterpartSideUserIds,
+            viewerIsOrgSide,
           );
           return (
             <MessageBubble

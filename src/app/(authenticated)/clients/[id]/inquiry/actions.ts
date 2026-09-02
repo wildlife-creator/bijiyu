@@ -47,10 +47,10 @@ export async function submitJobInquiryAction(
   // 3. 宛先 client を取得（admin client = cross-user 参照）
   const { data: targetUser } = await admin
     .from("users")
-    .select("id, role, deleted_at, email, last_name, first_name")
+    .select("id, role, deleted_at, email, last_name, first_name, is_hidden")
     .eq("id", targetClientId)
     .maybeSingle();
-  if (!targetUser) {
+  if (!targetUser || targetUser.is_hidden) {
     return { success: false, error: "対象の発注者が見つかりません" };
   }
   const targetOrgId = await resolveTargetOrganizationId(admin, targetClientId);

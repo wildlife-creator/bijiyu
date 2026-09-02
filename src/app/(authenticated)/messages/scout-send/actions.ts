@@ -199,7 +199,7 @@ export async function sendScoutAction(
     //（sendMessageAction の isCounterpartWithdrawn と対称）。
     const { data: scoutTarget, error: scoutTargetError } = await admin
       .from("users")
-      .select("id, deleted_at")
+      .select("id, deleted_at, is_hidden")
       .eq("id", parsed.data.userId)
       .maybeSingle();
     // fail-closed: 照会失敗を「生存中」と誤判定しない
@@ -209,7 +209,8 @@ export async function sendScoutAction(
         error: "一時的なエラーが発生しました。時間をおいて再度お試しください。",
       };
     }
-    if (!scoutTarget) {
+    // 管理運営アカウント（is_hidden、P5）は一覧に出ないため存在しない扱い
+    if (!scoutTarget || scoutTarget.is_hidden) {
       return { success: false, error: "スカウト対象のユーザーが見つかりません" };
     }
     if (scoutTarget.deleted_at) {

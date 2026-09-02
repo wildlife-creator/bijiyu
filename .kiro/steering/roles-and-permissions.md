@@ -12,6 +12,7 @@
 | 発注者（Client） | 有料プラン課金済み | users.role = 'client' かつ subscriptions.status IN ('active', 'past_due') |
 | 担当者（Staff） | 法人プランの配下ユーザー | users.role = 'staff' かつ organization_members に所属 |
 | 管理者（Admin） | サービス運営者 | users.role = 'admin' |
+| 管理運営アカウント | 運営が「職人を発注者へ提案 / 案件を職人へ提案」するために使う会員（P5、2026-09）。ハイエンド相当の発注者として通常画面を使う。他の会員の一覧・検索・マイリスト・スカウト対象には出ない | users.role = 'client' + users.is_hidden = true（ADM-009 で設定） |
 
 ### ロール遷移
 
