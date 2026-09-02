@@ -57,7 +57,9 @@ const inputSchema = z.union([
   }),
   z.object({
     type: z.literal("option"),
-    optionType: z.enum(["video", "video_workplace"]),
+    // 買い切り動画系。video_workplace のみ発注者プラン加入者限定（下の分岐）、
+    // video / video_shooting（P7）は全会員
+    optionType: z.enum(["video", "video_workplace", "video_shooting"]),
   }),
 ]);
 

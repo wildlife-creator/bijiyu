@@ -271,6 +271,21 @@ describe("requestBankTransferAction — オプション申込", () => {
     });
   });
 
+  it("ユーザー撮影プラン（P7）: 有料プランがなくても買い切り 20,000 円で受付（事務手数料なし）", async () => {
+    adminResults["select:subscriptions"] = { data: [] };
+    const r = await requestBankTransferAction({ type: "option", optionType: "video_shooting" });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data?.targetLabel).toContain("ユーザー撮影プラン");
+    expect(adminInserts[0]!.payload).toMatchObject({
+      target_kind: "option",
+      option_type: "video_shooting",
+      plan_type: null,
+      amount: 20000,
+      initial_fee: 0,
+      billing_cycle: "monthly",
+    });
+  });
+
   it("補償は既に加入していれば拒否、なければ年払い 12 か月分で受付", async () => {
     adminResults["select:option_subscriptions"] = { data: [{ id: "opt-1" }] };
     const dup = await requestBankTransferAction({

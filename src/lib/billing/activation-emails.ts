@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 
-import { OPTION_LABELS } from "@/lib/billing/options";
+import { OPTION_LABELS, type VideoOptionType } from "@/lib/billing/options";
 import { PLAN_LABELS, type PlanType } from "@/lib/constants/plans";
 import { resolveApplicantCompanyName } from "@/lib/email/recipients/applicant-company-name";
 import {
@@ -135,7 +135,7 @@ export async function sendVideoActivatedEmails(
   admin: SupabaseClient<Database>,
   send: typeof sendEmail,
   userId: string,
-  optionType: "video" | "video_workplace",
+  optionType: VideoOptionType,
   activatedAtIso: string,
 ): Promise<void> {
   const optionLabel = OPTION_LABELS[optionType];

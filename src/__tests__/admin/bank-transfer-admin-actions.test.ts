@@ -339,6 +339,29 @@ describe("activateBankTransferAction — オプション", () => {
     expect(sentEmails.map((e) => e.fn)).toEqual(["video"]);
   });
 
+  it("ユーザー撮影プラン（P7）: 買い切り（期限なし）で option_subscriptions を作り、動画メールを送る", async () => {
+    adminResults["select:bank_transfer_requests"] = {
+      data: planRequest({ target_kind: "option", plan_type: null, option_type: "video_shooting", amount: 20000, initial_fee: 0 }),
+    };
+    adminResults["insert:option_subscriptions"] = { data: { id: "opt-new-vs" } };
+    const r = await activateBankTransferAction(REQUEST_ID, fd("2026-09-15"));
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data?.periodEnd).toBeNull();
+    expect(adminInserts.find((i) => i.table === "option_subscriptions")?.payload).toMatchObject({
+      user_id: "user-1",
+      payment_type: "one_time",
+      payment_method: "bank_transfer",
+      option_type: "video_shooting",
+      status: "active",
+      end_date: null,
+    });
+    expect(adminUpdates.find((u) => u.table === "bank_transfer_requests")?.payload).toMatchObject({
+      status: "paid",
+      activated_option_subscription_id: "opt-new-vs",
+    });
+    expect(sentEmails.map((e) => e.fn)).toEqual(["video"]);
+  });
+
   it("急募: 7 日間の期限で作成し、案件と client_profiles のフラグを立てる", async () => {
     const jobId = "11111111-1111-4111-8111-111111111111";
     adminResults["select:bank_transfer_requests"] = {

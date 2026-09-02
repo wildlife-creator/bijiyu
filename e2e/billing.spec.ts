@@ -62,6 +62,15 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await expect(page.getByText("急募", { exact: true })).toBeVisible();
     // 自己PR動画掲載（受注者PR）の見出し。「職場紹介動画掲載」と区別するため exact 一致
     await expect(page.getByText("自己PR動画掲載", { exact: true })).toBeVisible();
+    // ユーザー撮影プラン（P7）: 無料の受注者でも申込ボタンが活性（発注者プラン不要）
+    await expect(page.getByText("ユーザー撮影プラン", { exact: true })).toBeVisible();
+    await expect(page.getByText("20,000円/動画")).toBeVisible();
+    await expect(
+      page.getByText("※ビジ友で決められた動画の構成に合わせて動画撮影をお願いします。"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "ユーザー撮影プランを申し込む" }),
+    ).toBeEnabled();
     await expect(page.getByText("現場での給与未払いトラブル発生時、最大200万円までを補償します。")).toBeVisible();
     await expect(page.getByText("現場での給与未払いトラブル発生時、最大500万円までを補償します。")).toBeVisible();
   });

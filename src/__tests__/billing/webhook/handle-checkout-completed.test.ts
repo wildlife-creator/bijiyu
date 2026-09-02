@@ -653,6 +653,70 @@ describe("handleCheckoutCompleted (video_workplace option)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// metadata.type === 'option' / video_shooting（ユーザー撮影プラン、P7）
+// 買い切り動画系 3 種は handleVideoOption に統合されている
+// ---------------------------------------------------------------------------
+
+describe("handleCheckoutCompleted (video_shooting option)", () => {
+  it("inserts a one_time option_subscription with end_date null and option_type video_shooting", async () => {
+    const { admin, calls } = makeAdmin({});
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "option",
+        option_type: "video_shooting",
+        user_id: "user-vs",
+      }),
+    );
+
+    const insert = calls.find(
+      (c) => c.op === "insert" && c.table === "option_subscriptions",
+    );
+    expect(insert?.payload).toMatchObject({
+      user_id: "user-vs",
+      payment_type: "one_time",
+      stripe_payment_intent_id: "pi_test_123",
+      option_type: "video_shooting",
+      status: "active",
+      end_date: null,
+    });
+  });
+
+  it("rethrows when the insert returns an error (option_type を含むメッセージ)", async () => {
+    const { admin } = makeAdmin({
+      insertByTable: {
+        option_subscriptions: { error: { message: "insert boom" } },
+      },
+    });
+    await expect(
+      handleCheckoutCompleted(
+        admin,
+        makeSession({
+          type: "option",
+          option_type: "video_shooting",
+          user_id: "user-vs",
+        }),
+      ),
+    ).rejects.toThrow(/video_shooting option_subscriptions insert failed/);
+  });
+
+  it("unknown option_type is still rejected", async () => {
+    const { admin } = makeAdmin({});
+    await expect(
+      handleCheckoutCompleted(
+        admin,
+        makeSession({
+          type: "option",
+          option_type: "video_bogus",
+          user_id: "user-vs",
+        }),
+      ),
+    ).rejects.toThrow(/unknown option_type/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // §6.5.A 補償オプション申し込み完了メール送信
 // ---------------------------------------------------------------------------
 
