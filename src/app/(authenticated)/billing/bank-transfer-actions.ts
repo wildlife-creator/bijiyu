@@ -11,6 +11,10 @@ import {
   describeBankTransferTarget,
   type BankTransferTarget,
 } from "@/lib/billing/bank-transfer";
+import {
+  COMPENSATION_OPTION_DISABLED_MESSAGE,
+  isCompensationOptionEnabled,
+} from "@/lib/billing/options";
 import { FEE_COOKIE_NAME, readFeeCookie } from "@/lib/billing/fee-cookie";
 import { PAID_PLAN_TYPES } from "@/lib/constants/plans";
 import { resolveApplicantCompanyName } from "@/lib/email/recipients/applicant-company-name";
@@ -155,6 +159,10 @@ export async function requestBankTransferAction(
     input.optionType === "compensation_5000" ||
     input.optionType === "compensation_9800"
   ) {
+    // P8: 補償オプションは販売停止中（フラグで復活可）
+    if (!isCompensationOptionEnabled()) {
+      return { success: false, error: COMPENSATION_OPTION_DISABLED_MESSAGE };
+    }
     const existingComp = await admin
       .from("option_subscriptions")
       .select("id")

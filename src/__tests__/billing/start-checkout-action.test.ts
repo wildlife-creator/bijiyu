@@ -231,6 +231,8 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_VIDEO = "price_video";
   process.env.STRIPE_PRICE_VIDEO_WORKPLACE = "price_video_workplace";
   process.env.STRIPE_PRICE_VIDEO_SHOOTING = "price_video_shooting";
+  // P8: 補償は販売停止フラグ制御。既存の補償テストは「販売中」の状態で走らせる
+  process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED = "true";
 
   // Reset mock state
   supabaseAuthState.user = { id: "user-c1" };
@@ -451,6 +453,39 @@ describe("startCheckoutAction — basic plan happy path", () => {
     expect(result.success).toBe(true);
     expect(stripeMockState.sessionsCreated).toHaveLength(1);
     expect(stripeMockState.sessionsCreated[0]!.mode).toBe("subscription");
+  });
+});
+
+describe("startCheckoutAction — compensation option 販売停止フラグ (P8)", () => {
+  it("NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED 未設定なら補償の Checkout を拒否し Stripe を呼ばない", async () => {
+    delete process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED;
+    try {
+      const result = await startCheckoutAction({
+        type: "option",
+        optionType: "compensation_5000",
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("現在お申し込みを受け付けていません");
+      }
+      expect(stripeMockState.sessionsCreated).toHaveLength(0);
+    } finally {
+      process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED = "true";
+    }
+  });
+
+  it("フラグが false でも補償以外（ユーザー撮影プラン）は影響を受けない", async () => {
+    process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED = "false";
+    try {
+      const result = await startCheckoutAction({
+        type: "option",
+        optionType: "video_shooting",
+      });
+      expect(result.success).toBe(true);
+      expect(stripeMockState.sessionsCreated).toHaveLength(1);
+    } finally {
+      process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED = "true";
+    }
   });
 });
 

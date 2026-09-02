@@ -343,6 +343,13 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - E2E は `page.getByLabel("並び替え").click()` → `page.getByRole("option", { name })` で操作する（`e2e/list-sorting.spec.ts`）。マイリストのように同一画面に他の shadcn Select がある場合、`getByRole("combobox")` は複数一致するので `.first()` 等で特定する
 - 対象外: メッセージ一覧（更新順固定）・管理画面の一覧（ADM-013 の順送りボタンはそのまま）
 
+### 補償オプションは販売停止中（P8、フラグ制御、必ず守ること）
+- 補償（`compensation_5000` / `compensation_9800`）はアプリ上の販売を取り下げた（保険業法上のリスク。保険会社との別契約に切り出す方針）。**コードは削除せず** `isCompensationOptionEnabled()`（`src/lib/billing/options.ts`、`NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED === "true"`）で制御する。未設定 = 販売停止
+- フラグが効く場所は 3 か所: 料金プラン画面の 2 行（`BillingClient.tsx`、`compensationOptionEnabled` prop。加入中の人には解約用に自分の行だけ出す）/ Stripe Checkout（`billing/actions.ts`）/ 銀行振込申込（`bank-transfer-actions.ts`）。**画面から消しても Server Action は直接呼べるため、新規申込の入口を足すときは必ず同じガードを入れる**
+- Webhook・解約・メール・管理画面（ADM-008 の絞り込み / ADM-025-026 の有効化）はフラグに関係なく動かす（既存契約と運営操作のため）。補償関連コードを「使われていない」と判断して削除しないこと
+- 復活させるときは環境変数を `true` にするだけ。vitest の補償テストは `NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED="true"` を立てて走る（`start-checkout-action.test.ts` の setup）
+- 給与未払いの窓口はお問い合わせ（COM-008「給与未払いについて」= 発生前の相談）とトラブル報告（COM-012「給与未払い」= 発生後）。選択肢は `src/lib/constants/contact-options.ts` / `trouble-options.ts` の定数（ラベル文字列保存、DB 変更なし）
+
 ### 動画基盤（videos テーブル・Cloudflare Stream、P4、必ず守ること）
 - 動画は **`videos` テーブル**（1 行 = 1 本、`placement` = contractor_page / client_page、`sort_order`、`provider` = cloudflare / external、`status` = processing / ready）で管理する。旧 `users.video_url` / `client_profiles.workplace_video_url` は【廃止予定】でアプリから参照してはならない（staging マージ時に DROP）
 - **表示はオプション購入の有無でゲートしない**（承認済み D4）。`option_subscriptions` を見て動画を出し分けるコードを書かないこと。表示は `getReadyVideos(client, userId, placement)`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />` の 1 パターンに統一。公開中（ready）の行は RLS で全 authenticated が読めるため cross-user 参照でも admin client 不要

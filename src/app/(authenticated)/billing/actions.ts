@@ -10,7 +10,12 @@ import {
   OPEN_BANK_TRANSFER_STATUSES,
 } from "@/lib/billing/bank-transfer";
 import { priceIdFor } from "@/lib/constants/plans";
-import type { OptionType } from "@/lib/billing/options";
+import {
+  COMPENSATION_OPTION_DISABLED_MESSAGE,
+  isCompensationOption,
+  isCompensationOptionEnabled,
+  type OptionType,
+} from "@/lib/billing/options";
 import { getStripeClient } from "@/lib/billing/stripe";
 import { PAID_PLAN_TYPES, type PaidPlanType } from "@/lib/constants/plans";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
@@ -200,6 +205,10 @@ export async function startCheckoutAction(
       };
     }
   } else {
+    // P8: 補償オプションは販売停止中（フラグで復活可）。画面から消しても直接呼べるためここでも拒否
+    if (isCompensationOption(input.optionType) && !isCompensationOptionEnabled()) {
+      return { success: false, error: COMPENSATION_OPTION_DISABLED_MESSAGE };
+    }
     // 同じオプションの銀行振込申込（P2）を処理中なら Stripe 決済へ進ませない
     let openBankOption = admin
       .from("bank_transfer_requests")

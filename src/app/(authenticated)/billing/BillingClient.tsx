@@ -128,6 +128,8 @@ interface BillingClientProps {
   clientProfile: ClientProfile;
   urgentEligibleJobs: Array<{ id: string; title: string }>;
   checkoutSuccess?: string;
+  /** P8: 補償オプションの販売フラグ（false = 販売停止。加入中の行だけ解約用に出す） */
+  compensationOptionEnabled: boolean;
   /** P3: Stripe ホスト画面でプラン変更を確定して戻ってきた */
   planChangeConfirmed?: boolean;
   bankTransfer: BankTransferInfo;
@@ -167,6 +169,7 @@ export function BillingClient({
   clientProfile,
   urgentEligibleJobs,
   checkoutSuccess,
+  compensationOptionEnabled,
   planChangeConfirmed = false,
   bankTransfer,
 }: BillingClientProps) {
@@ -830,7 +833,9 @@ export function BillingClient({
             )}
           </div>
 
-          {/* 補償 ¥5,000/月（受注者向け 給与未払い保険） */}
+          {/* 補償 ¥5,000/月（受注者向け 給与未払い保険）
+              P8: 販売停止中は加入中の人にだけ行を出す（解約のみ。新規申込ボタンは出さない） */}
+          {(compensationOptionEnabled || hasComp5000) && (
           <div className="py-4">
             <div className="flex items-center justify-between">
               <span className="text-body-md font-bold">補償（受注者向け）</span>
@@ -883,8 +888,10 @@ export function BillingClient({
               )}
             </div>
           </div>
+          )}
 
-          {/* 補償 ¥9,800/月（受注者向け 給与未払い保険） */}
+          {/* 補償 ¥9,800/月（受注者向け 給与未払い保険）P8: 同上 */}
+          {(compensationOptionEnabled || hasComp9800) && (
           <div className="py-4 last:pb-0">
             <div className="flex items-center justify-between">
               <span className="text-body-md font-bold">補償（受注者向け）</span>
@@ -937,6 +944,7 @@ export function BillingClient({
               )}
             </div>
           </div>
+          )}
         </div>
       </section>
 
