@@ -284,13 +284,13 @@ export async function middleware(request: NextRequest) {
    *   Cookie は付与されない（fee=free は新規申込専用のフロー）。
    */
   function finalize(response: NextResponse): NextResponse {
-    // CSP frame-src（video-display Task 3.5）:
-    //   TikTok 埋込プレイヤー iframe を許可する。default-src 等は付けず
-    //   frame-src のみのスコープ限定（他リソースは無制限のまま = 回帰ゼロ）。
+    // CSP frame-src（video-display Task 3.5 / P4 動画基盤）:
+    //   TikTok 埋込プレイヤーと Cloudflare Stream プレイヤーの iframe を許可する。
+    //   default-src 等は付けず frame-src のみのスコープ限定（他リソースは無制限のまま）。
     //   将来 YouTube/Vimeo 追加時はドメインを追記する（要件 3.10）。
     response.headers.set(
       "Content-Security-Policy",
-      "frame-src 'self' https://www.tiktok.com",
+      "frame-src 'self' https://www.tiktok.com https://iframe.videodelivery.net",
     );
 
     if (billingHeadersAvailable) {

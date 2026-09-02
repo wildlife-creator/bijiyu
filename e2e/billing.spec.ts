@@ -46,6 +46,7 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
   });
 
   test("P3: 「年払い」に切り替えると年額の申込ボタンに変わる", async ({ page }) => {
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto("/billing");
     await page.getByRole("tab", { name: "年払い" }).click();
     // ライトプラン 3,800 × 12 = 45,600 円/年

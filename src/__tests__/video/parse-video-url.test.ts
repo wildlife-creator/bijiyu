@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseVideoUrl } from "@/lib/video-embed";
+import {
+  cloudflareThumbnailUrl,
+  parseVideoUrl,
+  parsedVideoFromCloudflareUid,
+} from "@/lib/video-embed";
 
 describe("parseVideoUrl — TikTok 標準閲覧 URL", () => {
   it("www あり標準 URL から id を抽出し player embedUrl を構築する", () => {
@@ -77,5 +81,58 @@ describe("parseVideoUrl — 非対応・不正入力は null", () => {
     expect(
       parseVideoUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
     ).toBeNull();
+  });
+});
+
+describe("parseVideoUrl — Cloudflare Stream 埋込 URL（P4）", () => {
+  it("iframe.videodelivery.net/{uid} から uid を抽出し 16:9 で返す", () => {
+    const result = parseVideoUrl(
+      "https://iframe.videodelivery.net/a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    );
+    expect(result).toEqual({
+      platform: "cloudflare",
+      id: "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      aspect: "video",
+      embedUrl:
+        "https://iframe.videodelivery.net/a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    });
+  });
+
+  it("末尾スラッシュ付きでも通過する", () => {
+    expect(
+      parseVideoUrl(
+        "https://iframe.videodelivery.net/a1b2c3d4e5f60718293a4b5c6d7e8f90/",
+      )?.id,
+    ).toBe("a1b2c3d4e5f60718293a4b5c6d7e8f90");
+  });
+
+  it("uid が短すぎる / 記号を含むパスは null", () => {
+    expect(parseVideoUrl("https://iframe.videodelivery.net/abc")).toBeNull();
+    expect(
+      parseVideoUrl("https://iframe.videodelivery.net/abc-def/extra"),
+    ).toBeNull();
+  });
+
+  it("videodelivery.net（プレイヤー以外のホスト）は null", () => {
+    expect(
+      parseVideoUrl(
+        "https://videodelivery.net/a1b2c3d4e5f60718293a4b5c6d7e8f90/thumbnails/thumbnail.jpg",
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("Cloudflare Stream ヘルパー（parsedVideoFromCloudflareUid / URL 生成）", () => {
+  it("UID から ParsedVideo・サムネ URL を組む", () => {
+    const uid = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
+    expect(parsedVideoFromCloudflareUid(uid)).toEqual({
+      platform: "cloudflare",
+      id: uid,
+      aspect: "video",
+      embedUrl: `https://iframe.videodelivery.net/${uid}`,
+    });
+    expect(cloudflareThumbnailUrl(uid)).toBe(
+      `https://videodelivery.net/${uid}/thumbnails/thumbnail.jpg`,
+    );
   });
 });

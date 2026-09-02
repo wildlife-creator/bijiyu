@@ -80,7 +80,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | company_name | text | 会社名/屋号（任意・空欄可。「なし」等の文字は入力させない） |
 | bio | text | 自己紹介 |
 | avatar_url | text | プロフィール画像URL（Supabase Storage） |
-| video_url | text | PR動画URL（TikTok等、動画掲載オプション） |
+| video_url | text | 【廃止予定】旧 PR動画URL。P4（2026-09）で `videos` テーブルへ移行済み・アプリからは参照しない。staging マージ時に DROP |
 | is_active | boolean (DEFAULT true) | ログイン有効フラグ。false の場合 Middleware でログインをブロックする。past_due 超過時の担当者停止や、管理者によるアカウント一時停止に使用 |
 | identity_verified | boolean | 本人確認済みフラグ |
 | ccus_verified | boolean | CCUS登録済みフラグ |
@@ -477,11 +477,12 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
     3. 対象案件の jobs.is_urgent を false に更新
   - 動画掲載オプション（受注者PR, 'video'）購入時:
     1. option_subscriptions に INSERT（payment_type = 'one_time', end_date = NULL）
-    2. 管理者が ADM-010 で users.video_url を設定
+    2. 管理者が ADM-027 で `videos`（placement = 'contractor_page'）に動画を登録
   - 職場紹介動画掲載オプション（'video_workplace'）購入時:
     1. option_subscriptions に INSERT（payment_type = 'one_time', option_type = 'video_workplace', end_date = NULL）
-    2. 管理者が ADM-010B で client_profiles.workplace_video_url を設定
-    - 受注者PR動画（users.video_url）とは独立した別カラム・別 option_type。購入は発注者プラン加入者のみ
+    2. 管理者が ADM-027 で `videos`（placement = 'client_page'）に動画を登録
+    - 購入は発注者プラン加入者のみ
+    - **P4（2026-09）以降、動画の表示はオプション購入の有無でゲートしない**（`videos` に公開中の行があれば全ユーザーのページに表示）。option_subscriptions は課金・購入済み表示・管理画面の絞込にのみ使う
 
   ■ 月額課金オプションの処理（Stripe Webhook で実行）:
   - 補償オプション解約時:
@@ -489,7 +490,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
     - 補償オプションは受注者向け給与未払い保険として基本プランから独立して契約・継続される。基本プラン解約時に自動キャンセルしない（連鎖キャンセル廃止）
   - 動画掲載オプション（受注者PR / 職場紹介）解約時:
     1. option_subscriptions.status を 'cancelled' に更新
-    2. users.video_url / client_profiles.workplace_video_url は保持（削除しない）、ただし表示時にオプション有効判定（active な該当 option_type との AND）で非表示にする
+    2. `videos` の行は保持（表示も継続。P4 で表示ゲート撤廃。掲載をやめるときは管理者が ADM-027 で削除する）
 
   ■ Webhook の冪等性（べきとうせい = 同じ通知が2回来ても問題なく処理できること）:
   - Stripe Webhook イベントの event.id を処理済みとして記録し、重複処理を防止する
@@ -546,7 +547,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | sns_facebook | boolean (DEFAULT false NOT NULL) | Facebook を利用しているかのチェック値。同上 |
 | admin_memo | text | 内部管理者のメモ（管理画面用） |
 | is_urgent_option | boolean | 急募オプション有効フラグ |
-| workplace_video_url | text (nullable) | 職場紹介動画 URL（TikTok 等、`video_workplace` オプション）。CON-006 表示は URL 存在 かつ active `video_workplace` の AND。管理者が ADM-010B で代理設定。受注者PR動画（users.video_url）とは別カラム |
+| workplace_video_url | text (nullable) | 【廃止予定】旧 職場紹介動画 URL。P4（2026-09）で `videos` テーブル（placement=client_page）へ移行済み・アプリからは参照しない。staging マージ時に DROP |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
@@ -774,6 +775,36 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 | error_message | text | 失敗時のエラー内容（status = 'failed' の場合に記録。正常時は null） |
 | processed_at | timestamptz | 処理完了日時 |
 | created_at | timestamptz | |
+
+## 動画（P4、2026-09）
+
+### videos（掲載動画）
+
+ユーザーページに掲載する動画。1 行 = 1 本。受注者PR動画（職人ページ）と職場紹介動画（会社ページ）を
+`placement` で区別し、同じテーブルで複数本・表示順を管理する。登録・削除は管理者のみ（ADM-027、service_role で書き込み）。
+**表示はオプション購入の有無でゲートしない**（承認済み D4。全ユーザーのページに掲載可能。本数上限なし）。
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | uuid (PK) | |
+| user_id | uuid (FK → users, ON DELETE CASCADE) | 掲載先ユーザー |
+| placement | video_placement (enum) | 'contractor_page'（職人ページ: COM-001 / CLI-006 / ADM-009）/ 'client_page'（会社ページ: CON-006 / CLI-020 / ADM-004）。後から `ALTER TYPE ... ADD VALUE` で増やせる |
+| sort_order | integer (DEFAULT 0) | 同一 (user_id, placement) 内の表示順（昇順） |
+| provider | text | 'cloudflare'（Cloudflare Stream にアップロードした MP4）/ 'external'（TikTok 等の埋込 URL）。CHECK |
+| cloudflare_uid | text (nullable) | provider='cloudflare' のとき必須。Cloudflare Stream の動画 UID（部分 UNIQUE）。プレイヤー `https://iframe.videodelivery.net/{uid}`、サムネ `https://videodelivery.net/{uid}/thumbnails/thumbnail.jpg` |
+| embed_source_url | text (nullable) | provider='external' のとき必須。`parseVideoUrl()` が解釈する元 URL |
+| admin_label | text (nullable) | 運営向けの管理用ラベル（自由入力。表示には使わない） |
+| status | video_status (enum, DEFAULT 'ready') | 'processing'（Cloudflare で変換中・非公開）/ 'ready'（公開）。external は常に ready。cloudflare は processing で作成し、Webhook（`/api/webhooks/cloudflare-stream`、HMAC 署名検証）または ADM-027 の「状態を確認」で ready へ |
+| created_at | timestamptz | |
+| updated_at | timestamptz | `set_updated_at` トリガー |
+
+- CHECK `videos_provider_consistency`: provider と cloudflare_uid / embed_source_url の整合
+- RLS: SELECT は authenticated に `status = 'ready'` の行を全員に開放（表示 6 画面は通常クライアントで cross-user 参照可）+ 管理者は全行。INSERT / UPDATE / DELETE はポリシー無し（service_role 専用）
+- 既存データ: migration `20260902120000_videos.sql` で `users.video_url` / `client_profiles.workplace_video_url` を external 行としてコピー移行済み。旧カラムは【廃止予定】として残置（staging マージ時に DROP）
+- 掲載お知らせメール（§6.6.C）: その掲載場所で公開中が 0 → 1 本になったときのみ（`src/lib/videos/published-emails.ts`）
+- 監査: `video_create` / `video_update` / `video_reorder` / `video_delete`（旧 `video_url_update` は過去ログの値として残す）
+- 表示部品: `getReadyVideos()`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />`（`src/components/video-embed/video-list.tsx`）。Cloudflare 連携は `src/lib/cloudflare/stream.ts`（env: `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` / `CLOUDFLARE_STREAM_WEBHOOK_SECRET`。未設定なら URL 登録のみ動く）
+- pgTAP: `supabase/tests/videos_rls.test.sql`
 
 ## 監査ログ
 

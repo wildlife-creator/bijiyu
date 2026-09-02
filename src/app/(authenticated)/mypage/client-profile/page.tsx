@@ -8,14 +8,14 @@ import { Card } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
-import { VideoEmbed } from "@/components/video-embed/video-embed";
+import { VideoList } from "@/components/video-embed/video-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
-import { hasActiveOption } from "@/lib/billing/options";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { fetchClientReputation } from "@/lib/client-review/aggregate";
+import { getReadyVideos } from "@/lib/videos/fetch";
 
 /**
  * CLI-020 発注者情報詳細
@@ -93,7 +93,7 @@ export default async function ClientProfilePage() {
   const { data: profile } = await supabase
     .from("client_profiles")
     .select(
-      `display_name, address, image_url, workplace_video_url, recruit_job_types,
+      `display_name, address, image_url, recruit_job_types,
        employee_scale, working_way, language, message`,
     )
     .eq("user_id", profileUserId)
@@ -140,16 +140,14 @@ export default async function ClientProfilePage() {
   const canEdit = orgRole === "owner" || orgRole === "admin" || orgRole === null;
   const isCorporate = organizationId !== null;
 
-  // 職場紹介動画: workplace_video_url 設定済み かつ active な 'video_workplace'
-  // オプションが Owner にある場合のみ表示。Admin/Staff が他人（Owner）の
-  // option を引くケースを含むため admin client 経由（hasActiveOption の注意書き準拠）。
-  const showWorkplaceVideo =
-    !!profile?.workplace_video_url &&
-    (await hasActiveOption(
-      createAdminClient(),
-      profileUserId,
-      "video_workplace",
-    ));
+  // 職場紹介動画: videos テーブルの公開中の動画を表示順どおりに表示（P4）。
+  // オプション購入の有無ではゲートしない。Owner の動画を Admin/Staff が見る場合も
+  // 公開中（ready）の行は RLS で読めるため通常クライアントでよい。
+  const workplaceVideos = await getReadyVideos(
+    supabase,
+    profileUserId,
+    "client_page",
+  );
 
   return (
     <div className="min-h-dvh bg-muted">
@@ -199,19 +197,16 @@ export default async function ClientProfilePage() {
         </div>
       </div>
 
-      {/* 職場紹介動画（active 'video_workplace' のみ）
+      {/* 職場紹介動画（公開中の動画が 1 本以上あるときのみ）
           CON-006 と同じ「他人から見るのと同じレイアウト」で自社動画を確認可能にする。
-          URL の編集自体は admin 専有（ADM-010B）で、ここは表示のみ */}
-      {showWorkplaceVideo && (
+          動画の登録・削除は admin 専有（ADM-027）で、ここは表示のみ */}
+      {workplaceVideos.length > 0 && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">
             職場紹介動画
           </h2>
           <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoEmbed
-              url={profile!.workplace_video_url!}
-              label="職場紹介動画"
-            />
+            <VideoList videos={workplaceVideos} label="職場紹介動画" />
           </div>
         </section>
       )}

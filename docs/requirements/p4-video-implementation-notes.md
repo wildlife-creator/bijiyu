@@ -6,7 +6,7 @@
 ## 0. ブランチ・進行状況（2026-09-02 時点）
 
 - 3 層ブランチ運用: ① `staging`（クライアント確認用・触らない）→ ② `feature/spec-changes-202608`（P1+P2+P3 マージ済み、origin push 済み）→ ③ フェーズ作業ブランチ
-- **P4 の作業ブランチ `p4-video-platform` は作成済み**（feature から分岐、先頭 = P3 マージコミット `4cded27`）。実装はこれから
+- **P4 の作業ブランチ `p4-video-platform` は作成済み**（feature から分岐、先頭 = P3 マージコミット `4cded27`）。**実装完了（2026-09-02）**: migration `20260902120000_videos.sql` / `src/lib/videos/*` / `src/lib/cloudflare/stream.ts` / ADM-027（`/admin/users/[id]/videos`）/ Webhook route / 表示 6 画面の置換 / テスト（vitest・pgTAP・E2E）/ steering・CLAUDE.md 更新。旧 ADM-010 / 010B と `hasActiveOption` は削除済み。Cloudflare の実疎通は staging で確認（ユーザー宿題 5-2 の後）
 - 完了ごとに ② へ `--no-ff` マージ → origin push。P1〜P8 が揃ってから ① へマージ（このとき旧動画カラムの DROP と DB 適用を行う）
 - ローカル DB はマイグレーション適用済み・seed 状態。`supabase db reset` で再現可
 

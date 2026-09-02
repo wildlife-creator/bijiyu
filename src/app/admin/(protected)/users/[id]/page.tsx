@@ -5,17 +5,17 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
-import { VideoEmbed } from "@/components/video-embed/video-embed";
+import { VideoList } from "@/components/video-embed/video-list";
 import { RatingSummaryCard } from "@/components/reviews/rating-summary-card";
 import { CommentListCard } from "@/components/reviews/comment-list-card";
 import { CommentsPagination } from "@/components/reviews/comments-pagination";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
-import { hasActiveOption } from "@/lib/billing/options";
 import { fetchPerItemSummary } from "@/lib/rating/aggregate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatResidence } from "@/lib/utils/format-residence";
+import { getReadyVideos } from "@/lib/videos/fetch";
 import { DeleteUserButton } from "./delete-user-button";
 
 // アカウント削除の退会カスケード（メール送信を含む）がタイムアウトしないよう
@@ -79,7 +79,7 @@ export default async function AdminUserDetailPage({
     .select(
       `id, role, avatar_url, last_name, first_name, birth_date, deleted_at,
        identity_verified, ccus_verified, bio, prefecture, municipality, gender,
-       skill_tags, video_url,
+       skill_tags,
        user_skills(trade_type, experience_years),
        user_qualifications(qualification_name),
        user_available_areas(prefecture, municipality)`,
@@ -89,8 +89,9 @@ export default async function AdminUserDetailPage({
 
   if (!u) notFound();
 
-  // active オプション判定（admin 画面のため admin client で一貫して判定）
-  const hasVideo = await hasActiveOption(admin, id, "video");
+  // PR動画（公開中のみ）。P4 でオプション購入によるゲートは撤廃。
+  // 退会済みでも登録済みの動画は運営者が後から確認できるよう表示を維持する
+  const prVideos = await getReadyVideos(admin, id, "contractor_page");
 
   // 発注者からの評価（★×5 7項目サマリー + 評価の補足コメント）
   const perItem = await fetchPerItemSummary(admin, id);
@@ -133,10 +134,7 @@ export default async function AdminUserDetailPage({
   }));
   const skillTags = (u.skill_tags ?? []) as string[];
 
-  // 退会済みはオプション契約も終了しているが、登録済みの動画は運営者が後から
-  // 確認できるよう表示を維持する（投稿/編集ボタンは非表示のまま）
   const isDeleted = !!u.deleted_at;
-  const showVideo = !!u.video_url && (hasVideo || isDeleted);
 
   return (
     <div className="px-5 py-8">
@@ -200,25 +198,27 @@ export default async function AdminUserDetailPage({
         </div>
       </div>
 
-      {/* PR動画（video_url 設定済み かつ active な 'video' がある場合のみ） */}
-      {showVideo && (
+      {/* PR動画（公開中の動画が 1 本以上あるときのみ） */}
+      {prVideos.length > 0 && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">PR動画</h2>
           <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoEmbed url={u.video_url!} label="PR動画" />
+            <VideoList videos={prVideos} label="PR動画" />
           </div>
         </section>
       )}
 
-      {/* 受注者PR動画の投稿ボタン（active 'video' のみ・退会済みは出さない。
-          発注者詳細 ADM-004 の職場紹介動画ボタンと色・配置をそろえる） */}
-      {hasVideo && !isDeleted && (
+      {/* 動画管理画面（ADM-027）への導線。P4 で購入ゲートを撤廃し常時表示
+          （退会済みは出さない）。発注者詳細 ADM-004 の職場紹介動画ボタンと色・配置をそろえる */}
+      {!isDeleted && (
         <div className="mt-3 flex justify-end">
           <Button
             asChild
             className="rounded-full bg-primary text-white hover:bg-primary/90"
           >
-            <Link href={`/admin/users/${id}/video`}>
+            <Link
+              href={`/admin/users/${id}/videos?placement=contractor_page&backTo=${encodeURIComponent(`/admin/users/${id}`)}`}
+            >
               受注者PR動画を投稿/編集する
             </Link>
           </Button>

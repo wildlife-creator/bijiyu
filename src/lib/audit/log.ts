@@ -21,8 +21,13 @@ export type AuditAction =
   // 管理者自身の操作
   | "admin_password_change"
   | "admin_memo_update"
-  // 動画 URL 更新（ADM-010 / ADM-010B）
+  // 動画 URL 更新（旧 ADM-010 / ADM-010B。P4 で廃止。過去ログの値として残す）
   | "video_url_update"
+  // 動画管理（ADM-027、P4）: 追加 / ラベル・状態更新 / 表示順入替 / 削除
+  | "video_create"
+  | "video_update"
+  | "video_reorder"
+  | "video_delete"
   // 銀行振込（P2）: 申込レコードの状態遷移と、振込契約の運営操作
   | "bank_transfer_invoiced"
   | "bank_transfer_activate"

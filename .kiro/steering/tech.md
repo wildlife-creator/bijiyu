@@ -25,6 +25,7 @@ Next.js（App Router）をフルスタックフレームワークとして採用
 | **複雑なサーバー処理** | Supabase Edge Functions（`auto-cancel-past-due`: 未払い 7 日で Stripe 解約 / `bank-transfer-expiry-notify`: 銀行振込契約の期限 30 日前・当日に運営宛通知。いずれも pg_cron + pg_net から毎日呼出） |
 | **決済連携** | Stripe SDK + Webhook（API Routesで受信） |
 | **メール送信** | Resend |
+| **動画アップロード・配信** | Cloudflare Stream（P4、2026-09）。管理画面から Direct Creator Upload でブラウザ → Cloudflare へ直接 POST、処理完了は Webhook（`/api/webhooks/cloudflare-stream`、HMAC 署名検証）で受信。プレイヤーは iframe 埋込（`iframe.videodelivery.net`）。TikTok 等の URL 埋込は従来どおり `parseVideoUrl()`。REST 直叩き（SDK なし、`src/lib/cloudflare/stream.ts`）。未設定環境では URL 登録のみ動く |
 | **リアルタイム通知** | Supabase Realtime（アプリ内通知）。Web Push通知は将来検討 |
 
 ## データベース・BaaS
@@ -192,6 +193,14 @@ billing 機能の実装時に使用する。Stripe の決済イベント（Webho
 | Preview（Vercel） | Stripe テストモード | PR プレビューでの決済テスト |
 | Production（Vercel） | Stripe 本番モード | 本番決済 |
 
+
+### Cloudflare Stream（動画アップロード、P4）
+
+- 環境変数: `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN`（Account > Stream > Edit）/ `CLOUDFLARE_STREAM_WEBHOOK_SECRET`
+- Webhook 登録: `node scripts/cloudflare/setup-stream-webhook.mjs https://<ホスト>/api/webhooks/cloudflare-stream` → 出力された secret を env に設定（アカウントにつき通知先 1 つ）
+- ローカル: 未設定でもアプリは動く（ADM-027 のファイルアップロードだけ無効化・URL 貼り付けは可）。実ファイルの疎通確認は staging で行う
+- テスト: `fetch` をモックして擬似化（`src/__tests__/cloudflare/stream.test.ts` / `src/__tests__/admin/video-actions.test.ts` / `src/__tests__/video/cloudflare-webhook-route.test.ts`）。E2E は URL 登録経路のみ
+- CSP: `src/middleware.ts` の `frame-src` に `https://iframe.videodelivery.net` を許可済み
 
 ### Git LFS（デザインアセット管理）
 

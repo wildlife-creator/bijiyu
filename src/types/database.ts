@@ -1730,6 +1730,56 @@ export type Database = {
         }
         Relationships: []
       }
+      videos: {
+        Row: {
+          admin_label: string | null
+          cloudflare_uid: string | null
+          created_at: string
+          embed_source_url: string | null
+          id: string
+          placement: Database["public"]["Enums"]["video_placement"]
+          provider: string
+          sort_order: number
+          status: Database["public"]["Enums"]["video_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_label?: string | null
+          cloudflare_uid?: string | null
+          created_at?: string
+          embed_source_url?: string | null
+          id?: string
+          placement: Database["public"]["Enums"]["video_placement"]
+          provider: string
+          sort_order?: number
+          status?: Database["public"]["Enums"]["video_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_label?: string | null
+          cloudflare_uid?: string | null
+          created_at?: string
+          embed_source_url?: string | null
+          id?: string
+          placement?: Database["public"]["Enums"]["video_placement"]
+          provider?: string
+          sort_order?: number
+          status?: Database["public"]["Enums"]["video_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       withdrawal_surveys: {
         Row: {
           created_at: string
@@ -1912,6 +1962,8 @@ export type Database = {
       thread_type: "message" | "scout"
       user_role: "contractor" | "client" | "staff" | "admin"
       verification_status: "pending" | "approved" | "rejected"
+      video_placement: "contractor_page" | "client_page"
+      video_status: "processing" | "ready"
       webhook_status: "processing" | "completed" | "failed"
     }
     CompositeTypes: {
@@ -2068,6 +2120,8 @@ export const Constants = {
       thread_type: ["message", "scout"],
       user_role: ["contractor", "client", "staff", "admin"],
       verification_status: ["pending", "approved", "rejected"],
+      video_placement: ["contractor_page", "client_page"],
+      video_status: ["processing", "ready"],
       webhook_status: ["processing", "completed", "failed"],
     },
   },

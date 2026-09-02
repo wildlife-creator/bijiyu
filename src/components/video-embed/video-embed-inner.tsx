@@ -12,7 +12,7 @@ import type { ParsedVideo } from "@/lib/video-embed";
 interface VideoEmbedInnerProps {
   /** parse 済みのメタ情報（aspect / embedUrl 等） */
   parsed: ParsedVideo;
-  /** oEmbed 由来のサムネイル URL（取得失敗時 / 未対応 platform で null） */
+  /** サムネイル URL（oEmbed 由来 or Cloudflare 固定 URL。取得失敗時は null） */
   thumbnailUrl: string | null;
   /** aria-label / Dialog タイトル用（任意） */
   label?: string;
@@ -20,7 +20,7 @@ interface VideoEmbedInnerProps {
 
 /**
  * 動画埋込のクライアント側（Dialog の開閉と画像フォールバックを担当）。
- * 親の <VideoEmbed> (RSC) からサムネ URL を渡される。
+ * 親の <VideoList> (RSC) からサムネ URL を渡される。
  *
  * - thumbnailUrl があれば <img object-cover> で実サムネ表示
  * - 取得失敗（thumbnailUrl === null）または <img onError>（CDN 署名期限切れ等）の
@@ -76,7 +76,13 @@ export function VideoEmbedInner({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[360px] p-0 sm:max-w-[360px]">
+        <DialogContent
+          className={
+            parsed.aspect === "9/16"
+              ? "max-w-[360px] p-0 sm:max-w-[360px]"
+              : "max-w-[640px] p-0 sm:max-w-[640px]"
+          }
+        >
           <DialogTitle className="sr-only">{title}</DialogTitle>
           <div
             className={`${aspectClass} w-full overflow-hidden rounded-[8px]`}
