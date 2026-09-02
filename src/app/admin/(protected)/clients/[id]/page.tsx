@@ -25,6 +25,7 @@ import { formatDateJst, formatDateTime } from "@/lib/utils/format-date";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { getReadyVideos } from "@/lib/videos/fetch";
+import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { BankSubscriptionPanel } from "./bank-subscription-panel";
 import { DeleteAccountButton } from "./delete-account-button";
 import { JobSiteList } from "./job-site-list";
@@ -101,7 +102,7 @@ export default async function AdminClientDetailPage({
   // 契約主体（role='client'）のみ表示。退会済みも閲覧可能
   const { data: target } = await admin
     .from("users")
-    .select("id, role, last_name, first_name, email, deleted_at, avatar_url")
+    .select("id, role, last_name, first_name, email, deleted_at, avatar_url, is_hidden")
     .eq("id", id)
     .maybeSingle();
 
@@ -423,6 +424,7 @@ export default async function AdminClientDetailPage({
           <div className="min-w-0 flex-1">
             <p className="truncate text-heading-md font-bold text-foreground">
               {displayName}
+              {target.is_hidden && <OpsAccountBadge className="ml-2" />}
             </p>
             {profile?.address && (
               <p className="text-body-sm text-muted-foreground">

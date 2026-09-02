@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/job-search/back-button";
@@ -58,6 +58,19 @@ export default async function NewMessagePage({ searchParams }: Props) {
   // Actor: use multi-org-aware helper (Cookie-resolved active org)
   const { active } = await getActiveOrganizationContext(supabase);
   const myOrgId = active?.organizationId ?? null;
+
+  // 相手の存在・状態チェック（P5）。自分自身・退会済み・admin ロールは新規スレッドを作らない。
+  // 管理運営アカウント（is_hidden）は他の会員から新規に始められない（運営が始めた
+  // 既存スレッドは下の候補検索で見つかり、そのまま開ける）。
+  if (targetUserId === user.id) notFound();
+  const { data: targetUser } = await admin
+    .from("users")
+    .select("id, role, deleted_at, is_hidden")
+    .eq("id", targetUserId)
+    .maybeSingle();
+  if (!targetUser || targetUser.deleted_at || targetUser.role === "admin") {
+    notFound();
+  }
 
   const { data: targetOrgRow } = await admin
     .from("organization_members")
@@ -125,6 +138,9 @@ export default async function NewMessagePage({ searchParams }: Props) {
   });
 
   let threadId: string | null = existing?.id ?? null;
+
+  // 管理運営アカウント宛の新規スレッドは作らない（既存スレッドがあればそのまま開く）
+  if (!threadId && targetUser.is_hidden) notFound();
 
   // Q2 (Phase 1 済): 新規スレッド作成時のみ月次上限判定。既存スレッド返信は無制限。
   if (!threadId) {

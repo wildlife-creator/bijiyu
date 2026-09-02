@@ -76,6 +76,8 @@ export default async function ContractorDetailPage({ params }: PageProps) {
     )
     .eq("id", id)
     .in("role", ["contractor", "client"])
+    // 管理運営アカウント（P5）は直リンクでも表示しない
+    .eq("is_hidden", false)
     .single();
 
   if (!contractor) notFound();

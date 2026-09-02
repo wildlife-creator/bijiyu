@@ -6,7 +6,7 @@
 ## 0. ブランチ・進行状況
 
 - 3 層ブランチ運用: ① `staging`（触らない）→ ② `feature/spec-changes-202608`（P1〜P4 マージ済み、origin push 済み）→ ③ フェーズ作業ブランチ
-- **P5 の作業ブランチ `p5-ops-account` は作成済み**（feature から分岐、先頭 = P4 マージコミット `cd58b8d`）。実装はこれから
+- **P5 の作業ブランチ `p5-ops-account` は作成済み**（feature から分岐、先頭 = P4 マージコミット `cd58b8d`）。**実装完了（2026-09-02）**: migration `20260902130000_ops_account.sql`（`users.is_hidden` + `messages` RLS の identity 対応）/ 除外 9 クエリ + ガード（マイリスト登録・スカウト・`/messages/new`）/ CON-006 自分自身ガード / スレッドの side 集合ベース isMine（`ownSideUserIds` / `counterpartSideUserIds`）/ `grantBankTransferPlan`（`src/lib/billing/grant-plan.ts`、ADM-026 と共通化）/ ADM-009 の設定・解除パネル + ADM-003/004/008/009 のバッジ / seed（ops-account / ops-candidate）/ vitest 10・pgTAP 9・E2E 12 追加 / steering・CLAUDE.md 更新。受け入れ条件 10 の「スカウト承諾ボタン」は、個人発注者も受注者として応募できる 1 アカウント両ロール設計上「正当な表示」と判断し変更なし（運営自身は is_hidden でスカウト対象外）
 - 完了ごとに ② へ `--no-ff` マージ → origin push。P1〜P8 が揃ってから ① へマージ
 - 管理運営アカウントの**実登録は P6 完了後**（仕様 §5 の注記）。P5 ではテストデータ（seed）で検証する
 

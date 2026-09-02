@@ -43,6 +43,8 @@ export default async function ContractorReviewsPage({
       "id, avatar_url, last_name, first_name, birth_date, deleted_at, identity_verified, ccus_verified",
     )
     .eq("id", id)
+    // 管理運営アカウント（P5）は直リンクでも表示しない
+    .eq("is_hidden", false)
     .single();
 
   if (!contractorUser) {

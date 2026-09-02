@@ -83,6 +83,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
         .select("id")
         .eq("role", "client")
         .is("deleted_at", null)
+        .eq("is_hidden", false)
         .or(`last_name.ilike.${pattern},first_name.ilike.${pattern}`),
       supabase
         .from("client_profiles")
@@ -146,7 +147,9 @@ export default async function ClientListPage({ searchParams }: PageProps) {
       { count: "exact" },
     )
     .eq("role", "client")
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    // 管理運営アカウント（P5）は一覧・検索に出さない
+    .eq("is_hidden", false);
 
   // Apply filters
   if (keywordUserIds !== null) {

@@ -35,7 +35,10 @@ export type AuditAction =
   | "bank_transfer_memo_update"
   | "bank_transfer_plan_change"
   | "bank_transfer_extend"
-  | "bank_transfer_cancel_subscription";
+  | "bank_transfer_cancel_subscription"
+  // 管理運営アカウント（P5）: 設定（非表示 + 手動サブスク付与）/ 解除（非表示のみ戻す）
+  | "ops_account_set"
+  | "ops_account_unset";
 
 /**
  * 監査ログ用のメールマスク: 先頭1文字 + *** + @domain

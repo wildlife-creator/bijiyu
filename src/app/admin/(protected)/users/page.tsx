@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
+import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { AdminUserFilters } from "./filters";
 
 const PAGE_SIZE = 20;
@@ -55,7 +56,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
   let query = admin
     .from("users")
-    .select("id, last_name, first_name, email, birth_date, deleted_at", {
+    .select("id, last_name, first_name, email, birth_date, deleted_at, is_hidden", {
       count: "exact",
     })
     .in("role", ["contractor", "client"]);
@@ -127,6 +128,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                         ※退会済み
                       </span>
                     )}
+                    {u.is_hidden && <OpsAccountBadge className="ml-2" />}
                   </p>
                   <p className="truncate text-body-sm text-muted-foreground">
                     {u.email}

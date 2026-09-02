@@ -298,7 +298,8 @@ async function ClientFavorites({
     `,
     )
     .in("id", targetIds)
-    .eq("role", "client");
+    .eq("role", "client")
+    .eq("is_hidden", false);
 
   // 発注者カードのエリアは「会社所在地（個人のお住まい）」ではなく
   // 「募集エリア」を表示する（CON-005 と整合）。client_recruit_areas を bulk fetch。
@@ -443,7 +444,8 @@ async function UserFavorites({
     `,
     )
     .in("id", targetIds)
-    .in("role", ["contractor", "client"]);
+    .in("role", ["contractor", "client"])
+    .eq("is_hidden", false);
 
   // CLI-005 と同じ高評価バッジ用に、評価サマリを一括取得
   const userIds = (users ?? []).map((u) => u.id);

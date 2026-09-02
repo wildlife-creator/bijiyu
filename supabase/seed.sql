@@ -1432,6 +1432,44 @@ INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_i
   VALUES ('b1110000-0000-1000-8000-000000000005', 'one_time', 'pi_seed_vw_corpcomp', 'video_workplace', 'active', NULL);
 
 -- ============================================================
+-- 管理運営アカウント（P5 / spec-changes-202608 §2.4）テストデータ
+--   id 帯 0b500000-...（他の seed と重複しない）
+--   ① ops-account@test.local   : 管理運営アカウント。is_hidden=true、ハイエンドの銀行振込行（期限 2099）、
+--      組織 + client_profiles「ビジ友運営（テスト）」。E2E: 一覧・検索・マイリストに出ない / 運営 → 発注者・職人へメッセージ
+--   ② ops-candidate@test.local : 無料の受注者。ADM-009「管理運営アカウントに設定 / 解除」E2E 専用
+-- ============================================================
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('0b500000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ops-account@test.local',   crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
+  ('0b500000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ops-candidate@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (user_id, id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at) VALUES
+  ('0b500000-0000-4000-8000-000000000001', '0b500000-0000-4000-8000-000000000001', 'ops-account@test.local',   '{"sub":"0b500000-0000-4000-8000-000000000001","email":"ops-account@test.local"}',   'email', now(), now(), now()),
+  ('0b500000-0000-4000-8000-000000000002', '0b500000-0000-4000-8000-000000000002', 'ops-candidate@test.local', '{"sub":"0b500000-0000-4000-8000-000000000002","email":"ops-candidate@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users SET role = 'client', last_name = 'ビジ友', first_name = '運営', prefecture = '東京都', is_hidden = true, password_set_at = now()
+WHERE id = '0b500000-0000-4000-8000-000000000001';
+UPDATE public.users SET role = 'contractor', last_name = '運営', first_name = '候補', prefecture = '東京都', skill_tags = ARRAY['造作大工']
+WHERE id = '0b500000-0000-4000-8000-000000000002';
+
+INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
+  ('0b500000-0000-4000-8000-000000000002', '建築/躯体｜大工', 2);
+INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
+  ('0b500000-0000-4000-8000-000000000002', '東京都', NULL);
+
+-- ① 手動サブスク（ハイエンド・銀行振込扱い・期限 2099-12-31 JST）+ 組織 + 発注者プロフィール
+INSERT INTO subscriptions (id, user_id, plan_type, status, payment_method, billing_cycle, stripe_subscription_id, current_period_start, current_period_end)
+VALUES ('0b500000-0000-4000-8000-00000000cc01', '0b500000-0000-4000-8000-000000000001', 'corporate_premium', 'active', 'bank_transfer', 'yearly', NULL,
+        now(), '2099-12-31 23:59:59+09');
+INSERT INTO organizations (id, owner_id) VALUES
+  ('0b500000-0000-4000-8000-00000000aa01', '0b500000-0000-4000-8000-000000000001');
+INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account) VALUES
+  ('0b500000-0000-4000-8000-00000000aa01', '0b500000-0000-4000-8000-000000000001', 'owner', false);
+INSERT INTO client_profiles (user_id, display_name, admin_memo) VALUES
+  ('0b500000-0000-4000-8000-000000000001', 'ビジ友運営（テスト）', '管理運営アカウント（seed）。一覧・検索には出ない');
+
+-- ============================================================
 -- 退会手動テスト用の使い捨てユーザー（COM-006 / withdrawal_surveys 検証用）
 -- ============================================================
 -- フリー受注者・進行中案件なし＝退会ガードに引っかからず退会できる状態。

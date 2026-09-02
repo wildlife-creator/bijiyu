@@ -16,7 +16,10 @@ import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatResidence } from "@/lib/utils/format-residence";
 import { getReadyVideos } from "@/lib/videos/fetch";
+import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
+import { PAYMENT_METHOD_LABELS, PLAN_LABELS } from "@/lib/constants/plans";
 import { DeleteUserButton } from "./delete-user-button";
+import { OpsAccountPanel } from "./ops-account-panel";
 
 // アカウント削除の退会カスケード（メール送信を含む）がタイムアウトしないよう
 // Server Action の実行時間上限を延長する
@@ -79,7 +82,7 @@ export default async function AdminUserDetailPage({
     .select(
       `id, role, avatar_url, last_name, first_name, birth_date, deleted_at,
        identity_verified, ccus_verified, bio, prefecture, municipality, gender,
-       skill_tags,
+       skill_tags, is_hidden,
        user_skills(trade_type, experience_years),
        user_qualifications(qualification_name),
        user_available_areas(prefecture, municipality)`,
@@ -88,6 +91,18 @@ export default async function AdminUserDetailPage({
     .maybeSingle();
 
   if (!u) notFound();
+
+  // 管理運営アカウント（P5）: 現在の契約表示用
+  const { data: activeSubscription } = await admin
+    .from("subscriptions")
+    .select("plan_type, payment_method")
+    .eq("user_id", id)
+    .in("status", ["active", "past_due"])
+    .limit(1)
+    .maybeSingle();
+  const currentPlanLabel = activeSubscription
+    ? `${PLAN_LABELS[activeSubscription.plan_type as keyof typeof PLAN_LABELS] ?? activeSubscription.plan_type}（${PAYMENT_METHOD_LABELS[activeSubscription.payment_method]}）`
+    : null;
 
   // PR動画（公開中のみ）。P4 でオプション購入によるゲートは撤廃。
   // 退会済みでも登録済みの動画は運営者が後から確認できるよう表示を維持する
@@ -172,6 +187,7 @@ export default async function AdminUserDetailPage({
                 ※退会済み
               </span>
             )}
+            {u.is_hidden && <OpsAccountBadge className="ml-2" />}
           </p>
           <div className="mt-1 flex flex-wrap gap-3 text-body-sm">
             {u.identity_verified && (
@@ -325,6 +341,20 @@ export default async function AdminUserDetailPage({
           hrefForPage={(p) => `/admin/users/${id}?commentsPage=${p}`}
         />
       </section>
+
+      {/* 管理運営アカウント（P5）: 退会済みには出さない */}
+      {!isDeleted && (
+        <section className="mt-6">
+          <h2 className="text-body-lg font-bold text-foreground">管理運営アカウント</h2>
+          <div className="mt-2">
+            <OpsAccountPanel
+              userId={id}
+              isHidden={u.is_hidden}
+              currentPlanLabel={currentPlanLabel}
+            />
+          </div>
+        </section>
+      )}
 
       <div className="mt-10 flex flex-col items-center gap-3">
         <Button

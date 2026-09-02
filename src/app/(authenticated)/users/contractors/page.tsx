@@ -220,7 +220,9 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
     )
     .in("role", ["contractor", "client"])
     .neq("id", user.id)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    // 管理運営アカウント（P5）は一覧・検索に出さない
+    .eq("is_hidden", false);
 
   if (candidateIds !== null) {
     // 0 件確定の場合も .in([]) は危ういのでダミーで空結果を強制
