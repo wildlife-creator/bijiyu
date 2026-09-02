@@ -775,6 +775,7 @@ export type Database = {
           organization_id: string | null
           owner_id: string
           owner_message: string | null
+          owner_plan_rank: number
           project_details: string | null
           project_end_date: string | null
           project_start_date: string | null
@@ -807,6 +808,7 @@ export type Database = {
           organization_id?: string | null
           owner_id: string
           owner_message?: string | null
+          owner_plan_rank?: number
           project_details?: string | null
           project_end_date?: string | null
           project_start_date?: string | null
@@ -839,6 +841,7 @@ export type Database = {
           organization_id?: string | null
           owner_id?: string
           owner_message?: string | null
+          owner_plan_rank?: number
           project_details?: string | null
           project_end_date?: string | null
           project_start_date?: string | null
@@ -1670,6 +1673,7 @@ export type Database = {
           is_active: boolean
           is_hidden: boolean
           last_name: string | null
+          list_plan_rank: number
           municipality: string | null
           password_set_at: string | null
           prefecture: string | null
@@ -1696,6 +1700,7 @@ export type Database = {
           is_active?: boolean
           is_hidden?: boolean
           last_name?: string | null
+          list_plan_rank?: number
           municipality?: string | null
           password_set_at?: string | null
           prefecture?: string | null
@@ -1722,6 +1727,7 @@ export type Database = {
           is_active?: boolean
           is_hidden?: boolean
           last_name?: string | null
+          list_plan_rank?: number
           municipality?: string | null
           password_set_at?: string | null
           prefecture?: string | null
@@ -1908,6 +1914,15 @@ export type Database = {
       }
       is_paid_user: { Args: { uid: string }; Returns: boolean }
       is_same_org: { Args: { org_id: string; uid: string }; Returns: boolean }
+      job_owner_plan_rank_of: {
+        Args: { p_organization_id: string; p_owner_id: string }
+        Returns: number
+      }
+      list_plan_rank_of: { Args: { uid: string }; Returns: number }
+      refresh_list_plan_rank: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       replace_client_recruit_areas: {
         Args: { p_areas: Json; p_client_id: string }
         Returns: undefined

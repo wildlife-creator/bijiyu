@@ -21,7 +21,11 @@ import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 import { BackButton } from "@/components/shared/back-button";
 import { StatusFilter } from "./status-filter";
-import { SortButton } from "./sort-button";
+import { SortSelect } from "@/components/shared/sort-select";
+import {
+  APPLICATION_SORT_OPTIONS,
+  resolveSortValue,
+} from "@/lib/constants/sort-options";
 import { SuccessToast } from "./success-toast";
 import { formatDate } from "@/lib/utils/format-date";
 
@@ -48,7 +52,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
   const from = (currentPage - 1) * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
   const filterCategory = params.filter || "";
-  const sortOrder = params.sort === "asc" ? true : false;
+  const sortOrder = resolveSortValue(APPLICATION_SORT_OPTIONS, params.sort) === "asc";
 
   // Fetch all applications with job + review info
   // We need client_reviews to determine display category
@@ -159,7 +163,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
           検索結果: {totalCount}件
         </p>
         <Suspense fallback={null}>
-          <SortButton />
+          <SortSelect options={APPLICATION_SORT_OPTIONS} />
         </Suspense>
       </div>
 

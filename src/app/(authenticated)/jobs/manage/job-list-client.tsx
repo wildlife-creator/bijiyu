@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PendingOverlay } from "@/components/shared/pending-overlay";
+import { SortSelect } from "@/components/shared/sort-select";
+import { JOB_MANAGE_SORT_OPTIONS } from "@/lib/constants/sort-options";
 import {
   Select,
   SelectContent,
@@ -134,11 +136,7 @@ export function JobListClient({
               <SelectItem value="closed">掲載終了</SelectItem>
             </SelectContent>
           </Select>
-          <img
-            src="/images/icons/icon-sort.png"
-            alt="並び替え"
-            className="size-5"
-          />
+          <SortSelect options={JOB_MANAGE_SORT_OPTIONS} />
         </div>
       </div>
 

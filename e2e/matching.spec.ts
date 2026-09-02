@@ -123,7 +123,8 @@ test.describe("受注者: ステータスフィルター（CON-011）", () => {
     await expect(page.getByRole("heading", { name: "応募履歴" })).toBeVisible();
 
     // フィルターのプルダウンを選択（onValueChange で即時遷移）
-    await page.getByRole("combobox").click();
+    await // P6: 並び替えプルダウンも combobox なので、DOM 上先にあるステータス絞り込みを first() で特定
+    page.getByRole("combobox").first().click();
     await page.getByRole("option", { name: "稼働予定" }).click();
 
     // URL にフィルターパラメータが付く
@@ -329,7 +330,8 @@ test.describe("発注者: CLI-007/CLI-010 の役割分離", () => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/applications/orders");
     await expect(page.getByRole("heading", { name: "発注履歴一覧" })).toBeVisible();
-    await page.getByRole("combobox").click();
+    await // P6: 並び替えプルダウンも combobox なので、DOM 上先にあるステータス絞り込みを first() で特定
+    page.getByRole("combobox").first().click();
     // 「応募あり（未対応）」は CLI-010 のフィルタから削除済み
     await expect(
       page.getByRole("option", { name: "応募あり（未対応）" }),
@@ -383,7 +385,8 @@ test.describe("発注者: 案件応募者一覧（CLI-007B）", () => {
   }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto(`/jobs/${JOB_WITH_APPLICATIONS}/applicants`);
-    await page.getByRole("combobox").click();
+    await // P6: 並び替えプルダウンも combobox なので、DOM 上先にあるステータス絞り込みを first() で特定
+    page.getByRole("combobox").first().click();
     await expect(
       page.getByRole("option", { name: "応募あり（未対応）" }),
     ).toBeVisible();

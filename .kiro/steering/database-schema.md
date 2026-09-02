@@ -82,6 +82,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | avatar_url | text | プロフィール画像URL（Supabase Storage） |
 | video_url | text | 【廃止予定】旧 PR動画URL。P4（2026-09）で `videos` テーブルへ移行済み・アプリからは参照しない。staging マージ時に DROP |
 | is_hidden | boolean (DEFAULT false NOT NULL) | 管理運営アカウント（P5、2026-09）の非表示フラグ。true なら職人一覧（CLI-005/006）・発注者一覧（CON-005/006）・求人お問い合わせ・マイリスト・評価詳細・スカウト対象・新規スレッド作成（/messages/new）から除外。**RLS では絞らない**（メッセージ相手・応募者・案件の発注者名として見える必要がある）。管理画面 ADM-009 で設定 / 解除 |
+| list_plan_rank | smallint (DEFAULT 0 NOT NULL) | 一覧のプラン順ランク（P6、2026-09）。0 = その他（無料 / ライト / スタンダード）/ 1 = プレミアム / 2 = ハイエンド。`list_plan_rank_of(uid)` で subscriptions（active / past_due）の plan_type から計算し、**subscriptions のトリガーで自動更新**（手動更新・cron 不要）。CON-005 の既定順「おすすめ順」で `list_plan_rank DESC, created_at DESC`。誰でも読める列（並び順とプランバッジから推測できる情報のため許容） |
 | is_active | boolean (DEFAULT true) | ログイン有効フラグ。false の場合 Middleware でログインをブロックする。past_due 超過時の担当者停止や、管理者によるアカウント一時停止に使用 |
 | identity_verified | boolean | 本人確認済みフラグ |
 | ccus_verified | boolean | CCUS登録済みフラグ |
@@ -174,6 +175,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | etc_message | text | 詳細その他 |
 | status | text | 'draft' / 'open' / 'closed'。'closed' への自動遷移: ①応募受付期間終了（Edge Function `close-expired-jobs` が recruit_end_date 超過時に自動設定）、②発注者の支払い遅延による降格時（Edge Function `auto-cancel-past-due`）、③発注者の退会時（Server Action） |
 | is_urgent | boolean | 急募フラグ（オプション） |
+| owner_plan_rank | smallint (DEFAULT 0 NOT NULL) | 契約主体（`organization_id` があれば組織オーナー、無ければ `owner_id`）のプラン順ランク（0 / 1 / 2、P6）。`jobs_set_owner_plan_rank`（BEFORE INSERT / UPDATE OF owner_id, organization_id）と subscriptions / organizations のトリガーで自動更新。担当者作成の案件も会社のプランで判定。CON-002 の既定順「おすすめ順」で `is_urgent DESC, owner_plan_rank DESC, created_at DESC` |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 | deleted_at | timestamptz | |
@@ -815,6 +817,17 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 - 監査: `ops_account_set` / `ops_account_unset`（+ 付与時は `subscription_created` / `role_changed` に `via: 'ops_account'`）
 - メッセージ: 新しい入口は無し。既存の「メッセージを送る」（CLI-006 → 職人、CON-006 → 発注者、`/messages/new?to=`）を使う。`messages` の SELECT / INSERT RLS は `20260902130000_ops_account.sql` で identity ペア（`organization_1_id` / `organization_2_id`）対応済み（組織⇔組織スレッドで相手組織の担当者も本文を読め・返信できる）
 - pgTAP: `supabase/tests/ops_account.test.sql`。seed: `ops-account@test.local`（`0b500000-…0001`、is_hidden）/ `ops-candidate@test.local`（`…0002`、設定 E2E 用）
+
+## 一覧のプラン順ランク（P6、2026-09）
+
+- 目的: 発注者一覧（CON-005）と案件一覧（CON-002「おすすめ順」）を ハイエンド → プレミアム → その他 の順に並べる（`docs/requirements/spec-changes-202608.md` §2.5(1)、`docs/requirements/p6-list-sorting-implementation-notes.md`）
+- 方式: **ランク列 + トリガー**（`20260902140000_list_plan_rank.sql`）。`users.list_plan_rank` / `jobs.owner_plan_rank` に非正規化し、並び替えは既存クエリに `.order()` を 1 行足すだけ。ビュー案（subscriptions の RLS が本人行のみで他人のランクが 0 になる）・RPC 案（2 画面分のフィルタを SQL に書き直す）は不採用
+- 関数: `list_plan_rank_of(uid)`（corporate_premium → 2 / corporate → 1 / それ以外 → 0。SECURITY DEFINER、`is_paid_user` と同じ構造）/ `job_owner_plan_rank_of(owner_id, organization_id)` / `refresh_list_plan_rank(user_id)`（契約者本人 + 本人名義 + 所属組織の案件を再計算）
+- トリガー: ① `subscriptions` AFTER INSERT / UPDATE OF plan_type, status, user_id / DELETE → `refresh_list_plan_rank(OLD/NEW.user_id)` ② `jobs` BEFORE INSERT / UPDATE OF owner_id, organization_id → `owner_plan_rank` を設定（`ensure_organization_exists` の昇格時の organization_id 付け替えも拾う） ③ `organizations` AFTER INSERT / UPDATE OF owner_id, deleted_at → その組織の案件を再計算
+- 契約を書き換える経路（Stripe Webhook の RPC 4 系統 / 銀行振込 ADM-026 / 管理運営アカウント ADM-009 / 退会 / cron）は**すべて subscriptions への SQL 書き込み**なのでトリガーで漏れなく追従する。TS 側で都度ランクを更新するコードを書かないこと
+- 索引: `jobs_recommended_order_idx (status, is_urgent DESC, owner_plan_rank DESC, created_at DESC) WHERE deleted_at IS NULL` / `users_client_list_rank_idx (list_plan_rank DESC, created_at DESC) WHERE deleted_at IS NULL AND is_hidden = false AND role = 'client'`
+- `PLAN_LIMITS.rank`（0〜4、`src/lib/constants/plans.ts`）とは別物（仕様はライト / スタンダード / 無料を同じ「その他」に置く）
+- pgTAP: `supabase/tests/list_plan_rank.test.sql`。seed: `highend-client@test.local`（`f6000000-…0001`、表示対象のハイエンド発注者、created_at 30 日前）+ 急募案件 `f6660000-…0001` / 通常案件 `…0002`（沖縄県）
 
 ## 監査ログ
 

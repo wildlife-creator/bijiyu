@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
@@ -13,6 +14,11 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
+import { SortSelect } from "@/components/shared/sort-select";
+import {
+  APPLICATION_SORT_OPTIONS,
+  resolveSortValue,
+} from "@/lib/constants/sort-options";
 
 // カード3列グリッド。3 と 2 の公倍数にして最終行の欠けを防ぐ（lg=3列 / md=2列）
 const ITEMS_PER_PAGE = 18;
@@ -34,7 +40,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
   }
 
   const currentPage = Number(params.page) || 1;
-  const sortAsc = params.sort === "asc";
+  const sortAsc = resolveSortValue(APPLICATION_SORT_OPTIONS, params.sort) === "asc";
   const from = (currentPage - 1) * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
 
@@ -116,10 +122,6 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
     areasByUser.set(a.user_id, existing);
   });
 
-  // Build sort toggle URL
-  const nextSort = sortAsc ? "desc" : "asc";
-  const sortHref = `?sort=${nextSort}${params.jobId ? `&jobId=${params.jobId}` : ""}`;
-
   return (
     <div className="min-h-dvh bg-muted">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
@@ -129,9 +131,10 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
         <p className="text-body-sm text-muted-foreground">
           全{totalCount ?? 0}件
         </p>
-        <Link href={sortHref}>
-          <img src="/images/icons/icon-sort.png" alt="並び替え" className="size-5" />
-        </Link>
+        {/* P6: 並び替えプルダウン（jobId 等の検索条件は SortSelect が URL ごと引き継ぐ） */}
+        <Suspense fallback={null}>
+          <SortSelect options={APPLICATION_SORT_OPTIONS} />
+        </Suspense>
       </div>
 
       {(!applications || applications.length === 0) && (

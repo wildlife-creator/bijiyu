@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -7,7 +6,10 @@ import {
   getMunicipalitiesByPrefecture,
 } from "@/lib/master/fetch";
 import { buildAreaFilterIds } from "@/lib/utils/area-search-clauses";
-import { buildSortLinkHref } from "@/lib/utils/build-sort-link";
+import {
+  JOB_SEARCH_SORT_OPTIONS,
+  resolveSortValue,
+} from "@/lib/constants/sort-options";
 import { getJstToday } from "@/lib/utils/format-date";
 import {
   resolveClientProfileForRow,
@@ -17,6 +19,7 @@ import { JobListCard } from "@/components/job-search/job-list-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/job-search/back-button";
+import { SortSelect } from "@/components/shared/sort-select";
 import { JobSearchFilter } from "./job-search-filter";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 
@@ -96,7 +99,8 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
   const workPeriod = (sp.workPeriod as string) ?? "";
   const experienceYears = (sp.experienceYears as string) ?? "";
   const language = (sp.language as string) ?? "";
-  const sort = (sp.sort as string) ?? "newest";
+  // 並び順は URL を正とし、未知の値は既定（おすすめ順）に倒す（P6）
+  const sort = resolveSortValue(JOB_SEARCH_SORT_OPTIONS, sp.sort);
 
   // 「希望日程」プリセット → work_start_date の日付レンジに変換（累積判定）
   const workPeriodRange = resolveWorkPeriodRange(workPeriod);
@@ -228,15 +232,23 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     }
   }
 
-  // Apply sort
+  // Apply sort（P6 一覧改修）
+  //   おすすめ順（既定）: 急募 → 発注者のプランランク（ハイエンド 2 → プレミアム 1 → その他 0）→ 新着
+  //     ランクは jobs.owner_plan_rank（契約主体 = 組織オーナー or owner_id の契約からトリガーで自動更新。
+  //     担当者が作成した案件も会社のプランで判定される）
+  //   新着順: 従来どおり 急募 → 新着（プランランクは使わない）
   if (sort === "reward_high") {
     query = query.order("reward_upper", { ascending: false, nullsFirst: false });
   } else if (sort === "reward_low") {
     query = query.order("reward_lower", { ascending: true, nullsFirst: false });
-  } else {
-    // Default: urgent first, then newest
+  } else if (sort === "newest") {
     query = query
       .order("is_urgent", { ascending: false })
+      .order("created_at", { ascending: false });
+  } else {
+    query = query
+      .order("is_urgent", { ascending: false })
+      .order("owner_plan_rank", { ascending: false })
       .order("created_at", { ascending: false });
   }
 
@@ -281,17 +293,6 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     .in("job_id", jobIds.length > 0 ? jobIds : ["00000000-0000-0000-0000-000000000000"]);
   const appliedJobIds = new Set((myApplications ?? []).map((a) => a.job_id));
 
-  // A9: ソート切替時に配列パラメータ (?municipality=A&municipality=B 等) が
-  // 落ちて絞り込みが解除される問題対策。共通ヘルパー buildSortLinkHref で
-  // append 復元する (回帰テストは src/__tests__/utils/build-sort-link.test.ts)。
-  const nextSort =
-    sort === "newest"
-      ? "reward_high"
-      : sort === "reward_high"
-        ? "reward_low"
-        : "newest";
-  const sortLinkHref = buildSortLinkHref("/jobs/search", sp, nextSort);
-
   return (
     <div className="min-h-dvh bg-muted">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
@@ -306,23 +307,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
             全{count ?? 0}件
           </p>
           <div className="flex items-center gap-2">
-            <Link
-              href={sortLinkHref}
-              className="flex items-center gap-1 text-body-sm text-foreground"
-            >
-              <img
-                src="/images/icons/icon-sort.png"
-                alt="ソート"
-                className="w-5 h-5"
-              />
-              <span>
-                {sort === "reward_high"
-                  ? "報酬高い順"
-                  : sort === "reward_low"
-                    ? "報酬低い順"
-                    : "新着順"}
-              </span>
-            </Link>
+            <SortSelect options={JOB_SEARCH_SORT_OPTIONS} />
             <JobSearchFilter
               activeTradeTypes={activeTradeTypes}
               candidateMunicipalitiesByPrefecture={

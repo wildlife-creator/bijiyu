@@ -1,7 +1,7 @@
 # P6「一覧改修」実装メモ（引き継ぎ・ユーザー承認済み）
 
 作成: 2026-09-02。承認: 同日ユーザー「承認します」（受け入れ条件・設計方針に加え、確認事項 2 点 = 職人一覧と募集現場一覧にも「新着順 / 古い順」のプルダウンを付ける（デザインカンプ CLI-005.png / CLI-001.png に ⇅ アイコンが描かれているため）、案件検索の「新着順」は従来どおり急募 → 新着のまま、を含めて承認）。
-**実装は次のセッションで開始する**（このセッションでは調査・設計・承認まで）。
+**実装は次のセッションで開始する**（このセッションでは調査・設計・承認まで）。→ **2026-09-02 実装完了**（migration `20260902140000_list_plan_rank.sql` / 共通 `SortSelect` + `sort-options.ts` / 8 画面置換 / pgTAP `list_plan_rank.test.sql` / vitest `sort-options.test.ts` / E2E `list-sorting.spec.ts`。seed に `highend-client@test.local` を追加）。
 親ドキュメント: `docs/requirements/spec-changes-202608.md` §2.5 / §3 項目 4 / §5（P6 行）。
 
 ## 0. ブランチ・進行状況

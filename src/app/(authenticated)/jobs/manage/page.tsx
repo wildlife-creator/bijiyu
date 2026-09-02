@@ -10,6 +10,10 @@ import {
   resolveParticipantName,
 } from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import {
+  JOB_MANAGE_SORT_OPTIONS,
+  resolveSortValue,
+} from "@/lib/constants/sort-options";
 
 import { JobListClient } from "./job-list-client";
 
@@ -17,7 +21,7 @@ import { JobListClient } from "./job-list-client";
 const ITEMS_PER_PAGE = 18;
 
 interface PageProps {
-  searchParams: Promise<{ page?: string; status?: string }>;
+  searchParams: Promise<{ page?: string; status?: string; sort?: string }>;
 }
 
 export default async function JobListPage({ searchParams }: PageProps) {
@@ -33,6 +37,8 @@ export default async function JobListPage({ searchParams }: PageProps) {
 
   const currentPage = Math.max(1, Number(params.page) || 1);
   const statusFilter = params.status || "all";
+  // P6 一覧改修: 新着順（既定）/ 古い順。並び順は URL を正とし、未知の値は既定に倒す
+  const sort = resolveSortValue(JOB_MANAGE_SORT_OPTIONS, params.sort);
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   // Check if user is in an organization
@@ -60,7 +66,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
       { count: "exact" },
     )
     .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: sort === "oldest" });
 
   if (active) {
     // Corporate plan: show all organization jobs

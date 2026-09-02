@@ -22,6 +22,11 @@ import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { SortSelect } from "@/components/shared/sort-select";
+import {
+  CONTRACTOR_LIST_SORT_OPTIONS,
+  resolveSortValue,
+} from "@/lib/constants/sort-options";
 
 // カード3列グリッド。3 と 2 の公倍数にして最終行の欠けを防ぐ（lg=3列 / md=2列）
 const ITEMS_PER_PAGE = 18;
@@ -236,8 +241,10 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
     query = query.or(`last_name.ilike.%${q}%,first_name.ilike.%${q}%`);
   }
 
+  // P6 一覧改修: 新着順（既定）/ 登録が古い順。並び順は URL を正とし、未知の値は既定に倒す
+  const sort = resolveSortValue(CONTRACTOR_LIST_SORT_OPTIONS, sp.sort);
   query = query
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: sort === "oldest" })
     .range(offset, offset + ITEMS_PER_PAGE - 1);
 
   const { data: contractors, count } = await query;
@@ -283,6 +290,7 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
             全{count ?? 0}件
           </p>
           <div className="flex items-center gap-2">
+            <SortSelect options={CONTRACTOR_LIST_SORT_OPTIONS} />
             <ContractorSearchFilter
               activeTradeTypes={activeTradeTypes}
               activeSkillTags={activeSkillTags}

@@ -2404,3 +2404,62 @@ VALUES ('ba100000-0000-4000-8000-00000000dd02', 'ba100000-0000-4000-8000-0000000
 -- ③ 申込受付のまま（ライト・月払い・初回事務手数料あり）
 INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status, created_at)
 VALUES ('ba100000-0000-4000-8000-00000000dd03', 'ba100000-0000-4000-8000-000000000003', 'plan', 'individual', 'monthly', 3800, 20000, 'requested', now() - interval '1 day');
+
+-- ============================================================
+-- P6 一覧改修（プラン順の既定並び + 並び替えプルダウン）E2E 用 seed
+-- ============================================================
+-- id 帯 f6000000-...（他の seed と重複しない）
+--   highend-client@test.local : 一覧に表示される（is_hidden=false）ハイエンド発注者。
+--     - CON-005 の既定順（おすすめ順）で先頭グループに来ること
+--     - CON-002 のおすすめ順で「急募 + ハイエンド」→「ハイエンド（急募なし）」の順になること
+--     を検証する。users.created_at / jobs.created_at を過去日にして、「新着順」では先頭に来ない
+--     ようにする（既定順との差分を E2E で判別するため）。エリアは沖縄県（他の E2E の件数に影響させない）
+-- ============================================================
+
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
+VALUES
+  ('f6000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'highend-client@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now() - interval '30 days', now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+
+INSERT INTO auth.identities (user_id, id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at) VALUES
+  ('f6000000-0000-4000-8000-000000000001', 'f6000000-0000-4000-8000-000000000001', 'highend-client@test.local', '{"sub":"f6000000-0000-4000-8000-000000000001","email":"highend-client@test.local"}', 'email', now(), now(), now());
+
+UPDATE public.users
+   SET role = 'client', last_name = '最上', first_name = '英人', prefecture = '沖縄県', skill_tags = ARRAY['外壁塗装工'],
+       password_set_at = now(), created_at = now() - interval '30 days'
+ WHERE id = 'f6000000-0000-4000-8000-000000000001';
+
+INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
+  ('f6000000-0000-4000-8000-000000000001', '建築/仕上げ｜塗装工', 2);
+INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
+  ('f6000000-0000-4000-8000-000000000001', '沖縄県', NULL);
+
+-- ハイエンド（Stripe）契約 + 組織 + 発注者プロフィール + 募集エリア
+INSERT INTO subscriptions (user_id, plan_type, status, current_period_start, current_period_end, stripe_subscription_id) VALUES
+  ('f6000000-0000-4000-8000-000000000001', 'corporate_premium', 'active', now(), now() + interval '30 days', 'sub_seed_highend_client');
+INSERT INTO organizations (id, owner_id) VALUES
+  ('f6000000-0000-4000-8000-00000000aa01', 'f6000000-0000-4000-8000-000000000001');
+INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account) VALUES
+  ('f6000000-0000-4000-8000-00000000aa01', 'f6000000-0000-4000-8000-000000000001', 'owner', false);
+INSERT INTO client_profiles (user_id, display_name, address, recruit_job_types, working_way, employee_scale, message, language) VALUES
+  ('f6000000-0000-4000-8000-000000000001', 'ハイエンド建設株式会社', '沖縄県那覇市泉崎1-1-1', '{"建築/仕上げ｜塗装工"}', '{"長期歓迎"}', 50, 'ハイエンドプランのテスト用発注者です。', '{"日本語"}');
+INSERT INTO client_recruit_areas (client_id, prefecture, municipality) VALUES
+  ('f6000000-0000-4000-8000-000000000001', '沖縄県', NULL);
+
+-- 案件: ① 急募 + ハイエンド（5 日前作成）② ハイエンド・急募なし（10 日前作成）
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status, is_urgent, created_at) VALUES
+  ('f6660000-0000-4000-8000-000000000001', 'f6000000-0000-4000-8000-000000000001', 'f6000000-0000-4000-8000-00000000aa01',
+   'ハイエンド急募 那覇市 外壁塗装工事', '那覇市内の外壁塗装工事です。急募オプション + ハイエンドプランの並び順検証用。',
+   ARRAY['建築/仕上げ｜塗装工']::text[], 2, 30000, 25000,
+   CURRENT_DATE + interval '7 days', CURRENT_DATE + interval '21 days', CURRENT_DATE - interval '5 days', CURRENT_DATE + interval '30 days',
+   'open', true, now() - interval '5 days'),
+  ('f6660000-0000-4000-8000-000000000002', 'f6000000-0000-4000-8000-000000000001', 'f6000000-0000-4000-8000-00000000aa01',
+   'ハイエンド 沖縄 内装塗装工事', '沖縄県内の内装塗装工事です。ハイエンドプラン（急募なし）の並び順検証用。',
+   ARRAY['建築/仕上げ｜塗装工']::text[], 1, 24000, 20000,
+   CURRENT_DATE + interval '14 days', CURRENT_DATE + interval '28 days', CURRENT_DATE - interval '10 days', CURRENT_DATE + interval '30 days',
+   'open', false, now() - interval '10 days');
+INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
+  ('f6660000-0000-4000-8000-000000000001', '沖縄県', '那覇市'),
+  ('f6660000-0000-4000-8000-000000000002', '沖縄県', NULL);
+-- ① の急募オプション（is_urgent と整合させる）
+INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, job_id, end_date)
+VALUES ('f6000000-0000-4000-8000-000000000001', 'one_time', 'pi_seed_highend_urgent', 'urgent', 'active', 'f6660000-0000-4000-8000-000000000001', now() + interval '7 days');

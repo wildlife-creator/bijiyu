@@ -335,6 +335,14 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 課金は手動サブスク行（`payment_method='bank_transfer'`, `plan_type='corporate_premium'`, 期限 2099-12-31）。新しい支払方法 enum を足さないこと。付与は `grantBankTransferPlan()`（`src/lib/billing/grant-plan.ts`、ADM-026 の銀行振込有効化と共通）。有効化メールは送らない
 - メッセージの「自分側 / 相手側」判定は **side の user id 集合**（`ownSideUserIds` / `counterpartSideUserIds`）で行う（`message-thread-view.tsx` の `computeIsMine`）。「個人 identity 側 = 受注者」を前提にしたコード（`contractorId` 比較等）を復活させないこと。`messages` の RLS は identity ペア対応済み（`20260902130000_ops_account.sql`）
 
+### 一覧の並び替え（プラン順ランク列 + 共通プルダウン、P6、必ず守ること）
+- 発注者一覧（CON-005）と案件一覧（CON-002 おすすめ順）のプラン順は **`users.list_plan_rank` / `jobs.owner_plan_rank`（0 = その他 / 1 = プレミアム / 2 = ハイエンド）** で並べる。ランクは `subscriptions` / `jobs` / `organizations` のトリガーで自動更新される（`20260902140000_list_plan_rank.sql`）。**TS 側で都度ランクを更新するコードや、subscriptions を join して並べるクエリを書かないこと**（subscriptions の RLS は本人行のみで他人のランクが 0 になる）
+- 契約を書き換える新しい経路（RPC / 管理画面 / cron）を足すときは、必ず **`subscriptions` テーブルへの SQL 書き込み**で行う（トリガーが拾う）。別テーブルや外部サービスの状態だけでプランを表現してはならない
+- 一覧の並び替え UI は共通部品 **`<SortSelect options={...} />`**（`src/components/shared/sort-select.tsx`）+ **`src/lib/constants/sort-options.ts` の定数**（先頭 = 既定）を使う。並び順は URL の `?sort=` を Single Source of Truth とし、サーバー側は同じ定数で `resolveSortValue()` により未知の値を既定に倒す。画面ごとに `useState` やアイコンリンクで並び替えを自作しない
+- `SortSelect` は `useSearchParams().toString()` をそのまま引き継いで `sort` だけ差し替え、`page` を削除する（`buildSortSearch`、`src/lib/utils/sort-search-params.ts`）。配列パラメータ（`?municipality=A&municipality=B`）や `jobId` 等の絞り込みが落ちないのはこの経路のため。個別画面で `?sort=xxx` のような手書き href を作らないこと（CLI-007 で jobId 以外の条件が消えるバグの原因だった）
+- E2E は `page.getByLabel("並び替え").click()` → `page.getByRole("option", { name })` で操作する（`e2e/list-sorting.spec.ts`）。マイリストのように同一画面に他の shadcn Select がある場合、`getByRole("combobox")` は複数一致するので `.first()` 等で特定する
+- 対象外: メッセージ一覧（更新順固定）・管理画面の一覧（ADM-013 の順送りボタンはそのまま）
+
 ### 動画基盤（videos テーブル・Cloudflare Stream、P4、必ず守ること）
 - 動画は **`videos` テーブル**（1 行 = 1 本、`placement` = contractor_page / client_page、`sort_order`、`provider` = cloudflare / external、`status` = processing / ready）で管理する。旧 `users.video_url` / `client_profiles.workplace_video_url` は【廃止予定】でアプリから参照してはならない（staging マージ時に DROP）
 - **表示はオプション購入の有無でゲートしない**（承認済み D4）。`option_subscriptions` を見て動画を出し分けるコードを書かないこと。表示は `getReadyVideos(client, userId, placement)`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />` の 1 パターンに統一。公開中（ready）の行は RLS で全 authenticated が読めるため cross-user 参照でも admin client 不要
