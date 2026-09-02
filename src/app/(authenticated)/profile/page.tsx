@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/shared/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
-import { VideoEmbed } from "@/components/video-embed/video-embed";
+import { VideoList } from "@/components/video-embed/video-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
-import { hasActiveOption } from "@/lib/billing/options";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatResidence } from "@/lib/utils/format-residence";
+import { getReadyVideos } from "@/lib/videos/fetch";
 
 /**
  * COM-001: ユーザープロフィール（受注者向け自己プロフィール閲覧）
@@ -189,11 +189,9 @@ export default async function ProfilePage() {
       : null;
   const skillTags = (profile.skill_tags ?? []) as string[];
 
-  // PR動画は video_url 設定済み かつ active な 'video' オプションがある場合のみ表示。
-  // 自分のページなので通常クライアントで判定できる（要件 4.1/4.4）。
-  const showVideo =
-    !!profile.video_url &&
-    (await hasActiveOption(supabase, user.id, "video"));
+  // PR動画: videos テーブルの公開中の動画を表示順どおりに表示（P4）。
+  // オプション購入の有無ではゲートしない（全ユーザーのページに掲載可能）。
+  const prVideos = await getReadyVideos(supabase, user.id, "contractor_page");
 
   return (
     <div className="min-h-dvh bg-muted">
@@ -246,13 +244,13 @@ export default async function ProfilePage() {
         </div>
       </div>
 
-      {/* PR 動画（video_url 設定済み かつ active な 'video' オプションがある場合のみ）
+      {/* PR 動画（公開中の動画が 1 本以上あるときのみ）
           デザインカンプ COM-001: 名前・バッジの直下、基本情報の上に配置 */}
-      {showVideo && (
+      {prVideos.length > 0 && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">PR動画</h2>
           <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoEmbed url={profile.video_url!} label="PR動画" />
+            <VideoList videos={prVideos} label="PR動画" />
           </div>
         </section>
       )}

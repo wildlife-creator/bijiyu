@@ -329,6 +329,16 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   テスト決済後に users.role が 'client' に変わることを手動で確認すること
 - Stripe Webhook の署名検証（STRIPE_WEBHOOK_SECRET）が .env.local に設定されていることを確認すること
 
+### 動画基盤（videos テーブル・Cloudflare Stream、P4、必ず守ること）
+- 動画は **`videos` テーブル**（1 行 = 1 本、`placement` = contractor_page / client_page、`sort_order`、`provider` = cloudflare / external、`status` = processing / ready）で管理する。旧 `users.video_url` / `client_profiles.workplace_video_url` は【廃止予定】でアプリから参照してはならない（staging マージ時に DROP）
+- **表示はオプション購入の有無でゲートしない**（承認済み D4）。`option_subscriptions` を見て動画を出し分けるコードを書かないこと。表示は `getReadyVideos(client, userId, placement)`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />` の 1 パターンに統一。公開中（ready）の行は RLS で全 authenticated が読めるため cross-user 参照でも admin client 不要
+- 登録・削除は管理者専有（ADM-027 `/admin/users/[id]/videos`）。videos の書き込みは service_role のみ（RLS にポリシー無し）。Server Action は `requireAdmin()` + `writeAuditLog`（`video_create` / `video_update` / `video_reorder` / `video_delete`）必須
+- **ファイル本体は Server Action に通さない**（Vercel 4.5MB 上限）。`createVideoUploadAction` で Cloudflare の一時 URL を発行し、ブラウザから `uploadVideoToCloudflare()`（`src/lib/videos/upload-client.ts`）で直接 POST する。API トークンは `src/lib/cloudflare/stream.ts` の中だけで使い、ブラウザに出さない
+- Cloudflare 動画は `processing` で作成し、Webhook（`/api/webhooks/cloudflare-stream`）か ADM-027「状態を確認」→ `markVideoReady()`（冪等）で `ready` にする。**掲載お知らせメール（§6.6.C）は「その掲載場所で公開中が 0 → 1 本になったとき」だけ**。この判定は `countReadyVideos()` を UPDATE / INSERT の前に取ること
+- 削除は Cloudflare 側のファイルも消す（`deleteStreamVideo`）。失敗しても DB 行は消し、エラーを監査 metadata（`cloudflareDeleteError`）に残す
+- 新しい埋込プラットフォーム・掲載場所を足すとき: `PATTERNS`（`src/lib/video-embed.ts`）に 1 件追加 + `frame-src`（`src/middleware.ts`）にドメイン追記 / `ALTER TYPE video_placement ADD VALUE` + `src/lib/videos/constants.ts` のラベル・対応オプション追記
+- 環境変数（`CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` / `CLOUDFLARE_STREAM_WEBHOOK_SECRET`）が無い環境では URL 登録だけ動く graceful degradation を壊さないこと（`isCloudflareStreamConfigured()` で分岐）
+
 ### 銀行振込（payment_method = 'bank_transfer'）と Stripe 前提処理の分離（必ず守ること）
 - 2026-09 P2 で `subscriptions` / `option_subscriptions` に `payment_method`（stripe / bank_transfer）が追加された。銀行振込行は **Stripe にサブスクが存在しない**（`stripe_subscription_id` / `stripe_payment_intent_id` が NULL、CHECK 制約で保証）
 - **Stripe API を呼ぶ処理（プラン変更・解約・ポータル・未払い自動解約 Edge Function 等）を新しく書く／触るときは、必ず `payment_method = 'stripe'` に絞るか、`bank_transfer` 行を早期 return でガードすること**。既存の `!sub.stripe_subscription_id` チェックだけに頼ると、銀行振込ユーザーに「有効なサブスクリプションが見つかりません」という誤った文言が出る。案内文は `BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE`（`src/lib/billing/bank-transfer.ts`）を使う

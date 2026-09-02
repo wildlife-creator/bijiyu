@@ -1387,43 +1387,47 @@ INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
 
 
 -- ============================================================
--- video-display spec テストデータ (Task 7.1)
+-- 動画テストデータ（video-display Task 7.1 → P4 動画基盤で videos テーブルへ移行）
 -- ============================================================
--- 受注者PR動画 (users.video_url) / 職場紹介動画 (client_profiles.workplace_video_url)
--- の表示判定 = 「URL 存在 かつ active option」の AND を検証するためのデータ。
+-- P4 以降、表示はオプション購入の有無でゲートしない（videos に ready 行があれば表示）。
+-- option_subscriptions の行は課金画面（「購入済み」表示）・管理画面の絞込用に維持する。
 -- one_time オプションは CHECK 制約で stripe_subscription_id を NULL にする必要があるため
 -- stripe_payment_intent_id を使う。
 
--- (1) contractor@test.local: video_url あり + active 'video' あり → PR動画が表示される
-UPDATE public.users
-  SET video_url = 'https://www.tiktok.com/@bijiyu/video/7111111111111111111'
-  WHERE id = '11111111-1111-1111-1111-111111111111';
+-- (1) contractor@test.local: PR動画 1 本（external）+ active 'video' → COM-001 / CLI-006 で表示
+INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, admin_label, status) VALUES
+  ('d1d10000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111111111', 'contractor_page', 0, 'external',
+   'https://www.tiktok.com/@bijiyu/video/7111111111111111111', '自己PR（初回）', 'ready');
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
   VALUES ('11111111-1111-1111-1111-111111111111', 'one_time', 'pi_seed_video_11111', 'video', 'active', NULL);
 
--- (2) 受注者2 高橋 (cc111111): video_url あり + active 'video' なし → 非表示（挙動変更の回帰検証）
-UPDATE public.users
-  SET video_url = 'https://www.tiktok.com/@takahashi/video/7222222222222222222'
-  WHERE id = 'cc111111-1111-1111-1111-111111111111';
+-- (2) 受注者2 高橋 (cc111111): オプション未購入でも 2 本表示される（P4 でゲート撤廃）。
+--     1 本目 external + 2 本目 Cloudflare（ready、UID はダミー）で複数本・表示順・両 provider を検証
+INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, cloudflare_uid, admin_label, status) VALUES
+  ('d1d10000-0000-4000-8000-000000000002', 'cc111111-1111-1111-1111-111111111111', 'contractor_page', 0, 'external',
+   'https://www.tiktok.com/@takahashi/video/7222222222222222222', NULL, '現場紹介', 'ready'),
+  ('d1d10000-0000-4000-8000-000000000003', 'cc111111-1111-1111-1111-111111111111', 'contractor_page', 1, 'cloudflare',
+   NULL, 'a1b2c3d4e5f60718293a4b5c6d7e8f90', 'ユーザー撮影（Cloudflare）', 'ready');
 
--- (3) client@test.local: workplace_video_url あり + active 'video_workplace' あり → CON-006 で表示される
-UPDATE client_profiles
-  SET workplace_video_url = 'https://www.tiktok.com/@suzuki/video/7333333333333333333'
-  WHERE user_id = '22222222-2222-2222-2222-222222222222';
+-- (3) client@test.local: 職場紹介動画 1 本 + active 'video_workplace' → CON-006 / CLI-020 で表示
+INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, admin_label, status) VALUES
+  ('d1d10000-0000-4000-8000-000000000004', '22222222-2222-2222-2222-222222222222', 'client_page', 0, 'external',
+   'https://www.tiktok.com/@suzuki/video/7333333333333333333', '鈴木工務店 職場紹介', 'ready');
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
   VALUES ('22222222-2222-2222-2222-222222222222', 'one_time', 'pi_seed_vw_22222', 'video_workplace', 'active', NULL);
 
--- (4) 発注者2 山田 (aabbccdd): workplace_video_url あり + active なし → CON-006 非表示（回帰検証）
-UPDATE client_profiles
-  SET workplace_video_url = 'https://www.tiktok.com/@yamada/video/7444444444444444444'
-  WHERE user_id = 'aabbccdd-1111-2222-3333-444455556666';
+-- (4) 発注者2 山田 (aabbccdd): オプション未購入でも ready 1 本は表示、processing 1 本は非表示
+INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, cloudflare_uid, admin_label, status) VALUES
+  ('d1d10000-0000-4000-8000-000000000005', 'aabbccdd-1111-2222-3333-444455556666', 'client_page', 0, 'external',
+   'https://www.tiktok.com/@yamada/video/7444444444444444444', NULL, NULL, 'ready'),
+  ('d1d10000-0000-4000-8000-000000000006', 'aabbccdd-1111-2222-3333-444455556666', 'client_page', 1, 'cloudflare',
+   NULL, 'ffffffffeeeeeeeeddddddddcccccccc', '処理中サンプル', 'processing');
 
--- (5) corp-comp (b111...0005): 管理者の ADM-010B「空更新（掲載停止）」E2E 専用。
---     CON-006 表示用の (3) client@test を E2E が破壊しないよう、掲載停止テストの
---     対象をこの独立ユーザーに分離する。workplace_video_url + active video_workplace を付与。
-UPDATE client_profiles
-  SET workplace_video_url = 'https://www.tiktok.com/@hoshou/video/7555555555555555555'
-  WHERE user_id = 'b1110000-0000-1000-8000-000000000005';
+-- (5) corp-comp (b111...0005): 管理者の動画管理画面（ADM-027）の削除 E2E 専用。
+--     CON-006 表示用の (3) client@test を E2E が破壊しないよう、削除テストの対象をこの独立ユーザーに分離する。
+INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, admin_label, status) VALUES
+  ('d1d10000-0000-4000-8000-000000000007', 'b1110000-0000-1000-8000-000000000005', 'client_page', 0, 'external',
+   'https://www.tiktok.com/@hoshou/video/7555555555555555555', '削除テスト用', 'ready');
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
   VALUES ('b1110000-0000-1000-8000-000000000005', 'one_time', 'pi_seed_vw_corpcomp', 'video_workplace', 'active', NULL);
 

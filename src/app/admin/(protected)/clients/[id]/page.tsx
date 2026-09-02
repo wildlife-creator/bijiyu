@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AreaList } from "@/components/area/area-list";
 import { CollapsibleList } from "@/components/master/collapsible-list";
-import { VideoEmbed } from "@/components/video-embed/video-embed";
+import { VideoList } from "@/components/video-embed/video-list";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { fetchBankTransferRequestsForUser } from "@/lib/admin/bank-transfers";
 import {
@@ -20,11 +20,11 @@ import {
   type PaidPlanType,
 } from "@/lib/constants/plans";
 import { fetchClientReputation } from "@/lib/client-review/aggregate";
-import { hasActiveOption } from "@/lib/billing/options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateJst, formatDateTime } from "@/lib/utils/format-date";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { getReadyVideos } from "@/lib/videos/fetch";
 import { BankSubscriptionPanel } from "./bank-subscription-panel";
 import { DeleteAccountButton } from "./delete-account-button";
 import { JobSiteList } from "./job-site-list";
@@ -172,11 +172,19 @@ export default async function AdminClientDetailPage({
           .sort()
           .at(-1) ?? null
       : null;
-  const hasWorkplaceVideoOption = await hasActiveOption(
-    admin,
-    id,
-    "video_workplace",
-  );
+  // 「オプション加入状況」の職場紹介動画チェック（課金の加入状況表示。P4 でも維持）
+  const { data: workplaceOptionRows } = await admin
+    .from("option_subscriptions")
+    .select("id")
+    .eq("user_id", id)
+    .eq("option_type", "video_workplace")
+    .eq("status", "active")
+    .limit(1);
+  const hasWorkplaceVideoOption = (workplaceOptionRows ?? []).length > 0;
+
+  // 職場紹介動画（公開中のみ）。P4 でオプション購入による表示ゲートは撤廃。
+  // 退会済みでも登録済みの動画は運営者が後から確認できるよう表示を維持する
+  const workplaceVideos = await getReadyVideos(admin, id, "client_page");
 
   // 評判（法人は会社単位）
   const reputation = await fetchClientReputation(
@@ -270,11 +278,6 @@ export default async function AdminClientDetailPage({
       .limit(1);
     hasProxyThreads = (proxyRows ?? []).length > 0;
   }
-
-  // 退会済みはオプション契約も終了しているが、登録済みの動画は運営者が後から
-  // 確認できるよう表示を維持する（投稿/編集ボタンは非表示のまま）
-  const showWorkplaceVideo =
-    !!profile?.workplace_video_url && (hasWorkplaceVideoOption || isDeleted);
 
   const snsLabels = SNS_ITEMS.filter(
     (s) => profile?.[s.key as keyof typeof profile],
@@ -431,7 +434,7 @@ export default async function AdminClientDetailPage({
               {subscription && (
                 <>
                   （{PAYMENT_METHOD_LABELS[subscription.payment_method]}
-                  {isBankTransfer && `・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}）
+                  {`・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}）
                 </>
               )}
               {bankExpiryBadge && (
@@ -450,27 +453,27 @@ export default async function AdminClientDetailPage({
         </div>
       </section>
 
-      {/* 5. 職場紹介動画（active video_workplace のみ） */}
-      {showWorkplaceVideo && (
+      {/* 5. 職場紹介動画（公開中の動画が 1 本以上あるときのみ） */}
+      {workplaceVideos.length > 0 && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">
             職場紹介動画
           </h2>
           <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoEmbed
-              url={profile!.workplace_video_url!}
-              label="職場紹介動画"
-            />
+            <VideoList videos={workplaceVideos} label="職場紹介動画" />
           </div>
         </section>
       )}
-      {hasWorkplaceVideoOption && !isDeleted && (
+      {/* 動画管理画面（ADM-027）への導線。P4 で購入ゲートを撤廃し常時表示（退会済みは出さない） */}
+      {!isDeleted && (
         <div className="mt-3 flex justify-end">
           <Button
             asChild
             className="rounded-full bg-primary text-white hover:bg-primary/90"
           >
-            <Link href={`/admin/users/${id}/workplace-video`}>
+            <Link
+              href={`/admin/users/${id}/videos?placement=client_page&backTo=${encodeURIComponent(`/admin/clients/${id}`)}`}
+            >
               職場紹介動画を投稿/編集する
             </Link>
           </Button>

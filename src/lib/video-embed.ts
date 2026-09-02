@@ -5,16 +5,18 @@
  * （platform / id / aspect / embedUrl）を抽出する純粋関数。ネットワーク I/O は
  * 一切行わない。未対応・不正な URL には `null` を返す。
  *
- * `<VideoEmbed>`（client）と `VideoUrlSchema`（server）の両方から import される
- * 唯一の解析源。client/server 二重防御を 1 関数で担保する。
+ * `<VideoList>`（表示）と `ExternalVideoUrlSchema`（管理画面の URL 登録）の両方から
+ * import される唯一の解析源。client/server 二重防御を 1 関数で担保する。
+ * Cloudflare Stream にアップロードした動画は URL ではなく UID で保持するため、
+ * `parsedVideoFromCloudflareUid()` で同じ ParsedVideo を組む。
  *
  * 新規プラットフォーム対応は PATTERNS への 1 エントリ追加のみで完結する。
  */
 
 /** 対応プラットフォーム（将来 "youtube" | "vimeo" を union 追加）。 */
-export type VideoPlatform = "tiktok";
+export type VideoPlatform = "tiktok" | "cloudflare";
 
-/** プレイヤー領域のアスペクト比。"9/16"=縦長 / "video"=16:9 横長（将来）。 */
+/** プレイヤー領域のアスペクト比。"9/16"=縦長 / "video"=16:9 横長（Cloudflare Stream）。 */
 export type VideoAspect = "9/16" | "video";
 
 export interface ParsedVideo {
@@ -47,7 +49,36 @@ const PATTERNS: readonly PlatformPattern[] = [
     // embedUrl は捕捉 id から常に TikTok player URL を再構築する。
     buildEmbedUrl: (id) => `https://www.tiktok.com/player/v1/${id}`,
   },
+  {
+    platform: "cloudflare",
+    // Cloudflare Stream の埋込プレイヤー URL（P4 動画基盤）。
+    // 管理画面で「URL 貼り付け」された場合も Cloudflare の UID として扱えるようにする。
+    hostMatch: (h) => h === "iframe.videodelivery.net",
+    pathMatch: /^\/([A-Za-z0-9]{16,64})\/?$/,
+    aspect: "video",
+    buildEmbedUrl: cloudflareEmbedUrl,
+  },
 ];
+
+/** Cloudflare Stream の埋込プレイヤー URL。 */
+export function cloudflareEmbedUrl(uid: string): string {
+  return `https://iframe.videodelivery.net/${uid}`;
+}
+
+/** Cloudflare Stream が自動生成するサムネイル URL（oEmbed 不要）。 */
+export function cloudflareThumbnailUrl(uid: string): string {
+  return `https://videodelivery.net/${uid}/thumbnails/thumbnail.jpg`;
+}
+
+/** Cloudflare Stream の動画 UID から ParsedVideo を組む（URL 解析を経由しない）。 */
+export function parsedVideoFromCloudflareUid(uid: string): ParsedVideo {
+  return {
+    platform: "cloudflare",
+    id: uid,
+    aspect: "video",
+    embedUrl: cloudflareEmbedUrl(uid),
+  };
+}
 
 /**
  * 動画 URL を解析する。

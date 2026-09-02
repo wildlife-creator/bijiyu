@@ -8,14 +8,14 @@ import { BackButton } from "@/components/job-search/back-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
-import { VideoEmbed } from "@/components/video-embed/video-embed";
+import { VideoList } from "@/components/video-embed/video-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
-import { hasActiveOption } from "@/lib/billing/options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { getJstToday } from "@/lib/utils/format-date";
 import { canSendJobInquiry } from "@/lib/job-inquiry/access-guard";
+import { getReadyVideos } from "@/lib/videos/fetch";
 import {
   resolveTargetOrganizationId,
   resolveViewerOrganizationId,
@@ -70,8 +70,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
       client_profiles(
         display_name, image_url, address,
         recruit_job_types, working_way,
-        employee_scale, message, language,
-        workplace_video_url
+        employee_scale, message, language
       )
     `,
     )
@@ -105,20 +104,18 @@ export default async function ClientDetailPage({ params }: PageProps) {
   // 発注者アバターは client_profiles.image_url を優先し、未設定なら users.avatar_url
   const avatarUrl = profile?.image_url ?? client.avatar_url;
 
-  // 他者組織の解決は admin client（resolveTargetOrganizationId / hasActiveOption の前提）。
-  // 掲載案件の会社単位表示・職場紹介動画判定・お問い合わせ判定で共用する。
+  // 他者組織の解決は admin client（resolveTargetOrganizationId の前提）。
+  // 掲載案件の会社単位表示・お問い合わせ判定で共用する。
   const adminClient = createAdminClient();
   // 見ている発注者(id)が法人 Owner なら、その組織IDを掲載案件の会社単位スコープに使う。
   // 個人発注者は null（従来どおり owner_id 軸）。
   const targetOrgId = await resolveTargetOrganizationId(adminClient, id);
 
-  // 職場紹介動画: workplace_video_url 設定済み かつ active な 'video_workplace'
-  // オプションがある場合のみ表示。cross-user 参照のため active 判定は
-  // admin（service-role）client で行う（要件 5.1/5.3）。
-  const showWorkplaceVideo =
-    !!profile?.workplace_video_url &&
-    !isDeleted &&
-    (await hasActiveOption(adminClient, id, "video_workplace"));
+  // 職場紹介動画: videos テーブルの公開中の動画を表示順どおりに表示（P4）。
+  // オプション購入の有無ではゲートしない。公開中（ready）の行は RLS で誰でも読める。
+  const workplaceVideos = isDeleted
+    ? []
+    : await getReadyVideos(supabase, id, "client_page");
 
   // Fetch client's open jobs with thumbnail + urgency info.
   // 法人 Owner を見ている場合は会社全体（organization_id 軸＝担当者作成案件も含む）、
@@ -264,16 +261,13 @@ export default async function ClientDetailPage({ params }: PageProps) {
         )}
 
         {/* 職場紹介動画 */}
-        {showWorkplaceVideo && (
+        {workplaceVideos.length > 0 && (
           <section className="mx-5 mt-6">
             <h3 className="text-[15px] font-bold tracking-wider mb-2">
               職場紹介動画
             </h3>
             <div className="rounded-[8px] border border-border bg-background p-4">
-              <VideoEmbed
-                url={profile!.workplace_video_url!}
-                label="職場紹介動画"
-              />
+              <VideoList videos={workplaceVideos} label="職場紹介動画" />
             </div>
           </section>
         )}

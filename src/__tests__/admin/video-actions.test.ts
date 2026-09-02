@@ -1,301 +1,564 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { CloudflareStreamError } from "@/lib/cloudflare/stream";
+import { CLOUDFLARE_NOT_CONFIGURED_MESSAGE } from "@/lib/videos/constants";
+
+import {
+  createInMemoryAdminClient,
+  createInMemoryDb,
+  type InMemoryDb,
+  type Row,
+} from "../video/in-memory-admin-client";
+
 /**
- * updateVideoUrlAction / updateWorkplaceVideoUrlAction の統合テスト
- * （video-display Task 5.5、書き込み + 権限系のためフルテスト）。
+ * ADM-027 動画管理 Server Action の統合テスト（P4、書き込み + 権限系のためフルテスト）。
  *
- * Server Action 自体はモックせず内部ロジックを実行する。Supabase クライアントを
- * モックし `{ data, error }` 形状を再現。admin / 一般ユーザー / staff の三重防御を確認。
+ * Server Action 自体はモックせず内部ロジック（Zod / 1 本目メール判定 / 表示順 /
+ * 監査ログ / Cloudflare 失敗時の扱い）を実行する。Supabase admin client はインメモリ実装、
+ * Cloudflare 通信とメール送信はモックする。
  */
 
-const authState = {
-  user: null as null | { id: string },
-  actorRole: "admin" as "admin" | "contractor" | "client" | "staff" | null,
-};
+const USER_ID = "11111111-1111-1111-1111-111111111111"; // seed 形式（RFC 非準拠）も通る
+const ADMIN_ID = "44444444-4444-4444-4444-444444444444";
+const TIKTOK_URL = "https://www.tiktok.com/@u/video/7234567890123456789";
 
-interface AdminUpdateLog {
-  table: string;
-  payload: Record<string, unknown>;
-  matchColumn: string;
-  matchValue: unknown;
+const auth = { ok: true as boolean, error: "この操作を行う権限がありません" };
+vi.mock("@/lib/admin/require-admin", () => ({
+  requireAdmin: async () =>
+    auth.ok ? { ok: true, adminId: ADMIN_ID } : { ok: false, error: auth.error },
+}));
+
+let db: InMemoryDb;
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => createInMemoryAdminClient(db),
+}));
+
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/billing/activation-emails", () => ({
+  resolveSiteUrl: async () => "http://127.0.0.1:3000",
+}));
+
+const sendVideoPublishedEmailsMock = vi.fn<
+  (...args: unknown[]) => Promise<void>
+>(async () => undefined);
+vi.mock("@/lib/videos/published-emails", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/lib/videos/published-emails")>();
+  return {
+    ...original,
+    sendVideoPublishedEmails: (...args: unknown[]) =>
+      sendVideoPublishedEmailsMock(...args),
+  };
+});
+
+const cloudflare = {
+  configured: true,
+  createDirectUpload: vi.fn(),
+  deleteStreamVideo: vi.fn(),
+  getStreamVideo: vi.fn(),
+};
+vi.mock("@/lib/cloudflare/stream", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/lib/cloudflare/stream")>();
+  return {
+    ...original,
+    getCloudflareStreamConfig: () =>
+      cloudflare.configured ? { accountId: "acc", apiToken: "tok" } : null,
+    createDirectUpload: (...args: unknown[]) =>
+      cloudflare.createDirectUpload(...args),
+    deleteStreamVideo: (...args: unknown[]) =>
+      cloudflare.deleteStreamVideo(...args),
+    getStreamVideo: (...args: unknown[]) => cloudflare.getStreamVideo(...args),
+  };
+});
+
+const {
+  addExternalVideoAction,
+  createVideoUploadAction,
+  deleteVideoAction,
+  moveVideoAction,
+  refreshVideoStatusAction,
+  updateVideoLabelAction,
+} = await import("@/app/admin/(protected)/users/[id]/videos/actions");
+
+function video(overrides: Partial<Row>): Row {
+  return {
+    id: "d1d10000-0000-4000-8000-000000000001",
+    user_id: USER_ID,
+    placement: "contractor_page",
+    sort_order: 0,
+    provider: "external",
+    cloudflare_uid: null,
+    embed_source_url: TIKTOK_URL,
+    admin_label: null,
+    status: "ready",
+    created_at: "2026-09-01T00:00:00Z",
+    ...overrides,
+  };
 }
 
-const adminState = {
-  updates: [] as AdminUpdateLog[],
-  updateError: null as null | { message: string },
-  inserts: [] as Array<{ table: string; payload: Record<string, unknown> }>,
-  /** §6.6.C 初回登録判定の SELECT で返す既存 video URL。null なら初回登録扱い。 */
-  previousVideoUrl: null as null | string,
-};
-
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
-    auth: {
-      getUser: async () => ({ data: { user: authState.user }, error: null }),
-    },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({
-            data: authState.actorRole ? { role: authState.actorRole } : null,
-            error: null,
-          }),
-        }),
-      }),
-    }),
-  }),
-}));
-
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => ({
-    from: (table: string) => ({
-      select: (cols: string) => ({
-        eq: () => ({
-          maybeSingle: async () => {
-            // §6.6.C 初回登録判定用 SELECT (config.column の旧値を返す)
-            if (cols === "video_url") {
-              return {
-                data:
-                  adminState.previousVideoUrl !== null
-                    ? { video_url: adminState.previousVideoUrl }
-                    : { video_url: null },
-                error: null,
-              };
-            }
-            if (cols === "workplace_video_url") {
-              return {
-                data:
-                  adminState.previousVideoUrl !== null
-                    ? { workplace_video_url: adminState.previousVideoUrl }
-                    : { workplace_video_url: null },
-                error: null,
-              };
-            }
-            // §6.6.C-Ops の users 引き当て (last_name, first_name) は無視 (null 返す)
-            return { data: null, error: null };
-          },
-        }),
-      }),
-      update: (payload: Record<string, unknown>) => ({
-        eq: (matchColumn: string, matchValue: unknown) => {
-          adminState.updates.push({ table, payload, matchColumn, matchValue });
-          return Promise.resolve({
-            data: null,
-            error: adminState.updateError,
-          });
-        },
-      }),
-      insert: (payload: Record<string, unknown>) => {
-        adminState.inserts.push({ table, payload });
-        return Promise.resolve({ data: null, error: null });
-      },
-    }),
-  }),
-}));
-
-vi.mock("next/cache", () => ({
-  revalidatePath: vi.fn(),
-}));
-
-const { updateVideoUrlAction, updateWorkplaceVideoUrlAction } = await import(
-  "@/app/admin/actions"
-);
-
-function fd(userId: string, url: string): FormData {
-  const f = new FormData();
-  f.set("userId", userId);
-  f.set("url", url);
-  return f;
+function videos(): Row[] {
+  return db.tables.videos ?? [];
+}
+function audits(): Row[] {
+  return db.tables.audit_logs ?? [];
 }
 
 beforeEach(() => {
-  authState.user = { id: "admin-1" };
-  authState.actorRole = "admin";
-  adminState.updates = [];
-  adminState.updateError = null;
-  adminState.inserts = [];
-  adminState.previousVideoUrl = null;
+  auth.ok = true;
+  db = createInMemoryDb({
+    users: [{ id: USER_ID, deleted_at: null }],
+    videos: [],
+    audit_logs: [],
+  });
+  sendVideoPublishedEmailsMock.mockClear();
+  cloudflare.configured = true;
+  cloudflare.createDirectUpload.mockReset();
+  cloudflare.deleteStreamVideo.mockReset();
+  cloudflare.getStreamVideo.mockReset();
+  cloudflare.deleteStreamVideo.mockResolvedValue(undefined);
 });
 
-/** audit_logs への INSERT のみを抽出する */
-function auditInserts() {
-  return adminState.inserts.filter((i) => i.table === "audit_logs");
-}
-
-describe("updateVideoUrlAction (ADM-010, users.video_url)", () => {
-  it("有効な TikTok URL で users.video_url を更新する", async () => {
-    const result = await updateVideoUrlAction(
-      fd("user-9", "https://www.tiktok.com/@u/video/7234567890123456789"),
-    );
+describe("addExternalVideoAction（URL で追加）", () => {
+  it("有効な URL で ready 行を追加し、1 本目なら掲載メールを送る", async () => {
+    const result = await addExternalVideoAction({
+      userId: USER_ID,
+      placement: "contractor_page",
+      url: `  ${TIKTOK_URL}  `,
+      adminLabel: " 現場紹介 ",
+    });
     expect(result.success).toBe(true);
-    expect(adminState.updates).toHaveLength(1);
-    expect(adminState.updates[0]).toMatchObject({
-      table: "users",
-      payload: { video_url: "https://www.tiktok.com/@u/video/7234567890123456789" },
-      matchColumn: "id",
-      matchValue: "user-9",
+    expect(videos()).toHaveLength(1);
+    expect(videos()[0]).toMatchObject({
+      user_id: USER_ID,
+      placement: "contractor_page",
+      provider: "external",
+      embed_source_url: TIKTOK_URL,
+      admin_label: "現場紹介",
+      status: "ready",
+      sort_order: 0,
+    });
+    expect(sendVideoPublishedEmailsMock).toHaveBeenCalledTimes(1);
+    expect(sendVideoPublishedEmailsMock.mock.calls[0]?.[1]).toMatchObject({
+      userId: USER_ID,
+      placement: "contractor_page",
+    });
+    expect(audits()).toHaveLength(1);
+    expect(audits()[0]).toMatchObject({
+      action: "video_create",
+      actor_id: ADMIN_ID,
+      target_type: "videos",
     });
   });
 
-  it("空文字入力で video_url を NULL に更新する（掲載停止）", async () => {
-    const result = await updateVideoUrlAction(fd("user-9", ""));
+  it("2 本目は末尾の表示順で追加し、掲載メールは送らない", async () => {
+    db.tables.videos = [video({ sort_order: 3 })];
+    const result = await addExternalVideoAction({
+      userId: USER_ID,
+      placement: "contractor_page",
+      url: "https://www.tiktok.com/@u/video/7000000000000000002",
+      adminLabel: "",
+    });
     expect(result.success).toBe(true);
-    expect(adminState.updates[0]?.payload).toEqual({ video_url: null });
+    expect(videos()).toHaveLength(2);
+    expect(videos()[1]).toMatchObject({ sort_order: 4, admin_label: null });
+    expect(sendVideoPublishedEmailsMock).not.toHaveBeenCalled();
   });
 
-  it("不正な URL は拒否し DB 更新しない", async () => {
-    const result = await updateVideoUrlAction(
-      fd("user-9", "https://vt.tiktok.com/ZSabc/"),
-    );
+  it("別の掲載場所に公開中があっても、この掲載場所の 1 本目ならメールを送る", async () => {
+    db.tables.videos = [video({ placement: "client_page" })];
+    const result = await addExternalVideoAction({
+      userId: USER_ID,
+      placement: "contractor_page",
+      url: TIKTOK_URL,
+      adminLabel: "",
+    });
+    expect(result.success).toBe(true);
+    expect(sendVideoPublishedEmailsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("処理中（processing）しか無ければ公開中 0 本として 1 本目扱い", async () => {
+    db.tables.videos = [
+      video({ provider: "cloudflare", cloudflare_uid: "uid_p", embed_source_url: null, status: "processing" }),
+    ];
+    await addExternalVideoAction({
+      userId: USER_ID,
+      placement: "contractor_page",
+      url: TIKTOK_URL,
+      adminLabel: "",
+    });
+    expect(sendVideoPublishedEmailsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("不正な URL は拒否し DB に書かない", async () => {
+    const result = await addExternalVideoAction({
+      userId: USER_ID,
+      placement: "contractor_page",
+      url: "https://vt.tiktok.com/ZSabc/",
+      adminLabel: "",
+    });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toBe("対応プラットフォームの URL を入力してください");
     }
-    expect(adminState.updates).toHaveLength(0);
+    expect(videos()).toHaveLength(0);
+    expect(audits()).toHaveLength(0);
   });
 
-  it("DB エラー時は success:false を返す", async () => {
-    adminState.updateError = { message: "boom" };
-    const result = await updateVideoUrlAction(
-      fd("user-9", "https://www.tiktok.com/@u/video/123"),
-    );
+  it("未知の掲載場所は拒否する", async () => {
+    const result = await addExternalVideoAction({
+      userId: USER_ID,
+      placement: "top_page",
+      url: TIKTOK_URL,
+      adminLabel: "",
+    });
     expect(result.success).toBe(false);
+    expect(videos()).toHaveLength(0);
   });
-});
 
-describe("updateWorkplaceVideoUrlAction (ADM-010B, client_profiles.workplace_video_url)", () => {
-  it("有効な URL で client_profiles.workplace_video_url を更新する", async () => {
-    const result = await updateWorkplaceVideoUrlAction(
-      fd("user-7", "https://www.tiktok.com/@c/video/999"),
-    );
-    expect(result.success).toBe(true);
-    expect(adminState.updates[0]).toMatchObject({
-      table: "client_profiles",
-      payload: { workplace_video_url: "https://www.tiktok.com/@c/video/999" },
-      matchColumn: "user_id",
-      matchValue: "user-7",
+  it("admin 以外は拒否する", async () => {
+    auth.ok = false;
+    const result = await addExternalVideoAction({
+      userId: USER_ID,
+      placement: "contractor_page",
+      url: TIKTOK_URL,
+      adminLabel: "",
     });
-  });
-
-  it("空文字で NULL 更新", async () => {
-    const result = await updateWorkplaceVideoUrlAction(fd("user-7", ""));
-    expect(result.success).toBe(true);
-    expect(adminState.updates[0]?.payload).toEqual({
-      workplace_video_url: null,
+    expect(result).toEqual({
+      success: false,
+      error: "この操作を行う権限がありません",
     });
+    expect(videos()).toHaveLength(0);
   });
-});
 
-describe("監査ログ（video_url_update・admin spec Task 3.2）", () => {
-  it("PR動画の更新成功時に audit log を記録する", async () => {
-    const result = await updateVideoUrlAction(
-      fd("user-9", "https://www.tiktok.com/@u/video/123"),
-    );
-    expect(result.success).toBe(true);
-    expect(auditInserts()).toHaveLength(1);
-    expect(auditInserts()[0].payload).toMatchObject({
-      action: "video_url_update",
-      actor_id: "admin-1",
-      target_id: "user-9",
+  it("退会済み・存在しないユーザーには追加できない", async () => {
+    db.tables.users = [{ id: USER_ID, deleted_at: "2026-08-01T00:00:00Z" }];
+    const deleted = await addExternalVideoAction({
+      userId: USER_ID,
+      placement: "contractor_page",
+      url: TIKTOK_URL,
+      adminLabel: "",
     });
-  });
+    expect(deleted.success).toBe(false);
 
-  it("職場紹介動画の更新成功時に audit log を記録する", async () => {
-    const result = await updateWorkplaceVideoUrlAction(
-      fd("user-7", "https://www.tiktok.com/@c/video/999"),
-    );
-    expect(result.success).toBe(true);
-    expect(auditInserts()).toHaveLength(1);
-    expect(auditInserts()[0].payload).toMatchObject({
-      action: "video_url_update",
-      target_id: "user-7",
+    const missing = await addExternalVideoAction({
+      userId: "99999999-9999-9999-9999-999999999999",
+      placement: "contractor_page",
+      url: TIKTOK_URL,
+      adminLabel: "",
     });
+    expect(missing.success).toBe(false);
+    expect(videos()).toHaveLength(0);
   });
 
-  it("バリデーション失敗時は audit log を記録しない", async () => {
-    await updateVideoUrlAction(fd("user-9", "https://vt.tiktok.com/ZSabc/"));
-    expect(auditInserts()).toHaveLength(0);
-  });
-
-  it("DB 更新失敗時は audit log を記録しない", async () => {
-    adminState.updateError = { message: "boom" };
-    await updateVideoUrlAction(
-      fd("user-9", "https://www.tiktok.com/@u/video/123"),
-    );
-    expect(auditInserts()).toHaveLength(0);
-  });
-});
-
-describe("§6.6.C 初回登録判定 (NULL/空 → URL のときだけメール送信)", () => {
-  // sendEmail / next/headers の実体は呼ばないため send 自体の assertion は別レイヤー
-  // (email-templates.test.ts) に委ねる。本ブロックは「初回判定の SELECT が走り、
-  // UPDATE が想定通りであること」 + 「差し替え/削除時に skip 経路を通ること」を検証。
-
-  it("初回登録 (URL → null/空 → URL): UPDATE は実行、success", async () => {
-    adminState.previousVideoUrl = null;
-    const result = await updateVideoUrlAction(
-      fd("user-9", "https://www.tiktok.com/@u/video/123"),
-    );
-    expect(result.success).toBe(true);
-    expect(adminState.updates).toHaveLength(1);
-  });
-
-  it("差し替え (旧 URL → 新 URL): UPDATE は実行されるが、初回判定は false (メール send 経路に入らない)", async () => {
-    adminState.previousVideoUrl = "https://www.tiktok.com/@old/video/000";
-    const result = await updateVideoUrlAction(
-      fd("user-9", "https://www.tiktok.com/@new/video/999"),
-    );
-    expect(result.success).toBe(true);
-    // UPDATE 自体は走る
-    expect(adminState.updates[0]?.payload).toEqual({
-      video_url: "https://www.tiktok.com/@new/video/999",
+  it("INSERT が失敗したら success:false でメールも送らない", async () => {
+    db.failures.videos = { insert: { message: "boom" } };
+    const result = await addExternalVideoAction({
+      userId: USER_ID,
+      placement: "contractor_page",
+      url: TIKTOK_URL,
+      adminLabel: "",
     });
-  });
-
-  it("削除 (旧 URL → 空文字 → NULL): UPDATE は NULL 化、初回判定は false", async () => {
-    adminState.previousVideoUrl = "https://www.tiktok.com/@u/video/123";
-    const result = await updateVideoUrlAction(fd("user-9", ""));
-    expect(result.success).toBe(true);
-    expect(adminState.updates[0]?.payload).toEqual({ video_url: null });
-  });
-});
-
-describe("三重防御: 認可チェック", () => {
-  it("未ログインは拒否", async () => {
-    authState.user = null;
-    const result = await updateVideoUrlAction(
-      fd("user-9", "https://www.tiktok.com/@u/video/123"),
-    );
     expect(result.success).toBe(false);
-    expect(adminState.updates).toHaveLength(0);
+    expect(sendVideoPublishedEmailsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("createVideoUploadAction（ファイルアップロード URL 発行）", () => {
+  it("Cloudflare 未設定なら案内メッセージで拒否し、行を作らない", async () => {
+    cloudflare.configured = false;
+    const result = await createVideoUploadAction({
+      userId: USER_ID,
+      placement: "client_page",
+      adminLabel: "",
+    });
+    expect(result).toEqual({
+      success: false,
+      error: CLOUDFLARE_NOT_CONFIGURED_MESSAGE,
+    });
+    expect(videos()).toHaveLength(0);
   });
 
-  it("一般ユーザー（contractor）は拒否", async () => {
-    authState.actorRole = "contractor";
-    const result = await updateVideoUrlAction(
-      fd("user-9", "https://www.tiktok.com/@u/video/123"),
-    );
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toContain("権限がありません");
+  it("direct_upload を発行し processing 行を作って uploadUrl を返す", async () => {
+    cloudflare.createDirectUpload.mockResolvedValueOnce({
+      uploadURL: "https://upload.example/x",
+      uid: "uid_new",
+    });
+    const result = await createVideoUploadAction({
+      userId: USER_ID,
+      placement: "client_page",
+      adminLabel: "撮影 2026-09",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data?.uploadUrl).toBe("https://upload.example/x");
+      expect(result.data?.videoId).toBe(videos()[0]?.id);
     }
-    expect(adminState.updates).toHaveLength(0);
+    expect(videos()[0]).toMatchObject({
+      provider: "cloudflare",
+      cloudflare_uid: "uid_new",
+      status: "processing",
+      placement: "client_page",
+      admin_label: "撮影 2026-09",
+    });
+    expect(cloudflare.createDirectUpload.mock.calls[0]?.[1]).toMatchObject({
+      maxDurationSeconds: 300,
+    });
+    // 処理中の段階では掲載メールを送らない（ready になったとき）
+    expect(sendVideoPublishedEmailsMock).not.toHaveBeenCalled();
+    expect(audits()[0]).toMatchObject({
+      action: "video_create",
+      metadata: { provider: "cloudflare", cloudflareUid: "uid_new" },
+    });
   });
 
-  it("staff は拒否", async () => {
-    authState.actorRole = "staff";
-    const result = await updateWorkplaceVideoUrlAction(
-      fd("user-7", "https://www.tiktok.com/@c/video/123"),
+  it("Cloudflare の URL 発行に失敗したら success:false で行を作らない", async () => {
+    cloudflare.createDirectUpload.mockRejectedValueOnce(
+      new CloudflareStreamError("boom", 500),
     );
+    const result = await createVideoUploadAction({
+      userId: USER_ID,
+      placement: "client_page",
+      adminLabel: "",
+    });
     expect(result.success).toBe(false);
-    expect(adminState.updates).toHaveLength(0);
+    expect(videos()).toHaveLength(0);
   });
 
-  it("userId 未指定は拒否", async () => {
-    const result = await updateVideoUrlAction(
-      fd("", "https://www.tiktok.com/@u/video/123"),
-    );
+  it("行の INSERT に失敗したら発行済み UID を Cloudflare から削除する", async () => {
+    cloudflare.createDirectUpload.mockResolvedValueOnce({
+      uploadURL: "https://upload.example/x",
+      uid: "uid_orphan",
+    });
+    db.failures.videos = { insert: { message: "boom" } };
+    const result = await createVideoUploadAction({
+      userId: USER_ID,
+      placement: "client_page",
+      adminLabel: "",
+    });
     expect(result.success).toBe(false);
-    expect(adminState.updates).toHaveLength(0);
+    expect(cloudflare.deleteStreamVideo).toHaveBeenCalledWith(
+      expect.anything(),
+      "uid_orphan",
+    );
+  });
+
+  it("admin 以外は Cloudflare を呼ばない", async () => {
+    auth.ok = false;
+    const result = await createVideoUploadAction({
+      userId: USER_ID,
+      placement: "client_page",
+      adminLabel: "",
+    });
+    expect(result.success).toBe(false);
+    expect(cloudflare.createDirectUpload).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateVideoLabelAction", () => {
+  it("ラベルを更新し監査ログに before / after を残す", async () => {
+    db.tables.videos = [video({ admin_label: "旧" })];
+    const result = await updateVideoLabelAction({
+      videoId: "d1d10000-0000-4000-8000-000000000001",
+      adminLabel: "新",
+    });
+    expect(result.success).toBe(true);
+    expect(videos()[0]?.admin_label).toBe("新");
+    expect(audits()[0]).toMatchObject({
+      action: "video_update",
+      metadata: { field: "admin_label", before: "旧", after: "新" },
+    });
+  });
+
+  it("存在しない動画はエラー", async () => {
+    const result = await updateVideoLabelAction({
+      videoId: "d1d10000-0000-4000-8000-000000000009",
+      adminLabel: "x",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("moveVideoAction（表示順入替）", () => {
+  const A = "d1d10000-0000-4000-8000-00000000000a";
+  const B = "d1d10000-0000-4000-8000-00000000000b";
+  const C = "d1d10000-0000-4000-8000-00000000000c";
+
+  beforeEach(() => {
+    db.tables.videos = [
+      video({ id: A, sort_order: 0 }),
+      video({ id: B, sort_order: 1 }),
+      video({ id: C, sort_order: 2 }),
+      // 別掲載場所の行は影響を受けない
+      video({ id: "d1d10000-0000-4000-8000-00000000000d", placement: "client_page", sort_order: 0 }),
+    ];
+  });
+
+  function orderOf(placement: string): string[] {
+    return videos()
+      .filter((v) => v.placement === placement)
+      .sort((x, y) => (x.sort_order as number) - (y.sort_order as number))
+      .map((v) => v.id as string);
+  }
+
+  it("down で 1 つ下と入れ替わり、0..n-1 に振り直す", async () => {
+    const result = await moveVideoAction({ videoId: A, direction: "down" });
+    expect(result.success).toBe(true);
+    expect(orderOf("contractor_page")).toEqual([B, A, C]);
+    expect(
+      videos().filter((v) => v.placement === "contractor_page").map((v) => v.sort_order).sort(),
+    ).toEqual([0, 1, 2]);
+    expect(orderOf("client_page")).toEqual(["d1d10000-0000-4000-8000-00000000000d"]);
+    expect(audits()[0]).toMatchObject({ action: "video_reorder" });
+  });
+
+  it("up で 1 つ上と入れ替わる", async () => {
+    const result = await moveVideoAction({ videoId: C, direction: "up" });
+    expect(result.success).toBe(true);
+    expect(orderOf("contractor_page")).toEqual([A, C, B]);
+  });
+
+  it("端にある動画をさらに動かしても順序は変わらない", async () => {
+    const result = await moveVideoAction({ videoId: A, direction: "up" });
+    expect(result.success).toBe(true);
+    expect(orderOf("contractor_page")).toEqual([A, B, C]);
+    expect(audits()).toHaveLength(0);
+  });
+});
+
+describe("deleteVideoAction", () => {
+  it("Cloudflare 動画は Cloudflare 側も削除してから行を消す", async () => {
+    db.tables.videos = [
+      video({ provider: "cloudflare", cloudflare_uid: "uid_del", embed_source_url: null }),
+    ];
+    const result = await deleteVideoAction({
+      videoId: "d1d10000-0000-4000-8000-000000000001",
+    });
+    expect(result.success).toBe(true);
+    expect(cloudflare.deleteStreamVideo).toHaveBeenCalledWith(
+      expect.anything(),
+      "uid_del",
+    );
+    expect(videos()).toHaveLength(0);
+    expect(audits()[0]).toMatchObject({
+      action: "video_delete",
+      metadata: { cloudflareUid: "uid_del", cloudflareDeleteError: null },
+    });
+  });
+
+  it("Cloudflare 側の削除に失敗しても行は消し、エラーを監査 metadata に残す", async () => {
+    db.tables.videos = [
+      video({ provider: "cloudflare", cloudflare_uid: "uid_del", embed_source_url: null }),
+    ];
+    cloudflare.deleteStreamVideo.mockRejectedValueOnce(
+      new CloudflareStreamError("DELETE failed (500)", 500),
+    );
+    const result = await deleteVideoAction({
+      videoId: "d1d10000-0000-4000-8000-000000000001",
+    });
+    expect(result.success).toBe(true);
+    expect(videos()).toHaveLength(0);
+    expect(audits()[0]).toMatchObject({
+      metadata: { cloudflareDeleteError: "DELETE failed (500)" },
+    });
+  });
+
+  it("external 動画は Cloudflare を呼ばない", async () => {
+    db.tables.videos = [video({})];
+    const result = await deleteVideoAction({
+      videoId: "d1d10000-0000-4000-8000-000000000001",
+    });
+    expect(result.success).toBe(true);
+    expect(cloudflare.deleteStreamVideo).not.toHaveBeenCalled();
+    expect(videos()).toHaveLength(0);
+  });
+
+  it("admin 以外は削除できない", async () => {
+    auth.ok = false;
+    db.tables.videos = [video({})];
+    const result = await deleteVideoAction({
+      videoId: "d1d10000-0000-4000-8000-000000000001",
+    });
+    expect(result.success).toBe(false);
+    expect(videos()).toHaveLength(1);
+  });
+});
+
+describe("refreshVideoStatusAction（状態確認）", () => {
+  const ID = "d1d10000-0000-4000-8000-000000000001";
+
+  it("既に ready なら Cloudflare を呼ばず ready を返す", async () => {
+    db.tables.videos = [video({})];
+    const result = await refreshVideoStatusAction({ videoId: ID });
+    expect(result).toEqual({ success: true, data: { status: "ready", detail: null } });
+    expect(cloudflare.getStreamVideo).not.toHaveBeenCalled();
+  });
+
+  it("まだ処理中なら processing と状態の説明を返す", async () => {
+    db.tables.videos = [
+      video({ provider: "cloudflare", cloudflare_uid: "uid_x", embed_source_url: null, status: "processing" }),
+    ];
+    cloudflare.getStreamVideo.mockResolvedValueOnce({
+      uid: "uid_x",
+      readyToStream: false,
+      state: "inprogress",
+      errorReasonText: null,
+    });
+    const result = await refreshVideoStatusAction({ videoId: ID });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data?.status).toBe("processing");
+      expect(result.data?.detail).toContain("処理中");
+    }
+    expect(videos()[0]?.status).toBe("processing");
+  });
+
+  it("変換エラーは削除して再登録するよう案内する", async () => {
+    db.tables.videos = [
+      video({ provider: "cloudflare", cloudflare_uid: "uid_x", embed_source_url: null, status: "processing" }),
+    ];
+    cloudflare.getStreamVideo.mockResolvedValueOnce({
+      uid: "uid_x",
+      readyToStream: false,
+      state: "error",
+      errorReasonText: "ERR_UNSUPPORTED_CODEC",
+    });
+    const result = await refreshVideoStatusAction({ videoId: ID });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data?.detail).toContain("削除して再登録");
+    }
+  });
+
+  it("Cloudflare が ready なら公開にし、1 本目なら掲載メールを送る", async () => {
+    db.tables.videos = [
+      video({ provider: "cloudflare", cloudflare_uid: "uid_x", embed_source_url: null, status: "processing" }),
+    ];
+    cloudflare.getStreamVideo.mockResolvedValueOnce({
+      uid: "uid_x",
+      readyToStream: true,
+      state: "ready",
+      errorReasonText: null,
+    });
+    const result = await refreshVideoStatusAction({ videoId: ID });
+    expect(result).toEqual({ success: true, data: { status: "ready", detail: null } });
+    expect(videos()[0]?.status).toBe("ready");
+    expect(sendVideoPublishedEmailsMock).toHaveBeenCalledTimes(1);
+    expect(audits()[0]).toMatchObject({
+      action: "video_update",
+      metadata: { field: "status", after: "ready", via: "refresh" },
+    });
+  });
+
+  it("Cloudflare 未設定なら案内メッセージで拒否する", async () => {
+    cloudflare.configured = false;
+    db.tables.videos = [
+      video({ provider: "cloudflare", cloudflare_uid: "uid_x", embed_source_url: null, status: "processing" }),
+    ];
+    const result = await refreshVideoStatusAction({ videoId: ID });
+    expect(result).toEqual({
+      success: false,
+      error: CLOUDFLARE_NOT_CONFIGURED_MESSAGE,
+    });
   });
 });
