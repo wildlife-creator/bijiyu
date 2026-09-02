@@ -485,7 +485,7 @@ async function activateOption(
     };
   }
 
-  // video / video_workplace（買い切り・期限なし。作り直しの再購入は許容）
+  // video / video_workplace / video_shooting（買い切り・期限なし。作り直しの再購入は許容）
   if (isSubscriptionOption(optionType)) {
     return { ok: false, error: "対応していないオプションです" };
   }

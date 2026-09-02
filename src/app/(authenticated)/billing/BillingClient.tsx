@@ -32,6 +32,7 @@ import {
   type PlanType,
 } from "@/lib/constants/plans";
 import { BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE } from "@/lib/billing/bank-transfer";
+import type { VideoOptionType } from "@/lib/billing/options";
 import { BankTransferApplyButton } from "./bank-transfer-apply-button";
 import { startCheckoutAction } from "./actions";
 import {
@@ -70,6 +71,16 @@ interface SubscriptionInfo {
   currentPeriodEnd: string | null;
   stripeSubscriptionId: string | null;
 }
+
+/**
+ * 買い切り動画系オプションの画面上の商品名（料金プラン画面・再購入ダイアログ用）。
+ * メール用の OPTION_LABELS（受注者PR動画 / 職場紹介動画）とは別に、この画面の見出しに合わせる。
+ */
+const VIDEO_OPTION_UI_NAMES: Record<VideoOptionType, string> = {
+  video: "自己PR動画掲載",
+  video_workplace: "職場紹介動画掲載",
+  video_shooting: "ユーザー撮影プラン",
+};
 
 interface ActiveOption {
   id: string;
@@ -192,10 +203,19 @@ export function BillingClient({
 
   // 動画オプションは買い切りだが「作り直しのための再購入」が正当にありうるため、
   // 購入済みでもボタンは活性のまま、押下時に再購入確認ダイアログを挟む。
-  const hasVideo = activeOptions.some((o) => o.optionType === "video");
-  const hasVideoWorkplace = activeOptions.some(
-    (o) => o.optionType === "video_workplace",
-  );
+  const hasVideoOption: Record<VideoOptionType, boolean> = {
+    video: activeOptions.some((o) => o.optionType === "video"),
+    video_workplace: activeOptions.some(
+      (o) => o.optionType === "video_workplace",
+    ),
+    // ユーザー撮影プラン（P7）: 全会員が購入可、発注者プランの加入は問わない
+    video_shooting: activeOptions.some(
+      (o) => o.optionType === "video_shooting",
+    ),
+  };
+  const hasVideo = hasVideoOption.video;
+  const hasVideoWorkplace = hasVideoOption.video_workplace;
+  const hasVideoShooting = hasVideoOption.video_shooting;
 
   // P3: 月払い / 年払いの表示切替。既定は現在の契約サイクル（無料は月払い）
   const [selectedCycle, setSelectedCycle] = useState<BillingCycle>(currentCycle);
@@ -231,9 +251,8 @@ export function BillingClient({
   const [dialogTarget, setDialogTarget] = useState<PaidPlanType | null>(null);
   const [dialogTargetCycle, setDialogTargetCycle] = useState<BillingCycle>("monthly");
   const [cancelCompId, setCancelCompId] = useState<string | null>(null);
-  const [repurchaseOption, setRepurchaseOption] = useState<
-    "video" | "video_workplace" | null
-  >(null);
+  const [repurchaseOption, setRepurchaseOption] =
+    useState<VideoOptionType | null>(null);
 
   // Urgent option state
   const [selectedJobId, setSelectedJobId] = useState<string>("");
@@ -262,6 +281,9 @@ export function BillingClient({
       router.replace("/billing");
     } else if (checkoutSuccess === "video_workplace") {
       toast.success("職場紹介動画掲載オプションのお申し込みが完了しました");
+      router.replace("/billing");
+    } else if (checkoutSuccess === "video_shooting") {
+      toast.success("ユーザー撮影プランのお申し込みが完了しました");
       router.replace("/billing");
     }
   }, [checkoutSuccess, router]);
@@ -391,8 +413,7 @@ export function BillingClient({
       | "compensation_5000"
       | "compensation_9800"
       | "urgent"
-      | "video"
-      | "video_workplace",
+      | VideoOptionType,
     jobId?: string,
   ) {
     runPending(`opt-${optionType}`, async () => {
@@ -403,7 +424,7 @@ export function BillingClient({
             ? { type: "option" as const, optionType }
             : {
                 type: "option" as const,
-                optionType: optionType as "video" | "video_workplace",
+                optionType: optionType as VideoOptionType,
               };
       const result = await startCheckoutAction(input);
       if (!result.success) {
@@ -416,8 +437,8 @@ export function BillingClient({
     });
   }
 
-  function handleVideoOptionButton(optionType: "video" | "video_workplace") {
-    const purchased = optionType === "video" ? hasVideo : hasVideoWorkplace;
+  function handleVideoOptionButton(optionType: VideoOptionType) {
+    const purchased = hasVideoOption[optionType];
     if (!purchased) {
       handleOptionCheckout(optionType);
       return;
@@ -714,6 +735,38 @@ export function BillingClient({
                   target={{ kind: "option", optionType: "video_workplace" }}
                   disabled={pending || !isClientPlanActive}
                   disabledReason={!isClientPlanActive ? "職場紹介動画掲載は発注者プラン加入者のみご利用いただけます" : null}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* ユーザー撮影プラン（P7、全会員向け） */}
+          <div className="py-4">
+            <div className="flex items-center justify-between">
+              <span className="text-body-md font-bold">
+                {VIDEO_OPTION_UI_NAMES.video_shooting}
+              </span>
+              <span className="text-body-md">20,000円/動画</span>
+            </div>
+            <p className="mt-1 text-body-sm text-muted-foreground">
+              ご自身で撮影した動画を、ビジ友が編集して掲載することができます。<br />
+              ※ビジ友で決められた動画の構成に合わせて動画撮影をお願いします。
+            </p>
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <Button
+                variant="default"
+                className="w-full max-w-xs rounded-full text-white"
+                disabled={pending || isStaff || !!openBankOptionRequest("video_shooting")}
+                pending={pendingKey === "opt-video_shooting"}
+                onClick={() => handleVideoOptionButton("video_shooting")}
+              >
+                {hasVideoShooting ? "購入済み" : "ユーザー撮影プランを申し込む"}
+              </Button>
+              {!isStaff && (
+                <BankTransferOptionRow
+                  request={openBankOptionRequest("video_shooting")}
+                  target={{ kind: "option", optionType: "video_shooting" }}
+                  disabled={pending}
                 />
               )}
             </div>
@@ -1083,9 +1136,7 @@ export function BillingClient({
               <DialogHeader>
                 <DialogTitle>再購入の確認</DialogTitle>
                 <DialogDescription>
-                  {repurchaseOption === "video"
-                    ? "自己PR動画掲載"
-                    : "職場紹介動画掲載"}
+                  {repurchaseOption ? VIDEO_OPTION_UI_NAMES[repurchaseOption] : ""}
                   は既にご購入済みです。改めて購入しますが、よろしいですか？
                 </DialogDescription>
               </DialogHeader>

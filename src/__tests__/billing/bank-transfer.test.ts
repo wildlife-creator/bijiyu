@@ -58,6 +58,16 @@ describe("computeBankTransferAmount", () => {
     expect(out.total).toBe(100000);
   });
 
+  it("ユーザー撮影プラン（P7）は買い切り 20,000 円。事務手数料なし", () => {
+    const out = computeBankTransferAmount(
+      { kind: "option", optionType: "video_shooting" },
+      { needsInitialFee: true },
+    );
+    expect(out.amount).toBe(OPTION_PRICES_TAX_INCLUDED.video_shooting);
+    expect(out.initialFee).toBe(0);
+    expect(out.total).toBe(20000);
+  });
+
   it("補償（月額課金型）は年払いで 12 か月分", () => {
     const monthly = computeBankTransferAmount(
       { kind: "option", optionType: "compensation_5000", billingCycle: "monthly" },

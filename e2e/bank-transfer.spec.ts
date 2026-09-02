@@ -123,6 +123,64 @@ test.describe.serial("銀行振込: 申込 → 運営が有効化 → 契約中�
   });
 });
 
+test.describe.serial("銀行振込: ユーザー撮影プラン（P7）の申込 → 運営が有効化 → 購入済み", () => {
+  test("1. 受注者が CLI-026 からユーザー撮影プランを銀行振込で申し込む", async ({ page }) => {
+    await login(page, TEST_BANK_E2E.email, TEST_BANK_E2E.password);
+    await page.goto("/billing");
+    await expect(page.getByRole("heading", { name: "プラン変更" })).toBeVisible();
+
+    // ユーザー撮影プランの行（見出し + 申込ボタン + 銀行振込ボタン）
+    const optionSection = page.locator("section").filter({ hasText: "オプションプラン" });
+    // 行 = py-4 の div（見出し span が「ユーザー撮影プラン」のもの）
+    const row = optionSection
+      .locator("div.py-4")
+      .filter({ has: page.getByText("ユーザー撮影プラン", { exact: true }) });
+    await expect(row.getByRole("button", { name: "ユーザー撮影プランを申し込む" })).toBeEnabled();
+    await row.getByRole("button", { name: "銀行振込で申し込む" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "銀行振込で申し込む" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("ユーザー撮影プラン");
+    await expect(dialog).toContainText("20,000円（税込）");
+    await dialog.getByRole("button", { name: "この内容で申し込む" }).click();
+    await expect(page.getByText(/銀行振込でお申し込みいただきました/)).toBeVisible();
+
+    // 受付中は Stripe ボタンが押せず、銀行振込ボタンは「申込中」の案内に置き換わる
+    await expect(row.getByRole("button", { name: "ユーザー撮影プランを申し込む" })).toBeDisabled();
+    await expect(row.getByText(/銀行振込で申込中（申込受付）/)).toBeVisible();
+    await expect(row.getByRole("button", { name: "銀行振込で申し込む" })).toHaveCount(0);
+  });
+
+  test("2. 運営が ADM-026 で有効化すると、申込者の /billing で「購入済み」になる", async ({ page }) => {
+    await adminLogin(page);
+    await page.goto("/admin/bank-transfers?status=requested");
+    const row = page.getByRole("link", { name: /振込一郎[\s\S]*ユーザー撮影プラン/ });
+    await expect(row).toBeVisible();
+    await row.click();
+    await page.waitForURL(/\/admin\/bank-transfers\/[0-9a-f-]{36}$/);
+    // 金額と請求合計の 2 か所に出る
+    await expect(page.getByText("20,000円（税込）").first()).toBeVisible();
+
+    await page.getByRole("button", { name: "入金を確認して有効化する" }).click();
+    const dialog = page.getByRole("dialog", { name: "入金を確認して有効化する" });
+    await dialog.getByRole("button", { name: "有効化する" }).click();
+    await expect(page.getByText(/有効化しました/)).toBeVisible();
+    await expect(page.getByText("入金確認済", { exact: true }).first()).toBeVisible();
+  });
+
+  test("3. 申込者の /billing でユーザー撮影プランが「購入済み」になる（再購入可なのでボタンは活性）", async ({ page }) => {
+    await login(page, TEST_BANK_E2E.email, TEST_BANK_E2E.password);
+    await page.goto("/billing");
+    const optionSection = page.locator("section").filter({ hasText: "オプションプラン" });
+    const optionRow = optionSection
+      .locator("div.py-4")
+      .filter({ has: page.getByText("ユーザー撮影プラン", { exact: true }) });
+    await expect(optionRow.getByRole("button", { name: "購入済み" })).toBeEnabled();
+    // 有効化後は銀行振込ボタンが再び出る（申込中の案内は消える）
+    await expect(optionRow.getByRole("button", { name: "銀行振込で申し込む" })).toBeEnabled();
+  });
+});
+
 test.describe("銀行振込: 管理画面の期限表示と延長", () => {
   test("ADM-003 に期限間近バッジ、ADM-004 で期限延長すると期限が 1 か月延びる", async ({ page }) => {
     await adminLogin(page);

@@ -230,6 +230,7 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_URGENT = "price_urgent";
   process.env.STRIPE_PRICE_VIDEO = "price_video";
   process.env.STRIPE_PRICE_VIDEO_WORKPLACE = "price_video_workplace";
+  process.env.STRIPE_PRICE_VIDEO_SHOOTING = "price_video_shooting";
 
   // Reset mock state
   supabaseAuthState.user = { id: "user-c1" };
@@ -662,6 +663,49 @@ describe("startCheckoutAction — video option", () => {
     expect(params.success_url).toBe(
       "http://localhost:3000/billing?option_success=video",
     );
+  });
+});
+
+describe("startCheckoutAction — video_shooting option (ユーザー撮影プラン、P7)", () => {
+  it("happy path: 無料の受注者でも payment mode + video_shooting success_url（発注者プラン不要）", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "contractor",
+      email: "contractor@test.local",
+    };
+    adminResults["select:subscriptions"] = { data: [], error: null };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "video_shooting",
+    });
+    expect(result.success).toBe(true);
+    const params = stripeMockState.sessionsCreated[0]!;
+    expect(params.mode).toBe("payment");
+    expect(params.line_items).toEqual([
+      { price: "price_video_shooting", quantity: 1 },
+    ]);
+    expect(params.metadata).toEqual({
+      type: "option",
+      user_id: "user-c1",
+      option_type: "video_shooting",
+    });
+    expect(params.success_url).toBe(
+      "http://localhost:3000/billing?option_success=video_shooting",
+    );
+  });
+
+  it("rejects staff（グローバルロールガードで拒否）", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "staff",
+      email: "staff@test.local",
+    };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "video_shooting",
+    });
+    expect(result.success).toBe(false);
+    expect(stripeMockState.sessionsCreated).toHaveLength(0);
   });
 });
 

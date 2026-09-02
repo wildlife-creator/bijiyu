@@ -448,7 +448,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | stripe_subscription_id | text (nullable) | Stripe Subscription ID（月額課金の場合のみ。単発課金では null） |
 | stripe_payment_intent_id | text (nullable) | Stripe Payment Intent ID（単発課金の場合のみ。月額課金では null） |
 | payment_method | payment_method_type | 'stripe'（既定）/ 'bank_transfer'（P2）。銀行振込行は Stripe ID が両方 NULL（CHECK）。銀行振込の補償は end_date を期限として持つが `expire-options` の自動停止対象外（手動運用） |
-| option_type | text | 'urgent'（急募）/ 'compensation_5000'（補償¥5,000）/ 'compensation_9800'（補償¥9,800）/ 'video'（動画掲載＝受注者PR動画）/ 'video_workplace'（職場紹介動画掲載）。CHECK 制約なし |
+| option_type | text | 'urgent'（急募）/ 'compensation_5000'（補償¥5,000）/ 'compensation_9800'（補償¥9,800）/ 'video'（動画掲載＝受注者PR動画）/ 'video_workplace'（職場紹介動画掲載）/ 'video_shooting'（ユーザー撮影プラン、P7。買い切り・期限なし）。CHECK 制約なし |
 | status | text | 'active' / 'expired' / 'cancelled' |
 | start_date | timestamptz | オプション有効開始日 |
 | end_date | timestamptz (nullable) | オプション有効終了日（急募: start_date + 7日。動画掲載: null = 期限なし。補償: Stripe が管理） |

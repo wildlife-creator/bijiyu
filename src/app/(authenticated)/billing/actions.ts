@@ -52,12 +52,19 @@ const videoWorkplaceOptionInputSchema = z.object({
   optionType: z.literal("video_workplace"),
 });
 
+// ユーザー撮影プラン（P7）。全会員（staff / admin 以外）が購入可。発注者プランの加入は問わない
+const videoShootingOptionInputSchema = z.object({
+  type: z.literal("option"),
+  optionType: z.literal("video_shooting"),
+});
+
 const startCheckoutInputSchema = z.union([
   planInputSchema,
   compensationOptionInputSchema,
   urgentOptionInputSchema,
   videoOptionInputSchema,
   videoWorkplaceOptionInputSchema,
+  videoShootingOptionInputSchema,
 ]);
 
 /** 呼出側の入力型（billingCycle は省略可 = monthly）。関数内では parse 後の値を使う */
@@ -84,6 +91,8 @@ function priceIdForOption(optionType: OptionType): string {
       return process.env.STRIPE_PRICE_VIDEO ?? "";
     case "video_workplace":
       return process.env.STRIPE_PRICE_VIDEO_WORKPLACE ?? "";
+    case "video_shooting":
+      return process.env.STRIPE_PRICE_VIDEO_SHOOTING ?? "";
   }
 }
 
@@ -105,6 +114,8 @@ function buildSuccessUrl(input: StartCheckoutInput): string {
       return `${base}/billing?option_success=video`;
     case "video_workplace":
       return `${base}/billing?option_success=video_workplace`;
+    case "video_shooting":
+      return `${base}/billing?option_success=video_shooting`;
   }
 }
 

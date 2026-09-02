@@ -10,6 +10,7 @@
 export type OptionType =
   | "video" // 受注者PR動画（据置）
   | "video_workplace" // 職場紹介動画（新規）
+  | "video_shooting" // ユーザー撮影プラン（P7、2026-09。ユーザーが撮った素材を運営が編集・掲載）
   | "urgent"
   | "compensation_5000"
   | "compensation_9800";
@@ -26,17 +27,19 @@ export const OPTION_LABELS: Record<OptionType, string> = {
   urgent: "急募オプション",
   video: "受注者PR動画",
   video_workplace: "職場紹介動画",
+  video_shooting: "ユーザー撮影プラン",
 };
 
 /**
  * オプション価格（税込 JPY）。Stripe の Price と一致させること
- * （STRIPE_PRICE_VIDEO / STRIPE_PRICE_VIDEO_WORKPLACE / STRIPE_PRICE_URGENT /
- *   STRIPE_PRICE_COMPENSATION_5000 / STRIPE_PRICE_COMPENSATION_9800）。
+ * （STRIPE_PRICE_VIDEO / STRIPE_PRICE_VIDEO_WORKPLACE / STRIPE_PRICE_VIDEO_SHOOTING /
+ *   STRIPE_PRICE_URGENT / STRIPE_PRICE_COMPENSATION_5000 / STRIPE_PRICE_COMPENSATION_9800）。
  * 銀行振込（P2）の申込金額と、料金プラン画面の表示に使う。補償は月額。
  */
 export const OPTION_PRICES_TAX_INCLUDED: Record<OptionType, number> = {
   video: 100000,
   video_workplace: 100000,
+  video_shooting: 20000,
   urgent: 20000,
   compensation_5000: 5000,
   compensation_9800: 9800,
@@ -50,4 +53,21 @@ export const SUBSCRIPTION_OPTION_TYPES: readonly OptionType[] = [
 
 export function isSubscriptionOption(optionType: OptionType): boolean {
   return SUBSCRIPTION_OPTION_TYPES.includes(optionType);
+}
+
+/**
+ * 買い切り・期限なしの動画系オプション（購入後は運営が動画を制作 / 編集して掲載する 2 ステップ）。
+ * Checkout / Webhook / 銀行振込の有効化 / メールはこの 3 種を同じ経路で扱う。
+ * 表示側の出し分けには使わない（P4 で表示ゲートは撤廃済み）。
+ */
+export const VIDEO_OPTION_TYPES = [
+  "video",
+  "video_workplace",
+  "video_shooting",
+] as const satisfies readonly OptionType[];
+
+export type VideoOptionType = (typeof VIDEO_OPTION_TYPES)[number];
+
+export function isVideoOption(optionType: string): optionType is VideoOptionType {
+  return (VIDEO_OPTION_TYPES as readonly string[]).includes(optionType);
 }

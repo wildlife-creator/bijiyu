@@ -7,6 +7,7 @@ import {
   sendUrgentActivatedEmails,
   sendVideoActivatedEmails,
 } from "@/lib/billing/activation-emails";
+import { isVideoOption, type VideoOptionType } from "@/lib/billing/options";
 import { getStripeClient } from "@/lib/billing/stripe";
 import {
   extractPeriodEnd,
@@ -227,13 +228,9 @@ async function handleOptionCheckout(
     return;
   }
 
-  if (optionType === "video") {
-    await handleVideoOption(admin, session, userId, send);
-    return;
-  }
-
-  if (optionType === "video_workplace") {
-    await handleVideoWorkplaceOption(admin, session, userId, send);
+  // 買い切り動画系（受注者PR動画 / 職場紹介動画 / ユーザー撮影プラン）は同じ経路
+  if (isVideoOption(optionType)) {
+    await handleVideoOption(admin, session, userId, optionType, send);
     return;
   }
 
@@ -359,16 +356,23 @@ async function handleUrgentOption(
   await sendUrgentActivatedEmails(admin, send, jobId, sevenDaysLater);
 }
 
+/**
+ * 買い切り動画系オプション（受注者PR動画 / 職場紹介動画 / ユーザー撮影プラン）。
+ * option_subscriptions に one_time・期限なしの行を作り、申込者（+ 組織メンバー）と運営へ
+ * 動画オプションのメールを送る。冪等性は webhook の event dedupe（stripe_webhook_events）に委ねる。
+ * P7 で `video` / `video_workplace` の 2 関数を統合（option_type だけが違っていた）。
+ */
 async function handleVideoOption(
   admin: SupabaseClient<Database>,
   session: Stripe.Checkout.Session,
   userId: string,
+  optionType: VideoOptionType,
   send: typeof sendEmail,
 ): Promise<void> {
   const paymentIntentId = extractPaymentIntentId(session.payment_intent);
   if (!paymentIntentId) {
     throw new Error(
-      `handleVideoOption: session ${session.id} has no payment_intent`,
+      `handleVideoOption(${optionType}): session ${session.id} has no payment_intent`,
     );
   }
 
@@ -378,7 +382,7 @@ async function handleVideoOption(
       user_id: userId,
       payment_type: "one_time",
       stripe_payment_intent_id: paymentIntentId,
-      option_type: "video",
+      option_type: optionType,
       status: "active",
       end_date: null,
     })
@@ -386,7 +390,7 @@ async function handleVideoOption(
     .single();
   if (insert.error) {
     throw new Error(
-      `video option_subscriptions insert failed: ${insert.error.message}`,
+      `${optionType} option_subscriptions insert failed: ${insert.error.message}`,
     );
   }
 
@@ -394,50 +398,7 @@ async function handleVideoOption(
     admin,
     send,
     userId,
-    "video",
-    insert.data?.created_at ?? new Date().toISOString(),
-  );
-}
-
-async function handleVideoWorkplaceOption(
-  admin: SupabaseClient<Database>,
-  session: Stripe.Checkout.Session,
-  userId: string,
-  send: typeof sendEmail,
-): Promise<void> {
-  // 職場紹介動画掲載（video-display Task 4.2）。
-  // 既存 handleVideoOption と同パターン（option_type のみ差し替え）。
-  // 冪等性は webhook の event dedupe（stripe_webhook_events）に委ねる。
-  const paymentIntentId = extractPaymentIntentId(session.payment_intent);
-  if (!paymentIntentId) {
-    throw new Error(
-      `handleVideoWorkplaceOption: session ${session.id} has no payment_intent`,
-    );
-  }
-
-  const insert = await admin
-    .from("option_subscriptions")
-    .insert({
-      user_id: userId,
-      payment_type: "one_time",
-      stripe_payment_intent_id: paymentIntentId,
-      option_type: "video_workplace",
-      status: "active",
-      end_date: null,
-    })
-    .select("created_at")
-    .single();
-  if (insert.error) {
-    throw new Error(
-      `video_workplace option_subscriptions insert failed: ${insert.error.message}`,
-    );
-  }
-
-  await sendVideoActivatedEmails(
-    admin,
-    send,
-    userId,
-    "video_workplace",
+    optionType,
     insert.data?.created_at ?? new Date().toISOString(),
   );
 }
