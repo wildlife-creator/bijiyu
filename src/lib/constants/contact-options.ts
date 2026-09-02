@@ -11,6 +11,8 @@ export const CONTACT_INQUIRY_TYPES = [
   "仕事掲載",
   "協力会社募集",
   "職人募集",
+  // P8（2026-09）: 未払い発生前の相談窓口。発生後の当事者間トラブルはトラブル報告（COM-012）の「給与未払い」
+  "給与未払いについて",
   "その他",
 ] as const;
 export type ContactInquiryType = (typeof CONTACT_INQUIRY_TYPES)[number];

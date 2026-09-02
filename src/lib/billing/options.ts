@@ -56,6 +56,27 @@ export function isSubscriptionOption(optionType: OptionType): boolean {
 }
 
 /**
+ * 補償オプション（compensation_5000 / 9800）の販売フラグ（P8、spec-changes-202608 §2.6）。
+ *
+ * 補償は保険会社との別契約に切り出す方針となり、アプリ上での販売を取り下げた。
+ * コードは削除せず、環境変数 NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED が "true" のときだけ
+ * 料金プラン画面に表示し、Stripe Checkout / 銀行振込の新規申込を受け付ける（未設定 = 販売停止）。
+ * 加入中の契約の表示・解約、Webhook・メール・管理画面はこのフラグに関係なく動く。
+ */
+export function isCompensationOptionEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED === "true";
+}
+
+export const COMPENSATION_OPTION_DISABLED_MESSAGE =
+  "補償オプションは現在お申し込みを受け付けていません";
+
+export function isCompensationOption(
+  optionType: string,
+): optionType is "compensation_5000" | "compensation_9800" {
+  return optionType === "compensation_5000" || optionType === "compensation_9800";
+}
+
+/**
  * 買い切り・期限なしの動画系オプション（購入後は運営が動画を制作 / 編集して掲載する 2 ステップ）。
  * Checkout / Webhook / 銀行振込の有効化 / メールはこの 3 種を同じ経路で扱う。
  * 表示側の出し分けには使わない（P4 で表示ゲートは撤廃済み）。

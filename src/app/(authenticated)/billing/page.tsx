@@ -19,6 +19,7 @@ import {
   describeBankTransferTarget,
   targetFromRequestRow,
 } from "@/lib/billing/bank-transfer";
+import { isCompensationOptionEnabled } from "@/lib/billing/options";
 import { comparePlanChange } from "@/lib/billing/compare-plans";
 import { FEE_COOKIE_NAME, readFeeCookie } from "@/lib/billing/fee-cookie";
 import { cookies } from "next/headers";
@@ -224,6 +225,7 @@ export default async function BillingPage({
         <BillingClient
           userId={user.id}
           isStaff={isStaff}
+          compensationOptionEnabled={isCompensationOptionEnabled()}
           isPastDue={isPastDue}
           hasReservation={hasReservation}
           currentPlan={currentPlan}

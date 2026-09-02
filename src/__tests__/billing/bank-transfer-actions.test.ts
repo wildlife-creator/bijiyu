@@ -286,7 +286,20 @@ describe("requestBankTransferAction — オプション申込", () => {
     });
   });
 
+  it("補償は販売停止中（P8 フラグ未設定）なら受付せず、申込レコードもメールも作らない", async () => {
+    delete process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED;
+    const r = await requestBankTransferAction({
+      type: "option",
+      optionType: "compensation_5000",
+      billingCycle: "yearly",
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("現在お申し込みを受け付けていません");
+    expect(adminInserts).toHaveLength(0);
+  });
+
   it("補償は既に加入していれば拒否、なければ年払い 12 か月分で受付", async () => {
+    process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED = "true";
     adminResults["select:option_subscriptions"] = { data: [{ id: "opt-1" }] };
     const dup = await requestBankTransferAction({
       type: "option",
