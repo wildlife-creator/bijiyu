@@ -30,6 +30,7 @@ export type AuditAction =
   | "video_delete"
   // 銀行振込（P2）: 申込レコードの状態遷移と、振込契約の運営操作
   | "bank_transfer_invoiced"
+  | "bank_transfer_requested_by_admin" // P9: 運営による銀行振込申込の代理登録
   | "bank_transfer_activate"
   | "bank_transfer_cancel"
   | "bank_transfer_memo_update"

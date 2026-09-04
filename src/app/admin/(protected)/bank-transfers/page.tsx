@@ -59,6 +59,12 @@ export default async function AdminBankTransfersPage({ searchParams }: PageProps
       <p className="mt-3 text-center text-body-sm text-muted-foreground">
         申込受付 → 請求書送付 → 入金確認後に有効化、の順に処理します。
       </p>
+      {/* P9: 会員側のボタンは既定で非表示。お問い合わせを受けた運営がここから代理登録する */}
+      <div className="mt-4 flex justify-center">
+        <Button className="rounded-full text-white" asChild>
+          <Link href="/admin/bank-transfers/new">申込を登録する</Link>
+        </Button>
+      </div>
 
       <BankTransferFilters initialStatus={status ?? "all"} />
 

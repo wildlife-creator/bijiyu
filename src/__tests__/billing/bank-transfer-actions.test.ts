@@ -130,9 +130,26 @@ function resetAll() {
   // users（申込者氏名）の maybeSingle
   adminResults["select:users"] = { data: { last_name: "振込", first_name: "一郎" } };
   process.env.OPS_NOTIFICATION_EMAIL = "ops@test.local";
+  // P9: 本人申込はフラグ制御。既存テストは「本人申込が有効」な状態で走らせる
+  process.env.NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED = "true";
 }
 
 beforeEach(resetAll);
+
+describe("requestBankTransferAction — 本人申込の停止フラグ (P9)", () => {
+  it("NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED 未設定なら本人申込を拒否し、レコードもメールも作らない", async () => {
+    delete process.env.NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED;
+    const r = await requestBankTransferAction({
+      type: "plan",
+      planType: "individual",
+      billingCycle: "monthly",
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("お問い合わせ窓口までご連絡ください");
+    expect(adminInserts).toHaveLength(0);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+});
 
 describe("requestBankTransferAction — 入力・認証・ロール", () => {
   it("未ログインは拒否", async () => {

@@ -41,6 +41,26 @@ export const BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE =
   "銀行振込でご契約中のプラン・オプションの変更や解約は、運営までご連絡ください";
 
 /** 銀行振込の申込を処理中に、同じ対象へ別経路で申し込もうとしたときの案内文 */
+/**
+ * 銀行振込の「本人による申込」（料金プラン画面のボタン + requestBankTransferAction）の
+ * 表示・受付フラグ（P9、2026-09）。運営負荷（請求書・入金確認・期限管理）を抑えるため、
+ * 既定ではボタンを出さず「銀行振込をご希望の方はお問い合わせください」と案内し、
+ * 運営が ADM-025 の「申込を登録する」で代理登録する。環境変数を "true" にすると従来どおり
+ * 各プラン・各オプションにボタンが出る（コード変更不要）。契約中・申込中の表示、ADM-025/026、
+ * 期限バッジ・通知はフラグに関係なく動く。
+ */
+export function isBankTransferSelfServiceEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED === "true";
+}
+
+/** 料金プラン画面の案内文（お問い合わせへのリンクを添えて表示する） */
+export const BANK_TRANSFER_CONTACT_MESSAGE =
+  "銀行振込をご希望の方はお問い合わせください";
+
+/** 本人申込がフラグで停止しているときの Server Action の拒否文言 */
+export const BANK_TRANSFER_SELF_SERVICE_DISABLED_MESSAGE =
+  "銀行振込をご希望の場合は、お問い合わせ窓口までご連絡ください";
+
 export const BANK_TRANSFER_REQUEST_PENDING_MESSAGE =
   "銀行振込でのお申し込みを受付中です。請求書のご案内をお待ちください";
 
