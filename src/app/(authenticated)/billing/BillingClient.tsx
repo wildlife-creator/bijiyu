@@ -847,7 +847,7 @@ export function BillingClient({
             )}
           </div>
 
-          {/* 補償 ¥5,000/月（受注者向け 給与未払い保険）
+          {/* 補償 ¥5,000/月（受注者向け 報酬未払い保険）
               P8: 販売停止中は加入中の人にだけ行を出す（解約のみ。新規申込ボタンは出さない） */}
           {(compensationOptionEnabled || hasComp5000) && (
           <div className="py-4">
@@ -856,7 +856,7 @@ export function BillingClient({
               <span className="text-body-md">5,000円/月</span>
             </div>
             <p className="mt-1 text-body-sm text-muted-foreground">
-              現場での給与未払いトラブル発生時、最大200万円までを補償します。
+              現場での報酬未払いトラブル発生時、最大200万円までを補償します。
             </p>
             {hasComp5000 && (
               <div className="mt-2">
@@ -905,7 +905,7 @@ export function BillingClient({
           </div>
           )}
 
-          {/* 補償 ¥9,800/月（受注者向け 給与未払い保険）P8: 同上 */}
+          {/* 補償 ¥9,800/月（受注者向け 報酬未払い保険）P8: 同上 */}
           {(compensationOptionEnabled || hasComp9800) && (
           <div className="py-4 last:pb-0">
             <div className="flex items-center justify-between">
@@ -913,7 +913,7 @@ export function BillingClient({
               <span className="text-body-md">9,800円/月</span>
             </div>
             <p className="mt-1 text-body-sm text-muted-foreground">
-              現場での給与未払いトラブル発生時、最大500万円までを補償します。
+              現場での報酬未払いトラブル発生時、最大500万円までを補償します。
             </p>
             {hasComp9800 && (
               <div className="mt-2">

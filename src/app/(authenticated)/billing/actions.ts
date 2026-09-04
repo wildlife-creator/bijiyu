@@ -233,7 +233,7 @@ export async function startCheckoutAction(
       input.optionType === "compensation_5000" ||
       input.optionType === "compensation_9800"
     ) {
-      // 補償オプション（受注者向け給与未払い保険）は contractor / client(owner)
+      // 補償オプション（受注者向け報酬未払い保険）は contractor / client(owner)
       // のいずれも購入可。staff / admin は global ガード（step 4）で既に拒否
       // されているためここでは何もしない。基本プラン active の要件はない
       // （無料 contractor も購入可能）
@@ -350,7 +350,7 @@ export async function startCheckoutAction(
   // DB check (step 5) can miss subscriptions when webhooks are delayed.
   // Query Stripe directly as the authoritative second line of defence.
   //
-  // 補償オプション（受注者向け給与未払い保険）は basic plan とは独立した
+  // 補償オプション（受注者向け報酬未払い保険）は basic plan とは独立した
   // 別契約で、metadata.type='option' を持つ。basic plan の二重契約のみを
   // 防ぎたいので、metadata.type='plan' のサブスクが既にあるときだけ拒否する。
   // metadata 無しのレガシーサブスクは含めない（test mode では無視可、本番

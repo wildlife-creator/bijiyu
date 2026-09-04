@@ -75,9 +75,9 @@
   - 動画掲載（受注者PR）: 100,000円/動画（ビジ友TikTokにユーザー紹介動画として掲載、管理者がADM-010で登録）。Stripe Price = `STRIPE_PRICE_VIDEO`、option_type = `video`
   - 職場紹介動画掲載: 100,000円/動画（発注者詳細 CON-006 に職場紹介動画を掲載、管理者がADM-010Bで登録）。Stripe Price = `STRIPE_PRICE_VIDEO_WORKPLACE`、option_type = `video_workplace`。発注者プラン加入者のみ購入可（video-display spec で追加。受注者PR動画とは独立した別 Price）
   - 急募: 20,000円（7日間、募集が最上位表示 + 急募タグ表示）
-  - 補償 ¥5,000/月（受注者向け）: 給与未払いトラブル発生時、最大200万円までの補償
-  - 補償 ¥9,800/月（受注者向け）: 給与未払いトラブル発生時、最大500万円までの補償
-  - **補償オプションの購入対象**: contractor および client（owner）の全ユーザー。**無料 contractor も含めて購入可能**（受注者の現場給与未払いに備える保険のため、基本プランの加入要件はない）。staff（法人代理アカウント）と admin は購入不可（契約主体は本人単一の設計、CLAUDE.md「Staff ユーザーの subscription 参照」と整合）
+  - 補償 ¥5,000/月（受注者向け）: 報酬未払いトラブル発生時、最大200万円までの補償
+  - 補償 ¥9,800/月（受注者向け）: 報酬未払いトラブル発生時、最大500万円までの補償
+  - **補償オプションの購入対象**: contractor および client（owner）の全ユーザー。**無料 contractor も含めて購入可能**（受注者の現場報酬未払いに備える保険のため、基本プランの加入要件はない）。staff（法人代理アカウント）と admin は購入不可（契約主体は本人単一の設計、CLAUDE.md「Staff ユーザーの subscription 参照」と整合）
   - **補償オプションは基本プランから独立**: 基本プラン（subscriptions）と補償オプション（option_subscriptions）は完全に独立した契約として扱う。基本プラン解約時に補償オプションは自動キャンセルされない（連鎖キャンセル廃止）
   - 各オプションの「申し込む」ボタン → Stripe Checkout へ遷移
   - **急募オプションの案件選択**: 急募の「申し込む」ボタンの上に、対象案件を選ぶプルダウンを表示する
@@ -220,7 +220,7 @@
 #### 月額課金オプション（補償）
 
 - **補償 ¥5,000/月、補償 ¥9,800/月（受注者向け）**:
-  - 給与未払いトラブルに備える受注者向け保険。**全 contractor および client（owner）が購入可能**（無料 contractor も含む）。staff / admin は購入不可
+  - 報酬未払いトラブルに備える受注者向け保険。**全 contractor および client（owner）が購入可能**（無料 contractor も含む）。staff / admin は購入不可
   - Stripe Checkout `mode: 'subscription'` で決済
   - **保存先: `option_subscriptions` テーブル**（`payment_type = 'subscription'`）。基本プラン（`subscriptions` テーブル）とは別管理。基本プランは1人1つの UNIQUE 制約があるため、補償オプションは option_subscriptions に格納する
   - **active 判定の Single Source of Truth は `option_subscriptions`**: `WHERE user_id=? AND option_type IN ('compensation_5000','compensation_9800') AND status='active'` で active を判定する。`client_profiles.is_compensation_5000 / 9800` カラムは廃止する（受注者は client_profiles を持たないため、フラグでは管理できない）

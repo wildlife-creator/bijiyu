@@ -266,7 +266,7 @@ async function handleCompensationOption(
     );
   }
 
-  // 補償オプションは受注者向け給与未払い保険として contractor / client(owner)
+  // 補償オプションは受注者向け報酬未払い保険として contractor / client(owner)
   // 全ユーザーが購入対象。active 判定の Single Source of Truth は
   // option_subscriptions に一本化済みのため、client_profiles 側のフラグ
   // 更新は不要（カラム自体が廃止）。

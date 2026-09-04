@@ -1118,7 +1118,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types
   );
 
 -- ---------- 法人 + 補償 active ユーザー（旧: 連鎖キャンセルテスト用 / 現: 法人プラン × 補償併用パターン）----------
--- 仕様変更（2026-05-09）: 補償オプションは受注者向け給与未払い保険となり
+-- 仕様変更（2026-05-09）: 補償オプションは受注者向け報酬未払い保険となり
 -- 基本プランから独立。連鎖キャンセルは廃止済み。本フィクスチャは「法人プラン
 -- 契約者が併せて補償にも加入」したケースの検証用として継続利用する。
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)

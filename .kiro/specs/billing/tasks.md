@@ -166,7 +166,7 @@
   - **`customer.subscription.deleted` の処理**:
     - 同様に SELECT で分岐。subscriptions ヒット時は `handle_subscription_lifecycle_deleted` RPC 関数に委譲
     - **subscriptions ヒット時のトランザクション後処理（致命 B 防御）**:
-      - **補償オプション連鎖キャンセルは行わない**（旧 Gap 3 ロジックは廃止）。補償オプションは受注者向けの給与未払い保険として基本プランから独立して継続課金される。基本プラン解約と補償解約は別個のユーザー操作として扱う
+      - **補償オプション連鎖キャンセルは行わない**（旧 Gap 3 ロジックは廃止）。補償オプションは受注者向けの報酬未払い保険として基本プランから独立して継続課金される。基本プラン解約と補償解約は別個のユーザー操作として扱う
       - **解約完了通知メール送信**: `subscriptionCancelledEmail` を送信。**subscriptions ヒット時のみ送信**する（option_subscriptions ヒット時は送信しない）。メール送信失敗で本体処理をロールバックしない
     - **option_subscriptions ヒット時の処理（致命 B 防御）**:
       - status='cancelled' を TypeScript 側で直接 UPDATE（**`client_profiles` への書き込みは行わない**。フラグカラム廃止）
@@ -226,7 +226,7 @@
     - `users.role` が `'contractor'` または `'client'` であること（`'staff'` / `'admin'` は拒否）
     - 満たさない場合はエラー「担当者・管理者は補償オプションをご契約いただけません」を返す
     - **基本プランの加入要件はなし**（無料 contractor も購入可能）。subscriptions テーブルの存在チェックは行わない
-    - 理由: 補償オプションは受注者向けの給与未払い保険として基本プランから独立して契約・継続される。対象は受注業務を行いうる実体ユーザー（contractor / client(owner)）。staff は契約主体が Owner 単一の設計、admin はシステム管理者のため購入不可
+    - 理由: 補償オプションは受注者向けの報酬未払い保険として基本プランから独立して契約・継続される。対象は受注業務を行いうる実体ユーザー（contractor / client(owner)）。staff は契約主体が Owner 単一の設計、admin はシステム管理者のため購入不可
   - Checkout Session の metadata を構築する: `{ type, plan_type | option_type, user_id, job_id（急募のみ） }`
   - 初回判定で初回かつ fee=free Cookie がない場合、line_items に初期費用 Price ID を追加する
   - _Requirements: 1.1, 2.1, 4.1_
@@ -398,7 +398,7 @@
   - プラン変更ダイアログ: ダウングレード予約時に「現在のプラン」「変更後のプラン」「current_period_end までの利用案内」「次回課金日と金額」を表示し、「キャンセルする」「プラン変更を予約する」ボタンを配置する
   - アップグレードダイアログ: 「現在のプラン」「変更後のプラン」「日割り差額即時課金」を表示し、「キャンセルする」「プラン変更する」ボタンを配置する
   - 解約ダイアログ: 「current_period_end までの利用案内」「無料プランへの切替時期」「発注者機能ロック」を表示する
-  - past_due 解約ダイアログ: 警告アイコン付きで「即時解約」「掲載中案件の強制クローズ」「担当者ログイン停止」を明示し、「お支払い方法を更新する」「解約する」を提示する（**補償オプションは連鎖キャンセルしないため記載しない**。受注者向けの給与未払い保険として基本プランから独立して継続課金される旨を、補償 active 時は別途案内する）
+  - past_due 解約ダイアログ: 警告アイコン付きで「即時解約」「掲載中案件の強制クローズ」「担当者ログイン停止」を明示し、「お支払い方法を更新する」「解約する」を提示する（**補償オプションは連鎖キャンセルしないため記載しない**。受注者向けの報酬未払い保険として基本プランから独立して継続課金される旨を、補償 active 時は別途案内する）
   - **changePlanAction の戻り値 `performedType` で出し分け**:
     - `'upgrade'` → 「{newPlanName} にアップグレードしました」
     - `'downgrade'` → 「{scheduledAt} に {newPlanName} への変更を予約しました」
@@ -516,7 +516,7 @@
   - 認証ヘッダ `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` を検証する。**不一致または欠落の場合は 401 Unauthorized を返して即終了**（軽 3）。エラー詳細はログのみに出力し、レスポンスボディには含めない
   - admin client で `subscriptions WHERE status='past_due' AND past_due_since + INTERVAL '7 days' < NOW()` を取得する
   - 各レコードを順次処理（try-catch で個別エラーハンドリング）:
-    - `stripe.subscriptions.cancel(stripeSubscriptionId)` で Stripe 側を即時解約（DB 更新は Webhook 経由）。**補償オプションは連鎖キャンセルしない**（受注者向けの給与未払い保険として基本プランから独立して継続課金される設計）。Webhook 側でも option_subscriptions に手を付けないため、Edge Function 側でも補償オプションを処理する必要はない
+    - `stripe.subscriptions.cancel(stripeSubscriptionId)` で Stripe 側を即時解約（DB 更新は Webhook 経由）。**補償オプションは連鎖キャンセルしない**（受注者向けの報酬未払い保険として基本プランから独立して継続課金される設計）。Webhook 側でも option_subscriptions に手を付けないため、Edge Function 側でも補償オプションを処理する必要はない
     - 解約完了通知メール（subscriptionCancelledEmail）を送信
     - audit_logs に `auto_cancelled_past_due` を記録（actor_id=null、action 列は `ACTION_TYPES.auto_cancelled_past_due`）
   - レスポンス: `{ total: N, succeeded: N, failed: N, errors: [{ userId, message }] }`
@@ -539,7 +539,7 @@
     - cancelled ユーザー（過去 client、現在 contractor。再課金フローの確認用、cancelled の subscriptions レコードが残っている）
     - **ダウングレード予約中のユーザー**（subscriptions に schedule_id 非 null + scheduled_plan_type / scheduled_at 設定済み。Gap 1 のボタン非活性 E2E テスト用）
     - 急募オプション active のユーザー + 対象案件（option_subscriptions.option_type='urgent', end_date=未来）
-    - 補償オプション active のユーザー（option_subscriptions: option_type='compensation_5000', status='active'）。**無料 contractor も対象に1名含める**（受注者向け給与未払い保険として無料ユーザーも購入可能なため）
+    - 補償オプション active のユーザー（option_subscriptions: option_type='compensation_5000', status='active'）。**無料 contractor も対象に1名含める**（受注者向け報酬未払い保険として無料ユーザーも購入可能なため）
   - 各ユーザーの client_profiles / organization_members も整合させる
   - `supabase db reset` で seed が正しく投入されることを確認する
   - _Requirements: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 5.1, 5.2, 5.3, 6.1, 7.1, 8.1, 8.2, 9.1_
@@ -646,7 +646,7 @@
   - _Requirements: 3.3, 5.1, 5.2_
 
 - [x] 13.11 (P) 補償オプション購入時のロールチェックテスト
-  - **無料 contractor** が補償オプション購入を試みる → 成功（Stripe Checkout URL が返される。受注者向け給与未払い保険として基本プランの加入要件なし）
+  - **無料 contractor** が補償オプション購入を試みる → 成功（Stripe Checkout URL が返される。受注者向け報酬未払い保険として基本プランの加入要件なし）
   - **active な client（owner）** が購入を試みる → 成功（受注業務もしうる実体ユーザーのため購入対象）
   - **past_due の client** が購入を試みる → 成功（補償と基本プランは独立契約のため、基本プランの状態に依らず購入可能）
   - **cancelled のみの ex-client** が購入を試みる → 成功（基本プラン契約の有無は補償購入の条件ではない）

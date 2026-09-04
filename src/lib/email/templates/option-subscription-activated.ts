@@ -30,7 +30,7 @@ export function optionSubscriptionActivatedEmail({
         listItem("お申し込みオプション", optionLabel),
         listItem("ご利用開始日", activatedAt, { blockEnd: true }),
         paragraph(
-          "給与未払いトラブル発生時の補償をご利用いただけます。",
+          "報酬未払いトラブル発生時の補償をご利用いただけます。",
           { last: true },
         ),
       ].join(""),

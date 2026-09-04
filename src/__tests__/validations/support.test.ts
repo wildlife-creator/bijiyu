@@ -6,22 +6,22 @@ import { contactSchema } from "@/lib/validations/contact";
 import { troubleReportSchema } from "@/lib/validations/trouble";
 
 // ---------------------------------------------------------------------------
-// P8: 給与未払いの窓口（お問い合わせ内容 / トラブル種類）
+// P8: 報酬未払いの窓口（お問い合わせ内容 / トラブル種類）
 // ---------------------------------------------------------------------------
-describe("P8 給与未払い窓口の選択肢", () => {
-  it("お問い合わせ内容に「給与未払いについて」があり、「その他」の直前に並ぶ", () => {
+describe("P8 報酬未払い窓口の選択肢", () => {
+  it("お問い合わせ内容に「報酬未払いについて」があり、「その他」の直前に並ぶ", () => {
     const list = [...CONTACT_INQUIRY_TYPES];
-    expect(list).toContain("給与未払いについて");
-    expect(list.indexOf("給与未払いについて")).toBe(list.indexOf("その他") - 1);
-    expect(contactSchema.shape.inquiryType.safeParse("給与未払いについて").success).toBe(true);
+    expect(list).toContain("報酬未払いについて");
+    expect(list.indexOf("報酬未払いについて")).toBe(list.indexOf("その他") - 1);
+    expect(contactSchema.shape.inquiryType.safeParse("報酬未払いについて").success).toBe(true);
   });
 
-  it("トラブル種類に「給与未払い」があり、「支払いトラブル」の直後に並ぶ（既存項目は維持）", () => {
+  it("トラブル種類に「報酬未払い」があり、「支払いトラブル」の直後に並ぶ（既存項目は維持）", () => {
     const list = [...TROUBLE_CATEGORIES];
-    expect(list).toContain("給与未払い");
+    expect(list).toContain("報酬未払い");
     expect(list).toContain("支払いトラブル");
-    expect(list.indexOf("給与未払い")).toBe(list.indexOf("支払いトラブル") + 1);
-    expect(troubleReportSchema.shape.category.safeParse("給与未払い").success).toBe(true);
+    expect(list.indexOf("報酬未払い")).toBe(list.indexOf("支払いトラブル") + 1);
+    expect(troubleReportSchema.shape.category.safeParse("報酬未払い").success).toBe(true);
   });
 });
 

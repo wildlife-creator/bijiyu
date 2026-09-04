@@ -51,7 +51,7 @@ export function optionSubscriptionCancelledEmail({
         listItem("解約したオプション", optionLabel),
         listItem("解約日", cancelledAt, { blockEnd: true }),
         paragraph(
-          "今後発生する給与未払いトラブルは、補償の対象外となります。",
+          "今後発生する報酬未払いトラブルは、補償の対象外となります。",
           { last: true },
         ),
       ].join(""),

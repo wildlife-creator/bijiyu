@@ -276,7 +276,7 @@ describe("optionSubscriptionActivatedEmail §6.5.A 補償オプション申込�
     expect(out.html).toContain("補償（5,000円/月、最大200万円）");
     expect(out.html).toContain("ご利用開始日");
     expect(out.html).toContain("2026/06/01");
-    expect(out.html).toContain("給与未払いトラブル発生時の補償をご利用いただけます");
+    expect(out.html).toContain("報酬未払いトラブル発生時の補償をご利用いただけます");
   });
 
   it("マーケ調 opening・CTA を含まない（§6 全体方針）", () => {
@@ -344,7 +344,7 @@ describe("optionSubscriptionCancelledEmail §6.5.C 補償オプション解約�
     expect(out.html).toContain("解約日");
     expect(out.html).toContain("2026/07/01");
     expect(out.html).toContain(
-      "今後発生する給与未払いトラブルは、補償の対象外となります",
+      "今後発生する報酬未払いトラブルは、補償の対象外となります",
     );
     // stripe-dunning 専用の冒頭文は含まない
     expect(out.html).not.toContain("お支払い方法での決済が確認できないまま");

@@ -3446,7 +3446,7 @@ ${recipientName} 様
 ### 6.5 補償オプション関連通知（新規 3 件）⚠️ ライフサイクル通知ゼロ状態の解消 + 退会時 suppression ルール
 
 **現状**:
-- 補償オプションは受注者向け給与未払い保険として 2 種類（`compensation_5000` / `compensation_9800`）、Stripe 上は subscription mode、`option_subscriptions` テーブルで管理
+- 補償オプションは受注者向け報酬未払い保険として 2 種類（`compensation_5000` / `compensation_9800`）、Stripe 上は subscription mode、`option_subscriptions` テーブルで管理
 - 基本プランとは独立した契約（基本プラン解約時の連鎖キャンセルは行わない設計、旧 Gap 3 ロジック廃止済）
 - 5,000 円と 9,800 円は排他制約（一方が active なら他方は申し込み不可、UI 側で disabled）
 - 🔴 **補償オプションのライフサイクル通知は現状ゼロ**:
@@ -3454,7 +3454,7 @@ ${recipientName} 様
   - (2) 月額決済失敗（`invoice.payment_failed`）: `handleInvoicePaymentFailed` は `subscriptions` テーブルのみ参照しているため option_subscriptions の失敗は実質スキップ
   - (3) 手動解約（`cancelCompensationAction` → Stripe cancel → `customer.subscription.deleted`）: コードコメントで明示的に「subscriptionCancelledEmail も送信しない」と書かれている
   - (4) Stripe リトライ枯渇による自動解約: (3) と同じ webhook フロー → 送信なし
-- 業務インパクト: 補償は「保険」性質のため「自分が補償下にあるか」の認識ズレが実害（給与未払いトラブル時に保険が効かない等）に直結
+- 業務インパクト: 補償は「保険」性質のため「自分が補償下にあるか」の認識ズレが実害（報酬未払いトラブル時に保険が効かない等）に直結
 
 **判断**: ⚠️ **3 イベント全カバー新規実装** + **退会フロー時の suppression ルール追加（§6.2 にも遡及適用）**
 
@@ -3481,7 +3481,7 @@ ${recipientName} 様
 【お申し込みオプション】 ${optionLabel}
 【ご利用開始日】 ${activatedAt}
 
-給与未払いトラブル発生時の補償をご利用いただけます。
+報酬未払いトラブル発生時の補償をご利用いただけます。
 ```
 
 - 件名「お申し込みを承りました」は §6.1-A プラン変更「承りました」と語彙統一
@@ -3519,7 +3519,7 @@ ${recipientName} 様
 【解約したオプション】 ${optionLabel}
 【解約日】 ${cancelledAt}
 
-今後発生する給与未払いトラブルは、補償の対象外となります。
+今後発生する報酬未払いトラブルは、補償の対象外となります。
 ```
 
 **stripe-dunning パターン**（Stripe 側リトライ枯渇による自動解約、webhook の `cancellation_details.reason` が `payment_failed`。冒頭 1 行のみ差分）
@@ -3532,7 +3532,7 @@ ${recipientName} 様
 【解約したオプション】 ${optionLabel}
 【解約日】 ${cancelledAt}
 
-今後発生する給与未払いトラブルは、補償の対象外となります。
+今後発生する報酬未払いトラブルは、補償の対象外となります。
 ```
 
 - §6.4 案 4 と同じく **1 テンプレ 2 パターン化**（`reason: 'manual' | 'stripe-dunning'` 引数で opening 1 行のみ分岐）
@@ -3543,7 +3543,7 @@ ${recipientName} 様
 #### 設計判断（要点）
 
 - **3 イベント全カバー採用の根拠**:
-  - 補償は「保険」性質。「自分が補償下にあるか」の認識ズレが給与未払いトラブル時に実害（保険が効かない）に直結する業務リスク
+  - 補償は「保険」性質。「自分が補償下にあるか」の認識ズレが報酬未払いトラブル時に実害（保険が効かない）に直結する業務リスク
   - 現状ゼロ状態は許容範囲外。一気に通知体制を整える
 - **新規テンプレ 3 ファイル採用の根拠（§6.2 統合不採用）**:
   - §6.2 「引き続き、無料プランでビジ友をご利用いただけます。」のような positive forward fact が補償解約には存在しない（無料プランへの移行ではなく単なる「補償なし状態」への戻り）

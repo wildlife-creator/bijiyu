@@ -489,7 +489,7 @@ describe("startCheckoutAction — compensation option 販売停止フラグ (P8)
   });
 });
 
-describe("startCheckoutAction — compensation option (受注者向け給与未払い保険)", () => {
+describe("startCheckoutAction — compensation option (受注者向け報酬未払い保険)", () => {
   it("happy path: 無料 contractor が補償オプションを購入できる", async () => {
     // contractor (無料・基本プラン未加入) でも補償は購入可能
     supabaseAuthState.userRow = {

@@ -490,7 +490,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
   ■ 月額課金オプションの処理（Stripe Webhook で実行）:
   - 補償オプション解約時:
     1. option_subscriptions.status を 'cancelled' に更新（`client_profiles` への書き込みは行わない。フラグカラム廃止により `option_subscriptions` が active 判定の Single Source of Truth）
-    - 補償オプションは受注者向け給与未払い保険として基本プランから独立して契約・継続される。基本プラン解約時に自動キャンセルしない（連鎖キャンセル廃止）
+    - 補償オプションは受注者向け報酬未払い保険として基本プランから独立して契約・継続される。基本プラン解約時に自動キャンセルしない（連鎖キャンセル廃止）
   - 動画掲載オプション（受注者PR / 職場紹介）解約時:
     1. option_subscriptions.status を 'cancelled' に更新
     2. `videos` の行は保持（表示も継続。P4 で表示ゲート撤廃。掲載をやめるときは管理者が ADM-027 で削除する）

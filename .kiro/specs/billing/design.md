@@ -25,7 +25,7 @@
 - ポーリングによる Webhook 遅延補正（要件で許容済み）
 - 代理メッセージ通数の自動カウント（運用管理）
 - **one_time オプション（急募・動画掲載）の購入後返金**（基本プラン解約後に benefit が使えなくなっても返金処理は行わない。`option_subscriptions` レコードはそのまま残置し、急募は `expire-options` cron で自然満了させる。Phase 2 で返金フローを再検討）
-- **基本プラン解約後の補償オプション連鎖キャンセル**（補償オプションは受注者向け給与未払い保険として基本プランから独立。基本プラン解約時に補償は連鎖キャンセルしない。「契約者本人が解約 Server Action / Customer Portal で個別に解約する」のみが解約導線。基本プラン契約のない無料 contractor も補償単独契約を継続できる）
+- **基本プラン解約後の補償オプション連鎖キャンセル**（補償オプションは受注者向け報酬未払い保険として基本プランから独立。基本プラン解約時に補償は連鎖キャンセルしない。「契約者本人が解約 Server Action / Customer Portal で個別に解約する」のみが解約導線。基本プラン契約のない無料 contractor も補償単独契約を継続できる）
 
 ## Architecture
 
@@ -642,7 +642,7 @@ interface SaveOrganizationNameService {
 - **補償オプションのロールチェック**: `optionType === 'compensation_5000'` または `'compensation_9800'` の場合、以下を要求する:
   - `users.role IN ('contractor', 'client')` であること（**無料 contractor も購入可**。基本プラン契約有無は問わない）
   - `users.role === 'staff'` または `'admin'` の場合は拒否（エラー: 「担当者・管理者は補償オプションをご契約いただけません」）。staff は契約主体が Owner 単一の設計、admin はシステム管理者のため
-  - **理由**: 補償オプションは受注者（職人）の現場給与未払いトラブルに備える保険であり、対象は受注業務を行う実体ユーザー（contractor / client(owner)）。基本プランの加入要件はなく、無料 contractor も購入できる。基本プラン解約時の連鎖キャンセルは行わず、補償は独立して継続課金される
+  - **理由**: 補償オプションは受注者（職人）の現場報酬未払いトラブルに備える保険であり、対象は受注業務を行う実体ユーザー（contractor / client(owner)）。基本プランの加入要件はなく、無料 contractor も購入できる。基本プラン解約時の連鎖キャンセルは行わず、補償は独立して継続課金される
 - metadata 設定: `{ type: 'plan' | 'option', plan_type | option_type, user_id, job_id（急募のみ） }`
 - success_url / cancel_url: `resolveSuccessUrl(input)` / `resolveCancelUrl(input)` ヘルパで生成
 - **UI 側の連打防止**: BillingPage の「申し込む」「このプランに変更する」「申し込む（オプション）」ボタンは `useTransition` + `disabled` を必須とし、Server Action 呼び出し中は無効化する。同一 Session の二重作成を UI 層でも防御する
@@ -1027,7 +1027,7 @@ interface IdempotencyGuard {
      - 法人プラン owner だった場合、配下の staff の `is_active=false`
      - 掲載中案件を `closed` に変更
      - **トランザクション後（TypeScript 側で実行）**:
-       - **a. 補償オプションの連鎖キャンセルは行わない**（旧 Gap 3 ロジックは廃止）。補償オプションは受注者向けの給与未払い保険として基本プランから独立して継続課金される。基本プラン解約と補償解約は別個のユーザー操作として扱う
+       - **a. 補償オプションの連鎖キャンセルは行わない**（旧 Gap 3 ロジックは廃止）。補償オプションは受注者向けの報酬未払い保険として基本プランから独立して継続課金される。基本プラン解約と補償解約は別個のユーザー操作として扱う
        - **b. 解約完了通知メール送信**（subscriptionCancelledEmail）。基本プラン契約の解約のみメール送信する。メール送信はトランザクション外で実行
   3. **ヒットしなかった場合（補償オプション契約）** — TypeScript 側で `option_subscriptions` を SELECT し、ヒットすれば以下を直接実行（単一テーブル更新のため RPC 関数化不要）:
      - `option_subscriptions.status='cancelled'` に更新
@@ -1291,7 +1291,7 @@ export function subscriptionCancelledEmail(props: SubscriptionCancelledEmailProp
 整合性:
 - Stripe をシステムオブレコードとし、DB は Webhook 経由でのみ更新
 - `client_profiles.is_urgent_option` は `option_subscriptions.status`（urgent）のキャッシュ的役割
-- **`client_profiles.is_compensation_5000 / 9800` カラムは廃止**: 補償オプションは「受注者向け給与未払い保険」として全 contractor / client が購入対象となり、受注者は `client_profiles` を持たないためフラグでは管理できない。active 判定は `option_subscriptions WHERE option_type IN ('compensation_5000','compensation_9800') AND status='active'` を Single Source of Truth とする
+- **`client_profiles.is_compensation_5000 / 9800` カラムは廃止**: 補償オプションは「受注者向け報酬未払い保険」として全 contractor / client が購入対象となり、受注者は `client_profiles` を持たないためフラグでは管理できない。active 判定は `option_subscriptions WHERE option_type IN ('compensation_5000','compensation_9800') AND status='active'` を Single Source of Truth とする
 
 ### Physical Data Model
 

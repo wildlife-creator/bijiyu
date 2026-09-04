@@ -765,7 +765,7 @@ describe("customer.subscription.updated", () => {
 
 describe("customer.subscription.deleted", () => {
   it("hits subscriptions: RPC + cancelled email, **no chained option cancel**", async () => {
-    // 仕様変更（2026-05-09）: 補償オプションは受注者向け給与未払い保険として
+    // 仕様変更（2026-05-09）: 補償オプションは受注者向け報酬未払い保険として
     // 基本プランから独立。基本プラン解約時に補償オプションを連鎖キャンセル
     // しないことを検証する（旧 Gap 3 ロジックは廃止）。
     const sub = buildSubscription();

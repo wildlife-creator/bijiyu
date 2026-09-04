@@ -348,7 +348,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - フラグが効く場所は 3 か所: 料金プラン画面の 2 行（`BillingClient.tsx`、`compensationOptionEnabled` prop。加入中の人には解約用に自分の行だけ出す）/ Stripe Checkout（`billing/actions.ts`）/ 銀行振込申込（`bank-transfer-actions.ts`）。**画面から消しても Server Action は直接呼べるため、新規申込の入口を足すときは必ず同じガードを入れる**
 - Webhook・解約・メール・管理画面（ADM-008 の絞り込み / ADM-025-026 の有効化）はフラグに関係なく動かす（既存契約と運営操作のため）。補償関連コードを「使われていない」と判断して削除しないこと
 - 復活させるときは環境変数を `true` にするだけ。vitest の補償テストは `NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED="true"` を立てて走る（`start-checkout-action.test.ts` の setup）
-- 給与未払いの窓口はお問い合わせ（COM-008「給与未払いについて」= 発生前の相談）とトラブル報告（COM-012「給与未払い」= 発生後）。選択肢は `src/lib/constants/contact-options.ts` / `trouble-options.ts` の定数（ラベル文字列保存、DB 変更なし）
+- 報酬未払いの窓口はお問い合わせ（COM-008「報酬未払いについて」= 発生前の相談）とトラブル報告（COM-012「報酬未払い」= 発生後）。選択肢は `src/lib/constants/contact-options.ts` / `trouble-options.ts` の定数（ラベル文字列保存、DB 変更なし）
 
 ### 銀行振込の本人申込は既定で非表示・運営が代理登録（P9、必ず守ること）
 - 運営負荷（請求書・入金確認・期限管理）を抑えるため、料金プラン画面の「銀行振込で申し込む」は **`isBankTransferSelfServiceEnabled()`**（`src/lib/billing/bank-transfer.ts`、`NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED === "true"`）が false のとき出さない（未設定 = 非表示）。代わりに `BankTransferContactNote`（/contact リンク）を出す。本人申込の Server Action（`requestBankTransferAction`）も同じ判定で拒否する

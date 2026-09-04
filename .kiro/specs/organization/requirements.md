@@ -406,7 +406,7 @@ Staff は**自分の subscription を持たない**設計（Owner のサブス�
 ##### 設計判断: Staff は課金アクションを実行しない
 
 - **Staff は発注者向け機能の「閲覧・代理操作」に限定**され、支払いが伴うアクション（サブスクリプション購入・変更・解約、都度課金の急募オプション購入、補償オプション加入等）は一切実行できない
-  - 補償オプションは受注者向け給与未払い保険として再定義された後も、staff は契約主体が Owner 単一の設計上引き続き購入不可（admin も同様）。詳細は `.kiro/specs/billing/requirements.md` REQ-BL-001 補償オプション購入対象を参照
+  - 補償オプションは受注者向け報酬未払い保険として再定義された後も、staff は契約主体が Owner 単一の設計上引き続き購入不可（admin も同様）。詳細は `.kiro/specs/billing/requirements.md` REQ-BL-001 補償オプション購入対象を参照
 - 支払い系 Server Action（billing 配下の Server Action 群）のロールチェックは **Owner / Admin に限定**し、Staff を許可リストに含めない
 - 上記「Staff のプラン状態解決」は**表示・閲覧用途専用**。課金実行のために Staff セッションから Owner の subscription を参照する必要は発生しない（そもそも Staff は購入できないため）
 - 本判断により、法人プランにおける契約主体は常に Owner 単一となり、請求・Stripe 整合の複雑性を回避する

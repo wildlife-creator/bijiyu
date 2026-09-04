@@ -66,7 +66,7 @@ export type SubscriptionLifecycleEvent =
  *
  * - `customer.subscription.updated`: branches on subscriptions vs option_subscriptions
  * - `customer.subscription.deleted`: same. Compensation options (受注者向け
- *   給与未払い保険) are independent contracts — no chained cancellation when
+ *   報酬未払い保険) are independent contracts — no chained cancellation when
  *   the basic plan ends.
  * - `invoice.payment_failed`: marks past_due + sends paymentFailedEmail
  * - `invoice.payment_succeeded`: recovers from past_due + reactivates staff
@@ -282,7 +282,7 @@ async function handleSubscriptionDeleted(
       }
     }
 
-    // 4. 補償オプション（受注者向け給与未払い保険）は基本プランから独立した
+    // 4. 補償オプション（受注者向け報酬未払い保険）は基本プランから独立した
     //    契約。基本プラン解約時の連鎖キャンセルは行わない（旧 Gap 3 ロジック
     //    廃止）。ユーザーが補償も停止したい場合は別途 cancelCompensationAction
     //    を呼ぶ。
