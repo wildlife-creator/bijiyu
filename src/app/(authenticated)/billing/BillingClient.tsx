@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -31,7 +32,10 @@ import {
   type PaidPlanType,
   type PlanType,
 } from "@/lib/constants/plans";
-import { BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE } from "@/lib/billing/bank-transfer";
+import {
+  BANK_TRANSFER_CONTACT_MESSAGE,
+  BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE,
+} from "@/lib/billing/bank-transfer";
 import type { VideoOptionType } from "@/lib/billing/options";
 import { BankTransferApplyButton } from "./bank-transfer-apply-button";
 import { startCheckoutAction } from "./actions";
@@ -130,6 +134,8 @@ interface BillingClientProps {
   checkoutSuccess?: string;
   /** P8: 補償オプションの販売フラグ（false = 販売停止。加入中の行だけ解約用に出す） */
   compensationOptionEnabled: boolean;
+  /** P9: 銀行振込の本人申込ボタンを出すか（false = 案内文のみ。運営が代理登録する） */
+  bankTransferSelfServiceEnabled: boolean;
   /** P3: Stripe ホスト画面でプラン変更を確定して戻ってきた */
   planChangeConfirmed?: boolean;
   bankTransfer: BankTransferInfo;
@@ -170,6 +176,7 @@ export function BillingClient({
   urgentEligibleJobs,
   checkoutSuccess,
   compensationOptionEnabled,
+  bankTransferSelfServiceEnabled,
   planChangeConfirmed = false,
   bankTransfer,
 }: BillingClientProps) {
@@ -661,8 +668,8 @@ export function BillingClient({
                       ? `${formatPrice(plan.price)}円/${plan.billingCycle === "yearly" ? "年" : "月"} 申し込む`
                       : plan.buttonLabel}
                   </Button>
-                  {/* 銀行振込（P2）: 新規申込のみ。契約中のプラン変更は運営対応 */}
-                  {!isStaff && isFirstPurchase && (
+                  {/* 銀行振込（P2）: 新規申込のみ。契約中のプラン変更は運営対応。P9: 既定はボタン非表示 */}
+                  {!isStaff && isFirstPurchase && bankTransferSelfServiceEnabled && (
                     <BankTransferApplyButton
                       target={{ kind: "plan", planType: plan.planType }}
                       needsInitialFee={bankNeedsInitialFee}
@@ -676,6 +683,9 @@ export function BillingClient({
           ))}
         </div>
 
+        {!bankTransferSelfServiceEnabled && !isStaff && (
+          <BankTransferContactNote />
+        )}
       </section>
 
       {/* ===== オプションプラン セクション ===== */}
@@ -704,6 +714,7 @@ export function BillingClient({
               </Button>
               {!isStaff && (
                 <BankTransferOptionRow
+                      selfServiceEnabled={bankTransferSelfServiceEnabled}
                   request={openBankOptionRequest("video")}
                   target={{ kind: "option", optionType: "video" }}
                   disabled={pending}
@@ -734,6 +745,7 @@ export function BillingClient({
               </Button>
               {!isStaff && (
                 <BankTransferOptionRow
+                      selfServiceEnabled={bankTransferSelfServiceEnabled}
                   request={openBankOptionRequest("video_workplace")}
                   target={{ kind: "option", optionType: "video_workplace" }}
                   disabled={pending || !isClientPlanActive}
@@ -767,6 +779,7 @@ export function BillingClient({
               </Button>
               {!isStaff && (
                 <BankTransferOptionRow
+                      selfServiceEnabled={bankTransferSelfServiceEnabled}
                   request={openBankOptionRequest("video_shooting")}
                   target={{ kind: "option", optionType: "video_shooting" }}
                   disabled={pending}
@@ -822,6 +835,7 @@ export function BillingClient({
                   </Button>
                   {!isStaff && (
                     <BankTransferOptionRow
+                      selfServiceEnabled={bankTransferSelfServiceEnabled}
                       request={selectedJobId ? openBankOptionRequest("urgent", selectedJobId) : undefined}
                       target={{ kind: "option", optionType: "urgent", jobId: selectedJobId }}
                       disabled={!selectedJobId || pending}
@@ -879,6 +893,7 @@ export function BillingClient({
                   </Button>
                   {!isStaff && (
                     <BankTransferOptionRow
+                      selfServiceEnabled={bankTransferSelfServiceEnabled}
                       request={openBankOptionRequest("compensation_5000")}
                       target={{ kind: "option", optionType: "compensation_5000" }}
                       disabled={hasComp9800 || pending}
@@ -935,6 +950,7 @@ export function BillingClient({
                   </Button>
                   {!isStaff && (
                     <BankTransferOptionRow
+                      selfServiceEnabled={bankTransferSelfServiceEnabled}
                       request={openBankOptionRequest("compensation_9800")}
                       target={{ kind: "option", optionType: "compensation_9800" }}
                       disabled={hasComp5000 || pending}
@@ -946,6 +962,9 @@ export function BillingClient({
           </div>
           )}
         </div>
+        {!bankTransferSelfServiceEnabled && !isStaff && (
+          <BankTransferContactNote />
+        )}
       </section>
 
       {/* Customer Portal（銀行振込契約には Stripe の支払情報が無いため出さない） */}
@@ -1208,16 +1227,34 @@ export function BillingClient({
 // 銀行振込（P2）: オプション行の「銀行振込で申し込む」/「申込中」表示（ヘルパー）
 // ---------------------------------------------------------------------------
 
+/**
+ * P9: 銀行振込の案内文（本人申込ボタンを出さないときに、基本プラン欄・オプション欄の末尾へ表示）。
+ */
+function BankTransferContactNote() {
+  return (
+    <p className="mt-4 text-center text-body-sm text-muted-foreground">
+      {BANK_TRANSFER_CONTACT_MESSAGE.replace("お問い合わせください", "")}
+      <Link href="/contact" className="text-primary underline underline-offset-2">
+        お問い合わせ
+      </Link>
+      ください。
+    </p>
+  );
+}
+
 function BankTransferOptionRow({
   request,
   target,
   disabled,
   disabledReason = null,
+  selfServiceEnabled,
 }: {
   request: OpenBankTransferRequest | undefined;
   target: Parameters<typeof BankTransferApplyButton>[0]["target"];
   disabled: boolean;
   disabledReason?: string | null;
+  /** P9: false のときは申込中の案内だけ出し、ボタンは出さない */
+  selfServiceEnabled: boolean;
 }) {
   if (request) {
     return (
@@ -1226,6 +1263,7 @@ function BankTransferOptionRow({
       </p>
     );
   }
+  if (!selfServiceEnabled) return null;
   return (
     <BankTransferApplyButton
       target={target}

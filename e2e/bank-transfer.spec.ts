@@ -30,39 +30,38 @@ async function adminLogin(page: Page) {
   await page.waitForURL(/\/admin\/dashboard/);
 }
 
-test.describe.serial("銀行振込: 申込 → 運営が有効化 → 契約中表示", () => {
-  test("1. 受注者が CLI-026 からライトプランを銀行振込（年払い）で申し込む", async ({ page }) => {
+test.describe.serial("銀行振込: 運営が代理登録 → 有効化 → 契約中表示（P9）", () => {
+  test("1. 運営が ADM-025「申込を登録する」からライトプラン（年払い）の申込を代理登録する", async ({ page }) => {
+    await adminLogin(page);
+    await page.getByRole("link", { name: "銀行振込申込一覧" }).click();
+    await page.waitForURL(/\/admin\/bank-transfers/);
+    await page.getByRole("link", { name: "申込を登録する" }).click();
+    await page.waitForURL(/\/admin\/bank-transfers\/new/);
+    await expect(page.getByRole("heading", { name: "銀行振込申込の登録" })).toBeVisible();
+
+    await page.getByLabel("会員のメールアドレス").fill(TEST_BANK_E2E.email);
+    // 対象 = 基本プラン（既定）/ プラン = ライト（既定）/ サイクル → 年払い
+    await page.getByRole("combobox", { name: "お支払いサイクル" }).click();
+    await page.getByRole("option", { name: "年払い" }).click();
+    await expect(page.getByText(/本体金額の目安: 45,600円/)).toBeVisible();
+    await page.getByRole("button", { name: "登録する" }).click();
+
+    // 登録後は ADM-026 へ遷移。初回事務手数料込みの合計と運営メモ
+    await page.waitForURL(/\/admin\/bank-transfers\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole("heading", { name: "銀行振込申込詳細" })).toBeVisible();
+    await expect(page.getByText("65,600円（税込）").first()).toBeVisible();
+    await expect(page.getByText(/運営が代理登録/)).toBeVisible();
+  });
+
+  test("1b. 会員側: 料金プラン画面に本人申込ボタンは無く、受付中の表示と案内文が出る", async ({ page }) => {
     await login(page, TEST_BANK_E2E.email, TEST_BANK_E2E.password);
     await page.goto("/billing");
-    await expect(page.getByRole("heading", { name: "プラン変更" })).toBeVisible();
-
-    // 基本プランセクションの各プランに「銀行振込で申し込む」が並ぶ（4 プラン。オプション側にも別に並ぶ）
-    const planSection = page.locator("section").filter({ hasText: "基本プラン" });
-    const bankButtons = planSection.getByRole("button", { name: "銀行振込で申し込む" });
-    await expect(bankButtons).toHaveCount(4);
-
-    // ライトプラン行のボタンを押す（1 番目）
-    await bankButtons.first().click();
-    const dialog = page.getByRole("dialog", { name: "銀行振込で申し込む" });
-    await expect(dialog).toBeVisible();
-
-    // 月払い → 年払いへ切替（shadcn Select は 2 段クリック）
-    await dialog.getByRole("combobox", { name: "お支払いサイクル" }).click();
-    await page.getByRole("option", { name: "年払い" }).click();
-    await expect(dialog).toContainText("ライトプラン（年払い）");
-    await expect(dialog).toContainText("45,600円（税込）"); // 3,800 × 12
-    await expect(dialog).toContainText("初回事務手数料: 20,000円（税込）");
-    await expect(dialog).toContainText("請求合計: 65,600円（税込）");
-
-    await dialog.getByRole("button", { name: "この内容で申し込む" }).click();
-    await expect(page.getByText(/銀行振込でお申し込みいただきました/)).toBeVisible();
-
-    // 受付中の表示 + Stripe ボタンが無効化される
-    await expect(page.getByText("銀行振込でのお申し込みを受付中です")).toBeVisible();
     await expect(page.getByText(/ライトプラン（年払い）（申込受付）/)).toBeVisible();
-    // 受付中はサーバー側で buttonAction=none になり、文言は「申し込む」・無効化
+    await expect(page.getByRole("button", { name: "銀行振込で申し込む" })).toHaveCount(0);
+    await expect(page.getByText(/銀行振込をご希望の方は/).first()).toBeVisible();
+    // 受付中は Stripe の申込ボタンも無効
+    const planSection = page.locator("section").filter({ hasText: "基本プラン" });
     await expect(planSection.getByRole("button", { name: /^申し込む$/ }).first()).toBeDisabled();
-    await expect(bankButtons.first()).toBeDisabled();
   });
 
   test("2. 運営が申込を「請求書送付済」→「入金確認して有効化」し、申込者はご利用中になる", async ({ page }) => {
@@ -120,32 +119,35 @@ test.describe.serial("銀行振込: 申込 → 運営が有効化 → 契約中�
     await expect(page.getByRole("button", { name: "お支払い情報を管理する" })).toHaveCount(0);
     // 他プランへの変更ボタンは無効（運営対応）
     await expect(page.getByRole("button", { name: "このプランに変更する" }).first()).toBeDisabled();
+    // P9: 本人申込ボタンは出ない
+    await expect(page.getByRole("button", { name: "銀行振込で申し込む" })).toHaveCount(0);
   });
 });
 
-test.describe.serial("銀行振込: ユーザー撮影プラン（P7）の申込 → 運営が有効化 → 購入済み", () => {
-  test("1. 受注者が CLI-026 からユーザー撮影プランを銀行振込で申し込む", async ({ page }) => {
+test.describe.serial("銀行振込: ユーザー撮影プラン（P7）を運営が代理登録 → 有効化 → 購入済み", () => {
+  test("1. 運営が ADM-025 からユーザー撮影プランの申込を代理登録する", async ({ page }) => {
+    await adminLogin(page);
+    await page.goto("/admin/bank-transfers/new");
+    await page.getByLabel("会員のメールアドレス").fill(TEST_BANK_E2E.email);
+    // shadcn Select は trigger click → option click。trigger は id で特定（「オプション」は選択値にも現れるため）
+    await page.locator("#bt-new-target-kind").click();
+    await page.getByRole("option", { name: "オプション" }).click();
+    await expect(page.locator("#bt-new-option")).toBeVisible();
+    await page.locator("#bt-new-option").click();
+    await page.getByRole("option", { name: "ユーザー撮影プラン" }).click();
+    await expect(page.getByText(/本体金額の目安: 20,000円/)).toBeVisible();
+    await page.getByRole("button", { name: "登録する" }).click();
+    await page.waitForURL(/\/admin\/bank-transfers\/[0-9a-f-]{36}$/);
+    await expect(page.getByText("20,000円（税込）").first()).toBeVisible();
+  });
+
+  test("1b. 会員側: 受付中の案内が出て、Stripe ボタンは押せない", async ({ page }) => {
     await login(page, TEST_BANK_E2E.email, TEST_BANK_E2E.password);
     await page.goto("/billing");
-    await expect(page.getByRole("heading", { name: "プラン変更" })).toBeVisible();
-
-    // ユーザー撮影プランの行（見出し + 申込ボタン + 銀行振込ボタン）
     const optionSection = page.locator("section").filter({ hasText: "オプションプラン" });
-    // 行 = py-4 の div（見出し span が「ユーザー撮影プラン」のもの）
     const row = optionSection
       .locator("div.py-4")
       .filter({ has: page.getByText("ユーザー撮影プラン", { exact: true }) });
-    await expect(row.getByRole("button", { name: "ユーザー撮影プランを申し込む" })).toBeEnabled();
-    await row.getByRole("button", { name: "銀行振込で申し込む" }).click();
-
-    const dialog = page.getByRole("dialog", { name: "銀行振込で申し込む" });
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText("ユーザー撮影プラン");
-    await expect(dialog).toContainText("20,000円（税込）");
-    await dialog.getByRole("button", { name: "この内容で申し込む" }).click();
-    await expect(page.getByText(/銀行振込でお申し込みいただきました/)).toBeVisible();
-
-    // 受付中は Stripe ボタンが押せず、銀行振込ボタンは「申込中」の案内に置き換わる
     await expect(row.getByRole("button", { name: "ユーザー撮影プランを申し込む" })).toBeDisabled();
     await expect(row.getByText(/銀行振込で申込中（申込受付）/)).toBeVisible();
     await expect(row.getByRole("button", { name: "銀行振込で申し込む" })).toHaveCount(0);
@@ -176,8 +178,39 @@ test.describe.serial("銀行振込: ユーザー撮影プラン（P7）の申込
       .locator("div.py-4")
       .filter({ has: page.getByText("ユーザー撮影プラン", { exact: true }) });
     await expect(optionRow.getByRole("button", { name: "購入済み" })).toBeEnabled();
-    // 有効化後は銀行振込ボタンが再び出る（申込中の案内は消える）
-    await expect(optionRow.getByRole("button", { name: "銀行振込で申し込む" })).toBeEnabled();
+    // P9: 有効化後も本人申込ボタンは出ない（申込中の案内は消える）
+    await expect(optionRow.getByText(/銀行振込で申込中/)).toHaveCount(0);
+    await expect(optionRow.getByRole("button", { name: "銀行振込で申し込む" })).toHaveCount(0);
+  });
+});
+
+/**
+ * 本人申込（料金プラン画面の「銀行振込で申し込む」）の E2E。
+ * P9 で既定は非表示のため、NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED=true を
+ * .env.local に設定して dev サーバーを起動したときだけ実行する（`supabase db reset` 直後に
+ * このブロックだけ `--grep 本人申込` で回す。上の代理登録ブロックと同じ会員を使うため同時実行は不可）。
+ */
+test.describe("銀行振込: 本人申込（NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED=true のときだけ）", () => {
+  test.skip(
+    process.env.NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED !== "true",
+    "本人申込ボタンは既定で非表示（P9）。フラグを立てたときだけ実行する",
+  );
+
+  test("受注者が CLI-026 からライトプランを銀行振込（年払い）で申し込む", async ({ page }) => {
+    await login(page, TEST_BANK_E2E.email, TEST_BANK_E2E.password);
+    await page.goto("/billing");
+    const planSection = page.locator("section").filter({ hasText: "基本プラン" });
+    const bankButtons = planSection.getByRole("button", { name: "銀行振込で申し込む" });
+    await expect(bankButtons).toHaveCount(4);
+    await bankButtons.first().click();
+    const dialog = page.getByRole("dialog", { name: "銀行振込で申し込む" });
+    await dialog.getByRole("combobox", { name: "お支払いサイクル" }).click();
+    await page.getByRole("option", { name: "年払い" }).click();
+    await expect(dialog).toContainText("請求合計: 65,600円（税込）");
+    await dialog.getByRole("button", { name: "この内容で申し込む" }).click();
+    await expect(page.getByText(/銀行振込でお申し込みいただきました/)).toBeVisible();
+    await expect(page.getByText(/ライトプラン（年払い）（申込受付）/)).toBeVisible();
+    await expect(bankButtons.first()).toBeDisabled();
   });
 });
 

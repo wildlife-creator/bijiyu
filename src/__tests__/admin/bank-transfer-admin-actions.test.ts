@@ -117,6 +117,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 import {
   activateBankTransferAction,
   cancelBankTransferRequestAction,
+  createBankTransferRequestByAdminAction,
   markBankTransferInvoicedAction,
 } from "@/app/admin/(protected)/bank-transfers/actions";
 
@@ -415,5 +416,148 @@ describe("cancelBankTransferRequestAction", () => {
     const r = await cancelBankTransferRequestAction(REQUEST_ID, f);
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toContain("2000文字以内");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P9: createBankTransferRequestByAdminAction（運営による代理登録）
+// ---------------------------------------------------------------------------
+describe("createBankTransferRequestByAdminAction（P9 代理登録）", () => {
+  function fd(fields: Record<string, string>) {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(fields)) f.set(k, v);
+    return f;
+  }
+
+  beforeEach(() => {
+    // 会員検索（email 完全一致）
+    adminResults["select:users"] = {
+      data: { id: "user-1", role: "contractor", email: "member@test.local", deleted_at: null },
+    };
+    // 契約なし（= 初回事務手数料あり）/ 処理中の申込なし
+    adminResults["select:subscriptions"] = { data: [] };
+    adminResults["select:bank_transfer_requests"] = { data: [] };
+    adminResults["insert:bank_transfer_requests"] = {
+      data: { id: "req-new-1", created_at: "2026-09-04T01:00:00Z" },
+    };
+  });
+
+  it("プラン（ライト・年払い）: 初回事務手数料込みで申込受付を作り、運営メモ・handled_by・監査ログ・控えメール", async () => {
+    const r = await createBankTransferRequestByAdminAction(
+      fd({ email: "member@test.local", targetKind: "plan", planType: "individual", billingCycle: "yearly" }),
+    );
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data?.requestId).toBe("req-new-1");
+      expect(r.data?.targetLabel).toContain("ライトプラン");
+    }
+    const insert = adminInserts.find((i) => i.table === "bank_transfer_requests");
+    expect(insert?.payload).toMatchObject({
+      user_id: "user-1",
+      target_kind: "plan",
+      plan_type: "individual",
+      option_type: null,
+      billing_cycle: "yearly",
+      amount: 45600,
+      initial_fee: 20000,
+      status: "requested",
+      handled_by: "admin-1",
+    });
+    expect(String(insert?.payload.admin_memo)).toContain("代理登録");
+    expect(auditLogs.map((a) => a.action)).toContain("bank_transfer_requested_by_admin");
+  });
+
+  it("契約歴があれば初回事務手数料なし", async () => {
+    // 1 回目: active/past_due なし、2 回目: 過去の契約あり
+    adminResults["select:subscriptions:0"] = { data: [] };
+    adminResults["select:subscriptions:1"] = { data: [{ id: "old-sub" }] };
+    const r = await createBankTransferRequestByAdminAction(
+      fd({ email: "member@test.local", targetKind: "plan", planType: "small", billingCycle: "monthly" }),
+    );
+    expect(r.success).toBe(true);
+    expect(adminInserts.find((i) => i.table === "bank_transfer_requests")?.payload).toMatchObject({
+      amount: 14800,
+      initial_fee: 0,
+    });
+  });
+
+  it("オプション（ユーザー撮影プラン）: 買い切り 20,000 円・事務手数料なし", async () => {
+    const r = await createBankTransferRequestByAdminAction(
+      fd({ email: "member@test.local", targetKind: "option", optionType: "video_shooting" }),
+    );
+    expect(r.success).toBe(true);
+    expect(adminInserts.find((i) => i.table === "bank_transfer_requests")?.payload).toMatchObject({
+      target_kind: "option",
+      option_type: "video_shooting",
+      plan_type: null,
+      amount: 20000,
+      initial_fee: 0,
+    });
+  });
+
+  it("該当会員なし / 退会済み / 担当者 / 管理者 は登録できない", async () => {
+    adminResults["select:users"] = { data: null };
+    let r = await createBankTransferRequestByAdminAction(
+      fd({ email: "nobody@test.local", targetKind: "plan", planType: "individual" }),
+    );
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("見つかりません");
+
+    adminResults["select:users"] = { data: { id: "u", role: "contractor", email: "x", deleted_at: "2026-01-01T00:00:00Z" } };
+    r = await createBankTransferRequestByAdminAction(fd({ email: "x@test.local", targetKind: "plan", planType: "individual" }));
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("退会済み");
+
+    adminResults["select:users"] = { data: { id: "u", role: "staff", email: "x", deleted_at: null } };
+    r = await createBankTransferRequestByAdminAction(fd({ email: "x@test.local", targetKind: "plan", planType: "individual" }));
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("担当者");
+
+    adminResults["select:users"] = { data: { id: "u", role: "admin", email: "x", deleted_at: null } };
+    r = await createBankTransferRequestByAdminAction(fd({ email: "x@test.local", targetKind: "plan", planType: "individual" }));
+    expect(r.success).toBe(false);
+    expect(adminInserts).toHaveLength(0);
+  });
+
+  it("契約中のプランがあれば拒否、処理中の申込があれば受付中メッセージ", async () => {
+    adminResults["select:subscriptions"] = { data: [{ id: "sub-active" }] };
+    let r = await createBankTransferRequestByAdminAction(
+      fd({ email: "member@test.local", targetKind: "plan", planType: "individual" }),
+    );
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("契約中のプラン");
+
+    adminResults["select:subscriptions"] = { data: [] };
+    adminResults["select:bank_transfer_requests"] = { data: [{ id: "open-1" }] };
+    r = await createBankTransferRequestByAdminAction(
+      fd({ email: "member@test.local", targetKind: "plan", planType: "individual" }),
+    );
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("受付中");
+    expect(adminInserts).toHaveLength(0);
+  });
+
+  it("補償は販売停止中（P8 フラグ未設定）なら代理登録もできない / 不正入力は拒否", async () => {
+    delete process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED;
+    let r = await createBankTransferRequestByAdminAction(
+      fd({ email: "member@test.local", targetKind: "option", optionType: "compensation_5000", billingCycle: "yearly" }),
+    );
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("現在お申し込みを受け付けていません");
+
+    r = await createBankTransferRequestByAdminAction(fd({ email: "not-an-email", targetKind: "plan", planType: "individual" }));
+    expect(r.success).toBe(false);
+
+    r = await createBankTransferRequestByAdminAction(fd({ email: "member@test.local", targetKind: "option", optionType: "urgent" }));
+    expect(r.success).toBe(false);
+    expect(adminInserts).toHaveLength(0);
+  });
+
+  it("admin 以外は拒否", async () => {
+    authState.role = "contractor";
+    const r = await createBankTransferRequestByAdminAction(
+      fd({ email: "member@test.local", targetKind: "plan", planType: "individual" }),
+    );
+    expect(r.success).toBe(false);
   });
 });

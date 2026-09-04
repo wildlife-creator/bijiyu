@@ -103,7 +103,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
       {
         question: "Q17. 有料プランの支払い方法は。",
         answer:
-          "A. Stripeを利用したクレジットカード決済（Visa/Mastercard/JCB/Amex）に対応しています。決済は即時に行われます。",
+          "A. Stripeを利用したクレジットカード決済（Visa/Mastercard/JCB/Amex）と、銀行振込に対応しています。クレジットカード決済は即時に行われます。銀行振込をご希望の場合は、お問い合わせ窓口までご連絡ください。",
       },
       {
         question: "Q18. 有料プランを解約した場合、返金はありますか。",

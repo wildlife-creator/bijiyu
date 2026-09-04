@@ -350,6 +350,13 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 復活させるときは環境変数を `true` にするだけ。vitest の補償テストは `NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED="true"` を立てて走る（`start-checkout-action.test.ts` の setup）
 - 給与未払いの窓口はお問い合わせ（COM-008「給与未払いについて」= 発生前の相談）とトラブル報告（COM-012「給与未払い」= 発生後）。選択肢は `src/lib/constants/contact-options.ts` / `trouble-options.ts` の定数（ラベル文字列保存、DB 変更なし）
 
+### 銀行振込の本人申込は既定で非表示・運営が代理登録（P9、必ず守ること）
+- 運営負荷（請求書・入金確認・期限管理）を抑えるため、料金プラン画面の「銀行振込で申し込む」は **`isBankTransferSelfServiceEnabled()`**（`src/lib/billing/bank-transfer.ts`、`NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED === "true"`）が false のとき出さない（未設定 = 非表示）。代わりに `BankTransferContactNote`（/contact リンク）を出す。本人申込の Server Action（`requestBankTransferAction`）も同じ判定で拒否する
+- 入口は **ADM-025「申込を登録する」（`/admin/bank-transfers/new`、`createBankTransferRequestByAdminAction`）**。会員のメールアドレスで特定 → 本人申込と同じ事前チェック・金額計算（`computeBankTransferAmount`。初回事務手数料は契約歴で判定）→ `bank_transfer_requests` を「申込受付」で作成 → 申込者控えメールのみ（運営宛通知は送らない）→ 監査ログ `bank_transfer_requested_by_admin`。以降は ADM-026 の既存フロー。**本人申込側の事前チェックを変えたら代理登録側も揃えること**（急募は案件単位のため代理登録の対象外）
+- 契約中・申込中の表示（「銀行振込（年払い）」「申込受付」）、ADM-025/026、期限バッジ・期限通知、`is_paid_user()` 判定はフラグに関係なく動く。銀行振込のコードを削除しないこと
+- クライアントが「プラン内にボタンを戻したい」と言ったら環境変数を `true` にするだけ。その際は FAQ Q17・特商法「支払方法」の「お問い合わせください」文言を見直す（`docs/legal/*.md` と `(support)/*/content.ts` は一字一句一致の vitest あり）
+- E2E: `e2e/bank-transfer.spec.ts` は代理登録起点。本人申込の E2E は同ファイル末尾でフラグが true のときだけ実行される
+
 ### 動画基盤（videos テーブル・Cloudflare Stream、P4、必ず守ること）
 - 動画は **`videos` テーブル**（1 行 = 1 本、`placement` = contractor_page / client_page、`sort_order`、`provider` = cloudflare / external、`status` = processing / ready）で管理する。旧 `users.video_url` / `client_profiles.workplace_video_url` は【廃止予定】でアプリから参照してはならない（staging マージ時に DROP）
 - **表示はオプション購入の有無でゲートしない**（承認済み D4）。`option_subscriptions` を見て動画を出し分けるコードを書かないこと。表示は `getReadyVideos(client, userId, placement)`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />` の 1 パターンに統一。公開中（ready）の行は RLS で全 authenticated が読めるため cross-user 参照でも admin client 不要

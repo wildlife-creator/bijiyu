@@ -74,6 +74,10 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     // P8: 補償オプションは販売停止（NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED 未設定）。
     // 未加入ユーザーには 2 行とも出ない（加入中ユーザーには解約用に自分の行だけ出る）
     await expect(page.getByText("補償（受注者向け）")).toHaveCount(0);
+    // P9: 銀行振込の本人申込ボタンは既定で非表示。案内文（お問い合わせリンク）が出る
+    await expect(page.getByRole("button", { name: "銀行振込で申し込む" })).toHaveCount(0);
+    await expect(page.getByText(/銀行振込をご希望の方は/).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "お問い合わせ" }).first()).toHaveAttribute("href", "/contact");
     await expect(page.getByRole("button", { name: /補償（5,000円）を申し込む/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /補償（9,800円）を申し込む/ })).toHaveCount(0);
   });

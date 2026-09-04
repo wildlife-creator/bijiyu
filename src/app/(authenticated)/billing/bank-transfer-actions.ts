@@ -10,6 +10,8 @@ import {
   computeBankTransferAmount,
   describeBankTransferTarget,
   type BankTransferTarget,
+  BANK_TRANSFER_SELF_SERVICE_DISABLED_MESSAGE,
+  isBankTransferSelfServiceEnabled,
 } from "@/lib/billing/bank-transfer";
 import {
   COMPENSATION_OPTION_DISABLED_MESSAGE,
@@ -84,6 +86,12 @@ export async function requestBankTransferAction(
     return { success: false, error: "入力内容が正しくありません" };
   }
   const input = parsed.data;
+
+  // P9: 本人申込は既定で停止（画面からボタンを消しても直接呼べるためここでも拒否）。
+  // 運営が ADM-025 で代理登録する経路（createBankTransferRequestByAdminAction）は別
+  if (!isBankTransferSelfServiceEnabled()) {
+    return { success: false, error: BANK_TRANSFER_SELF_SERVICE_DISABLED_MESSAGE };
+  }
 
   const supabase = await createClient();
   const {

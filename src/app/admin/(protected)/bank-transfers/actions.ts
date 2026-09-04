@@ -18,13 +18,30 @@ import {
   isValidDateString,
   targetFromRequestRow,
   type BankTransferTarget,
+  BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
+  computeBankTransferAmount,
+  describeBankTransferTarget,
 } from "@/lib/billing/bank-transfer";
 import { grantBankTransferPlan } from "@/lib/billing/grant-plan";
-import { isSubscriptionOption } from "@/lib/billing/options";
-import { formatBillingDate } from "@/lib/email/recipients/billing-recipient";
+import {
+  isSubscriptionOption,
+  COMPENSATION_OPTION_DISABLED_MESSAGE,
+  isCompensationOptionEnabled,
+} from "@/lib/billing/options";
+import {
+  formatBillingDate,
+  fetchBillingRecipient,
+  formatBillingDateTime,
+} from "@/lib/email/recipients/billing-recipient";
 import { sendEmail } from "@/lib/email/send-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/lib/types/action-result";
+import {
+  PAID_PLAN_TYPES,
+} from "@/lib/constants/plans";
+import {
+  bankTransferRequestedEmail,
+} from "@/lib/email/templates/bank-transfer-requested";
 
 /**
  * ADM-026 銀行振込申込詳細 の Server Action（P2）。
@@ -508,4 +525,234 @@ async function activateOption(
   }
   await sendVideoActivatedEmails(admin, sendEmail, userId, optionType, startIso);
   return { ok: true, optionSubscriptionId: insert.data.id, periodEndLabel: null };
+}
+
+// ---------------------------------------------------------------------------
+// P9: 運営による申込の代理登録（ADM-025 「申込を登録する」）
+// ---------------------------------------------------------------------------
+
+const createRequestSchema = z.object({
+  email: z.string().trim().email(),
+  targetKind: z.enum(["plan", "option"]),
+  planType: z.enum(PAID_PLAN_TYPES).optional(),
+  billingCycle: z.enum(["monthly", "yearly"]).default("monthly"),
+  // 急募（urgent）は案件単位のため代理登録の対象外
+  optionType: z
+    .enum(["video", "video_workplace", "video_shooting", "compensation_5000", "compensation_9800"])
+    .optional(),
+});
+
+export interface CreateBankTransferRequestResult {
+  requestId: string;
+  targetLabel: string;
+}
+
+/**
+ * 会員のメールアドレスで本人を特定し、本人申込（requestBankTransferAction）と同じ事前チェック・
+ * 金額計算で `bank_transfer_requests` を「申込受付」で作る。以降は ADM-026 の既存操作。
+ * - 申込者へ控えメール（「請求書をお送りします」）は送る。運営宛通知は送らない（運営自身が登録するため）
+ * - 初回事務手数料は契約歴（subscriptions の有無）で判定（本人申込の fee Cookie 免除は使わない）
+ * - 監査ログ `bank_transfer_requested_by_admin`
+ */
+export async function createBankTransferRequestByAdminAction(
+  formData: FormData,
+): Promise<ActionResult<CreateBankTransferRequestResult>> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const parsed = createRequestSchema.safeParse({
+    email: formData.get("email"),
+    targetKind: formData.get("targetKind"),
+    planType: formData.get("planType") || undefined,
+    billingCycle: formData.get("billingCycle") || "monthly",
+    optionType: formData.get("optionType") || undefined,
+  });
+  if (!parsed.success) {
+    return { success: false, error: "入力内容が正しくありません" };
+  }
+  const input = parsed.data;
+  if (input.targetKind === "plan" && !input.planType) {
+    return { success: false, error: "プランを選択してください" };
+  }
+  if (input.targetKind === "option" && !input.optionType) {
+    return { success: false, error: "オプションを選択してください" };
+  }
+
+  const admin = createAdminClient();
+
+  // ---- 会員の特定 ----
+  const { data: member } = await admin
+    .from("users")
+    .select("id, role, email, deleted_at")
+    .eq("email", input.email)
+    .maybeSingle();
+  if (!member) {
+    return { success: false, error: "該当する会員が見つかりません（メールアドレスを確認してください）" };
+  }
+  if (member.deleted_at) {
+    return { success: false, error: "退会済みの会員には登録できません" };
+  }
+  if (member.role === "staff") {
+    return {
+      success: false,
+      error: "担当者アカウントには登録できません（契約主体である管理責任者のアカウントを指定してください）",
+    };
+  }
+  if (member.role === "admin") {
+    return { success: false, error: "管理者アカウントには登録できません" };
+  }
+  const userId = member.id;
+
+  // ---- 事前チェック（本人申込 requestBankTransferAction と同条件） ----
+  let target: BankTransferTarget;
+  let needsInitialFee = false;
+
+  if (input.targetKind === "plan") {
+    const existingActive = await admin
+      .from("subscriptions")
+      .select("id")
+      .eq("user_id", userId)
+      .in("status", ["active", "past_due"])
+      .limit(1);
+    if ((existingActive.data?.length ?? 0) > 0) {
+      return {
+        success: false,
+        error: "すでに契約中のプランがあります。プラン変更・期限延長は発注者詳細（ADM-004）から行ってください",
+      };
+    }
+    const anySub = await admin
+      .from("subscriptions")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1);
+    needsInitialFee = (anySub.data?.length ?? 0) === 0;
+    target = {
+      kind: "plan",
+      planType: input.planType!,
+      billingCycle: input.billingCycle,
+    };
+  } else if (
+    input.optionType === "compensation_5000" ||
+    input.optionType === "compensation_9800"
+  ) {
+    if (!isCompensationOptionEnabled()) {
+      return { success: false, error: COMPENSATION_OPTION_DISABLED_MESSAGE };
+    }
+    const existingComp = await admin
+      .from("option_subscriptions")
+      .select("id")
+      .eq("user_id", userId)
+      .in("option_type", ["compensation_5000", "compensation_9800"])
+      .eq("status", "active")
+      .limit(1);
+    if ((existingComp.data?.length ?? 0) > 0) {
+      return { success: false, error: "既に補償オプションに加入しています" };
+    }
+    target = {
+      kind: "option",
+      optionType: input.optionType,
+      billingCycle: input.billingCycle,
+    };
+  } else {
+    if (input.optionType === "video_workplace") {
+      const planSub = await admin
+        .from("subscriptions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .in("plan_type", PAID_PLAN_TYPES)
+        .limit(1);
+      if ((planSub.data?.length ?? 0) === 0) {
+        return {
+          success: false,
+          error: "職場紹介動画掲載は発注者プラン加入者のみ登録できます",
+        };
+      }
+    }
+    target = { kind: "option", optionType: input.optionType! };
+  }
+
+  // 同じ対象の申込を処理中なら拒否（DB の部分ユニーク index が最終防御）
+  let openQuery = admin
+    .from("bank_transfer_requests")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("target_kind", target.kind)
+    .in("status", [...OPEN_BANK_TRANSFER_STATUSES]);
+  if (target.kind === "option") {
+    openQuery = openQuery.eq("option_type", target.optionType);
+  }
+  const { data: openRows } = await openQuery.limit(1);
+  if ((openRows?.length ?? 0) > 0) {
+    return { success: false, error: BANK_TRANSFER_REQUEST_PENDING_MESSAGE };
+  }
+
+  // ---- 申込レコード作成 ----
+  const { amount, initialFee } = computeBankTransferAmount(target, { needsInitialFee });
+  const billingCycle =
+    target.kind === "plan" ? target.billingCycle : (target.billingCycle ?? "monthly");
+
+  const insert = await admin
+    .from("bank_transfer_requests")
+    .insert({
+      user_id: userId,
+      target_kind: target.kind,
+      plan_type: target.kind === "plan" ? target.planType : null,
+      option_type: target.kind === "option" ? target.optionType : null,
+      job_id: null,
+      billing_cycle: billingCycle,
+      amount,
+      initial_fee: initialFee,
+      status: "requested",
+      handled_by: auth.adminId,
+      admin_memo: "運営が代理登録（お問い合わせ対応）",
+    })
+    .select("id, created_at")
+    .single();
+  if (insert.error || !insert.data) {
+    if (insert.error?.code === "23505") {
+      return { success: false, error: BANK_TRANSFER_REQUEST_PENDING_MESSAGE };
+    }
+    console.error("[createBankTransferRequestByAdminAction] insert failed", insert.error);
+    return { success: false, error: "申込の登録に失敗しました" };
+  }
+  const requestId = insert.data.id;
+  const targetLabel = describeBankTransferTarget(target);
+
+  // ---- 申込者控えメール（送信完了を待つ。失敗しても登録は成立） ----
+  try {
+    const recipient = await fetchBillingRecipient(admin, userId);
+    if (recipient) {
+      const tpl = bankTransferRequestedEmail({
+        recipientName: recipient.name,
+        targetLabel,
+        requestedAt: formatBillingDateTime(
+          insert.data.created_at ?? new Date().toISOString(),
+        ),
+      });
+      await sendEmail({ to: recipient.email, subject: tpl.subject, html: tpl.html });
+    }
+  } catch (err) {
+    console.error("[createBankTransferRequestByAdminAction] user email failed", err);
+  }
+
+  await writeAuditLog({
+    actorId: auth.adminId,
+    action: "bank_transfer_requested_by_admin",
+    targetType: "bank_transfer_requests",
+    targetId: requestId,
+    metadata: {
+      user_id: userId,
+      target_kind: target.kind,
+      plan_type: target.kind === "plan" ? target.planType : null,
+      option_type: target.kind === "option" ? target.optionType : null,
+      billing_cycle: billingCycle,
+      amount,
+      initial_fee: initialFee,
+    },
+  });
+  revalidatePath("/admin/bank-transfers");
+  revalidatePath(`/admin/clients/${userId}`);
+
+  return { success: true, data: { requestId, targetLabel } };
 }

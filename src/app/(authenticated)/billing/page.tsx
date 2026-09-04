@@ -18,6 +18,7 @@ import {
   OPEN_BANK_TRANSFER_STATUSES,
   describeBankTransferTarget,
   targetFromRequestRow,
+  isBankTransferSelfServiceEnabled,
 } from "@/lib/billing/bank-transfer";
 import { isCompensationOptionEnabled } from "@/lib/billing/options";
 import { comparePlanChange } from "@/lib/billing/compare-plans";
@@ -226,6 +227,7 @@ export default async function BillingPage({
           userId={user.id}
           isStaff={isStaff}
           compensationOptionEnabled={isCompensationOptionEnabled()}
+          bankTransferSelfServiceEnabled={isBankTransferSelfServiceEnabled()}
           isPastDue={isPastDue}
           hasReservation={hasReservation}
           currentPlan={currentPlan}
