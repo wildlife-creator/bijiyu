@@ -40,6 +40,8 @@ interface MessageBubbleProps {
   scoutStatus?: string | null;
   scoutJob?: ScoutJobInfo | null;
   showScoutActions: boolean;
+  /** viewer が担当者（staff）。pending スカウトにボタンの代わりに案内文を出す */
+  viewerIsStaff?: boolean;
   showProxyBadge: boolean;
   senderAvatarUrl?: string | null;
   senderName?: string;
@@ -57,6 +59,7 @@ export function MessageBubble({
   scoutStatus,
   scoutJob,
   showScoutActions,
+  viewerIsStaff = false,
   showProxyBadge,
   senderAvatarUrl,
   senderName,
@@ -167,6 +170,8 @@ export function MessageBubble({
           workEndDate={scoutJob.workEndDate}
           isClosed={scoutJob.isClosed ?? false}
           showScoutActions={showScoutActions}
+          isMine={isMine}
+          viewerIsStaff={viewerIsStaff}
           scoutStatus={scoutStatus ?? null}
           messageId={messageId}
         />

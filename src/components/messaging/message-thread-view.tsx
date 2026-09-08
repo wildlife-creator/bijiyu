@@ -24,6 +24,9 @@ interface MessageThreadViewProps {
   participantAvatarUrl?: string | null;
   participantName?: string;
   showScoutActions: boolean;
+  /** viewer が担当者（staff）。受注者アクション不可のため、スカウトのボタンの代わりに
+   *  「返答は管理責任者のみ」の案内を出す（ステージング指摘 No.33 / 1c） */
+  viewerIsStaff?: boolean;
   isProxyAccount: boolean;
   /** A7: 相手が退会済みの場合の入力欄無効化メッセージ */
   disabledMessage?: string | null;
@@ -66,6 +69,7 @@ export function MessageThreadView({
   participantAvatarUrl,
   participantName,
   showScoutActions,
+  viewerIsStaff = false,
   isProxyAccount,
   disabledMessage,
   showProxyBadge,
@@ -286,9 +290,10 @@ export function MessageThreadView({
               scoutStatus={message.scout_status}
               scoutJob={message.scout_job}
               // 自分 (自分側) が送ったスカウトには応答ボタンを出さない。
-              // 個人発注者⇔受注者スレッドでは両側が個人 identity のため、
-              // ページ単位の showScoutActions だけでは送信者側を除外できない
+              // 送信者側の除外は side の user id 集合ベースの isMine で行う
+              // （個人⇔個人・個人⇔組織・組織⇔組織のいずれでも「送信者の反対側 = 受信者」）
               showScoutActions={showScoutActions && !messageIsMine}
+              viewerIsStaff={viewerIsStaff}
               showProxyBadge={resolvedShowProxyBadge}
               senderAvatarUrl={!messageIsMine ? participantAvatarUrl : undefined}
               senderName={!messageIsMine ? participantName : undefined}

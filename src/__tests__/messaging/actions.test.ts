@@ -516,8 +516,8 @@ describe("respondToScoutAction", () => {
         },
       }),
     );
-    // 2. message_threads.select (Phase 2: identity 4 列) — USER_ID はどちらの
-    //    「organization_X_id が null な side の participant」にも該当しない
+    // 2. message_threads.select (identity 4 列) — 送信者 OTHER_USER_ID は participant_2 なので
+    //    受信者 = side1 = ["9999..."]。USER_ID はどちらの side にも居ない
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: {
@@ -556,7 +556,7 @@ describe("respondToScoutAction", () => {
         },
       }),
     );
-    // 2. message_threads.select (Phase 2: 4 列で organization_2_id=null な side に USER_ID)
+    // 2. message_threads.select（identity 4 列。送信者 = participant_1 → 受信者 = side2 = USER_ID）
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: {
@@ -570,7 +570,11 @@ describe("respondToScoutAction", () => {
         },
       }),
     );
-    // 3. admin.messages.update.eq (thenable)
+    // 3. users.select(role) — staff 除外チェック
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ single: { data: { role: "contractor" }, error: null } }),
+    );
+    // 4. admin.messages.update.eq (thenable)
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
@@ -605,7 +609,7 @@ describe("respondToScoutAction", () => {
         },
       }),
     );
-    // 2. message_threads.select (Phase 2: 4 列)
+    // 2. message_threads.select (identity 4 列)
     mockFrom.mockReturnValueOnce(
       createQueryMock({
         single: {
@@ -619,7 +623,11 @@ describe("respondToScoutAction", () => {
         },
       }),
     );
-    // 3. admin.messages.update
+    // 3. users.select(role)
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ single: { data: { role: "contractor" }, error: null } }),
+    );
+    // 4. admin.messages.update
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
@@ -631,6 +639,123 @@ describe("respondToScoutAction", () => {
       expect(result.data?.messageId).toBe(SCOUT_B_ID);
       expect(result.data?.jobId).toBe(JOB_B_ID);
     }
+  });
+});
+
+// ===========================================================================
+// respondToScoutAction — ステージング指摘 No.33（法人 ⇔ 法人 のスカウト）
+// ===========================================================================
+describe("respondToScoutAction: 両側が組織 identity のスレッド（No.33）", () => {
+  const ORG_A = "aaaa0000-0000-4000-8000-00000000000a";
+  const ORG_B = "bbbb0000-0000-4000-8000-00000000000b";
+  const OWNER_A = "aaaa1111-1111-4111-8111-11111111111a";
+  const OWNER_B = "bbbb1111-1111-4111-8111-11111111111b";
+  const STAFF_A = "aaaa2222-2222-4222-8222-22222222222a";
+  const STAFF_B = "bbbb2222-2222-4222-8222-22222222222b";
+
+  /** messages.select → message_threads.select（両側 org）の 2 モックを積む */
+  function queueScoutAndThread(senderId: string) {
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        single: {
+          data: {
+            id: MESSAGE_ID,
+            thread_id: THREAD_ID,
+            sender_id: senderId,
+            job_id: JOB_ID,
+            is_scout: true,
+            scout_status: "pending",
+          },
+          error: null,
+        },
+      }),
+    );
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({
+        single: {
+          data: {
+            participant_1_id: OWNER_A,
+            participant_2_id: OWNER_B,
+            organization_1_id: ORG_A,
+            organization_2_id: ORG_B,
+          },
+          error: null,
+        },
+      }),
+    );
+  }
+
+  /** resolveSideUserIds が side1 → side2 の順で organization_members を読む */
+  function queueOrgMembers() {
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [{ user_id: OWNER_A }, { user_id: STAFF_A }],
+          error: null,
+        },
+      }),
+    );
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({
+        thenable: {
+          data: [{ user_id: OWNER_B }, { user_id: STAFF_B }],
+          error: null,
+        },
+      }),
+    );
+  }
+
+  it("受信側組織の Owner は応答できる（旧実装では「応答権限がありません」だった）", async () => {
+    mockAuth(OWNER_B);
+    queueScoutAndThread(OWNER_A);
+    queueOrgMembers();
+    // users.select(role)
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ single: { data: { role: "client" }, error: null } }),
+    );
+    // admin.messages.update
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
+
+    const result = await respondToScoutAction(MESSAGE_ID, "accepted");
+    expect(result.success).toBe(true);
+  });
+
+  it("受信側組織の担当者（staff）は拒否される（返答は管理責任者のみ）", async () => {
+    mockAuth(STAFF_B);
+    queueScoutAndThread(OWNER_A);
+    queueOrgMembers();
+    mockFrom.mockReturnValueOnce(
+      createQueryMock({ single: { data: { role: "staff" }, error: null } }),
+    );
+
+    const result = await respondToScoutAction(MESSAGE_ID, "rejected");
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error).toBe("スカウトへの返答は管理責任者のみ行えます");
+  });
+
+  it("送信側組織のメンバー（送信者以外）は拒否される", async () => {
+    mockAuth(STAFF_A);
+    queueScoutAndThread(OWNER_A);
+    queueOrgMembers();
+
+    const result = await respondToScoutAction(MESSAGE_ID, "accepted");
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error).toBe("スカウトへの応答権限がありません");
+  });
+
+  it("送信者本人は拒否される", async () => {
+    mockAuth(OWNER_A);
+    queueScoutAndThread(OWNER_A);
+    queueOrgMembers();
+
+    const result = await respondToScoutAction(MESSAGE_ID, "accepted");
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error).toBe("スカウトへの応答権限がありません");
   });
 });
 

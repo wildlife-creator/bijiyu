@@ -10,6 +10,7 @@ import { getJobClientRecipients } from "@/lib/email/recipients/organization-memb
 import { sendMessageNotification } from "@/lib/email/send/message-notification";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { isOwnedStoragePath } from "@/lib/storage/storage-path";
+import { resolveScoutRecipientUserIds } from "@/lib/messaging/scout-recipient";
 import { formatDateTime } from "@/lib/utils/format-date";
 // messageSchema is not used here; validation is done inline to avoid
 // File instanceof issues across server/client boundary
@@ -325,12 +326,12 @@ export async function respondToScoutAction(
       return { success: false, error: "このスカウトには既に応答済みです" };
     }
 
-    // Phase 2: スカウト受信者 = 個人 identity 側 (organization_X_id が null な side に居る
-    // personal participant)。受注者は必ず個人 identity という業務ルールに基づく。
-    // 「発注者 → 受注者」の方向は sender の側と反対側で決まるため、
-    // 「organization_X_id が null な side の participant_X_id が user.id」で判定する。
-    // これにより ①受注者起点スレッド (受注者 = participant_1) ②個人発注者スカウト
-    // の両ケースで正しく承諾/辞退できる。
+    // スカウト受信者 = 「送信者が属する side の反対側」（ステージング指摘 No.33）。
+    // 旧実装は「organization_X_id が null な side の participant = 受注者」と決め打ちしており、
+    // 法人プランの会員が職人としてスカウトを受ける（両側が組織 identity）ケースで
+    // 正当な受信者を「応答権限がありません」で拒否していた。
+    // 画面側（[threadId]/page.tsx → MessageThreadView の isMine）と同じ side 集合ベースの
+    // 判定を resolveScoutRecipientUserIds に集約し、ここで二重防御として再評価する。
     const { data: thread } = await supabase
       .from("message_threads")
       .select(
@@ -343,13 +344,14 @@ export async function respondToScoutAction(
       return { success: false, error: "スカウトへの応答権限がありません" };
     }
 
-    const isRecipientOnSide1 =
-      thread.organization_1_id === null &&
-      thread.participant_1_id === user.id;
-    const isRecipientOnSide2 =
-      thread.organization_2_id === null &&
-      thread.participant_2_id === user.id;
-    if (!isRecipientOnSide1 && !isRecipientOnSide2) {
+    // 他組織のメンバーは RLS で読めないため admin client で side 集合を解決する
+    const admin = createAdminClient();
+    const recipientIds = await resolveScoutRecipientUserIds(
+      admin,
+      thread,
+      scoutMessage.sender_id,
+    );
+    if (!recipientIds || !recipientIds.includes(user.id)) {
       return { success: false, error: "スカウトへの応答権限がありません" };
     }
 
@@ -358,8 +360,21 @@ export async function respondToScoutAction(
       return { success: false, error: "自身のスカウトには応答できません" };
     }
 
+    // 担当者（staff）は受注者アクション不可（roles-and-permissions.md）。
+    // 組織が受けたスカウトへの応答は管理責任者（Owner）が行う
+    const { data: viewerRow } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    if (viewerRow?.role === "staff") {
+      return {
+        success: false,
+        error: "スカウトへの返答は管理責任者のみ行えます",
+      };
+    }
+
     // Update scout_status via admin client (no UPDATE RLS on messages)
-    const admin = createAdminClient();
     const { error: updateError } = await admin
       .from("messages")
       .update({ scout_status: response })

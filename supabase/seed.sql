@@ -946,6 +946,25 @@ INSERT INTO message_threads (id, participant_1_id, participant_2_id, organizatio
 INSERT INTO messages (id, thread_id, sender_id, body, job_id, is_scout, scout_status) VALUES
   ('eeee0006-0006-4006-8006-000000000006', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee06', 'aabbccdd-1111-2222-3333-444455556666', '内装工事の追いスカウトです。ぜひご応募ください。', '88888888-8888-8888-8888-888888888897', true, 'pending');
 
+-- ------------------------------------------------------------
+-- 14c. ステージング指摘 No.33 E2E: 法人 ⇔ 法人 のスカウト（両側が組織 identity）
+--   client2 org (aabbccdd) → client org (55555555 / 鈴木工務店 Owner=22222222) へのスカウト。
+--   受信側 Owner にはボタンが出る / 受信側 staff (33333333) には「管理責任者のみ」の案内 /
+--   送信側には「返答待ち」が出ることを検証する。E2E の最後で Owner が辞退する（破壊的操作）ため
+--   他テストが参照しないスレッド・案件にしている。
+-- ------------------------------------------------------------
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
+VALUES ('88888888-8888-8888-8888-888888888c07', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', '法人間スカウト検証用案件（内装）', 'ステージング指摘 No.33 E2E: 法人 Owner が職人としてスカウトを受けるケースの検証用', ARRAY['建築/内装｜木工']::text[], 2, 'open', 19000, 23000, CURRENT_DATE, CURRENT_DATE + 60, CURRENT_DATE, CURRENT_DATE + 30);
+
+INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
+  ('88888888-8888-8888-8888-888888888c07', '東京都', NULL);
+
+INSERT INTO message_threads (id, participant_1_id, participant_2_id, organization_id, organization_1_id, organization_2_id, thread_type) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee08', 'aabbccdd-1111-2222-3333-444455556666', '22222222-2222-2222-2222-222222222222', 'aabbccdd-5555-5555-5555-555555555555', 'aabbccdd-5555-5555-5555-555555555555', '55555555-5555-5555-5555-555555555555', 'scout');
+
+INSERT INTO messages (id, thread_id, sender_id, body, job_id, is_scout, scout_status) VALUES
+  ('eeee0008-0008-4008-8008-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee08', 'aabbccdd-1111-2222-3333-444455556666', '御社の職人さんに内装工事をお願いしたくスカウトをお送りします。', '88888888-8888-8888-8888-888888888c07', true, 'pending');
+
 -- ============================================================
 -- 15. メッセージ機能テスト用スレッド＆メッセージ
 -- ============================================================
