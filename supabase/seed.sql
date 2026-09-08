@@ -965,6 +965,19 @@ INSERT INTO message_threads (id, participant_1_id, participant_2_id, organizatio
 INSERT INTO messages (id, thread_id, sender_id, body, job_id, is_scout, scout_status) VALUES
   ('eeee0008-0008-4008-8008-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee08', 'aabbccdd-1111-2222-3333-444455556666', '御社の職人さんに内装工事をお願いしたくスカウトをお送りします。', '88888888-8888-8888-8888-888888888c07', true, 'pending');
 
+-- ------------------------------------------------------------
+-- 14d. ステージング指摘 No.8 付随 E2E: 結果待ち（applied）応募の受注者による取り下げ（CON-012）
+--   contractor3 (cc222222) → client2 org の案件。E2E で cancelled に変わる使い捨て。
+-- ------------------------------------------------------------
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
+VALUES ('88888888-8888-8888-8888-888888888c08', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', '応募取り下げ検証用案件（内装）', 'ステージング指摘 No.8 付随: 結果待ち応募を受注者が取り下げる E2E 用', ARRAY['建築/内装｜木工']::text[], 1, 'open', 19000, 23000, CURRENT_DATE + 20, CURRENT_DATE + 40, CURRENT_DATE, CURRENT_DATE + 15);
+
+INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
+  ('88888888-8888-8888-8888-888888888c08', '東京都', NULL);
+
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status) VALUES
+  ('dddddddd-dddd-dddd-dddd-dddddddddd08', '88888888-8888-8888-8888-888888888c08', 'cc222222-2222-2222-2222-222222222222', 1, '常勤', CURRENT_DATE + interval '21 days', 'applied');
+
 -- ============================================================
 -- 15. メッセージ機能テスト用スレッド＆メッセージ
 -- ============================================================
@@ -1705,6 +1718,30 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types
 INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
   ('ad660000-0000-4000-8000-000000000001', '東京都', NULL),
   ('ad660000-0000-4000-8000-000000000002', '東京都', '江東区');
+
+-- ---------- 6b. ステージング指摘 No.8 E2E: 期限切れの発注済み応募（ADM-014 完了扱い） ----------
+-- 稼働終了日 +5 日を過ぎた accepted は、完了報告・受注者キャンセル・運営の発注取消のいずれも
+-- 期限切れで不可 = 当事者が退会できないデッドロック。ADM-014 の「完了扱いにする」で解消する。
+-- 使い捨て（E2E で completed に変わる）。
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
+  (
+    'ad660000-0000-4000-8000-000000000003',
+    'aabbccdd-1111-2222-3333-444455556666',
+    'aabbccdd-5555-5555-5555-555555555555',
+    '管理画面検証用 外構工事（期限切れ・発注済み）',
+    'ステージング指摘 No.8: 評価・完了報告の入力期間を過ぎた accepted を運営が完了扱いにする検証用。',
+    ARRAY['建築/躯体｜大工']::text[],
+    1, 22000, 18000,
+    CURRENT_DATE - interval '20 days', CURRENT_DATE - interval '10 days',
+    CURRENT_DATE - interval '40 days', CURRENT_DATE - interval '25 days',
+    'closed'
+  );
+
+INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
+  ('ad660000-0000-4000-8000-000000000003', '東京都', NULL);
+
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date, cancelled_by) VALUES
+  ('ada00000-0000-4000-8000-000000000005', 'ad660000-0000-4000-8000-000000000003', 'ad222222-2222-2222-2222-222222222222', 1, '常勤', CURRENT_DATE - interval '20 days', 'accepted', CURRENT_DATE - interval '18 days', NULL);
 
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date, cancelled_by) VALUES
   -- 取引不成立（lost: 稼働日経過後に不成立確定）

@@ -119,7 +119,7 @@ describe("cancelApplicationAction", () => {
     expect(result).toHaveProperty("error", "この応募をキャンセルする権限がありません");
   });
 
-  it("accepted 以外のステータスはエラーを返す", async () => {
+  it("applied / accepted 以外のステータス（rejected 等）はエラーを返す", async () => {
     mockAuth(USER_ID);
     mockFrom.mockReturnValue(
       createQueryMock({
@@ -127,8 +127,8 @@ describe("cancelApplicationAction", () => {
           data: {
             id: APP_ID,
             applicant_id: USER_ID,
-            status: "applied",
-            first_work_date: "2099-12-31",
+            status: "rejected",
+            first_work_date: null,
           },
           error: null,
         },
@@ -137,7 +137,36 @@ describe("cancelApplicationAction", () => {
 
     const result = await cancelApplicationAction(APP_ID);
     expect(result.success).toBe(false);
-    expect(result).toHaveProperty("error", "発注済みの応募のみキャンセルできます");
+    expect(result).toHaveProperty(
+      "error",
+      "応募中または発注済みの応募のみキャンセルできます",
+    );
+  });
+
+  it("applied（結果待ち）は日付制限なしで取り下げできる（2026-09-08 追加・ステージング指摘 No.8 付随）", async () => {
+    mockAuth(USER_ID);
+    const selectMock = createQueryMock({
+      single: {
+        data: {
+          id: APP_ID,
+          applicant_id: USER_ID,
+          status: "applied",
+          // first_work_date は発注前なので未確定。5 日前ルールは適用されない
+          first_work_date: null,
+        },
+        error: null,
+      },
+    });
+    const updateMock = createQueryMock({ data: null, error: null });
+    mockFrom.mockReturnValue(selectMock);
+    mockAdminFrom.mockReturnValue(updateMock);
+
+    const result = await cancelApplicationAction(APP_ID);
+    expect(result.success).toBe(true);
+    expect(updateMock.update).toHaveBeenCalledWith({
+      status: "cancelled",
+      cancelled_by: "contractor",
+    });
   });
 
   it("5日前を過ぎている場合はエラーを返す", async () => {

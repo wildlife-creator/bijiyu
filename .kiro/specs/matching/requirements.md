@@ -93,6 +93,11 @@
        - 【その他】— CLI-009-B で発注者が入力した連絡事項（applications.client_notes）
        - 【初回稼働日】— CLI-009-B で発注者が設定した日付（applications.first_work_date）
        - ※【申し送り】は「以下の内容で応募済みです。」セクションで表示済みのため、ここには含めない
+  7'. **「応募を取り下げる」テキストリンク（2026-09-08 追加。ステージング指摘 No.8 の付随対応）**:
+     - applications.status = 'applied'（応募結果待ち）の場合のみ表示。日付制限なし
+     - 確認ポップアップ → applications.status を 'cancelled'・`cancelled_by = 'contractor'` に更新 → CON-011 へ遷移。Server Action は 7. と同じ `cancelApplicationAction`（status が applied なら 5 日前ルールを適用しない）
+     - メール: 発注者組織宛「〇〇さんが応募を取り下げました」+ 本人控え「「[案件名]」の応募取り下げを受け付けました」（notifications spec §1.2.C / §1.2.D）
+     - 背景: FAQ「マッチング成立前であれば応募の取り下げは可能」と機能が食い違っていた。また発注者が判断を放置した applied は退会ガード（進行中の応募あり）に残り続け、受注者が退会できなかった
   7. **「キャンセルする」テキストリンク**:
      - applications.status = 'accepted' の場合のみ表示
      - **キャンセル可否の判定基準**: 発注者が設定した初回稼働日（applications.first_work_date）の **5日前の当日まで**（JST 暦日、その日の 23:59 まで）キャンセル可能。判定は `canContractorCancel(app, getJstToday())`（`src/lib/matching.ts`）で行い、UI（本ボタン表示）と Server Action（`cancelApplicationAction`）で同一関数を共有する。JST 暦日の文字列比較のため本番（UTC）でも日付がズレない
@@ -375,8 +380,9 @@
   - applied → cancelled（受注者が自分でキャンセル、またはユーザー退会時の自動キャンセル）
   - accepted → completed（受注者・発注者の両方が評価を登録した時点で、発注者の operatingStatus が 'completed' の場合に遷移）
   - accepted → lost（受注者・発注者の両方が評価を登録した時点で、発注者の operatingStatus が 'lost' の場合に遷移）
-  - accepted → cancelled（受注者キャンセル〔下記制約内〕、または管理者による発注取り消し — ADM-014）
-  - **受注者キャンセルの制約**: status = 'accepted' かつ **JST 暦日で `getJstToday() <= first_work_date − 5日`**（＝5日前の当日まで、23:59 まで可）の場合のみ可能。判定は共通純粋関数 `canContractorCancel()` に集約し UI / Server Action で共有する。applied 状態でのキャンセル（応募取り消し）については別途確認が必要
+  - accepted → cancelled（受注者キャンセル〔下記制約内〕、または管理者による発注取り消し — ADM-014。**期限切れ（稼働終了日+5日を過ぎた accepted）を運営が取消にする場合も含む**）
+  - **accepted → completed（運営による期限切れ解消 — ADM-014「完了扱いにする」、2026-09-08 追加）**: 評価・完了報告の入力期間（初回稼働日〜稼働終了日+5日）を過ぎた accepted は、当事者の完了報告・受注者キャンセル・運営の発注取消がすべて期限切れで不可となり、退会ガード（進行中案件あり）に永久に引っかかるデッドロックだった（ステージング指摘 No.8）。運営が ADM-014 で「完了扱い（completed、評価は付かない）」または「取消（cancelled_by='admin'）」にして解消する。判定は `canAdminResolveExpired()`（`src/lib/admin/application-status.ts`）に集約し UI / Server Action で共有
+  - **受注者キャンセルの制約**: status = 'accepted' かつ **JST 暦日で `getJstToday() <= first_work_date − 5日`**（＝5日前の当日まで、23:59 まで可）の場合のみ可能。判定は共通純粋関数 `canContractorCancel()` に集約し UI / Server Action で共有する。**applied 状態のキャンセル（応募取り下げ）は 2026-09-08 に受注者が自分で行えるよう追加**（日付制限なし。上記 7'.）
   - **キャンセル実行者の記録（admin spec で新設・前方参照）**: `applications.cancelled_by`（'contractor' / 'admin'）に誰がキャンセルしたかを記録する。受注者のキャンセル Server Action・退会時の自動キャンセルは 'contractor'、ADM-014 の発注取り消しは 'admin' を記録。admin の応募履歴一覧（ADM-013）の8分類絞り込み「ユーザー側からのキャンセル／運営によるキャンセル」で使用（2026-06-11 決定。詳細は `.kiro/specs/admin/requirements.md` REQ-ADM-013）
   - **再応募の制約**: rejected 後の同一案件への再応募は不可。DB の UNIQUE 制約 `(job_id, applicant_id) WHERE status NOT IN ('cancelled')` により、rejected レコードが存在する場合は DB レベルで重複 INSERT がブロックされる（cancelled のみ除外 = rejected は制約に含まれるため再応募不可）。cancelled 後の再応募は可能（UNIQUE 制約から除外されているため）
 

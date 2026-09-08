@@ -393,6 +393,15 @@ export default async function ApplicationDetailPage({ params }: Props) {
         </div>
       )}
 
+      {/* 7'. 結果待ち（applied）の取り下げ — 発注者が判断する前なら受注者が自分で取り下げられる
+          （2026-09-08 ステージング指摘 No.8 の付随対応。FAQ と整合し、放置された applied が
+          退会ガードに残り続けるのを防ぐ） */}
+      {application.status === "applied" && (
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <CancelButton applicationId={application.id} mode="applied" />
+        </div>
+      )}
+
       {/* 7-8. Action buttons — accepted のみ */}
       {application.status === "accepted" && (
         <div className="mt-6 flex flex-col items-center gap-3">

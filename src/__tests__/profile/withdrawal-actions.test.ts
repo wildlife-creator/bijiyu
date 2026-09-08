@@ -246,7 +246,12 @@ describe("withdrawAction: 成功フロー（executeWithdrawal 実体経由）", 
 describe("withdrawAction: ガード拒否時", () => {
   it("進行中応募があれば退会できず、signOut もメールも実行されない", async () => {
     setupAdminTables({
-      applications: { count: 1, thenable: { data: [], error: null } },
+      applications: {
+        thenable: {
+          data: [{ id: "app-1", jobs: { title: "テスト案件" } }],
+          error: null,
+        },
+      },
     });
 
     const result = await withdrawAction(
@@ -256,7 +261,8 @@ describe("withdrawAction: ガード拒否時", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toContain("応募中または進行中の案件があるため退会できません");
+      // 案件名を含めて「どの案件が原因か」を示す（ステージング指摘 No.8）
+      expect(result.error).toContain("応募中または進行中の案件（テスト案件）があるため退会できません");
     }
     expect(mockSignOut).not.toHaveBeenCalled();
     expect(mockSendEmail).not.toHaveBeenCalled();

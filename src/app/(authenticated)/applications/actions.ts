@@ -21,6 +21,8 @@ import { sendEmail } from "@/lib/email/send-email";
 import { matchingAcceptedEmail } from "@/lib/email/templates/matching-accepted";
 import { matchingRejectedEmail } from "@/lib/email/templates/matching-rejected";
 import { applicationCancelledControlEmail } from "@/lib/email/templates/application-cancelled-control";
+import { applicationWithdrawnControlEmail } from "@/lib/email/templates/application-withdrawn-control";
+import { applicationWithdrawnEmail } from "@/lib/email/templates/application-withdrawn";
 import { applicationCancelledEmail } from "@/lib/email/templates/application-cancelled";
 import { orderAcceptedControlEmail } from "@/lib/email/templates/order-accepted-control";
 import { orderRejectedControlEmail } from "@/lib/email/templates/order-rejected-control";
@@ -69,7 +71,7 @@ async function getApplicationWithDetails(
 }
 
 // ---------------------------------------------------------------------------
-// 3.1 cancelApplicationAction — 受注者がapplied状態の応募をキャンセル
+// 3.1 cancelApplicationAction — 受注者が applied（取り下げ）/ accepted（発注後キャンセル）の応募をキャンセル
 // ---------------------------------------------------------------------------
 export async function cancelApplicationAction(
   applicationId: string,
@@ -97,14 +99,22 @@ export async function cancelApplicationAction(
       return { success: false, error: "この応募をキャンセルする権限がありません" };
     }
 
-    // Status check: cancel is only available for accepted applications
-    if (application.status !== "accepted") {
-      return { success: false, error: "発注済みの応募のみキャンセルできます" };
+    // Status check:
+    //   - applied（応募結果待ち）: 受注者が自分で取り下げできる（2026-09-08 ステージング指摘 No.8 の
+    //     付随対応。FAQ「マッチング成立前であれば応募の取り下げは可能」と整合させ、発注者が放置した
+    //     applied が退会ガードに残り続けるのを防ぐ）。日付制限なし
+    //   - accepted（発注済み）: 初回稼働日の 5 日前までキャンセル可（従来どおり）
+    if (application.status !== "applied" && application.status !== "accepted") {
+      return {
+        success: false,
+        error: "応募中または発注済みの応募のみキャンセルできます",
+      };
     }
+    const isWithdrawal = application.status === "applied";
 
-    // 5日前ルール: 「初回稼働日の5日前の当日(JST)まで」のみキャンセル可
+    // 5日前ルール（accepted のみ）: 「初回稼働日の5日前の当日(JST)まで」のみキャンセル可
     // （UI の表示条件と同一の canContractorCancel で判定。JST 暦日比較で本番 UTC でもズレない）
-    if (!canContractorCancel(application, getJstToday())) {
+    if (!isWithdrawal && !canContractorCancel(application, getJstToday())) {
       return {
         success: false,
         error:
@@ -124,8 +134,14 @@ export async function cancelApplicationAction(
       return { success: false, error: "キャンセルに失敗しました" };
     }
 
-    // §1.2.A 発注者組織宛 broadcast + §1.2.B 受注者本人控え (fire-and-forget)
-    await sendCancellationEmails({ admin, application }).catch((err) => {
+    // 発注者組織宛 broadcast + 受注者本人控え
+    //   accepted: §1.2.A / §1.2.B（発注後キャンセル）
+    //   applied : §1.2.C / §1.2.D（応募取り下げ）
+    await sendCancellationEmails({
+      admin,
+      application,
+      kind: isWithdrawal ? "withdrawn" : "cancelled",
+    }).catch((err) => {
       console.error("[cancelApplicationAction] Email failed:", err);
     });
 
@@ -142,12 +158,14 @@ export async function cancelApplicationAction(
 interface SendCancellationEmailsParams {
   admin: ReturnType<typeof createAdminClient>;
   application: ApplicationWithDetails;
+  /** cancelled = 発注後キャンセル（§1.2.A/B）/ withdrawn = 結果待ちの取り下げ（§1.2.C/D） */
+  kind: "cancelled" | "withdrawn";
 }
 
 async function sendCancellationEmails(
   params: SendCancellationEmailsParams,
 ): Promise<void> {
-  const { admin, application } = params;
+  const { admin, application, kind } = params;
   const job = application.jobs;
   const applicant = application.applicant;
   if (!job) return;
@@ -188,15 +206,25 @@ async function sendCancellationEmails(
     organization_id: job.organization_id ?? null,
   });
   for (const r of recipients) {
-    const { subject, html } = applicationCancelledControlEmail({
-      recipientName: r.displayName,
-      jobTitle: job.title,
-      contractorName,
-      tradeType,
-      headcount: headcountValue ?? null,
-      firstWorkDate,
-      cancelledAt,
-    });
+    const { subject, html } =
+      kind === "withdrawn"
+        ? applicationWithdrawnControlEmail({
+            recipientName: r.displayName,
+            jobTitle: job.title,
+            contractorName,
+            tradeType,
+            headcount: headcountValue ?? null,
+            withdrawnAt: cancelledAt,
+          })
+        : applicationCancelledControlEmail({
+            recipientName: r.displayName,
+            jobTitle: job.title,
+            contractorName,
+            tradeType,
+            headcount: headcountValue ?? null,
+            firstWorkDate,
+            cancelledAt,
+          });
     tasks.push(
       sendEmail({ to: r.email, subject, html }).catch((err) => {
         console.error(
@@ -216,15 +244,25 @@ async function sendCancellationEmails(
       firstName: resolution.firstName,
       deletedAt: resolution.deletedAt,
     });
-    const { subject, html } = applicationCancelledEmail({
-      applicantName: contractorName,
-      jobTitle: job.title,
-      clientName,
-      tradeType,
-      headcount: headcountValue ?? null,
-      firstWorkDate,
-      cancelledAt,
-    });
+    const { subject, html } =
+      kind === "withdrawn"
+        ? applicationWithdrawnEmail({
+            applicantName: contractorName,
+            jobTitle: job.title,
+            clientName,
+            tradeType,
+            headcount: headcountValue ?? null,
+            withdrawnAt: cancelledAt,
+          })
+        : applicationCancelledEmail({
+            applicantName: contractorName,
+            jobTitle: job.title,
+            clientName,
+            tradeType,
+            headcount: headcountValue ?? null,
+            firstWorkDate,
+            cancelledAt,
+          });
     tasks.push(
       sendEmail({ to: applicant.email, subject, html }).catch((err) => {
         console.error(

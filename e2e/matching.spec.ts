@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, TEST_CONTRACTOR, TEST_CLIENT } from "./helpers";
+import { login, TEST_CONTRACTOR, TEST_CONTRACTOR3, TEST_CLIENT } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // Seed data UUIDs
@@ -466,5 +466,41 @@ test.describe("発注者評価表示（CLI-028, 7項目集計）", () => {
 
     // 田中一郎は特別な道具が未入力(NULL)のみ → 該当項目は「未評価」
     await expect(page.getByText("未評価").first()).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ステージング指摘 No.8 付随（2026-09）: 結果待ち（applied）応募の受注者による取り下げ
+//   seed 14d: contractor3 (cc222222) の applied 応募 dddddddd-...-dd08（使い捨て）
+// ---------------------------------------------------------------------------
+test.describe("受注者: 結果待ち応募の取り下げ（CON-012）", () => {
+  const APPLIED_APPLICATION = "dddddddd-dddd-dddd-dddd-dddddddddd08";
+
+  test("結果待ち（applied）の応募に「応募を取り下げる」が出て、取り下げるとキャンセル扱いになる", async ({
+    page,
+  }) => {
+    await login(page, TEST_CONTRACTOR3.email, TEST_CONTRACTOR3.password);
+    await page.goto(`/applications/history/${APPLIED_APPLICATION}`);
+    await expect(page.getByRole("heading", { name: "応募詳細" })).toBeVisible();
+    await expect(page.getByText("応募結果待ち").first()).toBeVisible();
+
+    // 発注後キャンセル用の「キャンセルする」ではなく取り下げボタンが出る
+    await expect(page.getByRole("button", { name: "キャンセルする" })).toHaveCount(0);
+    await page.getByRole("button", { name: "応募を取り下げる" }).click();
+
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText("応募を取り下げますか？")).toBeVisible();
+    await dialog.getByRole("button", { name: "取り下げる" }).click();
+
+    // 一覧へ戻る
+    await page.waitForURL(/\/applications\/history$/);
+
+    // 詳細を開き直すとキャンセル扱い（ボタンは消える）
+    await page.goto(`/applications/history/${APPLIED_APPLICATION}`);
+    await expect(
+      page.getByText("この応募はキャンセルしました。稼働は行われていません。"),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "応募を取り下げる" })).toHaveCount(0);
   });
 });
