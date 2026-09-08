@@ -196,7 +196,8 @@ export function MasterCombobox({
               }}
               onKeyDown={handleInputKeyDown}
               placeholder={placeholder}
-              className="w-full border-b border-border bg-background px-3 py-2 text-body-sm outline-none placeholder:text-muted-foreground"
+              // スマホ（md 未満）は 16px。iOS Safari の入力欄フォーカス時の自動拡大を防ぐ
+              className="w-full border-b border-border bg-background px-3 py-2 text-base md:text-body-sm outline-none placeholder:text-muted-foreground"
             />
             <CommandPrimitive.List className="max-h-64 overflow-y-auto p-1">
               {candidates.length === 0 ? (

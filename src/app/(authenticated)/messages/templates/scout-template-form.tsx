@@ -87,7 +87,7 @@ export function ScoutTemplateForm({ mode, templateId, initialValues }: Props) {
           id="title"
           type="text"
           {...register("title")}
-          className="mt-1 w-full rounded-[8px] border border-border bg-background px-3 py-2 text-body-md focus:outline-none focus:ring-2 focus:ring-primary"
+          className="mt-1 w-full rounded-[8px] border border-border bg-background px-3 py-2 text-base md:text-body-md focus:outline-none focus:ring-2 focus:ring-primary"
           disabled={isPending}
         />
         {formState.errors.title && (
@@ -108,7 +108,7 @@ export function ScoutTemplateForm({ mode, templateId, initialValues }: Props) {
           id="body"
           rows={10}
           {...register("body")}
-          className="mt-1 w-full rounded-[8px] border border-border bg-background px-3 py-2 text-body-md focus:outline-none focus:ring-2 focus:ring-primary"
+          className="mt-1 w-full rounded-[8px] border border-border bg-background px-3 py-2 text-base md:text-body-md focus:outline-none focus:ring-2 focus:ring-primary"
           disabled={isPending}
         />
         {formState.errors.body && (
@@ -129,7 +129,7 @@ export function ScoutTemplateForm({ mode, templateId, initialValues }: Props) {
           id="memo"
           rows={4}
           {...register("memo")}
-          className="mt-1 w-full rounded-[8px] border border-border bg-background px-3 py-2 text-body-md focus:outline-none focus:ring-2 focus:ring-primary"
+          className="mt-1 w-full rounded-[8px] border border-border bg-background px-3 py-2 text-base md:text-body-md focus:outline-none focus:ring-2 focus:ring-primary"
           disabled={isPending}
         />
         {formState.errors.memo && (

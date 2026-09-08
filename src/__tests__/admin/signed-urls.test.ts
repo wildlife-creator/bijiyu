@@ -10,6 +10,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const storageState = {
   calls: [] as Array<{ bucket: string; paths: string[]; expiresIn: number }>,
   result: { data: null as unknown, error: null as unknown },
+  /** 呼び出し順に消費する戻り値。空になったら result を返す（再試行テスト用） */
+  queue: [] as Array<{ data: unknown; error: unknown }>,
 };
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -18,7 +20,8 @@ vi.mock("@/lib/supabase/admin", () => ({
       from: (bucket: string) => ({
         createSignedUrls: (paths: string[], expiresIn: number) => {
           storageState.calls.push({ bucket, paths, expiresIn });
-          return Promise.resolve(storageState.result);
+          const queued = storageState.queue.shift();
+          return Promise.resolve(queued ?? storageState.result);
         },
       }),
     },
@@ -35,6 +38,7 @@ import { getSignedDocumentUrls } from "@/lib/admin/signed-urls";
 beforeEach(() => {
   storageState.calls = [];
   storageState.result = { data: null, error: null };
+  storageState.queue = [];
   mockWriteAuditLog.mockClear();
 });
 
@@ -85,7 +89,7 @@ describe("getSignedDocumentUrls", () => {
     ]);
   });
 
-  it("storage API がエラーを返した場合は全パス url: null で返す（throw しない）", async () => {
+  it("storage API がエラーを返した場合は 1 回再試行し、それでも失敗なら全パス url: null で返す（throw しない）", async () => {
     storageState.result = { data: null, error: { message: "bucket error" } };
 
     const result = await getSignedDocumentUrls({
@@ -94,6 +98,48 @@ describe("getSignedDocumentUrls", () => {
     });
 
     expect(result).toEqual([{ path: "x/1.png", url: null }]);
+    // 初回 + 再試行 1 回 = 2 回だけ呼ぶ（無限に再試行しない）
+    expect(storageState.calls).toHaveLength(2);
+  });
+
+  it("1 回目が失敗しても 2 回目で成功すれば URL を返す（一時的な失敗の自動回復）", async () => {
+    storageState.queue = [
+      { data: null, error: { message: "temporary failure" } },
+      {
+        data: [{ path: "x/1.png", signedUrl: "https://signed/x1", error: null }],
+        error: null,
+      },
+    ];
+
+    const result = await getSignedDocumentUrls({
+      bucket: "identity-documents",
+      paths: ["x/1.png"],
+      audit: {
+        actorId: "admin-1",
+        targetType: "identity_verifications",
+        targetId: "verif-1",
+        documentType: "identity",
+      },
+    });
+
+    expect(result).toEqual([{ path: "x/1.png", url: "https://signed/x1" }]);
+    expect(storageState.calls).toHaveLength(2);
+    // 再試行しても監査ログは 1 回だけ
+    expect(mockWriteAuditLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("1 回目で成功したら再試行しない", async () => {
+    storageState.result = {
+      data: [{ path: "x/1.png", signedUrl: "https://signed/x1", error: null }],
+      error: null,
+    };
+
+    await getSignedDocumentUrls({
+      bucket: "ccus-documents",
+      paths: ["x/1.png"],
+    });
+
+    expect(storageState.calls).toHaveLength(1);
   });
 
   it("paths が空なら storage を呼ばず空配列を返す", async () => {

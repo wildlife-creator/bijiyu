@@ -279,6 +279,7 @@ async function JobFavorites({
             }}
             isFavorited={true}
             hasApplied={appliedJobIds.has(job.id)}
+            refreshOnFavoriteToggle
           />
         );
       })}
@@ -409,6 +410,7 @@ async function ClientFavorites({
                   targetId={client.id}
                   initialIsFavorited={true}
                   variant="text"
+                  refreshOnToggle
                 />
                 <Button
                   variant="outline"
@@ -577,6 +579,7 @@ async function UserFavorites({
                   targetId={u.id}
                   initialIsFavorited={true}
                   variant="text"
+                  refreshOnToggle
                 />
                 <Button
                   variant="outline"

@@ -504,6 +504,8 @@ export async function toggleFavoriteAction(
           error: "お気に入りの更新に失敗しました。",
         };
       }
+      // マイリスト画面のキャッシュを無効化（将来 Router Cache を強化した場合の保険）
+      revalidatePath("/favorites");
       return { success: true, data: { isFavorited: false } };
     }
 
@@ -519,6 +521,7 @@ export async function toggleFavoriteAction(
         error: "お気に入りの更新に失敗しました。",
       };
     }
+    revalidatePath("/favorites");
     return { success: true, data: { isFavorited: true } };
   } catch {
     return {

@@ -185,7 +185,9 @@ export function MessageInput({
           }}
           placeholder="メッセージ"
           rows={1}
-          className="flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          // スマホ（md 未満）は 16px。iOS Safari は 16px 未満の入力欄にフォーカスすると
+          // 画面を自動拡大し、フォーカスを外しても戻らないため（design-rule.md 参照）
+          className="flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-2 text-base md:text-sm focus:outline-none focus:ring-1 focus:ring-primary"
           style={{ maxHeight: "120px" }}
         />
         <Button

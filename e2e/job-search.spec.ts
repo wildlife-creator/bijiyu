@@ -3,6 +3,7 @@ import {
   login,
   TEST_CONTRACTOR,
   TEST_CONTRACTOR2,
+  TEST_CONTRACTOR3,
   TEST_CLIENT,
   TEST_CLIENT2,
 } from "./helpers";
@@ -465,5 +466,111 @@ test.describe("CON-003 発注者情報リンク（担当者作成の法人案件
     await expect(
       page.getByRole("heading", { name: "発注者詳細" }),
     ).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ステージング指摘（2026-09）: No.21 検索パネルの自動フォーカス抑止 / No.22 マイリスト解除の即時反映
+// ---------------------------------------------------------------------------
+test.describe("ステージング指摘 No.21 / No.22", () => {
+  test("検索条件パネルを開いてもキーワード欄に自動フォーカスしない（No.21）", async ({
+    page,
+  }) => {
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+    await page.goto("/jobs/search");
+    await page.getByRole("button", { name: "検索条件" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Radix Dialog の既定ではパネル先頭のキーワード欄へ自動フォーカスし、
+    // スマホでキーボードが立ち上がってしまう。onOpenAutoFocus 抑止でフォーカスされないこと。
+    const keyword = dialog.getByPlaceholder("キーワードを入力");
+    await expect(keyword).toBeVisible();
+    await expect(keyword).not.toBeFocused();
+
+    // 入力自体は従来どおりできる
+    await keyword.fill("テスト");
+    await expect(keyword).toHaveValue("テスト");
+  });
+
+  /**
+   * /favorites の件数表示「全N件」をカード数として使う
+   * （案件・発注者・見込みユーザーの 3 タブでカードの DOM 構造が違うため）。
+   *
+   * 注意: 「マイリスト解除」ボタンの個数を数えてはならない。ハートボタンは押した瞬間に
+   * 楽観的にラベルが「マイリスト登録」へ切り替わるため、カードが消える前（Server Action
+   * 完了前）に個数が減って見え、その直後の reload で処理が中断される flake になる。
+   * 「全N件」は router.refresh() でサーバー再描画された後にしか変わらないので、
+   * これを待つことで「その場で消えた」ことを正しく検証できる。
+   */
+  async function expectUnfavoriteRemovesCard(page: import("@playwright/test").Page) {
+    const counter = page.getByText(/^全\d+件$/);
+    await expect(counter).toBeVisible();
+    const before = Number((await counter.textContent())!.replace(/[^\d]/g, ""));
+    expect(before).toBeGreaterThan(0);
+
+    const expectRemoved = async () => {
+      if (before - 1 === 0) {
+        await expect(
+          page.getByText("マイリストに登録されたものはありません。"),
+        ).toBeVisible({ timeout: 15000 });
+      } else {
+        await expect(page.getByText(`全${before - 1}件`)).toBeVisible({
+          timeout: 15000,
+        });
+      }
+    };
+
+    await page.getByRole("button", { name: "マイリスト解除" }).first().click();
+    // router.refresh() でカードがその場で消える（開き直さなくてよい）
+    await expectRemoved();
+
+    // 開き直しても消えたまま（DB 側も解除済み）
+    await page.reload();
+    await expectRemoved();
+  }
+
+  /** 登録直後の楽観的 UI ではなく Server Action のコミット完了まで待つ */
+  async function registerAndWaitCommitted(page: import("@playwright/test").Page) {
+    await page.getByRole("button", { name: "マイリスト登録" }).first().click();
+    const unfavBtn = page.getByRole("button", { name: "マイリスト解除" }).first();
+    await expect(unfavBtn).toBeVisible();
+    await expect(unfavBtn).toBeEnabled();
+    await page.waitForLoadState("networkidle");
+  }
+
+  test("マイリスト（案件タブ）で解除するとカードがその場で消える（No.22）", async ({
+    page,
+  }) => {
+    // 他テストと干渉しない contractor3 で登録 → 解除
+    await login(page, TEST_CONTRACTOR3.email, TEST_CONTRACTOR3.password);
+    await page.goto("/jobs/search");
+    await registerAndWaitCommitted(page);
+
+    await page.goto("/favorites?type=job");
+    await expectUnfavoriteRemovesCard(page);
+  });
+
+  test("マイリスト（発注者タブ）で解除するとカードがその場で消える（No.22）", async ({
+    page,
+  }) => {
+    await login(page, TEST_CONTRACTOR3.email, TEST_CONTRACTOR3.password);
+    await page.goto("/clients/22222222-2222-2222-2222-222222222222");
+    await registerAndWaitCommitted(page);
+
+    await page.goto("/favorites?type=client");
+    await expectUnfavoriteRemovesCard(page);
+  });
+
+  test("マイリスト（見込みユーザータブ）で解除するとカードがその場で消える（No.22）", async ({
+    page,
+  }) => {
+    // 見込みユーザータブは発注者のみ。client@test.local で contractor3 を登録 → 解除
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto("/users/contractors/cc222222-2222-2222-2222-222222222222");
+    await registerAndWaitCommitted(page);
+
+    await page.goto("/favorites?type=user");
+    await expectUnfavoriteRemovesCard(page);
   });
 });

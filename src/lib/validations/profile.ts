@@ -12,10 +12,14 @@ const ALLOWED_DOCUMENT_MIME_TYPES = [
   "application/pdf",
 ] as const;
 
-const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png"] as const;
+const ALLOWED_AVATAR_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
 
 const ALLOWED_DOCUMENT_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"] as const;
-const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png"] as const;
+const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"] as const;
 
 // direct-upload 後のストレージパス検証用 (ドット無し小文字)
 export const DOCUMENT_PATH_EXTENSIONS = [
@@ -25,7 +29,11 @@ export const DOCUMENT_PATH_EXTENSIONS = [
   "webp",
   "pdf",
 ] as const;
-export const AVATAR_PATH_EXTENSIONS = ["jpg", "jpeg", "png"] as const;
+// アバターは画面案内・direct-upload ルール（IMAGE_UPLOAD_RULE_5MB）・avatars バケット
+// （20260712100000_avatars_allow_webp.sql）と同じく WebP を許可する。
+// 2026-09 実例: ここだけ webp が漏れていて、Storage 保存は成功するのに DB 更新で
+// 「ファイルを選択してください」と弾かれていた（ステージング確認-3(b)）
+export const AVATAR_PATH_EXTENSIONS = ["jpg", "jpeg", "png", "webp"] as const;
 
 function getFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");

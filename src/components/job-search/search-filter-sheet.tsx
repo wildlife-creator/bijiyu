@@ -79,7 +79,14 @@ export function SearchFilterSheet({ children, trigger }: SearchFilterSheetProps)
           </Button>
         )}
       </SheetTrigger>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+      {/* onOpenAutoFocus 抑止: Radix Dialog は開いた瞬間にパネル内の最初のフォーカス可能要素
+          （= キーワード入力欄）へ自動フォーカスし、スマホでキーボードが立ち上がってしまう
+          （ステージング指摘 No.21）。フォーカスはパネル自体に留める。 */}
+      <SheetContent
+        side="bottom"
+        className="max-h-[85vh] overflow-y-auto rounded-t-2xl"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <SheetHeader>
           <SheetTitle>検索条件</SheetTitle>
         </SheetHeader>
