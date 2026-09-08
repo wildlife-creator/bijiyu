@@ -8,6 +8,7 @@ import type { Message, ScoutJobInfo } from "@/components/messaging/types";
 import { MessageHeader } from "@/components/messaging/message-header";
 import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display";
 import { fetchScoutJobInfo } from "@/lib/messaging/fetch-scout-job";
+import { resolveSideUserIds } from "@/lib/messaging/scout-recipient";
 
 // メッセージ通知は相手組織のメンバー全員宛にメールを直列送信する
 // （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
@@ -72,19 +73,23 @@ export default async function ThreadDetailPage({ params }: Props) {
     myOrgId,
   );
 
-  // Phase 2: スカウト応答ボタンは「個人 identity 側 (organization_X_id が null な side に
-  // 居る personal participant)」なら表示。受注者は必ず個人 identity という業務ルールに基づく。
-  // 旧実装は「counterpart が組織側」を追加要件にしていたため、個人発注者スカウトを
-  // 受け取った受注者側でボタンが出ない (R2 ②) バグがあった。
-  // 自分が送ったスカウトへのボタン抑止はメッセージ単位の isMine 判定で行う
-  // (MessageThreadView 側)。旧 `?showScoutActions=false` パラメータは、/messages/new
-  // 経由で開いた受注者が正当なスカウトに応答できなくなる副作用があったため廃止。
-  // respondToScoutAction 側の送信者ブロックは二重防御として維持する。
-  const showScoutActions =
-    (thread.participant_1_id === user.id &&
-      thread.organization_1_id === null) ||
-    (thread.participant_2_id === user.id &&
-      thread.organization_2_id === null);
+  // スカウト応答ボタンの表示可否（ステージング指摘 No.33 で判定を変更）。
+  // 旧実装は「個人 identity 側 (organization_X_id が null な side) の participant = 受注者」
+  // と決め打ちしていたため、法人プランの会員が職人としてスカウトを受ける（両側が組織
+  // identity になる）とボタンが一切出なかった。
+  // 新ルール: スレッドを見られる人は必ずどちらかの side に居るので、
+  //   - 「送った側」の除外はメッセージ単位の isMine 判定（MessageThreadView 側、
+  //     side の user id 集合ベース）で行う → 受信側 = 送信者の反対側 が自然に残る
+  //   - 担当者（staff）は受注者アクション不可（roles-and-permissions.md）なので除外し、
+  //     代わりに「返答は管理責任者のみ」の案内を出す（viewerIsStaff）
+  // respondToScoutAction 側は resolveScoutRecipientUserIds + role で同じ判定を行う（二重防御）。
+  const { data: viewerRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const viewerIsStaff = viewerRow?.role === "staff";
+  const showScoutActions = !viewerIsStaff;
 
   // 代理バッジは viewer が組織側 (送信元組織メンバー) のときのみ表示
   const showProxyBadge = counterparty.viewerIsOrgSide;
@@ -168,6 +173,7 @@ export default async function ThreadDetailPage({ params }: Props) {
           participantAvatarUrl={counterparty.avatarUrl}
           participantName={counterparty.name}
           showScoutActions={showScoutActions}
+          viewerIsStaff={viewerIsStaff}
           isProxyAccount={isProxyAccount}
           disabledMessage={
             isCounterpartDeleted ? "このユーザーは退会されました" : null
@@ -176,24 +182,5 @@ export default async function ThreadDetailPage({ params }: Props) {
         />
       </div>
     </div>
-  );
-}
-
-/**
- * スレッドの片側（組織 identity なら組織メンバー全員 + participant、個人 identity なら
- * participant のみ）の user id 集合。吹き出しの自分側 / 相手側判定に使う。
- */
-async function resolveSideUserIds(
-  admin: ReturnType<typeof createAdminClient>,
-  organizationId: string | null,
-  participantId: string,
-): Promise<string[]> {
-  if (!organizationId) return [participantId];
-  const { data } = await admin
-    .from("organization_members")
-    .select("user_id")
-    .eq("organization_id", organizationId);
-  return Array.from(
-    new Set([participantId, ...(data ?? []).map((m) => m.user_id)]),
   );
 }

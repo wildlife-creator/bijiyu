@@ -24,6 +24,10 @@ interface ScoutInfoCardProps {
   isClosed?: boolean;
   // Scout action props
   showScoutActions: boolean;
+  /** このスカウトが自分側（送信側）のものか。true なら「相手の返答を待っています」 */
+  isMine?: boolean;
+  /** viewer が担当者（staff）。true なら「返答は管理責任者のみ」の案内 */
+  viewerIsStaff?: boolean;
   scoutStatus: string | null;
   messageId: string;
 }
@@ -41,6 +45,8 @@ export function ScoutInfoCard({
   workEndDate,
   isClosed = false,
   showScoutActions,
+  isMine = false,
+  viewerIsStaff = false,
   scoutStatus,
   messageId,
 }: ScoutInfoCardProps) {
@@ -132,6 +138,8 @@ export function ScoutInfoCard({
         ) : (
           <ScoutActionButtons
             showScoutActions={showScoutActions}
+            isMine={isMine}
+            viewerIsStaff={viewerIsStaff}
             scoutStatus={scoutStatus}
             messageId={messageId}
             jobId={jobId}

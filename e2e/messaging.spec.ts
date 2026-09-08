@@ -4,6 +4,7 @@ import {
   TEST_CONTRACTOR,
   TEST_CONTRACTOR2,
   TEST_CLIENT,
+  TEST_CLIENT2,
   TEST_STAFF,
   TEST_INDIVIDUAL_CLIENT,
 } from "./helpers";
@@ -401,5 +402,72 @@ test.describe("R5.4 Phase 2: スカウト応答ボタンの表示 (R2 fix 回帰
     await expect(page.getByText("スカウトを受けました")).toBeVisible({
       timeout: 10000,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ステージング指摘 No.33（2026-09）: 法人 ⇔ 法人 のスカウト（両側が組織 identity）
+//   seed 14c: client2 org (aabbccdd) → client org (55555555 / 鈴木工務店) への pending スカウト
+// ---------------------------------------------------------------------------
+const CORP_SCOUT_THREAD_ID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee08";
+
+test.describe("ステージング指摘 No.33: 法人が職人としてスカウトを受ける", () => {
+  test("受信側の管理責任者（Owner）に「スカウトを受ける／断る」が表示される", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/messages/${CORP_SCOUT_THREAD_ID}`);
+    await expect(page.getByText("法人間スカウト検証用案件（内装）")).toBeVisible({
+      timeout: 10000,
+    });
+    // 旧実装（受信側が組織 identity だとボタン無し）の回帰防止
+    await expect(page.getByRole("button", { name: "スカウトを受ける" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "スカウトを断る" })).toBeVisible();
+  });
+
+  test("受信側の担当者（staff）にはボタンが出ず「返答は管理責任者のみ」の案内が出る（1c）", async ({
+    page,
+  }) => {
+    await login(page, TEST_STAFF.email, TEST_STAFF.password);
+    await page.goto(`/messages/${CORP_SCOUT_THREAD_ID}`);
+    await expect(page.getByText("法人間スカウト検証用案件（内装）")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      page.getByText("スカウトへの返答は管理責任者のみ行えます"),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "スカウトを受ける" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "スカウトを断る" })).toHaveCount(0);
+  });
+
+  test("送信側（スカウトした法人）には「相手の返答を待っています」が出る（1b）", async ({
+    page,
+  }) => {
+    await login(page, TEST_CLIENT2.email, TEST_CLIENT2.password);
+    await page.goto(`/messages/${CORP_SCOUT_THREAD_ID}`);
+    await expect(page.getByText("法人間スカウト検証用案件（内装）")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByText("相手の返答を待っています")).toBeVisible();
+    await expect(page.getByRole("button", { name: "スカウトを受ける" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "スカウトを断る" })).toHaveCount(0);
+  });
+
+  test("受信側の Owner がスカウトを断ると「スカウトを断りました」になる（サーバー側も受理）", async ({
+    page,
+  }) => {
+    // 破壊的操作のため本 describe の最後に置く（他テストは pending 前提）
+    await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    await page.goto(`/messages/${CORP_SCOUT_THREAD_ID}`);
+    await page.getByRole("button", { name: "スカウトを断る" }).click();
+    await expect(page.getByText("スカウトを断りますか？")).toBeVisible();
+    await page.getByRole("button", { name: "断る", exact: true }).click();
+    // 旧実装では Server Action が「スカウトへの応答権限がありません」を返していた
+    await expect(page.getByText("スカウトを断りました")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("スカウトへの応答権限がありません")).toHaveCount(0);
+
+    // 開き直しても辞退済み（DB 反映）
+    await page.reload();
+    await expect(page.getByText("スカウトを断りました")).toBeVisible({ timeout: 10000 });
   });
 });
