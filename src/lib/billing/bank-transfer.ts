@@ -85,8 +85,8 @@ export interface BankTransferAmount {
 
 /**
  * 申込金額を組み立てる。
- * - プラン: 月払い = 月額、年払い = 年額（暫定: 月額 × 12）。初回申込のみ事務手数料を加算
- * - オプション: 買い切りは単価。補償（月額課金型）は月払い = 月額、年払い = 月額 × 12
+ * - プラン: 月払い = 月額、年払い = 年額（`planPriceFor`。暫定: 月額 × 10、plans.ts の YEARLY_PRICE_MONTHS）。初回申込のみ事務手数料を加算
+ * - オプション: 買い切りは単価。補償（月額課金型）は月払い = 月額、年払い = 月額 × 12（12 か月分の補償。プラン年額の暫定係数とは別）
  */
 export function computeBankTransferAmount(
   target: BankTransferTarget,

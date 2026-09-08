@@ -10,6 +10,7 @@ import {
   priceIdFor,
   resolvePlanPriceFromId,
   resolvePlanTypeFromPriceId,
+  YEARLY_PRICE_MONTHS,
   YEARLY_PRICE_TAX_INCLUDED,
   type PlanType,
 } from "@/lib/constants/plans";
@@ -213,11 +214,12 @@ describe("resolvePlanTypeFromPriceId", () => {
 });
 
 describe("P3: 年払いの料金・表示名・比較", () => {
-  it("planPriceFor: 月払いは PLAN_LIMITS、年払いは YEARLY_PRICE_TAX_INCLUDED（暫定 月額×12）", () => {
+  it("planPriceFor: 月払いは PLAN_LIMITS、年払いは YEARLY_PRICE_TAX_INCLUDED（暫定 月額×10 = YEARLY_PRICE_MONTHS）", () => {
     expect(planPriceFor("individual", "monthly")).toBe(3800);
     expect(planPriceFor("individual", "yearly")).toBe(YEARLY_PRICE_TAX_INCLUDED.individual);
-    expect(YEARLY_PRICE_TAX_INCLUDED.individual).toBe(3800 * 12);
-    expect(YEARLY_PRICE_TAX_INCLUDED.corporate_premium).toBe(148000 * 12);
+    expect(YEARLY_PRICE_MONTHS).toBe(10);
+    expect(YEARLY_PRICE_TAX_INCLUDED.individual).toBe(3800 * 10);
+    expect(YEARLY_PRICE_TAX_INCLUDED.corporate_premium).toBe(148000 * 10);
   });
 
   it("planDisplayName: 「プラン名（月払い/年払い）」。サイクル未指定・無料はプラン名のみ", () => {

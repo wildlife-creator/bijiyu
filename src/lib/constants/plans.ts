@@ -102,15 +102,19 @@ export const INITIAL_FEE_TAX_INCLUDED = 20000;
 /**
  * 年払いの料金（税込 JPY）。
  *
- * TODO(P3-yearly-price): 年払い金額はクライアント未確定のため「月額 × 12」を暫定値とする。
+ * TODO(P3-yearly-price): 年払い金額はクライアント未確定のため「月額 × 10」を暫定値とする
+ *   （2026-09-08 決定。それ以前は月額 × 12 だった。後で正式金額に差し替える可能性あり）。
  * P3 で Stripe の年額 Price を作成する際に正式金額へ差し替え、Stripe 側と一致させること。
  * PLAN_LIMITS（月額）は変更しない。
  */
+/** 年払い金額の暫定係数（月額 × この月数）。正式金額が決まったら YEARLY_PRICE_TAX_INCLUDED を直接上書きする */
+export const YEARLY_PRICE_MONTHS = 10;
+
 export const YEARLY_PRICE_TAX_INCLUDED: Record<PaidPlanType, number> = {
-  individual: PLAN_LIMITS.individual.monthlyPriceTaxIncluded * 12,
-  small: PLAN_LIMITS.small.monthlyPriceTaxIncluded * 12,
-  corporate: PLAN_LIMITS.corporate.monthlyPriceTaxIncluded * 12,
-  corporate_premium: PLAN_LIMITS.corporate_premium.monthlyPriceTaxIncluded * 12,
+  individual: PLAN_LIMITS.individual.monthlyPriceTaxIncluded * YEARLY_PRICE_MONTHS,
+  small: PLAN_LIMITS.small.monthlyPriceTaxIncluded * YEARLY_PRICE_MONTHS,
+  corporate: PLAN_LIMITS.corporate.monthlyPriceTaxIncluded * YEARLY_PRICE_MONTHS,
+  corporate_premium: PLAN_LIMITS.corporate_premium.monthlyPriceTaxIncluded * YEARLY_PRICE_MONTHS,
 };
 
 /** プラン本体の料金（税込 JPY）を支払サイクルで解決する。 */

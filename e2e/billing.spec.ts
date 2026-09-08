@@ -49,8 +49,8 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto("/billing");
     await page.getByRole("tab", { name: "年払い" }).click();
-    // ライトプラン 3,800 × 12 = 45,600 円/年
-    await expect(page.getByRole("button", { name: /45,600円\/年 申し込む/ })).toBeVisible();
+    // ライトプラン 3,800 × 10 = 38,000 円/年（暫定係数 YEARLY_PRICE_MONTHS）
+    await expect(page.getByRole("button", { name: /38,000円\/年 申し込む/ })).toBeVisible();
     await page.getByRole("tab", { name: "月払い" }).click();
     await expect(page.getByRole("button", { name: /3,800円\/月 申し込む/ })).toBeVisible();
   });

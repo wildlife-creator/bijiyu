@@ -43,13 +43,14 @@ test.describe.serial("銀行振込: 運営が代理登録 → 有効化 → 契�
     // 対象 = 基本プラン（既定）/ プラン = ライト（既定）/ サイクル → 年払い
     await page.getByRole("combobox", { name: "お支払いサイクル" }).click();
     await page.getByRole("option", { name: "年払い" }).click();
-    await expect(page.getByText(/本体金額の目安: 45,600円/)).toBeVisible();
+    await expect(page.getByText(/本体金額の目安: 38,000円/)).toBeVisible();
     await page.getByRole("button", { name: "登録する" }).click();
 
     // 登録後は ADM-026 へ遷移。初回事務手数料込みの合計と運営メモ
     await page.waitForURL(/\/admin\/bank-transfers\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { name: "銀行振込申込詳細" })).toBeVisible();
-    await expect(page.getByText("65,600円（税込）").first()).toBeVisible();
+    // 38,000（年額・暫定 月額×10）+ 20,000（初回事務手数料）
+    await expect(page.getByText("58,000円（税込）").first()).toBeVisible();
     await expect(page.getByText(/運営が代理登録/)).toBeVisible();
   });
 
@@ -83,7 +84,7 @@ test.describe.serial("銀行振込: 運営が代理登録 → 有効化 → 契�
     await row.click();
     await page.waitForURL(/\/admin\/bank-transfers\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { name: "銀行振込申込詳細" })).toBeVisible();
-    await expect(page.getByText("65,600円（税込）")).toBeVisible();
+    await expect(page.getByText("58,000円（税込）")).toBeVisible();
 
     // 請求書送付済
     await page.getByRole("button", { name: "請求書を送付済みにする" }).click();
@@ -206,7 +207,7 @@ test.describe("銀行振込: 本人申込（NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVI
     const dialog = page.getByRole("dialog", { name: "銀行振込で申し込む" });
     await dialog.getByRole("combobox", { name: "お支払いサイクル" }).click();
     await page.getByRole("option", { name: "年払い" }).click();
-    await expect(dialog).toContainText("請求合計: 65,600円（税込）");
+    await expect(dialog).toContainText("請求合計: 58,000円（税込）");
     await dialog.getByRole("button", { name: "この内容で申し込む" }).click();
     await expect(page.getByText(/銀行振込でお申し込みいただきました/)).toBeVisible();
     await expect(page.getByText(/ライトプラン（年払い）（申込受付）/)).toBeVisible();

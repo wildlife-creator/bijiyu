@@ -15,8 +15,9 @@
  *   STRIPE_SECRET_KEY, STRIPE_PRICE_INDIVIDUAL, STRIPE_PRICE_SMALL,
  *   STRIPE_PRICE_CORPORATE, STRIPE_PRICE_CORPORATE_PREMIUM
  *   （任意）STRIPE_PORTAL_UPDATE_CONFIGURATION_ID … 既にあれば更新、無ければ新規作成
- *   （任意）YEARLY_AMOUNTS … 年額を上書きしたいとき。例: "45600,177600,576000,1776000"
- *          （ライト, スタンダード, プレミアム, ハイエンド の順、税込円）。未指定は月額 × 12
+ *   （任意）YEARLY_AMOUNTS … 年額を上書きしたいとき。例: "38000,148000,480000,1480000"
+ *          （ライト, スタンダード, プレミアム, ハイエンド の順、税込円）。未指定は月額 × 10
+ *          （暫定係数。src/lib/constants/plans.ts の YEARLY_PRICE_MONTHS と一致させること）
  *
  * テストモードの鍵で実行すれば staging 用、本番の鍵で実行すれば本番用の ID が出る。
  * 既存の STRIPE_PORTAL_CONFIGURATION_ID（カード更新 + 請求履歴のみ）には触らない。
@@ -58,6 +59,7 @@ const stripe = new Stripe(secretKey);
 const mode = secretKey.startsWith("sk_live_") ? "本番（live）" : "テスト（test）";
 console.log(`\nStripe ${mode} モードで実行します\n`);
 
+const YEARLY_PRICE_MONTHS = 10;
 const overrideAmounts = process.env.YEARLY_AMOUNTS
   ? process.env.YEARLY_AMOUNTS.split(",").map((v) => Number(v.trim()))
   : null;
@@ -80,7 +82,8 @@ for (const [index, plan] of PLANS.entries()) {
   const monthly = await stripe.prices.retrieve(monthlyPriceId);
   const productId = typeof monthly.product === "string" ? monthly.product : monthly.product.id;
   const monthlyAmount = monthly.unit_amount ?? 0;
-  const yearlyAmount = overrideAmounts ? overrideAmounts[index] : monthlyAmount * 12;
+  // 暫定: 月額 × 10（src/lib/constants/plans.ts の YEARLY_PRICE_MONTHS と同じ値。2026-09-08 決定）
+  const yearlyAmount = overrideAmounts ? overrideAmounts[index] : monthlyAmount * YEARLY_PRICE_MONTHS;
 
   // 既存の年額 Price（lookup_key で検索）
   const existing = await stripe.prices.list({ lookup_keys: [plan.lookupKey], active: true, limit: 1 });

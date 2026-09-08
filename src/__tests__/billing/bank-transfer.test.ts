@@ -37,13 +37,13 @@ describe("computeBankTransferAmount", () => {
     expect(out.total).toBe(3800 + 20000);
   });
 
-  it("プラン年払い = 年額（暫定: 月額 × 12）、再契約なら事務手数料なし", () => {
+  it("プラン年払い = 年額（暫定: 月額 × 10）、再契約なら事務手数料なし", () => {
     const out = computeBankTransferAmount(
       { kind: "plan", planType: "corporate", billingCycle: "yearly" },
       { needsInitialFee: false },
     );
     expect(out.amount).toBe(YEARLY_PRICE_TAX_INCLUDED.corporate);
-    expect(out.amount).toBe(48000 * 12);
+    expect(out.amount).toBe(48000 * 10);
     expect(out.initialFee).toBe(0);
     expect(out.total).toBe(out.amount);
   });

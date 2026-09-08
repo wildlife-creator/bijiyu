@@ -458,7 +458,7 @@ describe("createBankTransferRequestByAdminAction（P9 代理登録）", () => {
       plan_type: "individual",
       option_type: null,
       billing_cycle: "yearly",
-      amount: 45600,
+      amount: 38000,
       initial_fee: 20000,
       status: "requested",
       handled_by: "admin-1",

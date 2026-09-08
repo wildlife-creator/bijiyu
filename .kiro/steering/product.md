@@ -99,7 +99,7 @@
 - 有効期限 = 利用開始日 + 1 か月（年払いは + 1 年）の前日。**期限が来ても自動停止しない**（D3）。管理画面に「期限間近（30 日以内）/ 期限切れ」バッジ、30 日前・当日に運営宛通知メール。継続は入金確認後に ADM-004「期限を延長する」
 - 銀行振込契約のプラン変更・解約は運営が ADM-004 で行う（ユーザー画面からは不可）。Stripe 契約中の会員が銀行振込へ切り替える場合は、Stripe の期間終了日の翌日を利用開始日にして有効化する（D8。二重契約は DB 制約で防止）
 - 初回事務手数料 20,000 円は Stripe と同じ条件（初めての基本プラン契約時のみ）
-- 年払い金額は **暫定で月額 × 12**（`YEARLY_PRICE_TAX_INCLUDED`）。正式金額が決まったら定数と Stripe の年額 Price（`scripts/stripe/setup-yearly-prices.mjs` の `YEARLY_AMOUNTS`）を同時に更新する
+- 年払い金額は **暫定で月額 × 10**（`YEARLY_PRICE_TAX_INCLUDED`、係数は `YEARLY_PRICE_MONTHS`。2026-09-08 に月額 × 12 から変更）。正式金額が決まったら定数と Stripe の年額 Price（`scripts/stripe/setup-yearly-prices.mjs` の `YEARLY_AMOUNTS`）を同時に更新する
 - **サイクル切替ルール（P3）**: 月払い → 年払い = 即時（アップグレード扱い、Stripe ホスト画面）。年払い → 月払い = 次回更新日に切替（ダウングレード扱い、予約）。プランのランク差があればランクが優先（`comparePlanChange`）
 - Stripe の Price は月額 4 + 年額 4 の 8 本。環境変数 `STRIPE_PRICE_*` / `STRIPE_PRICE_*_YEARLY`。プラン変更確認用のポータル設定は `STRIPE_PORTAL_UPDATE_CONFIGURATION_ID`（既存の `STRIPE_PORTAL_CONFIGURATION_ID` = カード更新・請求履歴とは別）
 

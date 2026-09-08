@@ -431,7 +431,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 
 **RLS:** SELECT は本人（`user_id = auth.uid()`）と admin（`is_admin()`）。INSERT / UPDATE は service_role（Server Action）のみ。
 
-**申込の金額:** `computeBankTransferAmount()`（`src/lib/billing/bank-transfer.ts`）。プランは月額 = `PLAN_LIMITS`、年額 = `YEARLY_PRICE_TAX_INCLUDED`（**暫定: 月額 × 12。P3 で Stripe 年額 Price と一致させる**）。オプションは `OPTION_PRICES_TAX_INCLUDED`。
+**申込の金額:** `computeBankTransferAmount()`（`src/lib/billing/bank-transfer.ts`）。プランは月額 = `PLAN_LIMITS`、年額 = `YEARLY_PRICE_TAX_INCLUDED`（**暫定: 月額 × 10（`YEARLY_PRICE_MONTHS`、2026-09-08 に ×12 から変更）。Stripe 年額 Price と一致させる**）。オプションは `OPTION_PRICES_TAX_INCLUDED`。
 
 ### option_subscriptions（オプション契約）
 
