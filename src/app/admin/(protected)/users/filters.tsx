@@ -31,8 +31,17 @@ const OPTION_ITEMS: { value: string; label: string }[] = [
 /**
  * ADM-008 のキーワード検索 + オプションプラン加入者フィルタ（video-display Task 5.2）。
  * フィルタ状態は URL searchParams を SSOT とし、検索ボタンで router.push する。
+ *
+ * ブラウザの戻る/進むで URL（= initial*）が変わったときに入力欄の表示も追従させるため、
+ * URL 由来の初期値を key にして内部 state を作り直す（ステージング指摘 No.40）。
+ * 検索ボタンを押すまでの入力途中の値は、URL が変わらない限り保持される。
  */
-export function AdminUserFilters({
+export function AdminUserFilters(props: AdminUserFiltersProps) {
+  const resetKey = `${props.initialKeyword}|${props.initialOption}`;
+  return <AdminUserFiltersInner key={resetKey} {...props} />;
+}
+
+function AdminUserFiltersInner({
   initialKeyword,
   initialOption,
 }: AdminUserFiltersProps) {

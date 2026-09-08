@@ -40,8 +40,19 @@ const OPTION_ITEMS: { value: string; label: string }[] = [
 /**
  * ADM-003 のキーワード検索 + 2枠フィルタ（区分／オプション・各単一選択）。
  * フィルタ状態は URL searchParams を SSOT とし、検索ボタンで router.push する。
+ *
+ * ブラウザの戻る/進むで URL（= initial*）が変わったときに入力欄の表示も追従させるため、
+ * URL 由来の初期値を key にして内部 state を作り直す（ステージング指摘 No.40:
+ * 「マウント時に一度だけ URL から写す」実装では、戻るで URL が検索前に戻っても
+ * 入力欄が検索後の値のまま残っていた）。検索ボタンを押すまでの入力途中の値は
+ * URL が変わらない限り保持される。
  */
-export function AdminClientFilters({
+export function AdminClientFilters(props: AdminClientFiltersProps) {
+  const resetKey = `${props.initialKeyword}|${props.initialCategory}|${props.initialOption}`;
+  return <AdminClientFiltersInner key={resetKey} {...props} />;
+}
+
+function AdminClientFiltersInner({
   initialKeyword,
   initialCategory,
   initialOption,

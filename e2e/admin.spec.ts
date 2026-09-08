@@ -469,3 +469,106 @@ test.describe("ADM-023/024: 代理メッセージ閲覧", () => {
     await expect(page.locator("input[type='text']")).toHaveCount(0);
   });
 });
+
+// ============================================================
+// ステージング指摘（2026-09）: 管理画面の「もどる」導線と検索欄のブラウザ戻り
+// ============================================================
+
+test.describe("ステージング指摘 No.35 / No.37 / No.40: admin の戻り導線", () => {
+  test.beforeEach(async ({ page }) => {
+    await adminLogin(page);
+  });
+
+  test("No.35: ADM-004 →「応募◯件」→ 検索 → もどる で ADM-004 に戻る（backTo を検索で落とさない）", async ({
+    page,
+  }) => {
+    // 鈴木花子（鈴木工務店 Owner）の ADM-004
+    await page.goto("/admin/clients/22222222-2222-2222-2222-222222222222");
+    await expect(
+      page.getByRole("heading", { name: "発注者 アカウント詳細" }),
+    ).toBeVisible();
+
+    // 募集現場一覧の「応募◯件」→ 応募一覧（現場で絞込 + backTo 付き）
+    const showMore = page.getByRole("button", { name: /もっと見る/ });
+    if (await showMore.isVisible().catch(() => false)) {
+      await showMore.click();
+    }
+    await page.getByRole("link", { name: /^応募 \d+件$/ }).first().click();
+    await page.waitForURL(/\/admin\/applications\?jobId=.*backTo=/);
+
+    // 検索ボタンで URL を組み直しても backTo が維持される
+    await page.getByRole("button", { name: "検索" }).click();
+    await page.waitForURL(/\/admin\/applications\?.*backTo=/);
+    await expect(page).toHaveURL(/jobId=/);
+
+    // もどる → ダッシュボードではなく来た ADM-004 に戻る
+    await page.getByRole("link", { name: "もどる" }).click();
+    await page.waitForURL(/\/admin\/clients\/22222222-2222-2222-2222-222222222222/);
+    await expect(
+      page.getByRole("heading", { name: "発注者 アカウント詳細" }),
+    ).toBeVisible();
+  });
+
+  test("No.37/38: ADM-009 →「発注者詳細」→ もどる で ADM-009 に戻る（backTo を引き継ぐ）", async ({
+    page,
+  }) => {
+    // client ロールのユーザー詳細（鈴木花子）には「発注者詳細」ボタンが出る
+    await page.goto("/admin/users/22222222-2222-2222-2222-222222222222");
+    await expect(
+      page.getByRole("heading", { name: "ユーザーアカウント詳細" }),
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: "発注者詳細" }).click();
+    await page.waitForURL(/\/admin\/clients\/22222222-2222-2222-2222-222222222222\?backTo=/);
+    await expect(
+      page.getByRole("heading", { name: "発注者 アカウント詳細" }),
+    ).toBeVisible();
+
+    // もどる → 発注者一覧ではなく来た ADM-009 に戻る
+    await page.getByRole("link", { name: "もどる" }).click();
+    await page.waitForURL(/\/admin\/users\/22222222-2222-2222-2222-222222222222/);
+    await expect(
+      page.getByRole("heading", { name: "ユーザーアカウント詳細" }),
+    ).toBeVisible();
+  });
+
+  test("No.40: 検索後にブラウザの戻る/進むを押すと検索欄の表示が URL に追従する（ADM-003）", async ({
+    page,
+  }) => {
+    await page.goto("/admin/clients");
+    const keyword = page.getByLabel("キーワード");
+    await expect(keyword).toHaveValue("");
+
+    await keyword.fill("鈴木");
+    await page.getByRole("button", { name: "検索" }).click();
+    await page.waitForURL(/q=/);
+    await expect(keyword).toHaveValue("鈴木");
+
+    // ブラウザ戻る → URL が検索前に戻り、入力欄も空に戻る
+    await page.goBack();
+    await page.waitForURL((url) => !url.searchParams.has("q"));
+    await expect(keyword).toHaveValue("");
+
+    // ブラウザ進む → 検索後の値に戻る
+    await page.goForward();
+    await page.waitForURL(/q=/);
+    await expect(keyword).toHaveValue("鈴木");
+  });
+
+  test("No.40: キーワード 1 枠の共通フォーム（ADM-017 お問い合わせ一覧）でも同様に追従する", async ({
+    page,
+  }) => {
+    await page.goto("/admin/contacts");
+    const keyword = page.getByLabel("キーワード");
+    await expect(keyword).toHaveValue("");
+
+    await keyword.fill("テスト");
+    await page.getByRole("button", { name: "検索" }).click();
+    await page.waitForURL(/q=/);
+    await expect(keyword).toHaveValue("テスト");
+
+    await page.goBack();
+    await page.waitForURL((url) => !url.searchParams.has("q"));
+    await expect(keyword).toHaveValue("");
+  });
+});
