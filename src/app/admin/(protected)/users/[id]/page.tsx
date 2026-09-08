@@ -10,6 +10,7 @@ import { RatingSummaryCard } from "@/components/reviews/rating-summary-card";
 import { CommentListCard } from "@/components/reviews/comment-list-card";
 import { CommentsPagination } from "@/components/reviews/comments-pagination";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { fetchPerItemSummary } from "@/lib/rating/aggregate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
@@ -70,11 +71,13 @@ export default async function AdminUserDetailPage({
     Number.parseInt(sp.commentsPage ?? "1", 10) || 1,
   );
   // backTo は admin 配下の遷移元（応募詳細など）からの一時的な戻り先指定。
-  // 公開リダイレクター悪用を避けるため /admin/ 始まりのみ受け入れる。
-  const backTo =
-    typeof sp.backTo === "string" && sp.backTo.startsWith("/admin/")
-      ? sp.backTo
-      : "/admin/users";
+  // 公開リダイレクター悪用を避けるため /admin/ 始まりのみ受け入れる（resolveBackTo）。
+  const rawBackTo = resolveBackTo(sp.backTo);
+  const backTo = rawBackTo ?? "/admin/users";
+  // 子画面（発注者詳細 ADM-004 等）へ渡す戻り先 = 本画面の URL（自分の backTo 込み）。
+  // ステージング指摘 No.37/38: これを渡していなかったため ADM-004 の「もどる」が
+  // 発注者一覧へ飛び、来た画面（本画面）に戻れなかった
+  const backToForChildren = buildBackToValue(`/admin/users/${id}`, rawBackTo);
   const admin = createAdminClient();
 
   const { data: u } = await admin
@@ -375,7 +378,11 @@ export default async function AdminUserDetailPage({
             variant="outline"
             className="w-full max-w-xs rounded-full border-secondary text-secondary"
           >
-            <Link href={`/admin/clients/${id}`}>発注者詳細</Link>
+            <Link
+              href={`/admin/clients/${id}?backTo=${encodeURIComponent(backToForChildren)}`}
+            >
+              発注者詳細
+            </Link>
           </Button>
         )}
       </div>

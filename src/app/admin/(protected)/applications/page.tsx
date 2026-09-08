@@ -302,6 +302,7 @@ export default async function AdminApplicationsPage({
         initialSort={sort}
         jobId={jobIdParam ?? undefined}
         clientId={clientIdParam ?? undefined}
+        backTo={backTo}
       />
 
       <div className="mt-6 flex items-center justify-between gap-3">
