@@ -17,12 +17,37 @@ import { cancelApplicationAction } from "@/app/(authenticated)/applications/acti
 
 interface CancelButtonProps {
   applicationId: string;
+  /**
+   * accepted = 発注後キャンセル（従来。初回稼働日 5 日前まで）
+   * applied  = 結果待ちの応募を取り下げる（2026-09-08 追加。FAQ「マッチング成立前であれば
+   *            応募の取り下げは可能」と整合。日付制限なし）
+   */
+  mode?: "accepted" | "applied";
 }
 
-export function CancelButton({ applicationId }: CancelButtonProps) {
+const LABELS = {
+  accepted: {
+    trigger: "キャンセルする",
+    pending: "キャンセル中...",
+    title: "応募をキャンセルしますか？",
+    description: "この操作は取り消せません。応募をキャンセルしてもよろしいですか？",
+    confirm: "キャンセルする",
+  },
+  applied: {
+    trigger: "応募を取り下げる",
+    pending: "取り下げ中...",
+    title: "応募を取り下げますか？",
+    description:
+      "発注者にはまだ結果が出ていない応募です。取り下げると発注者に通知され、この操作は取り消せません（同じ案件に改めて応募することはできます）。",
+    confirm: "取り下げる",
+  },
+} as const;
+
+export function CancelButton({ applicationId, mode = "accepted" }: CancelButtonProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const labels = LABELS[mode];
 
   async function handleCancel() {
     setIsLoading(true);
@@ -47,20 +72,18 @@ export function CancelButton({ applicationId }: CancelButtonProps) {
             className="w-full text-center text-body-sm text-muted-foreground underline"
             disabled={isLoading}
           >
-            {isLoading ? "キャンセル中..." : "キャンセルする"}
+            {isLoading ? labels.pending : labels.trigger}
           </button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>応募をキャンセルしますか？</AlertDialogTitle>
-            <AlertDialogDescription>
-              この操作は取り消せません。応募をキャンセルしてもよろしいですか？
-            </AlertDialogDescription>
+            <AlertDialogTitle>{labels.title}</AlertDialogTitle>
+            <AlertDialogDescription>{labels.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>いいえ</AlertDialogCancel>
             <AlertDialogAction onClick={handleCancel} disabled={isLoading}>
-              キャンセルする
+              {labels.confirm}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

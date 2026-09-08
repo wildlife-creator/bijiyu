@@ -18,6 +18,7 @@ export type AuditAction =
   | "admin_client_invite"
   // 応募管理
   | "application_cancel_admin"
+  | "application_complete_admin" // 期限切れの発注済み応募を運営が完了扱いにする（ADM-014）
   // 管理者自身の操作
   | "admin_password_change"
   | "admin_memo_update"

@@ -125,3 +125,31 @@ test.describe("ハンバーガーメニュー（認証状態別）", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// ステージング指摘 No.8（2026-09）: 退会ガードのメッセージに案件名と窓口案内を出す
+// ---------------------------------------------------------------------------
+test.describe("退会ガード: 進行中の案件があるときのメッセージ（AUTH-006）", () => {
+  test("発注済み応募が残る受注者は退会できず、原因の案件名とお問い合わせ導線が表示される", async ({
+    page,
+  }) => {
+    // contractor@test.local は seed で accepted の応募（aaaa / aaab）を持つ = ガード 1 に該当
+    await login(page);
+    await page.goto("/profile/withdrawal");
+    await expect(page.getByRole("heading", { name: "退会手続き" })).toBeVisible();
+
+    await page.getByText("お選びください").click();
+    await page.getByRole("option", { name: "仕事の依頼が来なかった" }).click();
+    await page.getByLabel("上記内容に同意して退会する").check();
+    await page.getByRole("button", { name: "退会する" }).click();
+
+    // 旧文言は案件名も窓口も無く「なぜ退会できないか」が分からなかった
+    const error = page.getByText(/応募中または進行中の案件（.+）があるため退会できません/);
+    await expect(error).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByText(/稼働終了日から5日を過ぎて完了報告ができない場合は、お問い合わせからご連絡ください/),
+    ).toBeVisible();
+    // 退会は実行されていない（退会完了ページに遷移しない）
+    await expect(page).toHaveURL(/\/profile\/withdrawal/);
+  });
+});

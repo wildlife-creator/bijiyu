@@ -776,3 +776,14 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - その結果、あるテストで未消費のモック（例: 早期 return する検証で .from() を呼ばないケース）が次のテストで消費されてしまい、意図しない値を返す → 「upsert が呼ばれていない」等の謎の失敗
 - **対策**: 各 spy を `spy.mockReset()` で明示的にリセットしてから必要なモックを再構築する。`beforeEach` で `vi.clearAllMocks()` ではなく `mockFrom.mockReset(); mockAdminFrom.mockReset(); ...` の形を使う
 - 実例: 2026-04-25 に `client-profile-actions.test.ts` の Staff ガードモック追加で queue 漏れが連鎖しデバッグに時間を費やした
+### ステージング指摘（2026-09）から学んだルール
+
+- **スカウトの受信者は「送信者の反対側」で判定する（必ず守ること）**: 「`organization_X_id` が null な側（個人 identity）= 受注者 = 受信者」という決め打ちを復活させないこと。ビジ友は 1 アカウントで受注・発注の両方が可能で、法人プランの Owner も職人一覧に出てスカウトを受けられる（両側が組織 identity になる）。判定は `resolveScoutRecipientUserIds()`（`src/lib/messaging/scout-recipient.ts`）に集約し、画面（`messages/[threadId]/page.tsx` + `MessageThreadView` の isMine）と Server Action（`respondToScoutAction`）で共有する。担当者（staff）は受注者アクション不可なのでボタンの代わりに案内文を出す。2026-09 実例: 法人同士のスカウトで受諾/辞退ボタンが出ず、応答も拒否されていた（No.33）
+- **期限付きの状態遷移には、期限切れ後に運営が解消できる操作を必ず用意する（必ず守ること）**: 「A（当事者の操作）は期限 X まで」「B（運営の操作）は期限 Y まで」と全経路に期限を付けると、期限を過ぎた行は誰も動かせなくなり、その行を条件にしたガード（退会ブロック等）が永久に成立する。新しいステータス遷移や期限を設計するときは「期限切れ後、誰がどの画面で解消するか」を仕様に書き、ADM 画面に実装すること。判定は純粋関数（例: `canAdminResolveExpired`）に集約し UI / Server Action で共有する。2026-09 実例: 稼働終了日+5日を過ぎた accepted 応募が完了報告・受注者キャンセル・運営取消のすべてで不可になり、当事者が退会できないデッドロックにステージングで到達（No.8）。ADM-014 の「完了扱いにする／発注を取り消す」で解消
+- **ガードで操作を拒否するメッセージには「原因の対象名」と「解消できない場合の窓口」を含める**: 件数だけ数えて「〜があるため退会できません」と返すと、ユーザーはどの案件が原因か分からず、期限切れなら永久に詰まる。対象のタイトルを取得して `（A、B ほかN件）` の形で示し、「お問い合わせからご連絡ください」を添える（`src/lib/withdrawal/execute.ts` の `formatJobTitlesForGuard`）
+- **URL を SSOT にするフィルターフォームは、URL 由来の初期値を `key` にして内部 state を作り直す**: `useState(initialKeyword)` は「マウント時に一度だけ」写すため、ブラウザの戻る/進むで URL が変わっても入力欄が追従しない（No.40）。`export function X(props) { return <XInner key={`${props.initialA}|${props.initialB}`} {...props} /> }` の形にする（admin の `filters.tsx` / `KeywordSearchForm` が基準）。useEffect で setState する形は避ける
+- **`backTo` リレー（admin）は、URL を組み直す全経路（検索・ページ送り・並び替え）と全子リンクで維持する**: 1 箇所落とすと「もどる」がフォールバック先へ飛ぶ（No.35 / No.37）。新しい一覧・詳細を admin に足すときは `resolveBackTo` / `buildBackToValue` を使い、検索フォームには `backTo` prop を渡すこと
+- **入力欄はスマホで 16px 以上**（詳細は design-rule.md「入力欄の文字サイズはスマホで 16px 以上」）。生の `<input>` / `<textarea>` / cmdk Input に `text-sm` / `text-body-*` を単独で当てない
+- **Radix Dialog / Sheet で開いた直後にキーボードを出したくない場合は `onOpenAutoFocus={(e) => e.preventDefault()}`**（No.21。検索条件パネルは `SearchFilterSheet` で一括対応済）
+- **E2E で「その場で消えた」を検証するとき、楽観的にラベルが変わるボタンの個数を代理指標にしない（必ず守ること）**: `FavoriteButton` のようにクリック直後にラベルが「解除」→「登録」へ切り替わる部品は、Server Action 完了前に個数が減って見える。その直後に `page.reload()` すると処理が中断され、DB が更新されない flake になる。サーバー再描画後にしか変わらない表示（件数「全N件」、EmptyState 文言）で待つこと（`e2e/job-search.spec.ts` の `expectUnfavoriteRemovesCard`）
+- **E2E 全件の前に必ず `supabase db reset`**: 使い捨て seed（承認待ちの本人確認、銀行振込申込、削除対象の担当者、取消対象の応募等）は 1 回の実行で消費される。リセットせず再実行すると数十件が「要素が見つからない」で落ち、原因の切り分けに時間を浪費する（2026-09-08 に 36 件 fail の実例）

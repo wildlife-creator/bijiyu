@@ -9,6 +9,7 @@ import { CollapsibleList } from "@/components/master/collapsible-list";
 import {
   ADMIN_APPLICATION_CATEGORY_LABELS,
   canAdminCancel,
+  canAdminResolveExpired,
   classifyAdminApplication,
 } from "@/lib/admin/application-status";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
@@ -24,6 +25,7 @@ import { formatDate, getJstToday } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 import { cn } from "@/lib/utils";
 import { CancelButton } from "./cancel-button";
+import { CompleteButton } from "./complete-button";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -84,6 +86,9 @@ const RATING_AGAIN_LABELS: Record<string, string> = {
  *
  * - 個別評価（集計ではない）を application_id で両方向1件ずつ表示
  * - 発注取消ボタンは canAdminCancel が true の場合のみ（Server Action 内でも再評価）
+ * - 期限切れ（稼働終了日+5日を過ぎた accepted）は canAdminResolveExpired が true になり、
+ *   「完了扱いにする」「発注を取り消す」を表示する。当事者も運営も画面から解消できず
+ *   退会がブロックされ続けるデッドロック（ステージング指摘 No.8）の解消手段
  */
 export default async function AdminApplicationDetailPage({
   params,
@@ -192,6 +197,11 @@ export default async function AdminApplicationDetailPage({
     today,
   );
   const showCancelButton = canAdminCancel(app, today);
+  const showExpiredResolution = canAdminResolveExpired(
+    app,
+    app.job ? { work_end_date: app.job.work_end_date } : null,
+    today,
+  );
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-8">
@@ -199,13 +209,24 @@ export default async function AdminApplicationDetailPage({
         応募履歴詳細
       </h1>
 
-      {/* ステータスバッジ（8分類表記・ADM-013 の行バッジと同スタイル）＋発注取消 */}
+      {/* ステータスバッジ（8分類表記・ADM-013 の行バッジと同スタイル）＋発注取消／期限切れ解消 */}
       <div className="mt-4 flex items-center justify-between gap-3">
         <span className="rounded-full bg-primary/10 px-3 py-1 text-body-sm font-medium text-primary">
           {ADMIN_APPLICATION_CATEGORY_LABELS[category]}
         </span>
         {showCancelButton && <CancelButton applicationId={id} />}
+        {showExpiredResolution && (
+          <div className="flex items-center gap-4">
+            <CompleteButton applicationId={id} />
+            <CancelButton applicationId={id} />
+          </div>
+        )}
       </div>
+      {showExpiredResolution && (
+        <p className="mt-2 text-body-sm text-muted-foreground">
+          評価・完了報告の入力期間（稼働終了日から5日後まで）を過ぎているため、当事者はこの応募を完了・キャンセルできません。稼働が終わった場合は「完了扱いにする」、稼働しなかった場合は「発注を取り消す」で解消してください（解消しないと当事者が退会できません）。
+        </p>
+      )}
 
       {/* 案件情報 → ADM-022 */}
       <section className="mt-6">

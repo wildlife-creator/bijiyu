@@ -34,6 +34,33 @@ export interface WithdrawalSurveyInput {
 
 const BAN_DURATION = "876600h"; // 約100年 = 恒久 ban
 
+/** 退会ガードのメッセージに載せる案件タイトルの最大数（超えた分は「ほかN件」） */
+const GUARD_TITLE_LIMIT = 2;
+
+/**
+ * 退会ガードの案内文（ステージング指摘 No.8）。稼働終了日+5日を過ぎた発注済み応募は当事者が
+ * 画面から完了報告できないため、運営（ADM-014 の完了扱い／取消）に解消を依頼する導線を示す。
+ */
+export const WITHDRAWAL_EXPIRED_GUIDANCE =
+  "稼働終了日から5日を過ぎて完了報告ができない場合は、お問い合わせからご連絡ください。";
+
+/** ガード対象の案件タイトルを「（A、B ほかN件）」の形に整える（タイトルが取れなければ空文字） */
+export function formatJobTitlesForGuard(
+  rows: Array<{ jobs?: { title?: string | null } | { title?: string | null }[] | null }>,
+): string {
+  const titles = Array.from(
+    new Set(
+      rows
+        .map((r) => (Array.isArray(r.jobs) ? r.jobs[0] : r.jobs)?.title?.trim())
+        .filter((t): t is string => !!t),
+    ),
+  );
+  if (titles.length === 0) return "";
+  const shown = titles.slice(0, GUARD_TITLE_LIMIT).join("、");
+  const rest = titles.length - GUARD_TITLE_LIMIT;
+  return rest > 0 ? `（${shown} ほか${rest}件）` : `（${shown}）`;
+}
+
 /** §8.5 / §8.5.5 カスケード凍結メール 1 通分の宛先情報 */
 interface CascadeEmailSpec {
   to: string;
@@ -61,17 +88,18 @@ export async function executeWithdrawal(params: {
   const admin = createAdminClient();
 
   // --- Guard 1: 応募者としての進行中応募 ---
-  const { count: activeApplicationCount } = await admin
+  //     どの案件が原因かをメッセージに出す（ステージング指摘 No.8: 案件名も窓口も示されず
+  //     「なぜ退会できないか」が分からなかった）ため、件数ではなく案件タイトルを取得する
+  const { data: activeApplications } = await admin
     .from("applications")
-    .select("*", { count: "exact", head: true })
+    .select("id, jobs!inner(title)")
     .eq("applicant_id", targetUserId)
     .in("status", ["applied", "accepted"]);
 
-  if (activeApplicationCount && activeApplicationCount > 0) {
+  if (activeApplications && activeApplications.length > 0) {
     return {
       success: false,
-      error:
-        "応募中または進行中の案件があるため退会できません。応募の取り下げまたは完了後に再度お試しください。",
+      error: `応募中または進行中の案件${formatJobTitlesForGuard(activeApplications)}があるため退会できません。応募の取り下げまたは完了後に再度お試しください。${WITHDRAWAL_EXPIRED_GUIDANCE}`,
     };
   }
 
@@ -97,7 +125,7 @@ export async function executeWithdrawal(params: {
   //      organization_id 単独だと accepted 応募を見落として退会を通してしまう）
   let ownedJobQuery = admin
     .from("applications")
-    .select("id, jobs!inner(owner_id, organization_id)")
+    .select("id, jobs!inner(title, owner_id, organization_id)")
     .eq("status", "accepted");
 
   if (orgMembership?.org_role === "owner" && orgMembership.organization_id) {
@@ -114,8 +142,7 @@ export async function executeWithdrawal(params: {
   if (ownedJobApplications && ownedJobApplications.length > 0) {
     return {
       success: false,
-      error:
-        "受注者が作業中の案件があるため退会できません。案件の完了後に再度お試しください。",
+      error: `受注者が作業中の案件${formatJobTitlesForGuard(ownedJobApplications)}があるため退会できません。案件の完了後に再度お試しください。${WITHDRAWAL_EXPIRED_GUIDANCE}`,
     };
   }
 

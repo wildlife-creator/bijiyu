@@ -56,6 +56,8 @@ interface ChainConfig {
   count?: number;
   data?: unknown;
   thenable?: { data: unknown; error: unknown };
+  /** select の列指定文字列ごとに thenable を切り替える（同一テーブルへの複数クエリを区別する） */
+  thenableBySelect?: Record<string, { data: unknown; error: unknown }>;
 }
 
 /** .from() の戻り値チェイン Mock（呼び出し記録付き・select の head 有無で then を切替） */
@@ -74,9 +76,12 @@ function makeChain(config: ChainConfig = {}) {
   };
 
   const chain: Record<string, unknown> = {
-    select: vi.fn((_cols: string, opts?: { head?: boolean }) => {
+    select: vi.fn((cols: string, opts?: { head?: boolean }) => {
+      const bySelect = config.thenableBySelect?.[cols];
       if (opts?.head) {
         defineThen(() => ({ count: config.count ?? 0, error: null }));
+      } else if (bySelect) {
+        defineThen(() => ({ data: bySelect.data, error: bySelect.error }));
       } else if (config.thenable) {
         defineThen(() => ({
           data: config.thenable!.data,
@@ -154,9 +159,17 @@ beforeEach(() => {
 });
 
 describe("executeWithdrawal: 退会前ガード", () => {
-  it("応募中・進行中の応募があれば拒否する", async () => {
+  it("応募中・進行中の応募があれば拒否し、案件名と窓口案内をメッセージに含める", async () => {
     setupTables({
-      applications: { count: 2, thenable: { data: [], error: null } },
+      applications: {
+        thenable: {
+          data: [
+            { id: "app-1", jobs: { title: "表町電気工事" } },
+            { id: "app-2", jobs: { title: "かずひで333" } },
+          ],
+          error: null,
+        },
+      },
     });
 
     const result = await executeWithdrawal({
@@ -166,7 +179,9 @@ describe("executeWithdrawal: 退会前ガード", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toContain("応募中または進行中の案件があるため退会できません");
+      expect(result.error).toBe(
+        "応募中または進行中の案件（表町電気工事、かずひで333）があるため退会できません。応募の取り下げまたは完了後に再度お試しください。稼働終了日から5日を過ぎて完了報告ができない場合は、お問い合わせからご連絡ください。",
+      );
     }
     // ガード拒否時はカスケードに入らない（ban されない）
     expect(mockAdminAuthUpdate).not.toHaveBeenCalled();
@@ -191,12 +206,22 @@ describe("executeWithdrawal: 退会前ガード", () => {
     }
   });
 
-  it("受注者が作業中の案件があれば拒否する", async () => {
+  it("受注者が作業中の案件があれば拒否し、案件名（3 件以上は ほかN件）を含める", async () => {
     setupTables({
       applications: {
-        count: 0,
+        // ガード 1（応募者としての進行中応募）は該当なし
+        thenableBySelect: {
+          "id, jobs!inner(title)": { data: [], error: null },
+        },
+        // ガード 2（発注責任者としての進行中案件）
         thenable: {
-          data: [{ id: "app-1", jobs: { owner_id: TARGET_ID } }],
+          data: [
+            { id: "app-1", jobs: { title: "A工事", owner_id: TARGET_ID } },
+            { id: "app-2", jobs: { title: "B工事", owner_id: TARGET_ID } },
+            { id: "app-3", jobs: { title: "C工事", owner_id: TARGET_ID } },
+            // 同じ案件への複数応募はタイトルを重複させない
+            { id: "app-4", jobs: { title: "C工事", owner_id: TARGET_ID } },
+          ],
           error: null,
         },
       },
@@ -210,7 +235,10 @@ describe("executeWithdrawal: 退会前ガード", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toContain("受注者が作業中の案件があるため退会できません");
+      expect(result.error).toContain(
+        "受注者が作業中の案件（A工事、B工事 ほか1件）があるため退会できません",
+      );
+      expect(result.error).toContain("お問い合わせからご連絡ください");
     }
   });
 

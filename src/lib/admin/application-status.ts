@@ -1,3 +1,7 @@
+import {
+  computeReviewInputWindow,
+  isWithinReviewInputWindow,
+} from "@/lib/matching";
 import type { Database } from "@/types/database";
 
 /**
@@ -132,4 +136,29 @@ export function canAdminCancel(
     app.status === "accepted" &&
     (app.first_work_date === null || app.first_work_date >= today)
   );
+}
+
+/**
+ * 期限切れの発注済み応募を運営が解消（完了扱い／取消）できるか。
+ * UI（ADM-014 のボタン表示）と Server Action（再評価）で同一関数を使うこと。
+ *
+ * = 発注済み（accepted）かつ、評価・完了報告の入力期間（初回稼働日〜稼働終了日+5日）を
+ *   **過ぎている** もの。この状態は受注者・発注者の完了報告も、受注者キャンセル
+ *   （初回稼働日 5 日前まで）も、運営の発注取消（初回稼働日前日まで）も全て不可で、
+ *   accepted が残り続けて当事者が退会できなくなる（ステージング指摘 No.8 のデッドロック）。
+ *   運営がここで「完了扱い（completed）」または「取消（cancelled）」にして解消する。
+ *
+ * 稼働終了日が未設定（null）の案件は入力期間の終わりが決まらず「期限切れ」にならないため false。
+ */
+export function canAdminResolveExpired(
+  app: { status: ApplicationStatus; first_work_date: string | null },
+  job: { work_end_date: string | null } | null | undefined,
+  today: string,
+): boolean {
+  if (app.status !== "accepted") return false;
+  const window = computeReviewInputWindow(
+    app.first_work_date,
+    job?.work_end_date ?? null,
+  );
+  return isWithinReviewInputWindow(today, window).reason === "after-end";
 }

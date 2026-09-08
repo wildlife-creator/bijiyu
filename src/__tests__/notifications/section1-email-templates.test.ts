@@ -469,3 +469,74 @@ describe("completionReportToContractorEmail — §3.1.B", () => {
     expect(out.html).toContain("【報告日時】 2026/07/05 14:30");
   });
 });
+
+// ----------------------------------------------------------------------------
+// §1.2.C / §1.2.D 応募取り下げ（2026-09-08 追加。ステージング指摘 No.8 の付随対応）
+// ----------------------------------------------------------------------------
+import { applicationWithdrawnControlEmail } from "@/lib/email/templates/application-withdrawn-control";
+import { applicationWithdrawnEmail } from "@/lib/email/templates/application-withdrawn";
+
+describe("applicationWithdrawnControlEmail — §1.2.C", () => {
+  const BASE = {
+    recipientName: "山田工務店",
+    jobTitle: "△△工事",
+    contractorName: "××建設",
+    tradeType: "型枠大工",
+    headcount: 3,
+    withdrawnAt: "2026/09/08 14:30",
+  };
+
+  it("件名は「【ビジ友】〇〇さんが応募を取り下げました」（発注前なので「要対応」は付けない）", () => {
+    const out = applicationWithdrawnControlEmail(BASE);
+    expect(out.subject).toBe("【ビジ友】××建設さんが応募を取り下げました");
+    expect(out.subject).not.toContain("要対応");
+  });
+
+  it("本文に宛名・案件名・取り下げた方・職種・人数・取り下げ日時を含み、初回稼働日は含まない", () => {
+    const out = applicationWithdrawnControlEmail(BASE);
+    expect(out.html).toContain("山田工務店 様");
+    expect(out.html).toContain("下記の応募が、応募者により取り下げられました。");
+    expect(out.html).toContain("【案件名】 △△工事");
+    expect(out.html).toContain("【取り下げた方】 ××建設");
+    expect(out.html).toContain("【職種】 型枠大工");
+    expect(out.html).toContain("【人数】 3人");
+    expect(out.html).toContain("【取り下げ日時】 2026/09/08 14:30");
+    expect(out.html).not.toContain("初回稼働日");
+  });
+
+  it("人数 null / 職種未指定なら行ごと省略する", () => {
+    const out = applicationWithdrawnControlEmail({
+      ...BASE,
+      headcount: null,
+      tradeType: undefined,
+    });
+    expect(out.html).not.toContain("【人数】");
+    expect(out.html).not.toContain("【職種】");
+  });
+});
+
+describe("applicationWithdrawnEmail — §1.2.D", () => {
+  const BASE = {
+    applicantName: "××建設",
+    jobTitle: "△△工事",
+    clientName: "株式会社□□建設",
+    tradeType: "型枠大工",
+    headcount: 3,
+    withdrawnAt: "2026/09/08 14:30",
+  };
+
+  it("件名は「【ビジ友】「[案件名]」の応募取り下げを受け付けました」", () => {
+    const out = applicationWithdrawnEmail(BASE);
+    expect(out.subject).toBe("【ビジ友】「△△工事」の応募取り下げを受け付けました");
+  });
+
+  it("本文に宛名・案件名・発注者・職種・人数・取り下げ日時・closing を含む", () => {
+    const out = applicationWithdrawnEmail(BASE);
+    expect(out.html).toContain("××建設 様");
+    expect(out.html).toContain("下記の応募の取り下げを受け付けました。");
+    expect(out.html).toContain("【案件名】 △△工事");
+    expect(out.html).toContain("【発注者】 株式会社□□建設");
+    expect(out.html).toContain("【取り下げ日時】 2026/09/08 14:30");
+    expect(out.html).toContain("発注者にも取り下げをお知らせしました。");
+  });
+});

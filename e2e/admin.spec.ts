@@ -572,3 +572,50 @@ test.describe("ステージング指摘 No.35 / No.37 / No.40: admin の戻り�
     await expect(keyword).toHaveValue("");
   });
 });
+
+// ============================================================
+// ステージング指摘 No.8（2026-09）: 期限切れの発注済み応募を運営が解消できる（ADM-014）
+// ============================================================
+
+test.describe("ステージング指摘 No.8: ADM-014 期限切れ accepted の完了扱い", () => {
+  test.beforeEach(async ({ page }) => {
+    await adminLogin(page);
+  });
+
+  test("稼働終了日+5日を過ぎた accepted に「完了扱いにする」「発注を取り消す」が出て、完了扱いにすると「取引完了」になる", async ({
+    page,
+  }) => {
+    // 使い捨て seed 6b: ada00000-...-0005（井上翔 → 外構工事・稼働終了 10 日前・評価なし）
+    await page.goto("/admin/applications/ada00000-0000-4000-8000-000000000005");
+    await expect(
+      page.getByRole("heading", { name: "応募履歴詳細" }),
+    ).toBeVisible();
+    // 8 分類上は「評価未入力」だが、当事者はもう入力できない期限切れ
+    await expect(page.getByText("評価未入力", { exact: true })).toBeVisible();
+    await expect(page.getByText(/入力期間（稼働終了日から5日後まで）を過ぎている/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "完了扱いにする" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "発注を取り消す" })).toBeVisible();
+
+    await page.getByRole("button", { name: "完了扱いにする" }).click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog.getByText("この応募を完了扱いにしますか？")).toBeVisible();
+    await dialog.getByRole("button", { name: "完了扱いにする" }).click();
+
+    // バッジが「取引完了」に変わり、解消ボタンは消える
+    await expect(page.getByText("取引完了", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "完了扱いにする" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "発注を取り消す" })).toHaveCount(0);
+  });
+
+  test("期限内の accepted（稼働日前）には「完了扱いにする」は出ない（従来の発注取消のみ）", async ({
+    page,
+  }) => {
+    // ada00000-...-0004 は accepted＋稼働日前（前段の発注取消テストで cancelled になる可能性が
+    // あるため、表示確認は「完了扱いボタンが無い」ことだけに絞る）
+    await page.goto("/admin/applications/ada00000-0000-4000-8000-000000000004");
+    await expect(
+      page.getByRole("heading", { name: "応募履歴詳細" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "完了扱いにする" })).toHaveCount(0);
+  });
+});

@@ -254,3 +254,81 @@ describe("canAdminCancel（発注取消可否）", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// canAdminResolveExpired（ステージング指摘 No.8: 期限切れ accepted の運営解消）
+// ---------------------------------------------------------------------------
+import { canAdminResolveExpired } from "@/lib/admin/application-status";
+
+describe("canAdminResolveExpired（期限切れの発注済み応募）", () => {
+  const TODAY = "2026-09-07";
+
+  it("accepted かつ 稼働終了日+5日 を過ぎていれば true（staging 実データ: 稼働終了 8/24 → 期限 8/29）", () => {
+    expect(
+      canAdminResolveExpired(
+        { status: "accepted", first_work_date: "2026-08-21" },
+        { work_end_date: "2026-08-24" },
+        TODAY,
+      ),
+    ).toBe(true);
+  });
+
+  it("期限当日（稼働終了日+5日）は当事者が完了報告できるので false", () => {
+    expect(
+      canAdminResolveExpired(
+        { status: "accepted", first_work_date: "2026-08-21" },
+        { work_end_date: "2026-09-02" },
+        TODAY,
+      ),
+    ).toBe(false);
+  });
+
+  it("期限翌日（稼働終了日+6日）は true", () => {
+    expect(
+      canAdminResolveExpired(
+        { status: "accepted", first_work_date: "2026-08-21" },
+        { work_end_date: "2026-09-01" },
+        TODAY,
+      ),
+    ).toBe(true);
+  });
+
+  it("稼働終了日が未設定（null）なら期限が決まらないので false", () => {
+    expect(
+      canAdminResolveExpired(
+        { status: "accepted", first_work_date: "2026-08-21" },
+        { work_end_date: null },
+        TODAY,
+      ),
+    ).toBe(false);
+    expect(
+      canAdminResolveExpired(
+        { status: "accepted", first_work_date: "2026-08-21" },
+        null,
+        TODAY,
+      ),
+    ).toBe(false);
+  });
+
+  it("accepted 以外（completed / cancelled / applied）は false", () => {
+    for (const status of ["completed", "cancelled", "applied", "lost", "rejected"] as const) {
+      expect(
+        canAdminResolveExpired(
+          { status, first_work_date: "2026-08-21" },
+          { work_end_date: "2026-08-24" },
+          TODAY,
+        ),
+      ).toBe(false);
+    }
+  });
+
+  it("初回稼働日前（canAdminCancel の領域）は false", () => {
+    expect(
+      canAdminResolveExpired(
+        { status: "accepted", first_work_date: "2026-09-20" },
+        { work_end_date: "2026-09-25" },
+        TODAY,
+      ),
+    ).toBe(false);
+  });
+});

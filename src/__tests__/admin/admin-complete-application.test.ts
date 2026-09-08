@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * ADM-014 発注取消 Server Action のテスト（Task 10.2）。
+ * ADM-014 「完了扱いにする」Server Action のテスト（ステージング指摘 No.8）。
  * - admin role 再チェック
- * - canAdminCancel の再評価（UI と同一関数。accepted＋初回稼働日前のみ）
- * - status='cancelled'＋cancelled_by='admin' 更新 + audit log（application_cancel_admin）
+ * - canAdminResolveExpired の再評価（UI と同一関数。accepted＋稼働終了日+5日を過ぎたもののみ）
+ * - status='completed' 更新 + audit log（application_complete_admin, reason=review_window_expired）
  * - 通知メールは送らない（運営が当事者連絡する運用）
  */
 
@@ -71,13 +71,12 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
-import { adminCancelApplicationAction } from "@/app/admin/(protected)/applications/[id]/actions";
+import { adminCompleteApplicationAction } from "@/app/admin/(protected)/applications/[id]/actions";
 import { getJstToday } from "@/lib/utils/format-date";
 
 const ADMIN_ID = "99999999-9999-9999-9999-999999999999";
-const APPLICATION_ID = "cccccccc-0000-1000-8000-000000000001";
+const APPLICATION_ID = "cccccccc-0000-1000-8000-000000000002";
 
-/** JST 当日から offsetDays ずらした YYYY-MM-DD（境界値テスト用） */
 function jstDateWithOffset(offsetDays: number): string {
   const base = new Date(`${getJstToday()}T00:00:00+09:00`);
   base.setDate(base.getDate() + offsetDays);
@@ -87,125 +86,97 @@ function jstDateWithOffset(offsetDays: number): string {
 beforeEach(() => {
   authState.user = { id: ADMIN_ID };
   authState.role = "admin";
+  // 既定: 期限切れ（稼働終了 10 日前 → 期限は 5 日前 → 過ぎている）
   adminState.application = {
     id: APPLICATION_ID,
     status: "accepted",
-    first_work_date: jstDateWithOffset(3),
+    first_work_date: jstDateWithOffset(-18),
+    job: { work_end_date: jstDateWithOffset(-10) },
   };
   adminState.updates = [];
   adminState.updateError = null;
   mockWriteAuditLog.mockClear();
 });
 
-describe("adminCancelApplicationAction", () => {
+describe("adminCompleteApplicationAction", () => {
   it("非 admin は拒否", async () => {
     authState.role = "client";
-    const result = await adminCancelApplicationAction(APPLICATION_ID);
+    const result = await adminCompleteApplicationAction(APPLICATION_ID);
     expect(result.success).toBe(false);
     expect(adminState.updates).toHaveLength(0);
   });
 
   it("存在しない応募は拒否", async () => {
     adminState.application = null;
-    const result = await adminCancelApplicationAction(APPLICATION_ID);
+    const result = await adminCompleteApplicationAction(APPLICATION_ID);
     expect(result.success).toBe(false);
   });
 
-  it("applied（発注前）は取消不可", async () => {
-    adminState.application = {
-      id: APPLICATION_ID,
-      status: "applied",
-      first_work_date: null,
-    };
-    const result = await adminCancelApplicationAction(APPLICATION_ID);
-    expect(result.success).toBe(false);
-    expect(adminState.updates).toHaveLength(0);
-  });
-
-  it("accepted でも初回稼働日を過ぎていたら取消不可（canAdminCancel 再評価）", async () => {
-    adminState.application = {
-      id: APPLICATION_ID,
-      status: "accepted",
-      first_work_date: jstDateWithOffset(-1),
-    };
-    const result = await adminCancelApplicationAction(APPLICATION_ID);
-    expect(result.success).toBe(false);
-    expect(adminState.updates).toHaveLength(0);
-  });
-
-  it("成功: cancelled + cancelled_by='admin' + audit log（当日稼働日も取消可）", async () => {
-    adminState.application = {
-      id: APPLICATION_ID,
-      status: "accepted",
-      first_work_date: jstDateWithOffset(0),
-    };
-
-    const result = await adminCancelApplicationAction(APPLICATION_ID);
+  it("成功: 期限切れ accepted を completed にし audit log を記録する", async () => {
+    const result = await adminCompleteApplicationAction(APPLICATION_ID);
 
     expect(result.success).toBe(true);
     const update = adminState.updates.find((u) => u.table === "applications");
-    expect(update?.payload).toEqual({
-      status: "cancelled",
-      cancelled_by: "admin",
-    });
+    expect(update?.payload).toEqual({ status: "completed" });
     expect(mockWriteAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: "application_cancel_admin",
+        action: "application_complete_admin",
         actorId: ADMIN_ID,
+        targetType: "applications",
         targetId: APPLICATION_ID,
-      }),
-    );
-  });
-
-  it("first_work_date 未確定（null）の accepted は取消可", async () => {
-    adminState.application = {
-      id: APPLICATION_ID,
-      status: "accepted",
-      first_work_date: null,
-    };
-    const result = await adminCancelApplicationAction(APPLICATION_ID);
-    expect(result.success).toBe(true);
-  });
-
-  it("期限切れ（稼働終了日+5日を過ぎた accepted）は取消可（ステージング指摘 No.8 の解消経路）", async () => {
-    adminState.application = {
-      id: APPLICATION_ID,
-      status: "accepted",
-      first_work_date: jstDateWithOffset(-18),
-      job: { work_end_date: jstDateWithOffset(-10) },
-    };
-
-    const result = await adminCancelApplicationAction(APPLICATION_ID);
-
-    expect(result.success).toBe(true);
-    const update = adminState.updates.find((u) => u.table === "applications");
-    expect(update?.payload).toEqual({
-      status: "cancelled",
-      cancelled_by: "admin",
-    });
-    expect(mockWriteAuditLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "application_cancel_admin",
         metadata: { reason: "review_window_expired" },
       }),
     );
   });
 
-  it("稼働開始後〜期限内（当事者が完了報告できる期間）は取消不可", async () => {
+  it("期限内（稼働終了日+5日の当日）は当事者が完了報告できるので拒否", async () => {
     adminState.application = {
       id: APPLICATION_ID,
       status: "accepted",
-      first_work_date: jstDateWithOffset(-3),
-      job: { work_end_date: jstDateWithOffset(2) },
+      first_work_date: jstDateWithOffset(-10),
+      job: { work_end_date: jstDateWithOffset(-5) },
     };
-    const result = await adminCancelApplicationAction(APPLICATION_ID);
+    const result = await adminCompleteApplicationAction(APPLICATION_ID);
     expect(result.success).toBe(false);
     expect(adminState.updates).toHaveLength(0);
   });
 
+  it("初回稼働日前の accepted は拒否（発注取消の領域）", async () => {
+    adminState.application = {
+      id: APPLICATION_ID,
+      status: "accepted",
+      first_work_date: jstDateWithOffset(5),
+      job: { work_end_date: jstDateWithOffset(10) },
+    };
+    const result = await adminCompleteApplicationAction(APPLICATION_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("稼働終了日が未設定の案件は拒否（期限が決まらない）", async () => {
+    adminState.application = {
+      id: APPLICATION_ID,
+      status: "accepted",
+      first_work_date: jstDateWithOffset(-18),
+      job: { work_end_date: null },
+    };
+    const result = await adminCompleteApplicationAction(APPLICATION_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("accepted 以外（completed 済み等）は拒否", async () => {
+    adminState.application = {
+      id: APPLICATION_ID,
+      status: "completed",
+      first_work_date: jstDateWithOffset(-18),
+      job: { work_end_date: jstDateWithOffset(-10) },
+    };
+    const result = await adminCompleteApplicationAction(APPLICATION_ID);
+    expect(result.success).toBe(false);
+  });
+
   it("DB 更新エラー時はエラーを返す（audit log なし）", async () => {
     adminState.updateError = { message: "db down" };
-    const result = await adminCancelApplicationAction(APPLICATION_ID);
+    const result = await adminCompleteApplicationAction(APPLICATION_ID);
     expect(result.success).toBe(false);
     expect(mockWriteAuditLog).not.toHaveBeenCalled();
   });
