@@ -187,6 +187,14 @@ lg: 1024px〜（ワイドPC、必要な場合のみ）
 - **disabled / readonly 状態のみ** `bg-muted`（薄いグレー）を適用し、操作不可であることを視覚的に示す
 - ファイルアップロード枠（破線ボーダーのドロップエリア）も同様に白背景とする
 
+### 入力欄の文字サイズはスマホで 16px 以上（必ず守ること）
+
+- iOS Safari は、文字サイズが 16px 未満の `<input>` / `<textarea>`（cmdk の `CommandPrimitive.Input` 等も含む）にフォーカスすると画面を自動拡大し、フォーカスを外しても拡大が戻らない
+- shadcn の `Input` / `Textarea` は `text-base md:text-sm` で安全。**共通部品を使わず生の `<input>` / `<textarea>` を書く場合は、`text-sm` / `text-xs` / `text-body-*` を単独で当てず、必ず `text-base md:<PC 用サイズ>` の形にする**（スマホ 16px、PC は従来どおり）
+- `<button role="combobox">`（shadcn Select のトリガー）は button 要素なので対象外
+- viewport の `maximum-scale=1` でズームを禁止する対処はアクセシビリティ上避ける
+- 2026-09 実例: メッセージ入力欄・スカウトテンプレートフォーム・職種/資格/スキル検索コンボボックスの 5 箇所が 12〜14px で、ステージング確認「入力欄が拡大したまま戻らない」（No.1・No.24）の原因になった
+
 ### エリア (都道府県+市区町村) 入力 (必ず守ること) — master-area-multi-select Phase C 以降
 
 エリア入力は **`<AreaListEditor>` (登録系) / `<SearchAreaPicker>` (検索系)** 共通コンポーネントで実装する。共通 1 行 UI は `<AreaRow>` 部品が担う。手書きで `<Select>` + `<Checkbox>` を組み合わせない。

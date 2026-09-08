@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toggleFavoriteAction } from "@/app/(authenticated)/jobs/search-actions";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -12,6 +13,13 @@ interface FavoriteButtonProps {
   /** "icon" = heart icon (default, for detail pages), "text" = outline text button (for list pages) */
   variant?: "icon" | "text";
   showLabel?: boolean;
+  /**
+   * 切替成功後に `router.refresh()` で画面を再取得する。
+   * マイリスト（/favorites）のように「解除したカードをその場で消す」必要がある
+   * 画面でのみ true にする。他の一覧・詳細画面では解除してもカードは残るのが正しい挙動なので
+   * 渡さない（ステージング指摘 No.22）。
+   */
+  refreshOnToggle?: boolean;
 }
 
 function HeartIcon({ active }: { active: boolean }) {
@@ -35,7 +43,9 @@ export function FavoriteButton({
   initialIsFavorited,
   variant = "icon",
   showLabel = false,
+  refreshOnToggle = false,
 }: FavoriteButtonProps) {
+  const router = useRouter();
   const [isFavorited, setIsFavorited] = useState(initialIsFavorited);
   const [isPending, startTransition] = useTransition();
 
@@ -53,6 +63,10 @@ export function FavoriteButton({
       if (!result.success) {
         setIsFavorited(prev);
         toast.error(result.error ?? "お気に入りの更新に失敗しました。");
+        return;
+      }
+      if (refreshOnToggle) {
+        router.refresh();
       }
     });
   }

@@ -23,8 +23,8 @@ export function DocumentView({
   if (!doc.url) {
     return (
       <div className="flex aspect-video w-full items-center justify-center rounded-[8px] border border-border bg-muted/30">
-        <span className="text-body-sm text-muted-foreground">
-          書類を表示できません
+        <span className="px-4 text-center text-body-sm text-muted-foreground">
+          書類を表示できませんでした。ページを再読み込みしてください
         </span>
       </div>
     );

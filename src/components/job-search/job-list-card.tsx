@@ -33,6 +33,8 @@ interface JobListCardProps {
   hasApplied?: boolean;
   /** Use "text" for list pages, "icon" (default) for detail-like contexts */
   favoriteVariant?: "icon" | "text";
+  /** マイリスト画面のみ true: 解除したカードをその場で消すため画面を再取得する */
+  refreshOnFavoriteToggle?: boolean;
 }
 
 export function JobListCard({
@@ -40,6 +42,7 @@ export function JobListCard({
   isFavorited,
   hasApplied = false,
   favoriteVariant = "text",
+  refreshOnFavoriteToggle = false,
 }: JobListCardProps) {
   return (
     <Card className="overflow-hidden rounded-[8px]">
@@ -142,6 +145,7 @@ export function JobListCard({
             targetId={job.id}
             initialIsFavorited={isFavorited}
             variant={favoriteVariant}
+            refreshOnToggle={refreshOnFavoriteToggle}
           />
           <Button
             variant="outline"
