@@ -316,7 +316,7 @@ describe("activateBankTransferAction — オプション", () => {
     return f;
   }
 
-  it("職場紹介動画: 買い切り（期限なし）で option_subscriptions を作り、動画メールを送る", async () => {
+  it("旧 職場紹介動画（video_workplace、P10 で新規販売停止）の申込済み行は引き続き有効化できる", async () => {
     adminResults["select:bank_transfer_requests"] = {
       data: planRequest({ target_kind: "option", plan_type: null, option_type: "video_workplace", amount: 100000, initial_fee: 0 }),
     };
@@ -336,6 +336,25 @@ describe("activateBankTransferAction — オプション", () => {
       status: "paid",
       activated_option_subscription_id: "opt-new-1",
       activated_subscription_id: null,
+    });
+    expect(sentEmails.map((e) => e.fn)).toEqual(["video"]);
+  });
+
+  it("ビジ友公式SNS動画（P10）: 買い切り（期限なし）で option_subscriptions を作り、動画メールを送る", async () => {
+    adminResults["select:bank_transfer_requests"] = {
+      data: planRequest({ target_kind: "option", plan_type: null, option_type: "video_sns", amount: 120000, initial_fee: 0 }),
+    };
+    adminResults["insert:option_subscriptions"] = { data: { id: "opt-new-sns" } };
+    const r = await activateBankTransferAction(REQUEST_ID, fd("2026-09-15"));
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data?.periodEnd).toBeNull();
+    expect(adminInserts.find((i) => i.table === "option_subscriptions")?.payload).toMatchObject({
+      user_id: "user-1",
+      payment_type: "one_time",
+      payment_method: "bank_transfer",
+      option_type: "video_sns",
+      status: "active",
+      end_date: null,
     });
     expect(sentEmails.map((e) => e.fn)).toEqual(["video"]);
   });
@@ -479,6 +498,29 @@ describe("createBankTransferRequestByAdminAction（P9 代理登録）", () => {
       amount: 14800,
       initial_fee: 0,
     });
+  });
+
+  it("オプション（ビジ友公式SNS動画、P10）: 買い切り 120,000 円・事務手数料なし", async () => {
+    const r = await createBankTransferRequestByAdminAction(
+      fd({ email: "member@test.local", targetKind: "option", optionType: "video_sns" }),
+    );
+    expect(r.success).toBe(true);
+    expect(adminInserts.find((i) => i.table === "bank_transfer_requests")?.payload).toMatchObject({
+      target_kind: "option",
+      option_type: "video_sns",
+      plan_type: null,
+      amount: 120000,
+      initial_fee: 0,
+    });
+  });
+
+  it("オプション（旧 職場紹介動画 video_workplace）: P10 で新規販売停止のため代理登録も拒否", async () => {
+    const r = await createBankTransferRequestByAdminAction(
+      fd({ email: "member@test.local", targetKind: "option", optionType: "video_workplace" }),
+    );
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("プロフィール動画制作プラン");
+    expect(adminInserts.find((i) => i.table === "bank_transfer_requests")).toBeUndefined();
   });
 
   it("オプション（ユーザー撮影プラン）: 買い切り 20,000 円・事務手数料なし", async () => {

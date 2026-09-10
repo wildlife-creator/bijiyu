@@ -2,8 +2,8 @@ import { listItem, paragraph, renderLayout } from "@/lib/email/components";
 
 interface VideoPublishedEmailProps {
   recipientName: string;
-  /** OPTION_LABELS[optionType] で解決した動画種別 (「受注者PR動画」/「職場紹介動画」)。 */
-  optionLabel: string;
+  /** VIDEO_PLACEMENT_MEMBER_LABELS[placement] で解決した掲載先 (「ユーザー詳細ページ」/「発注者詳細ページ」)。P10 で動画種別から変更。 */
+  placementLabel: string;
   /** YYYY/MM/DD (Server Action 実行時刻)。 */
   publishedAt: string;
 }
@@ -18,7 +18,7 @@ interface VideoPublishedEmailProps {
  */
 export function videoPublishedEmail({
   recipientName,
-  optionLabel,
+  placementLabel,
   publishedAt,
 }: VideoPublishedEmailProps): { subject: string; html: string } {
   return {
@@ -30,7 +30,7 @@ export function videoPublishedEmail({
         paragraph(
           "お申し込みいただいた動画オプションについて、動画の掲載が完了しました。",
         ),
-        listItem("動画種別", optionLabel),
+        listItem("掲載先", placementLabel),
         listItem("掲載完了日", publishedAt, { last: true }),
       ].join(""),
     }),

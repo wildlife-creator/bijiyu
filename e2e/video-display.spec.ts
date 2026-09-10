@@ -33,28 +33,32 @@ const CLIENT_DELETE_TARGET_ID = "b1110000-0000-1000-8000-000000000005";
 const TIKTOK_PLAYER_IFRAME = 'iframe[src*="tiktok.com/player/v1"]';
 const CLOUDFLARE_PLAYER_IFRAME = 'iframe[src*="iframe.videodelivery.net/"]';
 
-test.describe("CLI-026: 職場紹介動画掲載オプション（課金画面は P4 で変更なし）", () => {
-  test("発注者プラン active なら申込ボタンが活性", async ({ page }) => {
+test.describe("CLI-026: プロフィール動画制作プラン（P10 で旧 自己PR動画・職場紹介動画を統合）", () => {
+  test("統合前に職場紹介動画（video_workplace）を購入した発注者は「購入済み」（活性のまま・押下で再購入確認）", async ({ page }) => {
     // client@test.local は seed で active な 'video_workplace' オプションを持つ。
-    // 購入済みユーザーのボタンラベルは「購入済み」になる（活性のまま・押下で再購入確認）。
+    // 統合後は同じ商品「プロフィール動画制作プラン」として購入済み扱いにする
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/billing");
     await expect(
-      page.getByText("職場紹介動画掲載", { exact: true }),
+      page.getByText("プロフィール動画制作プラン", { exact: true }),
     ).toBeVisible();
+    await expect(page.getByText("職場紹介動画掲載", { exact: true })).toHaveCount(0);
     const btn = page.getByRole("button", { name: "購入済み", exact: true });
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
   });
 
-  test("無料受注者では申込ボタンが非活性", async ({ page }) => {
-    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+  test("オプション未購入の無料受注者でも申込ボタンが活性（発注者プラン不要）", async ({ page }) => {
+    await login(page, TEST_CONTRACTOR2.email, TEST_CONTRACTOR2.password);
     await page.goto("/billing");
     const btn = page.getByRole("button", {
-      name: "職場紹介動画掲載を申し込む",
+      name: "プロフィール動画制作プランを申し込む",
     });
     await expect(btn).toBeVisible();
-    await expect(btn).toBeDisabled();
+    await expect(btn).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "職場紹介動画掲載を申し込む" }),
+    ).toHaveCount(0);
   });
 });
 
@@ -64,8 +68,8 @@ test.describe("COM-001: 自分のPR動画", () => {
   }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto("/profile");
-    await expect(page.getByRole("heading", { name: "PR動画" })).toBeVisible();
-    await page.getByRole("button", { name: "PR動画を再生" }).click();
+    await expect(page.getByRole("heading", { name: "プロフィール動画" })).toBeVisible();
+    await page.getByRole("button", { name: "プロフィール動画を再生" }).click();
     await expect(page.locator(TIKTOK_PLAYER_IFRAME)).toBeVisible();
   });
 
@@ -74,11 +78,11 @@ test.describe("COM-001: 自分のPR動画", () => {
   }) => {
     await login(page, TEST_CONTRACTOR2.email, TEST_CONTRACTOR2.password);
     await page.goto("/profile");
-    await expect(page.getByRole("heading", { name: "PR動画" })).toBeVisible();
-    const buttons = page.getByRole("button", { name: /^PR動画 \d+を再生$/ });
+    await expect(page.getByRole("heading", { name: "プロフィール動画" })).toBeVisible();
+    const buttons = page.getByRole("button", { name: /^プロフィール動画 \d+を再生$/ });
     await expect(buttons).toHaveCount(2);
-    await expect(buttons.nth(0)).toHaveAccessibleName("PR動画 1を再生");
-    await expect(buttons.nth(1)).toHaveAccessibleName("PR動画 2を再生");
+    await expect(buttons.nth(0)).toHaveAccessibleName("プロフィール動画 1を再生");
+    await expect(buttons.nth(1)).toHaveAccessibleName("プロフィール動画 2を再生");
   });
 });
 
@@ -86,8 +90,8 @@ test.describe("CLI-006: 受注者詳細のPR動画（cross-user）", () => {
   test("発注者視点で対象受注者のPR動画が表示される", async ({ page }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto(`/users/contractors/${CONTRACTOR_ID}`);
-    await expect(page.getByRole("heading", { name: "PR動画" })).toBeVisible();
-    await page.getByRole("button", { name: "PR動画を再生" }).click();
+    await expect(page.getByRole("heading", { name: "プロフィール動画" })).toBeVisible();
+    await page.getByRole("button", { name: "プロフィール動画を再生" }).click();
     await expect(page.locator(TIKTOK_PLAYER_IFRAME)).toBeVisible();
   });
 
@@ -96,12 +100,12 @@ test.describe("CLI-006: 受注者詳細のPR動画（cross-user）", () => {
   }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto(`/users/contractors/${CONTRACTOR2_ID}`);
-    await expect(page.getByRole("heading", { name: "PR動画" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "プロフィール動画" })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /^PR動画 \d+を再生$/ }),
+      page.getByRole("button", { name: /^プロフィール動画 \d+を再生$/ }),
     ).toHaveCount(2);
     // 2 本目（Cloudflare）は 16:9 の Cloudflare プレイヤー iframe
-    await page.getByRole("button", { name: "PR動画 2を再生" }).click();
+    await page.getByRole("button", { name: "プロフィール動画 2を再生" }).click();
     await expect(page.locator(CLOUDFLARE_PLAYER_IFRAME)).toBeVisible();
   });
 });
@@ -113,9 +117,9 @@ test.describe("CON-006: 発注者詳細の職場紹介動画", () => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto(`/clients/${CLIENT_ID}`);
     await expect(
-      page.getByRole("heading", { name: "職場紹介動画" }),
+      page.getByRole("heading", { name: "プロフィール動画" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "職場紹介動画を再生" }).click();
+    await page.getByRole("button", { name: "プロフィール動画を再生" }).click();
     await expect(page.locator(TIKTOK_PLAYER_IFRAME)).toBeVisible();
   });
 
@@ -125,14 +129,14 @@ test.describe("CON-006: 発注者詳細の職場紹介動画", () => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto(`/clients/${CLIENT_NO_OPTION_ID}`);
     await expect(
-      page.getByRole("heading", { name: "職場紹介動画" }),
+      page.getByRole("heading", { name: "プロフィール動画" }),
     ).toBeVisible();
     // ready 1 本 + processing 1 本 → 表示は 1 本だけ（番号なしのラベル）
     await expect(
-      page.getByRole("button", { name: "職場紹介動画を再生" }),
+      page.getByRole("button", { name: "プロフィール動画を再生" }),
     ).toHaveCount(1);
     await expect(
-      page.getByRole("button", { name: /^職場紹介動画 \d+を再生$/ }),
+      page.getByRole("button", { name: /^プロフィール動画 \d+を再生$/ }),
     ).toHaveCount(0);
   });
 });
@@ -142,10 +146,10 @@ test.describe("CLI-020: 自社の職場紹介動画", () => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/mypage/client-profile");
     await expect(
-      page.getByRole("heading", { name: "職場紹介動画" }),
+      page.getByRole("heading", { name: "プロフィール動画" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "職場紹介動画を再生" }),
+      page.getByRole("button", { name: "プロフィール動画を再生" }),
     ).toBeVisible();
   });
 });
@@ -180,7 +184,7 @@ test.describe("管理者: 動画管理（ADM ログイン → 一覧 → 詳細 
 
     // P4: 購入ゲート撤廃により導線は常時表示
     await page
-      .getByRole("link", { name: "受注者PR動画を投稿/編集する" })
+      .getByRole("link", { name: "動画を投稿/編集する" })
       .click();
     await expect(page).toHaveURL(/\/videos\?placement=contractor_page/);
     await expect(
@@ -218,21 +222,21 @@ test.describe("管理者: 動画管理（ADM ログイン → 一覧 → 詳細 
     await expect(page).toHaveURL(new RegExp(`/admin/users/${CONTRACTOR_ID}$`));
   });
 
-  test("ADM-004 → 職場紹介動画タブで削除でき、CON-006 から消える", async ({
+  test("ADM-004 → 発注者情報詳細（発注者詳細）タブで削除でき、CON-006 から消える", async ({
     page,
   }) => {
     await login(page, TEST_ADMIN.email, TEST_ADMIN.password);
     // CON-006 表示用 client@test を壊さないよう、削除専用ユーザーで検証
     await page.goto(`/admin/clients/${CLIENT_DELETE_TARGET_ID}`);
     await expect(
-      page.getByRole("heading", { name: "職場紹介動画" }),
+      page.getByRole("heading", { name: "プロフィール動画" }),
     ).toBeVisible();
     await page
-      .getByRole("link", { name: "職場紹介動画を投稿/編集する" })
+      .getByRole("link", { name: "動画を投稿/編集する" })
       .click();
     await expect(page).toHaveURL(/\/videos\?placement=client_page/);
     await expect(
-      page.getByRole("tab", { name: "職場紹介動画" }),
+      page.getByRole("tab", { name: "発注者情報詳細（発注者詳細）" }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(page.getByText("登録済みの動画（1本）")).toBeVisible();
 
@@ -247,11 +251,11 @@ test.describe("管理者: 動画管理（ADM ログイン → 一覧 → 詳細 
       new RegExp(`/admin/clients/${CLIENT_DELETE_TARGET_ID}$`),
     );
     await expect(
-      page.getByRole("heading", { name: "職場紹介動画" }),
+      page.getByRole("heading", { name: "プロフィール動画" }),
     ).toHaveCount(0);
   });
 
-  test("ADM-009 には職場紹介動画ボタンを表示しない（入口は ADM-004 のみ）", async ({
+  test("ADM-009 の動画ボタンは職人ページ（contractor_page）向けのみ（会社ページの入口は ADM-004 のみ）", async ({
     page,
   }) => {
     await login(page, TEST_ADMIN.email, TEST_ADMIN.password);
@@ -259,9 +263,9 @@ test.describe("管理者: 動画管理（ADM ログイン → 一覧 → 詳細 
     await expect(
       page.getByRole("heading", { name: "ユーザーアカウント詳細" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: /職場紹介動画を投稿/ }),
-    ).toHaveCount(0);
+    const videoLinks = page.getByRole("link", { name: "動画を投稿/編集する" });
+    await expect(videoLinks).toHaveCount(1);
+    await expect(videoLinks).toHaveAttribute("href", /placement=contractor_page/);
     // client ロールには削除ボタンの代わりに発注者詳細への導線が出る
     await expect(
       page.getByRole("link", { name: "発注者詳細" }),

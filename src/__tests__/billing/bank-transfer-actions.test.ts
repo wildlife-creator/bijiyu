@@ -267,22 +267,40 @@ describe("requestBankTransferAction — プラン申込", () => {
 });
 
 describe("requestBankTransferAction — オプション申込", () => {
-  it("職場紹介動画は有料プラン加入者のみ", async () => {
-    adminResults["select:subscriptions"] = { data: [] };
-    const r = await requestBankTransferAction({ type: "option", optionType: "video_workplace" });
-    expect(r.success).toBe(false);
-    if (!r.success) expect(r.error).toContain("発注者プラン加入者のみ");
-  });
-
-  it("職場紹介動画: 有料プランがあれば買い切り 100,000 円で受付（事務手数料なし）", async () => {
+  it("旧 職場紹介動画（video_workplace）は P10 で新規販売停止: 有料プランがあっても受付せず、申込レコードもメールも作らない", async () => {
     adminResults["select:subscriptions"] = { data: [{ id: "sub-1" }] };
     const r = await requestBankTransferAction({ type: "option", optionType: "video_workplace" });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toContain("プロフィール動画制作プラン");
+    expect(adminInserts).toHaveLength(0);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("プロフィール動画（video）: 有料プランがなくても買い切り 100,000 円で受付（P10 で全会員に開放）", async () => {
+    adminResults["select:subscriptions"] = { data: [] };
+    const r = await requestBankTransferAction({ type: "option", optionType: "video" });
     expect(r.success).toBe(true);
+    if (r.success) expect(r.data?.targetLabel).toBe("プロフィール動画");
     expect(adminInserts[0]!.payload).toMatchObject({
       target_kind: "option",
-      option_type: "video_workplace",
+      option_type: "video",
       plan_type: null,
       amount: 100000,
+      initial_fee: 0,
+      billing_cycle: "monthly",
+    });
+  });
+
+  it("ビジ友公式SNS動画（P10）: 有料プランがなくても買い切り 120,000 円で受付（事務手数料なし）", async () => {
+    adminResults["select:subscriptions"] = { data: [] };
+    const r = await requestBankTransferAction({ type: "option", optionType: "video_sns" });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data?.targetLabel).toBe("ビジ友公式SNS動画");
+    expect(adminInserts[0]!.payload).toMatchObject({
+      target_kind: "option",
+      option_type: "video_sns",
+      plan_type: null,
+      amount: 120000,
       initial_fee: 0,
       billing_cycle: "monthly",
     });

@@ -16,14 +16,16 @@ import { PendingOverlay } from "@/components/shared/pending-overlay";
 
 interface AdminUserFiltersProps {
   initialKeyword: string;
-  /** "all" | "video" | "compensation_5000" | "compensation_9800" */
+  /** "all" | "video" | "video_shooting" | "video_sns" | "compensation_5000" | "compensation_9800" */
   initialOption: string;
 }
 
-// 受注者向けオプションのみ3択（職場紹介動画は発注者向けのため ADM-003 側に置く）
+// 動画 3 プラン + 補償（P10、2026-09）。急募は案件単位のため ADM-003 側に置く
 const OPTION_ITEMS: { value: string; label: string }[] = [
   { value: "all", label: "すべて" },
-  { value: "video", label: "動画掲載(受注者PR)" },
+  { value: "video", label: "プロフィール動画" },
+  { value: "video_shooting", label: "ユーザー撮影プラン" },
+  { value: "video_sns", label: "ビジ友公式SNS動画" },
   { value: "compensation_5000", label: "補償¥5,000" },
   { value: "compensation_9800", label: "補償¥9,800" },
 ];

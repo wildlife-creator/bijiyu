@@ -11,6 +11,7 @@ import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatResidence } from "@/lib/utils/format-residence";
+import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 
 /**
@@ -248,9 +249,9 @@ export default async function ProfilePage() {
           デザインカンプ COM-001: 名前・バッジの直下、基本情報の上に配置 */}
       {prVideos.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-body-lg font-bold text-foreground">PR動画</h2>
+          <h2 className="text-body-lg font-bold text-foreground">{VIDEO_SECTION_LABEL}</h2>
           <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoList videos={prVideos} label="PR動画" />
+            <VideoList videos={prVideos} label={VIDEO_SECTION_LABEL} />
           </div>
         </section>
       )}

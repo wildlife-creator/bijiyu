@@ -3,6 +3,7 @@ import {
   todayJstDateString,
   type ExpiryBadge,
 } from "@/lib/billing/bank-transfer";
+import { PROFILE_VIDEO_OPTION_TYPES } from "@/lib/billing/options";
 import type { PaymentMethod } from "@/lib/constants/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -24,7 +25,8 @@ export type ClientCategory =
   | "individual"
   | "small";
 
-export type ClientOptionBadge = "urgent" | "video_workplace";
+/** "video" = プロフィール動画（統合前の video_workplace 行も同じバッジに寄せる。P10） */
+export type ClientOptionBadge = "urgent" | "video";
 
 /** 画面表記（org_role=admin は運営のシステム管理者と区別するため「組織管理者」） */
 export const CLIENT_CATEGORY_LABELS: Record<ClientCategory, string> = {
@@ -45,8 +47,15 @@ export const ADMIN_PLAN_LABELS: Record<string, string> = {
 
 export const CLIENT_OPTION_BADGE_LABELS: Record<ClientOptionBadge, string> = {
   urgent: "急募",
-  video_workplace: "職場紹介動画",
+  video: "プロフィール動画",
 };
+
+/** option_subscriptions.option_type → ADM-003 のバッジ種別（対象外は null） */
+export function optionTypeToClientBadge(optionType: string): ClientOptionBadge | null {
+  if (optionType === "urgent") return "urgent";
+  if ((PROFILE_VIDEO_OPTION_TYPES as readonly string[]).includes(optionType)) return "video";
+  return null;
+}
 
 /**
  * 区分の導出（純粋関数）。
@@ -241,10 +250,12 @@ export async function fetchClientListPage(
   if (filter.option) {
     // 契約主体基準: active なオプション保有者 → 自身＋配下メンバーに展開
     // （staff 行にも所属会社のバッジ・フィルタを効かせる）
+    const optionTypes =
+      filter.option === "video" ? [...PROFILE_VIDEO_OPTION_TYPES] : [filter.option];
     const { data: optRows } = await admin
       .from("option_subscriptions")
       .select("user_id")
-      .eq("option_type", filter.option)
+      .in("option_type", optionTypes)
       .eq("status", "active");
     const holderIds = Array.from(
       new Set((optRows ?? []).map((r) => r.user_id)),
@@ -372,7 +383,7 @@ export async function fetchClientListPage(
           .select("user_id, option_type")
           .in("user_id", holderIds)
           .eq("status", "active")
-          .in("option_type", ["urgent", "video_workplace"]),
+          .in("option_type", ["urgent", ...PROFILE_VIDEO_OPTION_TYPES]),
       ]);
     for (const p of profileRows ?? []) {
       companyByHolder.set(p.user_id, p.display_name);
@@ -385,8 +396,10 @@ export async function fetchClientListPage(
       });
     }
     for (const o of optRows ?? []) {
+      const badge = optionTypeToClientBadge(o.option_type);
+      if (!badge) continue;
       const set = badgesByHolder.get(o.user_id) ?? new Set<ClientOptionBadge>();
-      set.add(o.option_type as ClientOptionBadge);
+      set.add(badge);
       badgesByHolder.set(o.user_id, set);
     }
   }

@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatResidence } from "@/lib/utils/format-residence";
+import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { PAYMENT_METHOD_LABELS, PLAN_LABELS } from "@/lib/constants/plans";
@@ -217,18 +218,18 @@ export default async function AdminUserDetailPage({
         </div>
       </div>
 
-      {/* PR動画（公開中の動画が 1 本以上あるときのみ） */}
+      {/* プロフィール動画（職人ページ掲載分・公開中の動画が 1 本以上あるときのみ） */}
       {prVideos.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-body-lg font-bold text-foreground">PR動画</h2>
+          <h2 className="text-body-lg font-bold text-foreground">{VIDEO_SECTION_LABEL}</h2>
           <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoList videos={prVideos} label="PR動画" />
+            <VideoList videos={prVideos} label={VIDEO_SECTION_LABEL} />
           </div>
         </section>
       )}
 
       {/* 動画管理画面（ADM-027）への導線。P4 で購入ゲートを撤廃し常時表示
-          （退会済みは出さない）。発注者詳細 ADM-004 の職場紹介動画ボタンと色・配置をそろえる */}
+          （退会済みは出さない）。発注者詳細 ADM-004 の動画ボタンと色・配置をそろえる */}
       {!isDeleted && (
         <div className="mt-3 flex justify-end">
           <Button
@@ -238,7 +239,7 @@ export default async function AdminUserDetailPage({
             <Link
               href={`/admin/users/${id}/videos?placement=contractor_page&backTo=${encodeURIComponent(`/admin/users/${id}`)}`}
             >
-              受注者PR動画を投稿/編集する
+              動画を投稿/編集する
             </Link>
           </Button>
         </div>

@@ -482,10 +482,10 @@ describe("videoOptionAppliedOpsEmail §6.6.B-Ops 動画オプション新規申�
 });
 
 describe("videoPublishedEmail §6.6.C-User 動画掲載完了 (申込者向け)", () => {
-  it("件名は「動画の掲載が完了しました」、本文は optionLabel + publishedAt のみ", () => {
+  it("件名は「動画の掲載が完了しました」、本文は placementLabel + publishedAt のみ", () => {
     const out = videoPublishedEmail({
       recipientName: "山田太郎",
-      optionLabel: "受注者PR動画",
+      placementLabel: "ユーザー詳細ページ",
       publishedAt: "2026/07/10",
     });
     expect(out.subject).toBe("【ビジ友】動画の掲載が完了しました");
@@ -493,8 +493,9 @@ describe("videoPublishedEmail §6.6.C-User 動画掲載完了 (申込者向け)"
     expect(out.html).toContain(
       "お申し込みいただいた動画オプションについて、動画の掲載が完了しました",
     );
-    expect(out.html).toContain("動画種別");
-    expect(out.html).toContain("受注者PR動画");
+    expect(out.html).toContain("掲載先");
+    expect(out.html).toContain("ユーザー詳細ページ");
+    expect(out.html).not.toContain("動画種別");
     expect(out.html).toContain("掲載完了日");
     expect(out.html).toContain("2026/07/10");
   });
@@ -502,7 +503,7 @@ describe("videoPublishedEmail §6.6.C-User 動画掲載完了 (申込者向け)"
   it("UI 名指し (マイページ / プロフィール画面) を含まない (M-04)", () => {
     const out = videoPublishedEmail({
       recipientName: "山田太郎",
-      optionLabel: "職場紹介動画",
+      placementLabel: "発注者詳細ページ",
       publishedAt: "2026/07/10",
     });
     expect(out.html).not.toContain("マイページ");
@@ -515,7 +516,7 @@ describe("videoPublishedOpsEmail §6.6.C-Ops 動画掲載完了 (運営向け)",
     const out = videoPublishedOpsEmail({
       applicantName: "佐藤花子",
       companyName: "テスト建設株式会社",
-      optionLabel: "職場紹介動画",
+      placementLabel: "発注者詳細ページ",
       publishedAt: "2026/07/10 11:20",
       userId: "user-001",
       siteUrl: "https://bijiyu.example.com",
@@ -528,7 +529,8 @@ describe("videoPublishedOpsEmail §6.6.C-Ops 動画掲載完了 (運営向け)",
     );
     expect(out.html).toContain("佐藤花子");
     expect(out.html).toContain("テスト建設株式会社");
-    expect(out.html).toContain("職場紹介動画");
+    expect(out.html).toContain("掲載先");
+    expect(out.html).toContain("発注者詳細ページ");
     expect(out.html).toContain("2026/07/10 11:20");
     expect(out.html).toContain(
       "https://bijiyu.example.com/admin/users/user-001",
@@ -540,7 +542,7 @@ describe("videoPublishedOpsEmail §6.6.C-Ops 動画掲載完了 (運営向け)",
     const out = videoPublishedOpsEmail({
       applicantName: "佐藤花子",
       companyName: null,
-      optionLabel: "受注者PR動画",
+      placementLabel: "ユーザー詳細ページ",
       publishedAt: "2026/07/10 11:20",
       userId: "user-001",
       siteUrl: "https://bijiyu.example.com",

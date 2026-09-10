@@ -1,4 +1,3 @@
-import type { OptionType } from "@/lib/billing/options";
 import type { Database } from "@/types/database";
 
 /**
@@ -18,28 +17,39 @@ export const VIDEO_PLACEMENTS: readonly VideoPlacement[] = [
   "client_page",
 ];
 
-/** 管理画面のタブ名に使う掲載場所ラベル（商品名と同じ）。 */
+/**
+ * 管理画面（ADM-027）のタブ名に使う掲載場所ラベル。
+ * P10（2026-09）で商品名（受注者PR動画 / 職場紹介動画）から画面名へ変更した
+ * （商品は「プロフィール動画」に統合され、掲載先はプランに関係なく運営が選ぶため）。
+ * 「本人が見る画面名（他の会員が見る画面名）」の形。
+ */
 export const VIDEO_PLACEMENT_LABELS: Record<VideoPlacement, string> = {
-  contractor_page: "受注者PR動画",
-  client_page: "職場紹介動画",
+  contractor_page: "ユーザープロフィール（ユーザー詳細）",
+  client_page: "発注者情報詳細（発注者詳細）",
 };
 
 /** 管理画面でタブの下に出す掲載先の説明。 */
 export const VIDEO_PLACEMENT_DESCRIPTIONS: Record<VideoPlacement, string> = {
   contractor_page:
-    "掲載先: 職人ページ（ユーザープロフィール / 受注者詳細 / 管理画面のユーザー詳細）",
+    "掲載先: 職人ページ（本人のユーザープロフィール / 他の会員が見るユーザー詳細 / 管理画面のユーザーアカウント詳細）",
   client_page:
-    "掲載先: 会社ページ（発注者詳細 / 発注者情報 / 管理画面の発注者詳細）",
+    "掲載先: 会社ページ（本人の発注者情報詳細 / 他の会員が見る発注者詳細 / 管理画面の発注者アカウント詳細）",
 };
 
 /**
- * 掲載お知らせメール（§6.6.C）の【動画種別】に使うオプション種別。
- * 課金の購入判定には使わない（P4 で表示ゲートは撤廃済み）。
+ * 掲載お知らせメール（§6.6.C）の【掲載先】に使う、会員向けの掲載先名。
+ * 他の会員から見た画面名で表す（料金プラン画面の説明文と同じ呼び方）。
  */
-export const VIDEO_PLACEMENT_OPTION_TYPE: Record<VideoPlacement, OptionType> = {
-  contractor_page: "video",
-  client_page: "video_workplace",
+export const VIDEO_PLACEMENT_MEMBER_LABELS: Record<VideoPlacement, string> = {
+  contractor_page: "ユーザー詳細ページ",
+  client_page: "発注者詳細ページ",
 };
+
+/**
+ * 会員が見るページの動画欄の見出し・再生ボタンのラベル。
+ * P10 で「PR動画」「職場紹介動画」を廃し、掲載先に関係なく「プロフィール動画」に統一。
+ */
+export const VIDEO_SECTION_LABEL = "プロフィール動画";
 
 export const VIDEO_STATUS_LABELS: Record<VideoStatus, string> = {
   processing: "処理中",

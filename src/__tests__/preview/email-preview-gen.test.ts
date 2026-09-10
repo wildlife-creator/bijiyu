@@ -1370,7 +1370,7 @@ const fixtures: Fixture[] = [
     invoke: () =>
       videoOptionActivatedEmail({
         recipientName: "田中 太郎",
-        optionLabel: "受注者PR動画",
+        optionLabel: "プロフィール動画",
         activatedAt: "2026/06/22",
       }),
     meta: {
@@ -1392,7 +1392,7 @@ const fixtures: Fixture[] = [
         applicantName: "田中 太郎",
         companyName: "××建設",
         appliedAt: "2026/06/22 14:30",
-        optionLabel: "受注者PR動画",
+        optionLabel: "プロフィール動画",
         userId: "11111111-1111-1111-1111-111111111111",
         siteUrl: APP_URL,
       }),
@@ -1413,7 +1413,7 @@ const fixtures: Fixture[] = [
     invoke: () =>
       videoPublishedEmail({
         recipientName: "田中 太郎",
-        optionLabel: "受注者PR動画",
+        placementLabel: "ユーザー詳細ページ",
         publishedAt: "2026/06/25",
       }),
     meta: {
@@ -1434,7 +1434,7 @@ const fixtures: Fixture[] = [
       videoPublishedOpsEmail({
         applicantName: "田中 太郎",
         companyName: "××建設",
-        optionLabel: "受注者PR動画",
+        placementLabel: "ユーザー詳細ページ",
         publishedAt: "2026/06/25 09:00",
         userId: "11111111-1111-1111-1111-111111111111",
         siteUrl: APP_URL,
