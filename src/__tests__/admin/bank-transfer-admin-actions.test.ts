@@ -132,8 +132,8 @@ function planRequest(overrides: Record<string, unknown> = {}) {
     option_type: null,
     job_id: null,
     billing_cycle: "monthly",
-    amount: 48000,
-    initial_fee: 20000,
+    amount: 28000,
+    initial_fee: 12000,
     status: "invoiced",
     admin_memo: null,
     ...overrides,
@@ -477,8 +477,8 @@ describe("createBankTransferRequestByAdminAction（P9 代理登録）", () => {
       plan_type: "individual",
       option_type: null,
       billing_cycle: "yearly",
-      amount: 38000,
-      initial_fee: 20000,
+      amount: 28000,
+      initial_fee: 12000,
       status: "requested",
       handled_by: "admin-1",
     });
@@ -495,7 +495,7 @@ describe("createBankTransferRequestByAdminAction（P9 代理登録）", () => {
     );
     expect(r.success).toBe(true);
     expect(adminInserts.find((i) => i.table === "bank_transfer_requests")?.payload).toMatchObject({
-      amount: 14800,
+      amount: 9800,
       initial_fee: 0,
     });
   });

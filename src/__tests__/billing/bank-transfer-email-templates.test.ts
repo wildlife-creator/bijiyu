@@ -42,8 +42,8 @@ describe("bankTransferRequestedOpsEmail（運営宛）", () => {
     applicantEmail: "bank@test.local",
     requestedAt: "2026/09/01 10:30",
     targetLabel: "ライトプラン（月払い）",
-    amount: 3800,
-    initialFee: 20000,
+    amount: 2800,
+    initialFee: 12000,
     requestId: "ba100000-0000-4000-8000-00000000dd03",
     siteUrl: "https://staging.bijiyuu.net",
   };
@@ -61,10 +61,10 @@ describe("bankTransferRequestedOpsEmail（運営宛）", () => {
     expect(out.html).toContain("振込商店");
     expect(out.html).toContain("bank@test.local");
     expect(out.html).toContain("ライトプラン（月払い）");
-    expect(out.html).toContain("3,800円（税込）");
+    expect(out.html).toContain("2,800円（税込）");
     expect(out.html).toContain("初回事務手数料");
-    expect(out.html).toContain("20,000円（税込）");
-    expect(out.html).toContain("23,800円（税込）");
+    expect(out.html).toContain("12,000円（税込）");
+    expect(out.html).toContain("14,800円（税込）");
     expect(out.html).toContain(
       "https://staging.bijiyuu.net/admin/bank-transfers/ba100000-0000-4000-8000-00000000dd03",
     );

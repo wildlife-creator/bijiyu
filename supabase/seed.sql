@@ -2454,12 +2454,12 @@ INSERT INTO client_profiles (user_id, display_name) VALUES
 
 -- ②' 入金確認済の申込履歴（上の契約を作った申込）
 INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status, invoiced_at, paid_at, start_date, activated_subscription_id, created_at)
-VALUES ('ba100000-0000-4000-8000-00000000dd02', 'ba100000-0000-4000-8000-000000000002', 'plan', 'small', 'monthly', 14800, 20000, 'paid',
+VALUES ('ba100000-0000-4000-8000-00000000dd02', 'ba100000-0000-4000-8000-000000000002', 'plan', 'small', 'monthly', 9800, 12000, 'paid',
         now() - interval '25 days', now() - interval '20 days', CURRENT_DATE - 20, 'ba100000-0000-4000-8000-00000000cc02', now() - interval '27 days');
 
 -- ③ 申込受付のまま（ライト・月払い・初回事務手数料あり）
 INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status, created_at)
-VALUES ('ba100000-0000-4000-8000-00000000dd03', 'ba100000-0000-4000-8000-000000000003', 'plan', 'individual', 'monthly', 3800, 20000, 'requested', now() - interval '1 day');
+VALUES ('ba100000-0000-4000-8000-00000000dd03', 'ba100000-0000-4000-8000-000000000003', 'plan', 'individual', 'monthly', 2800, 12000, 'requested', now() - interval '1 day');
 
 -- ============================================================
 -- P6 一覧改修（プラン順の既定並び + 並び替えプルダウン）E2E 用 seed

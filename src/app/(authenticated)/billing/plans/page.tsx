@@ -4,25 +4,57 @@ import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { OPTION_PRICES_TAX_INCLUDED } from "@/lib/billing/options";
+import {
+  PAID_PLAN_TYPES,
+  PLAN_LIMITS,
+  YEARLY_PRICE_TAX_INCLUDED,
+  type PlanType,
+} from "@/lib/constants/plans";
+
+/** 比較表の列見出し（「プラン」サフィックス無しの短縮名） */
+const PLAN_SHORT_LABELS: Record<Exclude<PlanType, "free">, string> = {
+  individual: "ライト",
+  small: "スタンダード",
+  corporate: "プレミアム",
+  corporate_premium: "ハイエンド",
+};
 
 /**
  * CLI-026 plan-list: Plan comparison table page.
  * Design comp: CLI-026-plan-list.png
  */
 
-const PLAN_COLUMNS = [
-  { key: "free", label: "無料", price: null },
-  { key: "individual", label: "ライト", price: "¥3,800" },
-  { key: "small", label: "スタンダード", price: "¥14,800" },
-  { key: "corporate", label: "プレミアム", price: "¥48,000" },
-  { key: "corporate_premium", label: "ハイエンド", price: "¥148,000" },
-] as const;
+/**
+ * 月額・年額は src/lib/constants/plans.ts（PLAN_LIMITS / YEARLY_PRICE_TAX_INCLUDED）から導出し、
+ * 銀行振込の請求金額・料金プラン画面と必ず一致させる（手書きの金額を置かない）。
+ */
+const PLAN_COLUMNS: {
+  key: PlanType;
+  label: string;
+  monthly: string | null;
+  yearly: string | null;
+}[] = [
+  { key: "free", label: "無料", monthly: "¥0", yearly: "¥0" },
+  ...PAID_PLAN_TYPES.map((key) => ({
+    key,
+    label: PLAN_SHORT_LABELS[key],
+    monthly: `¥${PLAN_LIMITS[key].monthlyPriceTaxIncluded.toLocaleString("ja-JP")}`,
+    yearly: `¥${YEARLY_PRICE_TAX_INCLUDED[key].toLocaleString("ja-JP")}`,
+  })),
+];
 
 interface FeatureRow {
   label: string;
   values: string[];
 }
 
+/**
+ * 比較表の行（2026-09-10 クライアント確定、docs/requirements/video-plans-handoff-202609.md §8）。
+ * 「上位表示」はスタンダード以上（P11 で list_plan_rank にスタンダードを追加）。
+ * 「検索機能」「サポート担当」「代理メッセージ」の通数はアプリで制御しない（案内上の目安）。
+ * 「プロフィール動画制作」「ビジ友公式SNS動画制作」の付属もアプリで判定しない（運用対応）。
+ */
 const FEATURES: FeatureRow[] = [
   {
     label: "職種",
@@ -46,19 +78,57 @@ const FEATURES: FeatureRow[] = [
   },
   {
     label: "検索機能",
-    values: ["無制限", "無制限", "無制限", "無制限", "無制限"],
+    values: ["○", "無制限", "無制限", "無制限", "無制限"],
   },
   {
     label: "上位表示",
-    values: ["-", "○", "○", "○", "○"],
+    values: ["-", "-", "○", "○", "○"],
   },
   {
     label: "複数人利用",
-    values: ["-", "-", "-", "10人まで", "30人まで"],
+    values: [
+      "-",
+      "-",
+      "-",
+      `${PLAN_LIMITS.corporate.maxStaff}人まで`,
+      `${PLAN_LIMITS.corporate_premium.maxStaff}人まで`,
+    ],
+  },
+  {
+    label: "サポート担当\n（スカウト）",
+    values: ["-", "-", "-", "○", "○"],
   },
   {
     label: "代理メッセージ",
-    values: ["-", "-", "-", "36通/年", "300通/年"],
+    values: ["-", "-", "-", "24通/年", "300通/年"],
+  },
+  {
+    label: "プロフィール動画制作",
+    values: ["-", "-", "-", "○", "○"],
+  },
+  {
+    label: "ビジ友公式SNS動画制作",
+    values: ["-", "-", "-", "年払いのみ○", "年払いのみ○"],
+  },
+];
+
+/** 表の下に出すオプション価格。金額は OPTION_PRICES_TAX_INCLUDED（課金定数）から導出 */
+const OPTION_ROWS: { label: string; price: string }[] = [
+  {
+    label: "急募",
+    price: `${OPTION_PRICES_TAX_INCLUDED.urgent.toLocaleString("ja-JP")}円（7日間）`,
+  },
+  {
+    label: "プロフィール動画制作プラン",
+    price: `${OPTION_PRICES_TAX_INCLUDED.video.toLocaleString("ja-JP")}円/動画`,
+  },
+  {
+    label: "ユーザー撮影プラン",
+    price: `${OPTION_PRICES_TAX_INCLUDED.video_shooting.toLocaleString("ja-JP")}円/動画`,
+  },
+  {
+    label: "ビジ友公式SNS動画制作プラン",
+    price: `${OPTION_PRICES_TAX_INCLUDED.video_sns.toLocaleString("ja-JP")}円/動画`,
   },
 ];
 
@@ -106,20 +176,22 @@ export default function PlanListPage() {
                   </th>
                 ))}
               </tr>
-              {/* Price row */}
-              <tr>
-                <td className="sticky left-0 z-10 border-b border-r border-border bg-background p-2.5 text-body-sm font-medium shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-                  月額
-                </td>
-                {PLAN_COLUMNS.map((col, i) => (
-                  <td
-                    key={col.key}
-                    className={`border-b border-border bg-secondary/5 p-2.5 text-center text-body-sm font-semibold ${i < PLAN_COLUMNS.length - 1 ? "border-r" : ""}`}
-                  >
-                    {col.price ?? ""}
+              {/* Price rows（月額 / 年額） */}
+              {(["monthly", "yearly"] as const).map((cycle) => (
+                <tr key={cycle}>
+                  <td className="sticky left-0 z-10 border-b border-r border-border bg-background p-2.5 text-body-sm font-medium shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+                    {cycle === "monthly" ? "月額" : "年額（年払い）"}
                   </td>
-                ))}
-              </tr>
+                  {PLAN_COLUMNS.map((col, i) => (
+                    <td
+                      key={col.key}
+                      className={`border-b border-border bg-secondary/5 p-2.5 text-center text-body-sm font-semibold ${i < PLAN_COLUMNS.length - 1 ? "border-r" : ""}`}
+                    >
+                      {(cycle === "monthly" ? col.monthly : col.yearly) ?? ""}
+                    </td>
+                  ))}
+                </tr>
+              ))}
             </thead>
             {/* Feature rows */}
             <tbody>
@@ -148,6 +220,22 @@ export default function PlanListPage() {
             </tbody>
           </table>
         </div>
+
+        {/* オプションプラン（価格のみ。申込は料金プラン画面 /billing から） */}
+        <section className="mt-6 rounded-xl border border-border bg-background p-5 shadow-sm">
+          <h2 className="text-heading-sm font-bold">オプションプラン</h2>
+          <dl className="mt-3 divide-y divide-border">
+            {OPTION_ROWS.map((row) => (
+              <div
+                key={row.label}
+                className="flex items-center justify-between gap-4 py-2.5"
+              >
+                <dt className="text-body-sm font-medium">{row.label}</dt>
+                <dd className="text-body-sm whitespace-nowrap">{row.price}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
 
         {/* もどる */}
         <div className="mt-8 flex justify-center">

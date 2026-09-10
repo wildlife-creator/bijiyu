@@ -44,21 +44,21 @@ describe("PLAN_LIMITS", () => {
     expect(PLAN_LIMITS.individual.maxOpenJobs).toBe(1);
     expect(PLAN_LIMITS.individual.maxStaff).toBe(0);
     expect(PLAN_LIMITS.individual.hasProxy).toBe(false);
-    expect(PLAN_LIMITS.individual.monthlyPriceTaxIncluded).toBe(3800);
+    expect(PLAN_LIMITS.individual.monthlyPriceTaxIncluded).toBe(2800);
   });
 
   it("small plan allows unlimited jobs and no staff", () => {
     expect(PLAN_LIMITS.small.maxOpenJobs).toBe(Number.POSITIVE_INFINITY);
     expect(PLAN_LIMITS.small.maxStaff).toBe(0);
     expect(PLAN_LIMITS.small.hasProxy).toBe(false);
-    expect(PLAN_LIMITS.small.monthlyPriceTaxIncluded).toBe(14800);
+    expect(PLAN_LIMITS.small.monthlyPriceTaxIncluded).toBe(9800);
   });
 
-  it("corporate plan allows unlimited jobs and 10 staff with proxy", () => {
+  it("corporate plan allows unlimited jobs and 5 staff with proxy (P11: 10 → 5)", () => {
     expect(PLAN_LIMITS.corporate.maxOpenJobs).toBe(Number.POSITIVE_INFINITY);
-    expect(PLAN_LIMITS.corporate.maxStaff).toBe(10);
+    expect(PLAN_LIMITS.corporate.maxStaff).toBe(5);
     expect(PLAN_LIMITS.corporate.hasProxy).toBe(true);
-    expect(PLAN_LIMITS.corporate.monthlyPriceTaxIncluded).toBe(48000);
+    expect(PLAN_LIMITS.corporate.monthlyPriceTaxIncluded).toBe(28000);
   });
 
   it("corporate_premium plan allows 30 staff", () => {
@@ -67,7 +67,7 @@ describe("PLAN_LIMITS", () => {
     );
     expect(PLAN_LIMITS.corporate_premium.maxStaff).toBe(30);
     expect(PLAN_LIMITS.corporate_premium.hasProxy).toBe(true);
-    expect(PLAN_LIMITS.corporate_premium.monthlyPriceTaxIncluded).toBe(148000);
+    expect(PLAN_LIMITS.corporate_premium.monthlyPriceTaxIncluded).toBe(168000);
   });
 });
 
@@ -215,11 +215,11 @@ describe("resolvePlanTypeFromPriceId", () => {
 
 describe("P3: 年払いの料金・表示名・比較", () => {
   it("planPriceFor: 月払いは PLAN_LIMITS、年払いは YEARLY_PRICE_TAX_INCLUDED（暫定 月額×10 = YEARLY_PRICE_MONTHS）", () => {
-    expect(planPriceFor("individual", "monthly")).toBe(3800);
+    expect(planPriceFor("individual", "monthly")).toBe(2800);
     expect(planPriceFor("individual", "yearly")).toBe(YEARLY_PRICE_TAX_INCLUDED.individual);
     expect(YEARLY_PRICE_MONTHS).toBe(10);
-    expect(YEARLY_PRICE_TAX_INCLUDED.individual).toBe(3800 * 10);
-    expect(YEARLY_PRICE_TAX_INCLUDED.corporate_premium).toBe(148000 * 10);
+    expect(YEARLY_PRICE_TAX_INCLUDED.individual).toBe(2800 * 10);
+    expect(YEARLY_PRICE_TAX_INCLUDED.corporate_premium).toBe(168000 * 10);
   });
 
   it("planDisplayName: 「プラン名（月払い/年払い）」。サイクル未指定・無料はプラン名のみ", () => {

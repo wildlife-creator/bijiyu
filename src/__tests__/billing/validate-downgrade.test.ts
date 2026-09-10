@@ -138,7 +138,7 @@ describe("validateDowngradePrerequisites", () => {
     const result = await validateDowngradePrerequisites(
       admin,
       USER,
-      "corporate", // maxStaff=10
+      "corporate", // maxStaff=5
       "individual", // maxStaff=0
     );
     expect(result.ok).toBe(false);

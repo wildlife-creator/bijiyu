@@ -34,7 +34,7 @@ describe("computeBankTransferAmount", () => {
     );
     expect(out.amount).toBe(PLAN_LIMITS.individual.monthlyPriceTaxIncluded);
     expect(out.initialFee).toBe(INITIAL_FEE_TAX_INCLUDED);
-    expect(out.total).toBe(3800 + 20000);
+    expect(out.total).toBe(2800 + 12000);
   });
 
   it("プラン年払い = 年額（暫定: 月額 × 10）、再契約なら事務手数料なし", () => {
@@ -43,7 +43,7 @@ describe("computeBankTransferAmount", () => {
       { needsInitialFee: false },
     );
     expect(out.amount).toBe(YEARLY_PRICE_TAX_INCLUDED.corporate);
-    expect(out.amount).toBe(48000 * 10);
+    expect(out.amount).toBe(28000 * 10);
     expect(out.initialFee).toBe(0);
     expect(out.total).toBe(out.amount);
   });

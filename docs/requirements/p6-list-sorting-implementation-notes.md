@@ -48,7 +48,7 @@
 ## 2. 設計方針（調査結果に基づく確定事項）
 
 ### 2.1 プランランクの持ち方 = 「ランク列 + トリガー」（A 案）
-- **`users.list_plan_rank smallint`（0 = その他 / 1 = プレミアム / 2 = ハイエンド）** と **`jobs.owner_plan_rank smallint`** を追加。並び替えは `.order("list_plan_rank", desc)` / `.order("owner_plan_rank", desc)` を既存クエリに 1 行足すだけ
+- **`users.list_plan_rank smallint`（0 = その他 / 1 = プレミアム / 2 = ハイエンド。※ P11（2026-09-10）で 0 = その他 / 1 = スタンダード / 2 = プレミアム / 3 = ハイエンド に変更）** と **`jobs.owner_plan_rank smallint`** を追加。並び替えは `.order("list_plan_rank", desc)` / `.order("owner_plan_rank", desc)` を既存クエリに 1 行足すだけ
 - ランクは `list_plan_rank_of(uid)`（SECURITY DEFINER、`is_paid_user` と同じ構造）で計算: `subscriptions.status IN ('active','past_due')` の `plan_type` が corporate_premium → 2、corporate → 1、それ以外 → 0。**`PLAN_LIMITS.rank`（0〜4）とは別物**（仕様はライト / スタンダード / 無料を同じ「その他」に置くため）
 - トリガー: ① `subscriptions` の INSERT / UPDATE(plan_type, status) / DELETE → 契約者の `users.list_plan_rank` と、その契約者の案件（本人名義 + 所属組織の案件）の `owner_plan_rank` を再計算 ② `jobs` の BEFORE INSERT / UPDATE(owner_id, organization_id) → `owner_plan_rank` を設定 ③ `organizations` の INSERT（契約付与の直後に組織が作られるため）→ その組織の案件を再計算。migration 末尾で全件バックフィル
 - 契約を書き換える経路は SQL RPC 4 系統 + 管理画面 2 + Webhook + 退会 + cron 由来の計 9 か所あるが、**すべて `subscriptions` への SQL 書き込み**なのでトリガーで漏れなく追従する（TS 側で都度更新する方式は採らない）

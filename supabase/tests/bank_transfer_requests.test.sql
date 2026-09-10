@@ -62,7 +62,7 @@ SELECT is(
 -- ============================================================
 SELECT throws_ok(
   $$ INSERT INTO bank_transfer_requests (user_id, target_kind, plan_type, option_type, amount)
-     VALUES ('bb010901-0000-0000-0000-000000000001', 'plan', 'individual', 'video', 3800) $$,
+     VALUES ('bb010901-0000-0000-0000-000000000001', 'plan', 'individual', 'video', 2800) $$,
   '23514',
   NULL,
   'plan 申込に option_type が入ると target_consistency CHECK 違反'
@@ -70,12 +70,12 @@ SELECT throws_ok(
 
 -- service_role（Server Action）として申込を作る
 INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status)
-VALUES ('bb010901-0000-0000-0000-00000000dd01', 'bb010901-0000-0000-0000-000000000001', 'plan', 'small', 'monthly', 14800, 20000, 'requested');
+VALUES ('bb010901-0000-0000-0000-00000000dd01', 'bb010901-0000-0000-0000-000000000001', 'plan', 'small', 'monthly', 9800, 12000, 'requested');
 
 -- 3. 処理中の二重申込は部分ユニーク index で拒否（plan は種類を問わず 1 件）
 SELECT throws_ok(
   $$ INSERT INTO bank_transfer_requests (user_id, target_kind, plan_type, billing_cycle, amount)
-     VALUES ('bb010901-0000-0000-0000-000000000001', 'plan', 'corporate', 'monthly', 48000) $$,
+     VALUES ('bb010901-0000-0000-0000-000000000001', 'plan', 'corporate', 'monthly', 28000) $$,
   '23505',
   NULL,
   '処理中の plan 申込があるうちは別プランでも二重申込できない'
@@ -102,7 +102,7 @@ SELECT is(
 
 SELECT throws_ok(
   $$ INSERT INTO bank_transfer_requests (user_id, target_kind, plan_type, amount)
-     VALUES ('bb010901-0000-0000-0000-000000000001', 'plan', 'individual', 3800) $$,
+     VALUES ('bb010901-0000-0000-0000-000000000001', 'plan', 'individual', 2800) $$,
   '42501',
   NULL,
   'authenticated は直接 INSERT できない（Server Action の service_role 専用）'

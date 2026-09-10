@@ -194,8 +194,8 @@ describe("requestBankTransferAction — プラン申込", () => {
       option_type: null,
       job_id: null,
       billing_cycle: "yearly",
-      amount: 14800 * 10,
-      initial_fee: 20000,
+      amount: 9800 * 10,
+      initial_fee: 12000,
       status: "requested",
     });
 
@@ -207,8 +207,8 @@ describe("requestBankTransferAction — プラン申込", () => {
     expect(userMail!.html).not.toMatch(/円/);
     expect(opsMail!.to).toBe("ops@test.local");
     expect(opsMail!.subject).toContain("【ビジ友 運営】銀行振込のお申し込み");
-    expect(opsMail!.html).toContain("148,000円（税込）");
-    expect(opsMail!.html).toContain("20,000円（税込）");
+    expect(opsMail!.html).toContain("98,000円（税込）");
+    expect(opsMail!.html).toContain("12,000円（税込）");
     expect(opsMail!.html).toContain("http://127.0.0.1:3000/admin/bank-transfers/req-1");
   });
 
@@ -219,7 +219,7 @@ describe("requestBankTransferAction — プラン申込", () => {
     const r = await requestBankTransferAction({ type: "plan", planType: "individual", billingCycle: "monthly" });
     expect(r.success).toBe(true);
     expect(adminInserts[0]!.payload.initial_fee).toBe(0);
-    expect(adminInserts[0]!.payload.amount).toBe(3800);
+    expect(adminInserts[0]!.payload.amount).toBe(2800);
   });
 
   it("有効なプランが既にあれば拒否（Stripe 契約中の二重契約防止）", async () => {

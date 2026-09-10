@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import {
   BILLING_CYCLE_LABELS,
+  INITIAL_FEE_TAX_INCLUDED,
   planDisplayName,
   planPriceFor,
   type BillingCycle,
@@ -518,11 +519,11 @@ export function BillingClient({
         </p>
         {showInitialFee ? (
           <p className="mt-2 text-body-sm text-muted-foreground">
-            ※基本プランの有料プランへ初めて申し込みをした場合、初回事務手数料として20,000円が必要となります。
+            ※基本プランの有料プランへ初めて申し込みをした場合、初回事務手数料として{INITIAL_FEE_TAX_INCLUDED.toLocaleString("ja-JP")}円が必要となります。
           </p>
         ) : !isFirstPurchase ? (
           <p className="mt-2 text-body-sm text-muted-foreground">
-            ※この画面から基本プランに申し込んだ場合は、初回事務手数料の20,000円は不要となります。
+            ※この画面から基本プランに申し込んだ場合は、初回事務手数料の{INITIAL_FEE_TAX_INCLUDED.toLocaleString("ja-JP")}円は不要となります。
           </p>
         ) : null}
 
