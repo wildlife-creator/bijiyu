@@ -194,9 +194,12 @@ async function handlePlanCheckout(
   // 法人プラン再アップグレード時の配下 Admin/Staff 復帰は organization_members 行
   // 削除モデルに移行したため、checkout.session.completed では何も追加処理しない。
 
-  // §6.7 基本プラン契約完了メール (初回契約 / 解約後の再契約両方をカバー、Owner 1 名のみ)。
-  // 失敗はサイレント (DB 整合は RPC で完了済み)。
-  await sendPlanActivatedEmail(admin, send, userId, planType as PlanType);
+  // §6.7 基本プラン契約完了メール (初回契約 / 解約後の再契約両方をカバー、Owner 1 名のみ)
+  // + §6.7-Ops 運営通知（P11）。失敗はサイレント (DB 整合は RPC で完了済み)。
+  await sendPlanActivatedEmail(admin, send, userId, planType as PlanType, undefined, {
+    billingCycle,
+    paymentMethod: "stripe",
+  });
 }
 
 // ---------------------------------------------------------------------------

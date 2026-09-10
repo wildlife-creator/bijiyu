@@ -132,8 +132,11 @@ export async function grantBankTransferPlan(
   });
 
   if (params.sendActivationEmail) {
-    // §6.7 プラン契約完了メール（Stripe 経路と同じテンプレ）
-    await sendPlanActivatedEmail(admin, sendEmail, userId, planType, startIso);
+    // §6.7 プラン契約完了メール（Stripe 経路と同じテンプレ）+ §6.7-Ops 運営通知（P11）
+    await sendPlanActivatedEmail(admin, sendEmail, userId, planType, startIso, {
+      billingCycle,
+      paymentMethod: "bank_transfer",
+    });
   }
 
   return { ok: true, subscriptionId, periodEndIso };
