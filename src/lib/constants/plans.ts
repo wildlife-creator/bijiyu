@@ -21,33 +21,36 @@ export const PLAN_LIMITS = {
     hasProxy: false,
     monthlyPriceTaxIncluded: 0,
   },
+  // 月額（税込）は 2026-09-10 のクライアント決定値（P11）。それ以前は 3,800 / 14,800 / 48,000 / 148,000。
+  // Stripe の月額 Price（STRIPE_PRICE_*）もこの金額で作り直す必要がある（staging-release-checklist A1）
   individual: {
     rank: 1,
     maxOpenJobs: 1,
     maxStaff: 0,
     hasProxy: false,
-    monthlyPriceTaxIncluded: 3800,
+    monthlyPriceTaxIncluded: 2800,
   },
   small: {
     rank: 2,
     maxOpenJobs: Number.POSITIVE_INFINITY,
     maxStaff: 0,
     hasProxy: false,
-    monthlyPriceTaxIncluded: 14800,
+    monthlyPriceTaxIncluded: 9800,
   },
   corporate: {
     rank: 3,
     maxOpenJobs: Number.POSITIVE_INFINITY,
-    maxStaff: 10,
+    // 2026-09-10（P11）で 10 → 5 に変更（担当者追加の上限チェック insert_staff_member_with_limit に渡る実値）
+    maxStaff: 5,
     hasProxy: true,
-    monthlyPriceTaxIncluded: 48000,
+    monthlyPriceTaxIncluded: 28000,
   },
   corporate_premium: {
     rank: 4,
     maxOpenJobs: Number.POSITIVE_INFINITY,
     maxStaff: 30,
     hasProxy: true,
-    monthlyPriceTaxIncluded: 148000,
+    monthlyPriceTaxIncluded: 168000,
   },
 } as const;
 
@@ -94,10 +97,11 @@ export const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
 
 /**
  * 初回事務手数料（税込 JPY）。基本プランへ初めて申し込むときのみ。
- * Stripe 経路は STRIPE_PRICE_INITIAL_FEE（¥20,000）の Price を line item に足す。
+ * Stripe 経路は STRIPE_PRICE_INITIAL_FEE（¥12,000）の Price を line item に足す。
  * 銀行振込経路はこの定数で申込金額を組み立てる。金額は両者で一致させること。
+ * 2026-09-10（P11）で 20,000 → 12,000 に変更。
  */
-export const INITIAL_FEE_TAX_INCLUDED = 20000;
+export const INITIAL_FEE_TAX_INCLUDED = 12000;
 
 /**
  * 年払いの料金（税込 JPY）。

@@ -41,7 +41,7 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
 
     // Initial fee note (first purchase case) should be visible
     await expect(
-      page.getByText("初回事務手数料として20,000円が必要となります"),
+      page.getByText("初回事務手数料として12,000円が必要となります"),
     ).toBeVisible();
   });
 
@@ -49,10 +49,10 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto("/billing");
     await page.getByRole("tab", { name: "年払い" }).click();
-    // ライトプラン 3,800 × 10 = 38,000 円/年（暫定係数 YEARLY_PRICE_MONTHS）
-    await expect(page.getByRole("button", { name: /38,000円\/年 申し込む/ })).toBeVisible();
+    // ライトプラン 2,800 × 10 = 28,000 円/年（暫定係数 YEARLY_PRICE_MONTHS）
+    await expect(page.getByRole("button", { name: /28,000円\/年 申し込む/ })).toBeVisible();
     await page.getByRole("tab", { name: "月払い" }).click();
-    await expect(page.getByRole("button", { name: /3,800円\/月 申し込む/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /2,800円\/月 申し込む/ })).toBeVisible();
   });
 
   test("オプションプランセクションが表示される", async ({ page }) => {
@@ -103,6 +103,45 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
   });
 });
 
+test.describe("CLI-026 プラン一覧（/billing/plans、P11 で確定した比較表）", () => {
+  test("料金プラン画面の「こちら」から遷移し、月額・年額・確定した行・オプション価格が表示される", async ({ page }) => {
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+    await page.goto("/billing");
+    await page.getByRole("link", { name: "こちら" }).click();
+    await expect(page).toHaveURL(/\/billing\/plans$/);
+    await expect(page.getByRole("heading", { name: "プラン一覧" })).toBeVisible();
+
+    const table = page.getByRole("table");
+    // 月額（P11 確定値）と年額（月額 × 10）
+    const monthly = table.getByRole("row").filter({ hasText: "月額" }).first();
+    await expect(monthly).toContainText("¥2,800");
+    await expect(monthly).toContainText("¥9,800");
+    await expect(monthly).toContainText("¥28,000");
+    await expect(monthly).toContainText("¥168,000");
+    const yearly = table.getByRole("row").filter({ hasText: "年額（年払い）" });
+    await expect(yearly).toContainText("¥28,000");
+    await expect(yearly).toContainText("¥1,680,000");
+    // 追加した行
+    await expect(table.getByText("サポート担当", { exact: false })).toBeVisible();
+    await expect(table.getByText("プロフィール動画制作", { exact: true })).toBeVisible();
+    await expect(table.getByText("ビジ友公式SNS動画制作", { exact: true })).toBeVisible();
+    await expect(table.getByText("年払いのみ○")).toHaveCount(2);
+    await expect(table.getByRole("row").filter({ hasText: "複数人利用" })).toContainText("5人まで");
+    await expect(table.getByRole("row").filter({ hasText: "代理メッセージ" })).toContainText("24通/年");
+
+    // オプション価格表
+    await expect(page.getByRole("heading", { name: "オプションプラン" })).toBeVisible();
+    await expect(page.getByText("急募", { exact: true })).toBeVisible();
+    await expect(page.getByText("20,000円（7日間）")).toBeVisible();
+    await expect(page.getByText("100,000円/動画", { exact: true })).toBeVisible();
+    await expect(page.getByText("120,000円/動画", { exact: true })).toBeVisible();
+
+    // もどる → /billing
+    await page.getByRole("button", { name: "もどる" }).click();
+    await expect(page).toHaveURL(/\/billing$/);
+  });
+});
+
 test.describe("CLI-026 表示: active client (corporate)", () => {
   test("現在プランに「ご利用中」バッジが表示される", async ({ page }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
@@ -144,7 +183,7 @@ test.describe("CLI-026 表示: active client (corporate)", () => {
     // 初回事務手数料「必要」の注意書きは出てはいけない
     // （既存ユーザー向けには「不要となります」の注意書きが出る仕様）
     await expect(
-      page.getByText("初回事務手数料として20,000円が必要となります"),
+      page.getByText("初回事務手数料として12,000円が必要となります"),
     ).not.toBeVisible();
   });
 });

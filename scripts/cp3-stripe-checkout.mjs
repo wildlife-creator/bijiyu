@@ -12,7 +12,7 @@
  *
  * Steps:
  *   1. Login as `contractor@test.local` (free user)
- *   2. Visit /billing → click "個人発注者様向けプラン (¥3,800/月)"
+ *   2. Visit /billing → click "ライトプラン (¥2,800/月)"
  *   3. Wait for redirect to checkout.stripe.com
  *   4. Fill the test card 4242 4242 4242 4242, future date, any CVC, name
  *   5. Submit

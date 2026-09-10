@@ -26,6 +26,19 @@
 
 ## A. 外部サービスの準備（反映前・いつでも可）
 
+### A0. Stripe: 月額 Price 4 本 + 初回事務手数料 Price の金額変更（P11、2026-09-10 追加）
+
+- 2026-09-10 のクライアント決定で月額と初回事務手数料が変わった。**A1 の年払い Price を作る前に**、Stripe ダッシュボードで次の Price を新しい金額で作成し（既存 Price の金額は変更できないため新規作成）、`.env.local` / Vercel の環境変数を差し替える:
+  | 環境変数 | 旧 | 新（税込・月） |
+  |---|---|---|
+  | `STRIPE_PRICE_INDIVIDUAL`（ライト） | 3,800 | **2,800** |
+  | `STRIPE_PRICE_SMALL`（スタンダード） | 14,800 | **9,800** |
+  | `STRIPE_PRICE_CORPORATE`（プレミアム） | 48,000 | **28,000** |
+  | `STRIPE_PRICE_CORPORATE_PREMIUM`（ハイエンド） | 148,000 | **168,000** |
+  | `STRIPE_PRICE_INITIAL_FEE`（初回事務手数料・一回限り） | 20,000 | **12,000** |
+- 古い Price は「アーカイブ」しておく（既存の staging テスト契約が付いていても解約で消える）
+- 確認: `node scripts/cp1-verify-stripe.mjs`（期待金額は更新済み）
+
 ### A1. Stripe: 年払い Price 4 本 + プラン変更用ポータル設定
 
 - **人間が自分のターミナルで** 1 回実行（Claude Code の `!` プレフィックスは使わない）:
@@ -35,7 +48,7 @@
   - `.env.local` の `STRIPE_SECRET_KEY`（ステージングで使っている Stripe アカウントのもの）で動く。金額指定は不要（既定で月額 × 10）
   - 出力される次の 5 行を控える（これらは識別子なので Claude に見せてよい）:
     `STRIPE_PRICE_INDIVIDUAL_YEARLY` / `STRIPE_PRICE_SMALL_YEARLY` / `STRIPE_PRICE_CORPORATE_YEARLY` / `STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY` / `STRIPE_PORTAL_UPDATE_CONFIGURATION_ID`
-  - 期待金額（税込・年）: ライト 38,000 / スタンダード 148,000 / プレミアム 480,000 / ハイエンド 1,480,000
+  - 期待金額（税込・年、月額 × 10）: ライト 28,000 / スタンダード 98,000 / プレミアム 280,000 / ハイエンド 1,680,000（A0 の新しい月額 Price を元に作られる。A0 より先に実行すると旧金額で作られるので順番に注意）
 
 ### A2. Stripe: ユーザー撮影プラン（買い切り 20,000 円）・ビジ友公式SNS動画制作プラン（買い切り 120,000 円）の Price
 

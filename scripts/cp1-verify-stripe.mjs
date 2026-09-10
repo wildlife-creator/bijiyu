@@ -26,11 +26,11 @@ const stripe = new Stripe(SECRET, { apiVersion: "2026-02-25.clover" });
  *   recurring  — true=subscription, false=one_time
  */
 const EXPECTED = {
-  STRIPE_PRICE_INDIVIDUAL: { amount: 3800, recurring: true, label: "個人発注者様向けプラン" },
-  STRIPE_PRICE_SMALL: { amount: 14800, recurring: true, label: "小規模事業主様向けプラン" },
-  STRIPE_PRICE_CORPORATE: { amount: 48000, recurring: true, label: "法人向けプラン" },
-  STRIPE_PRICE_CORPORATE_PREMIUM: { amount: 148000, recurring: true, label: "法人向けプラン（高サポート）" },
-  STRIPE_PRICE_INITIAL_FEE: { amount: 20000, recurring: false, label: "初期費用" },
+  STRIPE_PRICE_INDIVIDUAL: { amount: 2800, recurring: true, label: "個人発注者様向けプラン" },
+  STRIPE_PRICE_SMALL: { amount: 9800, recurring: true, label: "小規模事業主様向けプラン" },
+  STRIPE_PRICE_CORPORATE: { amount: 28000, recurring: true, label: "法人向けプラン" },
+  STRIPE_PRICE_CORPORATE_PREMIUM: { amount: 168000, recurring: true, label: "法人向けプラン（高サポート）" },
+  STRIPE_PRICE_INITIAL_FEE: { amount: 12000, recurring: false, label: "初期費用" },
   STRIPE_PRICE_COMPENSATION_5000: { amount: 5000, recurring: true, label: "補償オプション ¥5,000/月" },
   STRIPE_PRICE_COMPENSATION_9800: { amount: 9800, recurring: true, label: "補償オプション ¥9,800/月" },
   STRIPE_PRICE_URGENT: { amount: 20000, recurring: false, label: "急募オプション" },

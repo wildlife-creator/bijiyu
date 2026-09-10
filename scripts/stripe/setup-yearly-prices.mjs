@@ -15,7 +15,7 @@
  *   STRIPE_SECRET_KEY, STRIPE_PRICE_INDIVIDUAL, STRIPE_PRICE_SMALL,
  *   STRIPE_PRICE_CORPORATE, STRIPE_PRICE_CORPORATE_PREMIUM
  *   （任意）STRIPE_PORTAL_UPDATE_CONFIGURATION_ID … 既にあれば更新、無ければ新規作成
- *   （任意）YEARLY_AMOUNTS … 年額を上書きしたいとき。例: "38000,148000,480000,1480000"
+ *   （任意）YEARLY_AMOUNTS … 年額を上書きしたいとき。例: "28000,98000,280000,1680000"
  *          （ライト, スタンダード, プレミアム, ハイエンド の順、税込円）。未指定は月額 × 10
  *          （暫定係数。src/lib/constants/plans.ts の YEARLY_PRICE_MONTHS と一致させること）
  *

@@ -10,7 +10,7 @@
 -- seed と重複しない専用 UUID（f6a00000-…）を使用する。
 
 BEGIN;
-SELECT plan(17);
+SELECT plan(18);
 
 -- ============================================================
 -- Setup（privileged role = RLS バイパス）
@@ -51,13 +51,13 @@ VALUES ('f6a00000-0000-0000-0000-00000000cc01', 'f6a00000-0000-0000-0000-0000000
 
 SELECT is(
   (SELECT list_plan_rank FROM users WHERE id = 'f6a00000-0000-0000-0000-0000000000a1'),
-  2::smallint,
-  'INSERT corporate_premium subscription -> users.list_plan_rank = 2'
+  3::smallint,
+  'INSERT corporate_premium subscription -> users.list_plan_rank = 3'
 );
 SELECT is(
   (SELECT owner_plan_rank FROM jobs WHERE id = 'f6a00000-0000-0000-0000-00000000ee01'),
-  2::smallint,
-  'INSERT subscription -> existing job (owner_id) gets owner_plan_rank = 2'
+  3::smallint,
+  'INSERT subscription -> existing job (owner_id) gets owner_plan_rank = 3'
 );
 
 -- ============================================================
@@ -74,8 +74,8 @@ UPDATE jobs SET organization_id = 'f6a00000-0000-0000-0000-00000000aa01'
  WHERE id = 'f6a00000-0000-0000-0000-00000000ee01';
 SELECT is(
   (SELECT owner_plan_rank FROM jobs WHERE id = 'f6a00000-0000-0000-0000-00000000ee01'),
-  2::smallint,
-  'job re-attached to the organization keeps owner_plan_rank = 2 (via org owner)'
+  3::smallint,
+  'job re-attached to the organization keeps owner_plan_rank = 3 (via org owner)'
 );
 
 -- 担当者（staff）が作成した案件は組織オーナーのランクを引き継ぐ
@@ -83,8 +83,8 @@ INSERT INTO jobs (id, owner_id, organization_id, title, status)
 VALUES ('f6a00000-0000-0000-0000-00000000ee02', 'f6a00000-0000-0000-0000-0000000000a2', 'f6a00000-0000-0000-0000-00000000aa01', '担当者案件', 'open');
 SELECT is(
   (SELECT owner_plan_rank FROM jobs WHERE id = 'f6a00000-0000-0000-0000-00000000ee02'),
-  2::smallint,
-  'staff-created job inherits the organization owner rank (2)'
+  3::smallint,
+  'staff-created job inherits the organization owner rank (3)'
 );
 SELECT is(
   (SELECT list_plan_rank FROM users WHERE id = 'f6a00000-0000-0000-0000-0000000000a2'),
@@ -98,13 +98,13 @@ SELECT is(
 UPDATE subscriptions SET plan_type = 'corporate' WHERE id = 'f6a00000-0000-0000-0000-00000000cc01';
 SELECT is(
   (SELECT list_plan_rank FROM users WHERE id = 'f6a00000-0000-0000-0000-0000000000a1'),
-  1::smallint,
-  'UPDATE plan_type corporate -> users.list_plan_rank = 1'
+  2::smallint,
+  'UPDATE plan_type corporate -> users.list_plan_rank = 2'
 );
 SELECT is(
   (SELECT owner_plan_rank FROM jobs WHERE id = 'f6a00000-0000-0000-0000-00000000ee02'),
-  1::smallint,
-  'UPDATE plan_type -> staff-created job follows (1)'
+  2::smallint,
+  'UPDATE plan_type -> staff-created job follows (2)'
 );
 
 -- ============================================================
@@ -113,8 +113,8 @@ SELECT is(
 UPDATE subscriptions SET status = 'past_due' WHERE id = 'f6a00000-0000-0000-0000-00000000cc01';
 SELECT is(
   (SELECT list_plan_rank FROM users WHERE id = 'f6a00000-0000-0000-0000-0000000000a1'),
-  1::smallint,
-  'past_due keeps the rank (1)'
+  2::smallint,
+  'past_due keeps the rank (2)'
 );
 
 UPDATE subscriptions SET status = 'cancelled' WHERE id = 'f6a00000-0000-0000-0000-00000000cc01';
@@ -135,14 +135,14 @@ SELECT is(
 );
 
 -- ============================================================
--- 6. 再契約（新しい行の INSERT）→ 2、契約行の DELETE → 0
+-- 6. 再契約（新しい行の INSERT）→ 3、契約行の DELETE → 0
 -- ============================================================
 INSERT INTO subscriptions (id, user_id, plan_type, status, stripe_subscription_id)
 VALUES ('f6a00000-0000-0000-0000-00000000cc02', 'f6a00000-0000-0000-0000-0000000000a1', 'corporate_premium', 'active', 'sub_rank_test_2');
 SELECT is(
   (SELECT owner_plan_rank FROM jobs WHERE id = 'f6a00000-0000-0000-0000-00000000ee02'),
-  2::smallint,
-  're-subscribe (new row) -> staff-created job owner_plan_rank = 2'
+  3::smallint,
+  're-subscribe (new row) -> staff-created job owner_plan_rank = 3'
 );
 
 DELETE FROM subscriptions WHERE id = 'f6a00000-0000-0000-0000-00000000cc02';
@@ -153,14 +153,20 @@ SELECT is(
 );
 
 -- ============================================================
--- 7. スタンダード以下は「その他」= 0
+-- 7. スタンダードは 1（P11 で上位表示に追加）、ライトは「その他」= 0
 -- ============================================================
 INSERT INTO subscriptions (id, user_id, plan_type, status, stripe_subscription_id)
 VALUES ('f6a00000-0000-0000-0000-00000000cc03', 'f6a00000-0000-0000-0000-0000000000b1', 'small', 'active', 'sub_rank_test_3');
 SELECT is(
   (SELECT list_plan_rank FROM users WHERE id = 'f6a00000-0000-0000-0000-0000000000b1'),
+  1::smallint,
+  'small (スタンダード) plan -> list_plan_rank = 1 (P11)'
+);
+UPDATE subscriptions SET plan_type = 'individual' WHERE id = 'f6a00000-0000-0000-0000-00000000cc03';
+SELECT is(
+  (SELECT list_plan_rank FROM users WHERE id = 'f6a00000-0000-0000-0000-0000000000b1'),
   0::smallint,
-  'small (スタンダード) plan -> list_plan_rank = 0 (その他)'
+  'individual (ライト) plan -> list_plan_rank = 0 (その他)'
 );
 
 -- ============================================================
@@ -168,8 +174,8 @@ SELECT is(
 -- ============================================================
 SELECT is(
   (SELECT owner_plan_rank FROM jobs WHERE id = 'f6660000-0000-4000-8000-000000000001'),
-  2::smallint,
-  'seed: highend-client urgent job has owner_plan_rank = 2'
+  3::smallint,
+  'seed: highend-client urgent job has owner_plan_rank = 3'
 );
 
 SELECT * FROM finish();
