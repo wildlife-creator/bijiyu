@@ -79,7 +79,11 @@ const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><style>
 
 fs.writeFileSync(path.join(OUT, "capture-book.html"), html, "utf8");
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.CAPTURE_CHROMIUM_PATH
+    ? { executablePath: process.env.CAPTURE_CHROMIUM_PATH }
+    : {},
+);
 const page = await browser.newPage();
 await page.goto("file://" + path.join(OUT, "capture-book.html"), { waitUntil: "networkidle" });
 await page.pdf({ path: path.join(OUT, "ビジ友_キャプチャ集.pdf"), format: "A4", printBackground: true,
