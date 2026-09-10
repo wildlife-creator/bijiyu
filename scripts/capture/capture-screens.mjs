@@ -9,6 +9,7 @@
  *   CAPTURE_BASE_URL   例: https://staging.bijiyuu.net （既定: http://localhost:3000）
  *   CAPTURE_PASSWORD   テストユーザー共通パスワード（既定: testpass123）
  *   CAPTURE_ONLY       特定画面のみ撮る場合: "CON-003,CLI-002" のようにカンマ区切り
+ *   CAPTURE_CHROMIUM_PATH  Playwright 既定ブラウザが無い環境で使う実行ファイルのパス（任意）
  *
  * 出力: scripts/capture/output/png/*.png と manifest.json
  * 注意: 撮影のみでデータは変更しません（フォーム送信・削除等は一切行いません）
@@ -182,13 +183,13 @@ const SCREENS = [
   { id: "ADM-008", name: "ユーザーアカウント一覧", role: "admin", path: "/admin/users" },
   { id: "ADM-009", name: "ユーザーアカウント詳細", role: "admin",
     from: "/admin/users", pick: 'a[href^="/admin/users/"]' },
-  { id: "ADM-010", name: "ユーザー動画投稿（受注者PR）", role: "admin",
-    from: "/admin/users", pick: 'a[href^="/admin/users/"]', suffix: "/video",
-    note: "動画オプション未加入のユーザーではリダイレクトされることあり" },
-  { id: "ADM-010B", name: "ユーザー動画投稿（職場紹介）", role: "admin",
+  // ADM-010 / ADM-010B は P4（2026-09）で ADM-027 に統合。旧 URL は存在しない
+  { id: "ADM-027", name: "ユーザー動画管理（職人ページ側タブ）", role: "admin",
+    from: "/admin/users", pick: 'a[href^="/admin/users/"]',
+    transform: href => `${href}/videos?placement=contractor_page` },
+  { id: "ADM-027B", name: "ユーザー動画管理（会社ページ側タブ）", role: "admin",
     from: "/admin/clients", pick: 'a[href^="/admin/clients/"]:not([href$="new"])',
-    transform: href => `/admin/users/${href.split("/").pop()}/workplace-video`,
-    note: "職場紹介動画オプション未加入ではリダイレクトされることあり" },
+    transform: href => `/admin/users/${href.split("/").pop()}/videos?placement=client_page` },
   { id: "ADM-011", name: "本人確認承認申請一覧", role: "admin", path: "/admin/verifications" },
   { id: "ADM-012", name: "本人確認承認可否", role: "admin",
     from: "/admin/verifications", pick: 'a[href^="/admin/verifications/"]',
@@ -216,6 +217,10 @@ const SCREENS = [
   { id: "ADM-024", name: "メッセージ詳細（代理メッセージ閲覧）", role: "admin",
     from: "/admin/messages", pick: 'a[href^="/admin/messages/"]',
     note: "代理メッセージが無い場合は撮影できません" },
+  { id: "ADM-025", name: "銀行振込申込一覧", role: "admin", path: "/admin/bank-transfers" },
+  { id: "ADM-025B", name: "銀行振込申込の代理登録", role: "admin", path: "/admin/bank-transfers/new" },
+  { id: "ADM-026", name: "銀行振込申込詳細", role: "admin",
+    from: "/admin/bank-transfers", pick: 'a[href^="/admin/bank-transfers/"]:not([href$="new"])' },
 ];
 
 // ---------------------------------------------------------------
@@ -274,7 +279,13 @@ async function resolveUrl(page, def) {
 }
 
 async function main() {
-  const browser = await chromium.launch();
+  // CAPTURE_CHROMIUM_PATH: Playwright 既定の headless_shell が未インストールの環境で、
+  // インストール済みの実行ファイルを明示する（未指定なら既定）
+  const browser = await chromium.launch(
+    process.env.CAPTURE_CHROMIUM_PATH
+      ? { executablePath: process.env.CAPTURE_CHROMIUM_PATH }
+      : {},
+  );
   const contexts = {}; // role -> {pc, sp}
   async function ctxFor(role) {
     if (contexts[role]) return contexts[role];
