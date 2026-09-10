@@ -171,3 +171,37 @@
   - 料金画面の「購入済み」判定は `video` と旧 `video_workplace` のどちらかが active なら購入済み扱い（seed の client@test.local が該当）
 - テスト: vitest 全件 PASS（video_sns の Checkout / Webhook / 銀行振込 / 代理登録 / 金額、video_workplace の 3 入口拒否を追加）、pgTAP 455 PASS、E2E は billing / video-display / bank-transfer / admin の 61 件 PASS + 全件実行
 - 触っていないもの: seed（`video_workplace` の既存行はそのまま。統合後も「購入済み」として扱われる）、法務 4 ページ（動画商品名の記載なし）、`/billing/plans` 比較表（§8）
+
+## 10. 2026-09-10 終了時点の状態（次セッションはここから）
+
+### 完了（すべて `feature/spec-changes-202608` にマージ・origin へ push 済。`client/staging` は未反映）
+| 内容 | マージコミット |
+|---|---|
+| P10 動画プラン整理（§4〜§6、§9） | 64b687f |
+| P11 価格改定・比較表・上位表示にスタンダード追加（§8） | df80df9 |
+| 比較表に「案件募集機能」行、現場掲載「1件まで」、サポート担当の定義 | 73ae09c / e8c88b1 / 7237c4c |
+| メール整理（§8.5）: 動画申込完了の結び文 / 運営宛「プランの新規お申し込み」新設 | f32a191 / 6f07f42 |
+| 出荷チェックリスト更新（要点・A0・B4 差し替え・C4b/C4c） | 4d1f979 / f87b842 / 10cafb0 |
+| 操作確認スクリーンショット集スクリプト（`scripts/capture/capture-flows.mjs`）+ 撮影リスト更新 | 2a3b56c |
+
+テスト: vitest 1832 / pgTAP 456 / E2E 356 PASS。段階 1 の目視確認 = 全画面キャプチャ 95/97 + 操作確認 7 フロー 53 ステップ全成功（`scripts/capture/output/`、git 管理外）。
+
+### 未コミット（Claude Code が作ったものではない。Cowork 側の Stripe 準備 A0〜A2 の成果物と思われる）
+- `scripts/stripe/setup-monthly-prices.mjs`（A0: 月額 4 本 + 事務手数料の Price 作成・旧 Price アーカイブ）
+- `scripts/stripe/setup-video-prices.mjs`（A2: 撮影 / 公式SNS の Price 作成 + 「自己PR動画掲載」商品の改名）
+- `scripts/stripe/cancel-old-price-test-subs.mjs`（旧 Price のテスト契約 4 件の解約）
+- `scripts/stripe/setup-yearly-prices.mjs` の変更（ポータル設定 `payment_method_update: true`。Stripe 仕様で subscription_update とセット必須）
+→ Cowork 側の作業が終わったら内容確認のうえコミット。チェックリスト A0〜A2 の手順もこれらのスクリプト前提に書き換えるとよい
+
+### 次の作業
+1. Stripe（A0 → A1 → A2）と Cloudflare（A3・A4）の準備を完了させる（進行中）
+2. 反映当日: B1〜B5（マイグレーション 8 本 → cron / Edge Function → Vercel 環境変数（月額 4 本 + 事務手数料は差し替え）→ コード反映）
+3. 反映直後: C1〜C6。`CAPTURE_BASE_URL=https://staging.bijiyuu.net` で `capture-flows.mjs` を回すのも可（staging のテストユーザーが必要）
+4. 後日: 年払い正式金額、法務ページのプレースホルダー、旧動画カラム DROP、`npx playwright install chromium`
+
+### 判断済みで「やらない」と決めたこと（蒸し返さない）
+- プラン付属動画のアプリ判定（購入ボタン出し分け・決済ガード・admin バッジ・メールへの付属案内）
+- 公式SNS動画の掲載完了メール（掲載先がアプリ外）
+- 両掲載先に載せたときの掲載完了メール 2 通を 1 通にまとめる
+- 運営宛プラン通知をプラン変更・解約にも出す（新規のみ）
+
