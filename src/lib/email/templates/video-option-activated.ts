@@ -13,8 +13,10 @@ interface VideoOptionActivatedEmailProps {
  *
  * 発火: `checkout.session.completed` → `handleVideoOption` / `handleVideoWorkplaceOption` 末尾。
  * 配信: 申込者本人 + 法人プランなら組織メンバー全員 (M-03 broadcast)。
- * closing「運営より動画制作・撮影手配についてご連絡いたします。」は次のアクション案内
+ * closing「今後の進め方については、運営よりご連絡いたします。」は次のアクション案内
  * (動画オプションは購入即掲載ではなく運営作業介在の 2 ステップフローのため)。
+ * P11（2026-09-10）で「動画制作・撮影手配について」から汎用文に変更: ユーザー撮影プラン
+ * （本人が撮影し素材を送る）にも合う 1 文にし、プラン別の分岐は設けない（ユーザー判断）。
  */
 export function videoOptionActivatedEmail({
   recipientName,
@@ -31,7 +33,7 @@ export function videoOptionActivatedEmail({
         listItem("お申し込みオプション", optionLabel),
         listItem("ご利用開始日", activatedAt, { blockEnd: true }),
         paragraph(
-          "運営より動画制作・撮影手配についてご連絡いたします。",
+          "今後の進め方については、運営よりご連絡いたします。",
           { last: true },
         ),
       ].join(""),

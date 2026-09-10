@@ -419,7 +419,7 @@ describe("videoOptionActivatedEmail §6.6.B-User 動画オプション申込完�
     expect(out.html).toContain("ご利用開始日");
     expect(out.html).toContain("2026/07/01");
     expect(out.html).toContain(
-      "運営より動画制作・撮影手配についてご連絡いたします",
+      "今後の進め方については、運営よりご連絡いたします",
     );
   });
 
