@@ -122,6 +122,7 @@ test.describe("CLI-026 プラン一覧（/billing/plans、P11 で確定した比
     await expect(yearly).toContainText("¥28,000");
     await expect(yearly).toContainText("¥1,680,000");
     // 追加した行
+    await expect(table.getByText("案件募集機能", { exact: true })).toBeVisible();
     await expect(table.getByText("サポート担当", { exact: false })).toBeVisible();
     await expect(table.getByText("プロフィール動画制作", { exact: true })).toBeVisible();
     await expect(table.getByText("ビジ友公式SNS動画制作", { exact: true })).toBeVisible();
