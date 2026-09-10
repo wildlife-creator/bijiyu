@@ -5,6 +5,7 @@ import { optionSubscriptionActivatedEmail } from "@/lib/email/templates/option-s
 import { optionSubscriptionCancelledEmail } from "@/lib/email/templates/option-subscription-cancelled";
 import { paymentFailedEmail } from "@/lib/email/templates/payment-failed";
 import { planActivatedEmail } from "@/lib/email/templates/plan-activated";
+import { planAppliedOpsEmail } from "@/lib/email/templates/plan-applied-ops";
 import { subscriptionCancelledEmail } from "@/lib/email/templates/subscription-cancelled";
 import { subscriptionChangedEmail } from "@/lib/email/templates/subscription-changed";
 import { urgentOptionActivatedEmail } from "@/lib/email/templates/urgent-option-activated";
@@ -549,6 +550,47 @@ describe("videoPublishedOpsEmail §6.6.C-Ops 動画掲載完了 (運営向け)",
     });
     expect(out.html).not.toContain("【操作者】");
     expect(out.html).not.toContain("会社名");
+  });
+});
+
+describe("planAppliedOpsEmail §6.7-Ops 基本プラン新規契約の運営通知 (P11)", () => {
+  it("件名は「【ビジ友 運営】プランの新規お申し込みがありました」、申込者・会社名・プラン（サイクル付き）・支払方法・開始日・ADM-004 deep link を含む", () => {
+    const out = planAppliedOpsEmail({
+      applicantName: "佐藤花子",
+      companyName: "テスト建設株式会社",
+      planName: "プレミアムプラン（年払い）",
+      paymentMethodLabel: "銀行振込",
+      activatedAt: "2026/09/10",
+      userId: "user-001",
+      siteUrl: "https://bijiyu.example.com",
+    });
+    expect(out.subject).toBe("【ビジ友 運営】プランの新規お申し込みがありました");
+    expect(out.html).toContain("基本プランの新規お申し込みがありました");
+    expect(out.html).toContain("佐藤花子");
+    expect(out.html).toContain("テスト建設株式会社");
+    expect(out.html).toContain("お申し込みプラン");
+    expect(out.html).toContain("プレミアムプラン（年払い）");
+    expect(out.html).toContain("お支払い方法");
+    expect(out.html).toContain("銀行振込");
+    expect(out.html).toContain("ご利用開始日");
+    expect(out.html).toContain("2026/09/10");
+    expect(out.html).toContain("https://bijiyu.example.com/admin/clients/user-001");
+    expect(out.html).toContain("ログインした状態でクリックしてください");
+  });
+
+  it("会社名 null なら【会社名】行を省略し、付属動画の判定文言は含まない", () => {
+    const out = planAppliedOpsEmail({
+      applicantName: "佐藤花子",
+      companyName: null,
+      planName: "ライトプラン（月払い）",
+      paymentMethodLabel: "クレジットカード",
+      activatedAt: "2026/09/10",
+      userId: "user-001",
+      siteUrl: "https://bijiyu.example.com",
+    });
+    expect(out.html).not.toContain("会社名");
+    expect(out.html).not.toContain("動画");
+    expect(out.html).toContain("クレジットカード");
   });
 });
 

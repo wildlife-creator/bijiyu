@@ -3902,6 +3902,8 @@ ${SERVICE_URL}/admin/users/${userId}
 
 ### 6.7 基本プラン契約完了（新規 1 件）⚠️ 初回契約 / 解約後再契約の通知ゼロ状態の解消
 
+> **P11 追記（2026-09-10）: §6.7-Ops 運営通知を新設。** 会員宛 §6.7 と同時に、`OPS_NOTIFICATION_EMAIL` 宛へ「【ビジ友 運営】プランの新規お申し込みがありました」（申込者・会社名・お申し込みプラン（サイクル付き）・お支払い方法・ご利用開始日・ADM-004 deep link）を送る。新規契約のみ（Stripe checkout / 銀行振込有効化 / 運営付与）で、§6.1 プラン変更・§6.2 解約・§6.3 支払い失敗では送らない。付属動画（プレミアム・ハイエンド）の判定はメールに入れない（`src/lib/email/templates/plan-applied-ops.ts`、送信は `sendPlanActivatedEmail`）。
+
 **現状**:
 - 基本プラン初回契約（`checkout.session.completed` → `handlePlanCheckout`）で **メール送信なし**
 - `handlePlanCheckout` (`handle-checkout-completed.ts:47-134`): RPC `handle_checkout_completed_plan` で `subscriptions` 行を INSERT するが、メール送信処理は一切なし

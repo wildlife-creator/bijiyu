@@ -53,6 +53,7 @@ import { orphanAuthUserAlertEmail } from "@/lib/email/templates/orphan-auth-user
 import { passwordResetCompletedEmail } from "@/lib/email/templates/password-reset-completed";
 import { paymentFailedEmail } from "@/lib/email/templates/payment-failed";
 import { planActivatedEmail } from "@/lib/email/templates/plan-activated";
+import { planAppliedOpsEmail } from "@/lib/email/templates/plan-applied-ops";
 import { proxyAssignedControlEmail } from "@/lib/email/templates/proxy-assigned-control";
 import { proxyAssignedEmail } from "@/lib/email/templates/proxy-assigned";
 import { proxyRemovedControlEmail } from "@/lib/email/templates/proxy-removed-control";
@@ -1464,6 +1465,29 @@ const fixtures: Fixture[] = [
       trigger: "初回契約 or 解約後の再契約完了時、Stripe checkout.session.completed 経由",
       actionFile: "src/lib/billing/webhook/handle-checkout-completed.ts",
       specRef: "§6.7",
+      classification: "新規",
+    },
+  },
+  {
+    id: "6.7-Ops",
+    section: "§6 課金・サブスクリプション",
+    title: "基本プラン新規契約の運営通知 (運営向け)",
+    templateFile: "src/lib/email/templates/plan-applied-ops.ts",
+    invoke: () =>
+      planAppliedOpsEmail({
+        applicantName: "田中 太郎",
+        companyName: "××建設",
+        planName: "プレミアムプラン（年払い）",
+        paymentMethodLabel: "クレジットカード",
+        activatedAt: "2026/09/10",
+        userId: "11111111-1111-1111-1111-111111111111",
+        siteUrl: APP_URL,
+      }),
+    meta: {
+      recipient: "運営 (OPS_NOTIFICATION_EMAIL)",
+      trigger: "§6.7 と同時（新規契約のみ。Stripe checkout.session.completed / 銀行振込の ADM-026 有効化 / 運営付与）。プラン変更・解約では送らない",
+      actionFile: "src/lib/billing/activation-emails.ts",
+      specRef: "§6.7-Ops",
       classification: "新規",
     },
   },

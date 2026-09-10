@@ -917,6 +917,49 @@ describe("handleCheckoutCompleted §6.5.A compensation email", () => {
     expect(args.html).toContain("ご利用開始日");
   });
 
+  it("§6.7-Ops (P11): OPS_NOTIFICATION_EMAIL が設定されていれば運営宛にも「プランの新規お申し込みがありました」を送る（クレジットカード・サイクル付きプラン名）", async () => {
+    const prev = process.env.OPS_NOTIFICATION_EMAIL;
+    process.env.OPS_NOTIFICATION_EMAIL = "ops@test.local";
+    try {
+      const { admin } = makeAdmin({
+        rpcResults: { handle_checkout_completed_plan: { data: {}, error: null } },
+        selectByTable: {
+          users: {
+            data: {
+              email: "owner@test.local",
+              last_name: "山田",
+              first_name: "太郎",
+              client_profiles: null,
+            },
+          },
+        },
+      });
+
+      await handleCheckoutCompleted(
+        admin,
+        makeSession({
+          type: "plan",
+          plan_type: "corporate",
+          user_id: "user-owner",
+          billing_cycle: "yearly",
+        }),
+        { sendEmail: SEND as never },
+      );
+
+      expect(SEND).toHaveBeenCalledTimes(2);
+      const ops = SEND.mock.calls[1]![0]! as { to: string; subject: string; html: string };
+      expect(ops.to).toBe("ops@test.local");
+      expect(ops.subject).toBe("【ビジ友 運営】プランの新規お申し込みがありました");
+      expect(ops.html).toContain("山田太郎");
+      expect(ops.html).toContain("プレミアムプラン（年払い）");
+      expect(ops.html).toContain("クレジットカード");
+      expect(ops.html).toContain("/admin/clients/user-owner");
+    } finally {
+      if (prev === undefined) delete process.env.OPS_NOTIFICATION_EMAIL;
+      else process.env.OPS_NOTIFICATION_EMAIL = prev;
+    }
+  });
+
   it("§6.7 fetchBillingRecipient が null → throw せず redirect 続行 (メール send skip)", async () => {
     const { admin } = makeAdmin({
       rpcResults: { handle_checkout_completed_plan: { data: {}, error: null } },

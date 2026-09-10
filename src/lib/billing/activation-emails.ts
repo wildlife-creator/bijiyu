@@ -2,7 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 
 import { OPTION_LABELS, type VideoOptionType } from "@/lib/billing/options";
-import { PLAN_LABELS, type PlanType } from "@/lib/constants/plans";
+import {
+  PAYMENT_METHOD_LABELS,
+  PLAN_LABELS,
+  planDisplayName,
+  type BillingCycle,
+  type PaymentMethod,
+  type PlanType,
+} from "@/lib/constants/plans";
 import { resolveApplicantCompanyName } from "@/lib/email/recipients/applicant-company-name";
 import {
   fetchBillingRecipient,
@@ -16,6 +23,7 @@ import {
 import type { sendEmail } from "@/lib/email/send-email";
 import { optionSubscriptionActivatedEmail } from "@/lib/email/templates/option-subscription-activated";
 import { planActivatedEmail } from "@/lib/email/templates/plan-activated";
+import { planAppliedOpsEmail } from "@/lib/email/templates/plan-applied-ops";
 import { urgentOptionActivatedEmail } from "@/lib/email/templates/urgent-option-activated";
 import { videoOptionActivatedEmail } from "@/lib/email/templates/video-option-activated";
 import { videoOptionAppliedOpsEmail } from "@/lib/email/templates/video-option-applied-ops";
@@ -31,25 +39,72 @@ import type { Database } from "@/types/database";
  * すべて失敗はサイレント（DB 整合は呼出側で完了済み。メール失敗で業務処理を巻き戻さない）。
  */
 
-/** §6.7 基本プラン契約完了（Owner 1 名のみ）。 */
+export interface PlanActivatedEmailContext {
+  /** 支払サイクル（運営宛の「プレミアムプラン（年払い）」表記用）。不明なら省略 */
+  billingCycle?: BillingCycle;
+  /** 支払方法（運営宛の「お支払い方法」行）。不明なら省略 */
+  paymentMethod?: PaymentMethod;
+}
+
+/**
+ * §6.7 基本プラン契約完了（Owner 1 名のみ）+ §6.7-Ops 運営通知（P11、2026-09-10 新設）。
+ *
+ * 運営通知は新規契約時だけ（この関数の呼び出し元 = Stripe checkout 完了 / 銀行振込の有効化 /
+ * 運営による付与）。プラン変更・解約・支払い失敗の Webhook からは呼ばれないので通知過多にならない。
+ * 会員宛が送れない（recipient 不在）ケースでも運営宛は送る。両方とも失敗はサイレント。
+ */
 export async function sendPlanActivatedEmail(
   admin: SupabaseClient<Database>,
   send: typeof sendEmail,
   userId: string,
   planType: PlanType,
   activatedAtIso: string = new Date().toISOString(),
+  context: PlanActivatedEmailContext = {},
 ): Promise<void> {
   try {
     const recipient = await fetchBillingRecipient(admin, userId);
-    if (!recipient) return;
-    const tpl = planActivatedEmail({
-      recipientName: recipient.name,
-      planName: PLAN_LABELS[planType],
-      activatedAt: formatBillingDate(activatedAtIso),
-    });
-    await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
+    if (recipient) {
+      const tpl = planActivatedEmail({
+        recipientName: recipient.name,
+        planName: PLAN_LABELS[planType],
+        activatedAt: formatBillingDate(activatedAtIso),
+      });
+      await send({ to: recipient.email, subject: tpl.subject, html: tpl.html });
+    }
   } catch (err) {
     console.error("[activation-emails] sendPlanActivatedEmail failed", err);
+  }
+
+  // §6.7-Ops 運営通知（新規契約のみ）
+  try {
+    const opsEmail = process.env.OPS_NOTIFICATION_EMAIL;
+    if (!opsEmail) return;
+
+    const { data: applicant } = await admin
+      .from("users")
+      .select("last_name, first_name")
+      .eq("id", userId)
+      .maybeSingle();
+    const applicantName =
+      `${applicant?.last_name ?? ""}${applicant?.first_name ?? ""}`.trim() ||
+      "申込者";
+    const companyName = await resolveApplicantCompanyName(admin, userId);
+    const siteUrl = await resolveSiteUrl();
+
+    const tpl = planAppliedOpsEmail({
+      applicantName,
+      companyName,
+      planName: planDisplayName(planType, context.billingCycle ?? null),
+      paymentMethodLabel: context.paymentMethod
+        ? PAYMENT_METHOD_LABELS[context.paymentMethod]
+        : "不明",
+      activatedAt: formatBillingDate(activatedAtIso),
+      userId,
+      siteUrl,
+    });
+    await send({ to: opsEmail, subject: tpl.subject, html: tpl.html });
+  } catch (err) {
+    console.error("[activation-emails] §6.7-Ops send failed", err);
   }
 }
 
@@ -199,10 +254,15 @@ export async function sendVideoActivatedEmails(
  * （CLAUDE.md「emailRedirectTo を組む時は host header を使う」と同方針）。
  */
 export async function resolveSiteUrl(): Promise<string> {
-  const hdrs = await headers();
-  const host = hdrs.get("host");
-  const proto = hdrs.get("x-forwarded-proto") ?? "http";
-  return host
-    ? `${proto}://${host}`
-    : (process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000");
+  const fallback = process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
+  try {
+    const hdrs = await headers();
+    const host = hdrs.get("host");
+    const proto = hdrs.get("x-forwarded-proto") ?? "http";
+    return host ? `${proto}://${host}` : fallback;
+  } catch {
+    // リクエストスコープ外（テスト・バッチ等）では headers() が throw する。
+    // deep link が組めないだけでメール自体を落とさないよう、環境変数にフォールバックする
+    return fallback;
+  }
 }
