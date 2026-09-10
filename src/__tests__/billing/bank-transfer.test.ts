@@ -58,6 +58,16 @@ describe("computeBankTransferAmount", () => {
     expect(out.total).toBe(100000);
   });
 
+  it("ビジ友公式SNS動画（P10）は買い切り 120,000 円。事務手数料なし", () => {
+    const out = computeBankTransferAmount(
+      { kind: "option", optionType: "video_sns" },
+      { needsInitialFee: true },
+    );
+    expect(out.amount).toBe(OPTION_PRICES_TAX_INCLUDED.video_sns);
+    expect(out.initialFee).toBe(0);
+    expect(out.total).toBe(120000);
+  });
+
   it("ユーザー撮影プラン（P7）は買い切り 20,000 円。事務手数料なし", () => {
     const out = computeBankTransferAmount(
       { kind: "option", optionType: "video_shooting" },

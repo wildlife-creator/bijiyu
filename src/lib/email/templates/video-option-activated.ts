@@ -2,7 +2,7 @@ import { listItem, paragraph, renderLayout } from "@/lib/email/components";
 
 interface VideoOptionActivatedEmailProps {
   recipientName: string;
-  /** 「受注者PR動画」/「職場紹介動画」 (OPTION_LABELS[optionType] で解決)。 */
+  /** 「プロフィール動画」/「ユーザー撮影プラン」/「ビジ友公式SNS動画」 (OPTION_LABELS[optionType] で解決)。 */
   optionLabel: string;
   /** YYYY/MM/DD */
   activatedAt: string;

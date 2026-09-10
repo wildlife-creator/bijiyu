@@ -1,4 +1,3 @@
-import { OPTION_LABELS } from "@/lib/billing/options";
 import { resolveApplicantCompanyName } from "@/lib/email/recipients/applicant-company-name";
 import {
   formatBillingDate,
@@ -10,7 +9,7 @@ import { videoPublishedEmail } from "@/lib/email/templates/video-published";
 import { videoPublishedOpsEmail } from "@/lib/email/templates/video-published-ops";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  VIDEO_PLACEMENT_OPTION_TYPE,
+  VIDEO_PLACEMENT_MEMBER_LABELS,
   type VideoPlacement,
 } from "@/lib/videos/constants";
 
@@ -32,7 +31,7 @@ export async function sendVideoPublishedEmails(
   params: { userId: string; placement: VideoPlacement; siteUrl: string },
 ): Promise<void> {
   const { userId, placement, siteUrl } = params;
-  const optionLabel = OPTION_LABELS[VIDEO_PLACEMENT_OPTION_TYPE[placement]];
+  const placementLabel = VIDEO_PLACEMENT_MEMBER_LABELS[placement];
   const publishedAtIso = new Date().toISOString();
 
   // C-User broadcast (M-03)。組織 broadcast は sendEmail 側で直列化される
@@ -42,7 +41,7 @@ export async function sendVideoPublishedEmails(
       recipients.map(async (r) => {
         const built = videoPublishedEmail({
           recipientName: r.displayName,
-          optionLabel,
+          placementLabel,
           publishedAt: formatBillingDate(publishedAtIso),
         });
         try {
@@ -81,7 +80,7 @@ export async function sendVideoPublishedEmails(
     const tpl = videoPublishedOpsEmail({
       applicantName,
       companyName,
-      optionLabel,
+      placementLabel,
       publishedAt: formatBillingDateTime(publishedAtIso),
       userId,
       siteUrl,

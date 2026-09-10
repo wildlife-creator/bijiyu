@@ -15,7 +15,9 @@ import {
 } from "@/lib/billing/bank-transfer";
 import {
   COMPENSATION_OPTION_DISABLED_MESSAGE,
+  DISCONTINUED_OPTION_MESSAGE,
   isCompensationOptionEnabled,
+  isDiscontinuedOption,
 } from "@/lib/billing/options";
 import { FEE_COOKIE_NAME, readFeeCookie } from "@/lib/billing/fee-cookie";
 import { PAID_PLAN_TYPES } from "@/lib/constants/plans";
@@ -63,9 +65,9 @@ const inputSchema = z.union([
   }),
   z.object({
     type: z.literal("option"),
-    // 買い切り動画系。video_workplace のみ発注者プラン加入者限定（下の分岐）、
-    // video / video_shooting（P7）は全会員
-    optionType: z.enum(["video", "video_workplace", "video_shooting"]),
+    // 買い切り動画系。全会員（staff 以外）が申込可。
+    // video_workplace は P10 で video に統合し新規販売停止（下の分岐で拒否）
+    optionType: z.enum(["video", "video_workplace", "video_shooting", "video_sns"]),
   }),
 ]);
 
@@ -228,20 +230,9 @@ export async function requestBankTransferAction(
     jobId = input.jobId;
     target = { kind: "option", optionType: "urgent" };
   } else {
-    if (input.optionType === "video_workplace") {
-      const planSub = await admin
-        .from("subscriptions")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .in("plan_type", PAID_PLAN_TYPES)
-        .limit(1);
-      if ((planSub.data?.length ?? 0) === 0) {
-        return {
-          success: false,
-          error: "職場紹介動画掲載は発注者プラン加入者のみご利用いただけます",
-        };
-      }
+    if (isDiscontinuedOption(input.optionType)) {
+      // 旧 職場紹介動画（video_workplace）は P10 で新規販売停止（Checkout と同じ判定）
+      return { success: false, error: DISCONTINUED_OPTION_MESSAGE };
     }
     target = { kind: "option", optionType: input.optionType };
   }

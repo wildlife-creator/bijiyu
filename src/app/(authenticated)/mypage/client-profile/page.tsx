@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { fetchClientReputation } from "@/lib/client-review/aggregate";
+import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 
 /**
@@ -203,10 +204,10 @@ export default async function ClientProfilePage() {
       {workplaceVideos.length > 0 && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">
-            職場紹介動画
+            {VIDEO_SECTION_LABEL}
           </h2>
           <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoList videos={workplaceVideos} label="職場紹介動画" />
+            <VideoList videos={workplaceVideos} label={VIDEO_SECTION_LABEL} />
           </div>
         </section>
       )}

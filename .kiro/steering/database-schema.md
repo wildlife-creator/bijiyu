@@ -412,7 +412,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | user_id | uuid (FK → users) | 申込者 |
 | target_kind | bank_transfer_target_kind | 'plan' / 'option' |
 | plan_type | text (nullable) | plan のとき必須（individual / small / corporate / corporate_premium） |
-| option_type | text (nullable) | option のとき必須（video / video_workplace / urgent / compensation_5000 / compensation_9800） |
+| option_type | text (nullable) | option のとき必須（video / video_workplace / video_shooting / video_sns / urgent / compensation_5000 / compensation_9800。CHECK で列挙。P10 で video_sns 追加） |
 | job_id | uuid (FK → jobs, nullable) | 急募の対象案件 |
 | billing_cycle | billing_cycle_type | 'monthly' / 'yearly'（プランと補償で選択可） |
 | amount | integer | 本体価格（税込 JPY） |
@@ -448,7 +448,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | stripe_subscription_id | text (nullable) | Stripe Subscription ID（月額課金の場合のみ。単発課金では null） |
 | stripe_payment_intent_id | text (nullable) | Stripe Payment Intent ID（単発課金の場合のみ。月額課金では null） |
 | payment_method | payment_method_type | 'stripe'（既定）/ 'bank_transfer'（P2）。銀行振込行は Stripe ID が両方 NULL（CHECK）。銀行振込の補償は end_date を期限として持つが `expire-options` の自動停止対象外（手動運用） |
-| option_type | text | 'urgent'（急募）/ 'compensation_5000'（補償¥5,000）/ 'compensation_9800'（補償¥9,800）/ 'video'（動画掲載＝受注者PR動画）/ 'video_workplace'（職場紹介動画掲載）/ 'video_shooting'（ユーザー撮影プラン、P7。買い切り・期限なし）。CHECK 制約なし |
+| option_type | text | 'urgent'（急募）/ 'compensation_5000'（補償¥5,000）/ 'compensation_9800'（補償¥9,800）/ 'video'（プロフィール動画制作プラン。P10 で旧 受注者PR動画・職場紹介動画を統合）/ 'video_workplace'（旧 職場紹介動画掲載。P10 で新規販売停止・既存行のみ）/ 'video_shooting'（ユーザー撮影プラン、P7）/ 'video_sns'（ビジ友公式SNS動画制作プラン、P10）。動画系 4 種は買い切り・期限なし。CHECK 制約なし |
 | status | text | 'active' / 'expired' / 'cancelled' |
 | start_date | timestamptz | オプション有効開始日 |
 | end_date | timestamptz (nullable) | オプション有効終了日（急募: start_date + 7日。動画掲載: null = 期限なし。補償: Stripe が管理） |
@@ -478,13 +478,10 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
     1. option_subscriptions.status を 'expired' に更新
     2. client_profiles.is_urgent_option を false に更新（同ユーザーの他の active な急募がなければ）
     3. 対象案件の jobs.is_urgent を false に更新
-  - 動画掲載オプション（受注者PR, 'video'）購入時:
+  - 動画系オプション（'video' プロフィール動画制作 / 'video_shooting' ユーザー撮影 / 'video_sns' 公式SNS動画制作）購入時:
     1. option_subscriptions に INSERT（payment_type = 'one_time', end_date = NULL）
-    2. 管理者が ADM-027 で `videos`（placement = 'contractor_page'）に動画を登録
-  - 職場紹介動画掲載オプション（'video_workplace'）購入時:
-    1. option_subscriptions に INSERT（payment_type = 'one_time', option_type = 'video_workplace', end_date = NULL）
-    2. 管理者が ADM-027 で `videos`（placement = 'client_page'）に動画を登録
-    - 購入は発注者プラン加入者のみ
+    2. 管理者が ADM-027 で `videos` に動画を登録（placement は購入プランに関係なく運営が選ぶ。公式SNS動画は掲載先がアプリ外）
+    - 全会員（staff / admin 以外）が購入可。旧 'video_workplace' は P10 で新規販売停止（Checkout / 銀行振込 / 代理登録で `isDiscontinuedOption()` により拒否。既存行の有効化・表示は維持）
     - **P4（2026-09）以降、動画の表示はオプション購入の有無でゲートしない**（`videos` に公開中の行があれば全ユーザーのページに表示）。option_subscriptions は課金・購入済み表示・管理画面の絞込にのみ使う
 
   ■ 月額課金オプションの処理（Stripe Webhook で実行）:
@@ -783,8 +780,8 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 
 ### videos（掲載動画）
 
-ユーザーページに掲載する動画。1 行 = 1 本。受注者PR動画（職人ページ）と職場紹介動画（会社ページ）を
-`placement` で区別し、同じテーブルで複数本・表示順を管理する。登録・削除は管理者のみ（ADM-027、service_role で書き込み）。
+ユーザーページに掲載する動画。1 行 = 1 本。掲載先（職人ページ = contractor_page / 会社ページ = client_page）を
+`placement` で区別し、同じテーブルで複数本・表示順を管理する。会員向けの見出しは掲載先に関係なく「プロフィール動画」（P10）。登録・削除は管理者のみ（ADM-027、service_role で書き込み）。
 **表示はオプション購入の有無でゲートしない**（承認済み D4。全ユーザーのページに掲載可能。本数上限なし）。
 
 | カラム | 型 | 説明 |

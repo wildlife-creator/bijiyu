@@ -26,7 +26,9 @@ import { grantBankTransferPlan } from "@/lib/billing/grant-plan";
 import {
   isSubscriptionOption,
   COMPENSATION_OPTION_DISABLED_MESSAGE,
+  DISCONTINUED_OPTION_MESSAGE,
   isCompensationOptionEnabled,
+  isDiscontinuedOption,
 } from "@/lib/billing/options";
 import {
   formatBillingDate,
@@ -502,7 +504,7 @@ async function activateOption(
     };
   }
 
-  // video / video_workplace / video_shooting（買い切り・期限なし。作り直しの再購入は許容）
+  // video / video_workplace / video_shooting / video_sns（買い切り・期限なし。作り直しの再購入は許容）
   if (isSubscriptionOption(optionType)) {
     return { ok: false, error: "対応していないオプションです" };
   }
@@ -536,9 +538,10 @@ const createRequestSchema = z.object({
   targetKind: z.enum(["plan", "option"]),
   planType: z.enum(PAID_PLAN_TYPES).optional(),
   billingCycle: z.enum(["monthly", "yearly"]).default("monthly"),
-  // 急募（urgent）は案件単位のため代理登録の対象外
+  // 急募（urgent）は案件単位のため代理登録の対象外。
+  // video_workplace は P10 で新規販売停止（スキーマには残し、下で isDiscontinuedOption により拒否）
   optionType: z
-    .enum(["video", "video_workplace", "video_shooting", "compensation_5000", "compensation_9800"])
+    .enum(["video", "video_workplace", "video_shooting", "video_sns", "compensation_5000", "compensation_9800"])
     .optional(),
 });
 
@@ -654,20 +657,9 @@ export async function createBankTransferRequestByAdminAction(
       billingCycle: input.billingCycle,
     };
   } else {
-    if (input.optionType === "video_workplace") {
-      const planSub = await admin
-        .from("subscriptions")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("status", "active")
-        .in("plan_type", PAID_PLAN_TYPES)
-        .limit(1);
-      if ((planSub.data?.length ?? 0) === 0) {
-        return {
-          success: false,
-          error: "職場紹介動画掲載は発注者プラン加入者のみ登録できます",
-        };
-      }
+    if (isDiscontinuedOption(input.optionType!)) {
+      // 旧 職場紹介動画（video_workplace）は P10 で新規販売停止（本人申込と同じ判定）
+      return { success: false, error: DISCONTINUED_OPTION_MESSAGE };
     }
     target = { kind: "option", optionType: input.optionType! };
   }

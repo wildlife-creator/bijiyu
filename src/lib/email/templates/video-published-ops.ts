@@ -5,8 +5,8 @@ interface VideoPublishedOpsEmailProps {
   applicantName: string;
   /** `client_profiles.display_name` → `users.company_name` → null (行ごと省略)。 */
   companyName: string | null;
-  /** OPTION_LABELS[optionType] で解決した動画種別。 */
-  optionLabel: string;
+  /** VIDEO_PLACEMENT_MEMBER_LABELS[placement] で解決した掲載先。P10 で動画種別から変更。 */
+  placementLabel: string;
   /** YYYY/MM/DD HH:MM (分単位、ops workflow tracking 用)。 */
   publishedAt: string;
   /** 申込ユーザーの UUID (deep link 用)。 */
@@ -28,7 +28,7 @@ interface VideoPublishedOpsEmailProps {
 export function videoPublishedOpsEmail({
   applicantName,
   companyName,
-  optionLabel,
+  placementLabel,
   publishedAt,
   userId,
   siteUrl,
@@ -44,7 +44,7 @@ export function videoPublishedOpsEmail({
     bodyParts.push(listItem("会社名", companyName));
   }
   bodyParts.push(
-    listItem("動画種別", optionLabel),
+    listItem("掲載先", placementLabel),
     listItem("掲載完了日時", publishedAt, { blockEnd: true }),
     paragraph(
       "申込者の詳細は下記からご確認いただけます。ログインした状態でクリックしてください。",

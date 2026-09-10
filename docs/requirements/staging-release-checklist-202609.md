@@ -37,10 +37,12 @@
     `STRIPE_PRICE_INDIVIDUAL_YEARLY` / `STRIPE_PRICE_SMALL_YEARLY` / `STRIPE_PRICE_CORPORATE_YEARLY` / `STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY` / `STRIPE_PORTAL_UPDATE_CONFIGURATION_ID`
   - 期待金額（税込・年）: ライト 38,000 / スタンダード 148,000 / プレミアム 480,000 / ハイエンド 1,480,000
 
-### A2. Stripe: ユーザー撮影プラン（買い切り 20,000 円）の Price
+### A2. Stripe: ユーザー撮影プラン（買い切り 20,000 円）・ビジ友公式SNS動画制作プラン（買い切り 120,000 円）の Price
 
 - Stripe ダッシュボード → 商品 → 新規作成（名称例「ユーザー撮影プラン」、一回限り、¥20,000 税込）
 - 作成された `price_…` を控える → `STRIPE_PRICE_VIDEO_SHOOTING`
+- 同様に「ビジ友公式SNS動画制作プラン」（一回限り、¥120,000 税込）を作成 → `STRIPE_PRICE_VIDEO_SNS`（P10、2026-09-10 追加）
+- 既存の「自己PR動画掲載」商品（`STRIPE_PRICE_VIDEO`）は名称を「プロフィール動画制作プラン」に変更しておく（Price ID はそのまま）。「職場紹介動画掲載」（`STRIPE_PRICE_VIDEO_WORKPLACE`）は新規販売停止だが、環境変数は残す（既存契約の Webhook 用。staging では未購入のため実害なし）
 
 ### A3. Cloudflare: アカウント + Stream 有効化（開発側が作成）
 
@@ -120,6 +122,7 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
 | `STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY` | A1 | 必須 | いいえ |
 | `STRIPE_PORTAL_UPDATE_CONFIGURATION_ID` | A1（`bpc_…`） | 必須 | いいえ |
 | `STRIPE_PRICE_VIDEO_SHOOTING` | A2 | 必須 | いいえ |
+| `STRIPE_PRICE_VIDEO_SNS` | A2（P10） | 必須 | いいえ |
 | `NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED` | 設定しない（未設定 = 補償オプション非表示・販売停止） | 任意 | — |
 | `NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED` | 設定しない（未設定 = 本人申込ボタン非表示、運営が代理登録） | 任意 | — |
 | `CLOUDFLARE_ACCOUNT_ID` | A3 | A3 完了後 | いいえ |

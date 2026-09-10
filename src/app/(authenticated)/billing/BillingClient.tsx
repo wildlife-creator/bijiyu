@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/select";
 import {
   BILLING_CYCLE_LABELS,
-  PAID_PLAN_TYPES,
   planDisplayName,
   planPriceFor,
   type BillingCycle,
@@ -78,12 +77,15 @@ interface SubscriptionInfo {
 
 /**
  * 買い切り動画系オプションの画面上の商品名（料金プラン画面・再購入ダイアログ用）。
- * メール用の OPTION_LABELS（受注者PR動画 / 職場紹介動画）とは別に、この画面の見出しに合わせる。
+ * メール用の OPTION_LABELS（短縮名）とは別に、この画面の見出しに合わせる。
+ * 名称は docs/requirements/video-plans-handoff-202609.md §4.1 で確定（P10、2026-09）。
+ * video_workplace は新規販売停止のため行を出さないが、再購入ダイアログの型を満たすため残す。
  */
 const VIDEO_OPTION_UI_NAMES: Record<VideoOptionType, string> = {
-  video: "自己PR動画掲載",
-  video_workplace: "職場紹介動画掲載",
+  video: "プロフィール動画制作プラン",
+  video_workplace: "プロフィール動画制作プラン（旧: 職場紹介動画掲載）",
   video_shooting: "ユーザー撮影プラン",
+  video_sns: "ビジ友公式SNS動画制作プラン",
 };
 
 interface ActiveOption {
@@ -206,26 +208,26 @@ export function BillingClient({
     (o) => o.optionType === "compensation_9800",
   );
 
-  // 職場紹介動画掲載は発注者プラン加入者のみ（要件 7.3）。
-  // currentPlan が有料プラン かつ past_due でないときのみ申込可。
-  const isClientPlanActive =
-    (PAID_PLAN_TYPES as readonly string[]).includes(currentPlan) && !isPastDue;
-
   // 動画オプションは買い切りだが「作り直しのための再購入」が正当にありうるため、
   // 購入済みでもボタンは活性のまま、押下時に再購入確認ダイアログを挟む。
+  // 全会員（staff 以外）が購入可。発注者プランの加入は問わない（P10 で旧 職場紹介動画の制限を撤廃）。
+  // プレミアム・ハイエンドへの付属はアプリで判定せず、説明文の注意書きで案内する（運用対応）。
   const hasVideoOption: Record<VideoOptionType, boolean> = {
-    video: activeOptions.some((o) => o.optionType === "video"),
+    // 統合前に購入した旧 職場紹介動画（video_workplace）も同じ商品として「購入済み」に含める
+    video: activeOptions.some(
+      (o) => o.optionType === "video" || o.optionType === "video_workplace",
+    ),
     video_workplace: activeOptions.some(
       (o) => o.optionType === "video_workplace",
     ),
-    // ユーザー撮影プラン（P7）: 全会員が購入可、発注者プランの加入は問わない
     video_shooting: activeOptions.some(
       (o) => o.optionType === "video_shooting",
     ),
+    video_sns: activeOptions.some((o) => o.optionType === "video_sns"),
   };
   const hasVideo = hasVideoOption.video;
-  const hasVideoWorkplace = hasVideoOption.video_workplace;
   const hasVideoShooting = hasVideoOption.video_shooting;
+  const hasVideoSns = hasVideoOption.video_sns;
 
   // P3: 月払い / 年払いの表示切替。既定は現在の契約サイクル（無料は月払い）
   const [selectedCycle, setSelectedCycle] = useState<BillingCycle>(currentCycle);
@@ -287,13 +289,17 @@ export function BillingClient({
       toast.success("急募オプションのお申し込みが完了しました");
       router.replace("/billing");
     } else if (checkoutSuccess === "video") {
-      toast.success("自己PR動画掲載オプションのお申し込みが完了しました");
+      toast.success("プロフィール動画制作プランのお申し込みが完了しました");
       router.replace("/billing");
     } else if (checkoutSuccess === "video_workplace") {
-      toast.success("職場紹介動画掲載オプションのお申し込みが完了しました");
+      // 統合前の success_url が残っている場合の互換（新規販売は停止済み）
+      toast.success("プロフィール動画制作プランのお申し込みが完了しました");
       router.replace("/billing");
     } else if (checkoutSuccess === "video_shooting") {
       toast.success("ユーザー撮影プランのお申し込みが完了しました");
+      router.replace("/billing");
+    } else if (checkoutSuccess === "video_sns") {
+      toast.success("ビジ友公式SNS動画制作プランのお申し込みが完了しました");
       router.replace("/billing");
     }
   }, [checkoutSuccess, router]);
@@ -692,15 +698,19 @@ export function BillingClient({
       <section className="mt-6 rounded-lg border border-border bg-background p-5 pb-8">
         <h2 className="text-heading-sm font-bold">オプションプラン</h2>
         <div className="mt-5 divide-y divide-border">
-          {/* 自己PR動画掲載（受注者向け） */}
+          {/* プロフィール動画制作プラン（P10: 旧 自己PR動画掲載 + 職場紹介動画掲載を統合。全会員向け） */}
           <div className="py-4 first:pt-0">
             <div className="flex items-center justify-between">
-              <span className="text-body-md font-bold">自己PR動画掲載</span>
+              <span className="text-body-md font-bold">
+                {VIDEO_OPTION_UI_NAMES.video}
+              </span>
               <span className="text-body-md">100,000円/動画</span>
             </div>
             <p className="mt-1 text-body-sm text-muted-foreground">
-              あなたの仕事ぶりや人柄を動画でアピール。<br />
-              プロフィール画面とビジ友のTikTok紹介ページに掲載します。
+              ビジ友のスタッフが現地にお伺いして撮影・編集し、あなたや会社を紹介する動画を制作します。<br />
+              ご希望に応じてビジ友のユーザー詳細や発注者詳細のページに掲載することができます。<br />
+              ※エリアにより交通費等が発生する場合があります。<br />
+              ※プレミアム・ハイエンドプランの方は本プランが含まれていますので、お申し込みは不要です（2本目以降をご希望の場合はお申し込みください）。
             </p>
             <div className="mt-3 flex flex-col items-center gap-2">
               <Button
@@ -710,7 +720,7 @@ export function BillingClient({
                 pending={pendingKey === "opt-video"}
                 onClick={() => handleVideoOptionButton("video")}
               >
-                {hasVideo ? "購入済み" : "自己PR動画掲載を申し込む"}
+                {hasVideo ? "購入済み" : "プロフィール動画制作プランを申し込む"}
               </Button>
               {!isStaff && (
                 <BankTransferOptionRow
@@ -718,38 +728,6 @@ export function BillingClient({
                   request={openBankOptionRequest("video")}
                   target={{ kind: "option", optionType: "video" }}
                   disabled={pending}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* 職場紹介動画掲載（発注者向け） */}
-          <div className="py-4">
-            <div className="flex items-center justify-between">
-              <span className="text-body-md font-bold">職場紹介動画掲載</span>
-              <span className="text-body-md">100,000円/動画</span>
-            </div>
-            <p className="mt-1 text-body-sm text-muted-foreground">
-              現場や会社の雰囲気を動画でアピール。<br />
-              職人が見る会社詳細ページとビジ友のTikTok紹介ページに掲載します。
-            </p>
-            <div className="mt-3 flex flex-col items-center gap-2">
-              <Button
-                variant="default"
-                className="w-full max-w-xs rounded-full text-white"
-                disabled={pending || isStaff || !isClientPlanActive || !!openBankOptionRequest("video_workplace")}
-                pending={pendingKey === "opt-video_workplace"}
-                onClick={() => handleVideoOptionButton("video_workplace")}
-              >
-                {hasVideoWorkplace ? "購入済み" : "職場紹介動画掲載を申し込む"}
-              </Button>
-              {!isStaff && (
-                <BankTransferOptionRow
-                      selfServiceEnabled={bankTransferSelfServiceEnabled}
-                  request={openBankOptionRequest("video_workplace")}
-                  target={{ kind: "option", optionType: "video_workplace" }}
-                  disabled={pending || !isClientPlanActive}
-                  disabledReason={!isClientPlanActive ? "職場紹介動画掲載は発注者プラン加入者のみご利用いただけます" : null}
                 />
               )}
             </div>
@@ -764,7 +742,7 @@ export function BillingClient({
               <span className="text-body-md">20,000円/動画</span>
             </div>
             <p className="mt-1 text-body-sm text-muted-foreground">
-              ご自身で撮影した動画を、ビジ友が編集して掲載することができます。<br />
+              ご自身で撮影した動画をビジ友運営が編集して、ご希望に応じてビジ友のユーザー詳細や発注者詳細のページに掲載することができます。<br />
               ※ビジ友で決められた動画の構成に合わせて動画撮影をお願いします。
             </p>
             <div className="mt-3 flex flex-col items-center gap-2">
@@ -782,6 +760,40 @@ export function BillingClient({
                       selfServiceEnabled={bankTransferSelfServiceEnabled}
                   request={openBankOptionRequest("video_shooting")}
                   target={{ kind: "option", optionType: "video_shooting" }}
+                  disabled={pending}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* ビジ友公式SNS動画制作プラン（P10、全会員向け） */}
+          <div className="py-4">
+            <div className="flex items-center justify-between">
+              <span className="text-body-md font-bold">
+                {VIDEO_OPTION_UI_NAMES.video_sns}
+              </span>
+              <span className="text-body-md">120,000円/動画</span>
+            </div>
+            <p className="mt-1 text-body-sm text-muted-foreground">
+              ビジ友のスタッフが現地にお伺いして撮影・編集し、ビジ友の公式SNSで紹介する動画を制作します。<br />
+              ※エリアにより交通費等が発生する場合があります。<br />
+              ※プレミアム・ハイエンドプランを年払いでご利用の方は本プランが含まれていますので、お申し込みは不要です。
+            </p>
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <Button
+                variant="default"
+                className="w-full max-w-xs rounded-full text-white"
+                disabled={pending || isStaff || !!openBankOptionRequest("video_sns")}
+                pending={pendingKey === "opt-video_sns"}
+                onClick={() => handleVideoOptionButton("video_sns")}
+              >
+                {hasVideoSns ? "購入済み" : "ビジ友公式SNS動画制作プランを申し込む"}
+              </Button>
+              {!isStaff && (
+                <BankTransferOptionRow
+                      selfServiceEnabled={bankTransferSelfServiceEnabled}
+                  request={openBankOptionRequest("video_sns")}
+                  target={{ kind: "option", optionType: "video_sns" }}
                   disabled={pending}
                 />
               )}

@@ -231,6 +231,7 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_VIDEO = "price_video";
   process.env.STRIPE_PRICE_VIDEO_WORKPLACE = "price_video_workplace";
   process.env.STRIPE_PRICE_VIDEO_SHOOTING = "price_video_shooting";
+  process.env.STRIPE_PRICE_VIDEO_SNS = "price_video_sns";
   // P8: 補償は販売停止フラグ制御。既存の補償テストは「販売中」の状態で走らせる
   process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED = "true";
 
@@ -744,39 +745,8 @@ describe("startCheckoutAction — video_shooting option (ユーザー撮影プ�
   });
 });
 
-describe("startCheckoutAction — video_workplace option (職場紹介動画掲載)", () => {
-  it("happy path: 発注者プラン active なら payment mode + video_workplace success_url", async () => {
-    supabaseAuthState.userRow = {
-      id: "user-c1",
-      role: "client",
-      email: "client@test.local",
-    };
-    // 発注者プラン加入ガードを通す
-    adminResults["select:subscriptions"] = {
-      data: [{ id: "sub-active" }],
-      error: null,
-    };
-    const result = await startCheckoutAction({
-      type: "option",
-      optionType: "video_workplace",
-    });
-    expect(result.success).toBe(true);
-    const params = stripeMockState.sessionsCreated[0]!;
-    expect(params.mode).toBe("payment");
-    expect(params.line_items).toEqual([
-      { price: "price_video_workplace", quantity: 1 },
-    ]);
-    expect(params.metadata).toEqual({
-      type: "option",
-      user_id: "user-c1",
-      option_type: "video_workplace",
-    });
-    expect(params.success_url).toBe(
-      "http://localhost:3000/billing?option_success=video_workplace",
-    );
-  });
-
-  it("rejects 発注者プラン未加入（active な発注者プランが無い）", async () => {
+describe("startCheckoutAction — video_sns option (ビジ友公式SNS動画制作プラン、P10)", () => {
+  it("happy path: 無料の受注者でも payment mode + video_sns success_url（発注者プラン不要）", async () => {
     supabaseAuthState.userRow = {
       id: "user-c1",
       role: "contractor",
@@ -785,13 +755,78 @@ describe("startCheckoutAction — video_workplace option (職場紹介動画掲�
     adminResults["select:subscriptions"] = { data: [], error: null };
     const result = await startCheckoutAction({
       type: "option",
+      optionType: "video_sns",
+    });
+    expect(result.success).toBe(true);
+    const params = stripeMockState.sessionsCreated[0]!;
+    expect(params.mode).toBe("payment");
+    expect(params.line_items).toEqual([
+      { price: "price_video_sns", quantity: 1 },
+    ]);
+    expect(params.metadata).toEqual({
+      type: "option",
+      user_id: "user-c1",
+      option_type: "video_sns",
+    });
+    expect(params.success_url).toBe(
+      "http://localhost:3000/billing?option_success=video_sns",
+    );
+  });
+
+  it("rejects staff（グローバルロールガードで拒否）", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "staff",
+      email: "staff@test.local",
+    };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "video_sns",
+    });
+    expect(result.success).toBe(false);
+    expect(stripeMockState.sessionsCreated).toHaveLength(0);
+  });
+});
+
+describe("startCheckoutAction — video_workplace option (旧 職場紹介動画掲載。P10 で新規販売停止)", () => {
+  it("rejects 発注者プラン active でも新規販売停止のため Checkout を作らない", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "client",
+      email: "client@test.local",
+    };
+    adminResults["select:subscriptions"] = {
+      data: [{ id: "sub-active" }],
+      error: null,
+    };
+    const result = await startCheckoutAction({
+      type: "option",
       optionType: "video_workplace",
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toContain("発注者プラン加入者のみ");
+      expect(result.error).toContain("プロフィール動画制作プラン");
     }
     expect(stripeMockState.sessionsCreated).toHaveLength(0);
+  });
+
+  it("video（プロフィール動画制作プラン）は発注者プラン未加入の受注者でも購入できる（P10 で全会員に開放）", async () => {
+    supabaseAuthState.userRow = {
+      id: "user-c1",
+      role: "contractor",
+      email: "contractor@test.local",
+    };
+    adminResults["select:subscriptions"] = { data: [], error: null };
+    const result = await startCheckoutAction({
+      type: "option",
+      optionType: "video",
+    });
+    expect(result.success).toBe(true);
+    expect(stripeMockState.sessionsCreated[0]!.metadata).toEqual({
+      type: "option",
+      user_id: "user-c1",
+      option_type: "video",
+    });
   });
 
   it("rejects staff（グローバルロールガードで拒否）", async () => {

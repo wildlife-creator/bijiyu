@@ -654,8 +654,35 @@ describe("handleCheckoutCompleted (video_workplace option)", () => {
 
 // ---------------------------------------------------------------------------
 // metadata.type === 'option' / video_shooting（ユーザー撮影プラン、P7）
-// 買い切り動画系 3 種は handleVideoOption に統合されている
+// 買い切り動画系 4 種は handleVideoOption に統合されている
 // ---------------------------------------------------------------------------
+
+describe("handleCheckoutCompleted (video_sns option, P10)", () => {
+  it("inserts a one_time option_subscription with end_date null and option_type video_sns", async () => {
+    const { admin, calls } = makeAdmin({});
+
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({
+        type: "option",
+        option_type: "video_sns",
+        user_id: "user-sns",
+      }),
+    );
+
+    const insert = calls.find(
+      (c) => c.op === "insert" && c.table === "option_subscriptions",
+    );
+    expect(insert?.payload).toMatchObject({
+      user_id: "user-sns",
+      payment_type: "one_time",
+      stripe_payment_intent_id: "pi_test_123",
+      option_type: "video_sns",
+      status: "active",
+      end_date: null,
+    });
+  });
+});
 
 describe("handleCheckoutCompleted (video_shooting option)", () => {
   it("inserts a one_time option_subscription with end_date null and option_type video_shooting", async () => {

@@ -31,11 +31,14 @@ import {
 
 import { createBankTransferRequestByAdminAction } from "../actions";
 
-/** 代理登録で選べるオプション（急募は案件単位のため対象外。補償は販売フラグが有効なときのみ） */
+/**
+ * 代理登録で選べるオプション（急募は案件単位のため対象外。補償は販売フラグが有効なときのみ。
+ * 旧 職場紹介動画 video_workplace は P10 で新規販売停止のため出さない）
+ */
 const ADMIN_OPTION_TYPES: readonly OptionType[] = [
   "video",
-  "video_workplace",
   "video_shooting",
+  "video_sns",
   "compensation_5000",
   "compensation_9800",
 ];

@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { getJstToday } from "@/lib/utils/format-date";
 import { canSendJobInquiry } from "@/lib/job-inquiry/access-guard";
+import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 import {
   resolveTargetOrganizationId,
@@ -270,10 +271,10 @@ export default async function ClientDetailPage({ params }: PageProps) {
         {workplaceVideos.length > 0 && (
           <section className="mx-5 mt-6">
             <h3 className="text-[15px] font-bold tracking-wider mb-2">
-              職場紹介動画
+              {VIDEO_SECTION_LABEL}
             </h3>
             <div className="rounded-[8px] border border-border bg-background p-4">
-              <VideoList videos={workplaceVideos} label="職場紹介動画" />
+              <VideoList videos={workplaceVideos} label={VIDEO_SECTION_LABEL} />
             </div>
           </section>
         )}

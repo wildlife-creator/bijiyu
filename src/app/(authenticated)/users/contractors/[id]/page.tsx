@@ -16,6 +16,7 @@ import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatResidence } from "@/lib/utils/format-residence";
+import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 
 interface PageProps {
@@ -212,9 +213,9 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       {/* PR動画（デザインカンプ CLI-006: 名前・バッジの直下、アクションボタンの上） */}
       {prVideos.length > 0 && (
         <section className="mx-5 mt-6">
-          <h3 className="text-[15px] font-bold tracking-wider mb-2">PR動画</h3>
+          <h3 className="text-[15px] font-bold tracking-wider mb-2">{VIDEO_SECTION_LABEL}</h3>
           <div className="rounded-[8px] border border-border bg-background p-4">
-            <VideoList videos={prVideos} label="PR動画" />
+            <VideoList videos={prVideos} label={VIDEO_SECTION_LABEL} />
           </div>
         </section>
       )}

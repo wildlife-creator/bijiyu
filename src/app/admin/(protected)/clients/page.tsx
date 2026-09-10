@@ -19,7 +19,7 @@ const VALID_CATEGORIES = [
   "individual",
   "small",
 ] as const;
-const VALID_OPTIONS = ["urgent", "video_workplace"] as const;
+const VALID_OPTIONS = ["urgent", "video"] as const;
 const PAGE_SIZE = 20;
 
 interface PageProps {

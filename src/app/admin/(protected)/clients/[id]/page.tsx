@@ -24,6 +24,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateJst, formatDateTime } from "@/lib/utils/format-date";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { PROFILE_VIDEO_OPTION_TYPES } from "@/lib/billing/options";
+import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { BankSubscriptionPanel } from "./bank-subscription-panel";
@@ -157,7 +159,7 @@ export default async function AdminClientDetailPage({
     municipality: a.municipality,
   }));
 
-  // オプション加入状況: 急募（active 複数案件分 → 最長 end_date ＋件数）／職場紹介動画
+  // オプション加入状況: 急募（active 複数案件分 → 最長 end_date ＋件数）／プロフィール動画
   const { data: urgentRows } = await admin
     .from("option_subscriptions")
     .select("end_date")
@@ -173,17 +175,18 @@ export default async function AdminClientDetailPage({
           .sort()
           .at(-1) ?? null
       : null;
-  // 「オプション加入状況」の職場紹介動画チェック（課金の加入状況表示。P4 でも維持）
-  const { data: workplaceOptionRows } = await admin
+  // 「オプション加入状況」のプロフィール動画チェック（課金の加入状況表示。P4 でも維持。
+  // P10 で旧 職場紹介動画 video_workplace を統合したため両方の option_type を見る）
+  const { data: profileVideoOptionRows } = await admin
     .from("option_subscriptions")
     .select("id")
     .eq("user_id", id)
-    .eq("option_type", "video_workplace")
+    .in("option_type", [...PROFILE_VIDEO_OPTION_TYPES])
     .eq("status", "active")
     .limit(1);
-  const hasWorkplaceVideoOption = (workplaceOptionRows ?? []).length > 0;
+  const hasProfileVideoOption = (profileVideoOptionRows ?? []).length > 0;
 
-  // 職場紹介動画（公開中のみ）。P4 でオプション購入による表示ゲートは撤廃。
+  // プロフィール動画（会社ページ掲載分・公開中のみ）。P4 でオプション購入による表示ゲートは撤廃。
   // 退会済みでも登録済みの動画は運営者が後から確認できるよう表示を維持する
   const workplaceVideos = await getReadyVideos(admin, id, "client_page");
 
@@ -350,15 +353,15 @@ export default async function AdminClientDetailPage({
           <span
             aria-hidden
             className={`flex h-5 w-5 items-center justify-center rounded border text-body-xs ${
-              hasWorkplaceVideoOption
+              hasProfileVideoOption
                 ? "border-primary bg-primary text-white"
                 : "border-border bg-background"
             }`}
           >
-            {hasWorkplaceVideoOption ? "✓" : ""}
+            {hasProfileVideoOption ? "✓" : ""}
           </span>
           <span className="text-body-md font-bold text-foreground">
-            職場紹介動画掲載
+            プロフィール動画
           </span>
         </div>
       </section>
@@ -455,14 +458,14 @@ export default async function AdminClientDetailPage({
         </div>
       </section>
 
-      {/* 5. 職場紹介動画（公開中の動画が 1 本以上あるときのみ） */}
+      {/* 5. プロフィール動画（会社ページ掲載分・公開中の動画が 1 本以上あるときのみ） */}
       {workplaceVideos.length > 0 && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">
-            職場紹介動画
+            {VIDEO_SECTION_LABEL}
           </h2>
           <div className="mt-2 rounded-[8px] border border-border/10 bg-background p-4">
-            <VideoList videos={workplaceVideos} label="職場紹介動画" />
+            <VideoList videos={workplaceVideos} label={VIDEO_SECTION_LABEL} />
           </div>
         </section>
       )}
@@ -476,7 +479,7 @@ export default async function AdminClientDetailPage({
             <Link
               href={`/admin/users/${id}/videos?placement=client_page&backTo=${encodeURIComponent(`/admin/clients/${id}`)}`}
             >
-              職場紹介動画を投稿/編集する
+              動画を投稿/編集する
             </Link>
           </Button>
         </div>

@@ -1,6 +1,6 @@
 # 動画プラン整理 + 公式SNS動画プラン追加 — 引き継ぎメモ（2026-09-10）
 
-前セッション（ステージング指摘修正の続き）での議論を、次のセッションが読んで着手できるようにまとめたもの。**§4 の判断は 2026-09-10 にすべて確定済み（§4 参照）。実装はまだ始めていない。** 実装後の後続タスク（プラン比較表の修正）は §8。
+前セッション（ステージング指摘修正の続き）での議論を、次のセッションが読んで着手できるようにまとめたもの。**§4 の判断は 2026-09-10 にすべて確定済み（§4 参照）。実装は同日 `p10-video-plans` ブランチで完了（§6 の範囲。実装結果は §9）。** 後続タスク（プラン比較表の修正）は §8。
 
 ## 1. ここまでの状況（完了済み）
 
@@ -136,3 +136,14 @@
   3. 既存の行の項目名・数値の見直し
   4. オプション（急募・動画 3 プラン）の価格表を足す
 - 注意: product.md のオプション表（動画掲載（受注者PR）/ 職場紹介動画掲載 / ユーザー撮影プラン）は動画プラン整理の側で §4.1 の 3 プランに書き換える（§6 の docs 項目）
+
+## 9. 実装結果（2026-09-10、ブランチ `p10-video-plans`）
+
+- §6 の範囲をすべて実装。migration `20260910120000_video_plans_consolidation.sql`（`bank_transfer_requests` の CHECK に `video_sns` 追加）+ pgTAP `bank_transfer_video_sns.test.sql`
+- 実装時の判断:
+  - 掲載お知らせメール（§6.6.C）の【動画種別】は【掲載先】（ユーザー詳細ページ / 発注者詳細ページ、`VIDEO_PLACEMENT_MEMBER_LABELS`）に変更。`VIDEO_PLACEMENT_OPTION_TYPE` は削除
+  - 会員向け見出しは定数 `VIDEO_SECTION_LABEL`（`src/lib/videos/constants.ts`）に集約
+  - 新規販売停止は `isDiscontinuedOption()` / `DISCONTINUED_OPTION_MESSAGE`（`src/lib/billing/options.ts`）で 3 入口共通。管理画面の絞り込みは `PROFILE_VIDEO_OPTION_TYPES`（`video` + `video_workplace`）
+  - 料金画面の「購入済み」判定は `video` と旧 `video_workplace` のどちらかが active なら購入済み扱い（seed の client@test.local が該当）
+- テスト: vitest 全件 PASS（video_sns の Checkout / Webhook / 銀行振込 / 代理登録 / 金額、video_workplace の 3 入口拒否を追加）、pgTAP 455 PASS、E2E は billing / video-display / bank-transfer / admin の 61 件 PASS + 全件実行
+- 触っていないもの: seed（`video_workplace` の既存行はそのまま。統合後も「購入済み」として扱われる）、法務 4 ページ（動画商品名の記載なし）、`/billing/plans` 比較表（§8）

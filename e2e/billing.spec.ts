@@ -60,16 +60,36 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await page.goto("/billing");
     await expect(page.getByText("オプションプラン")).toBeVisible();
     await expect(page.getByText("急募", { exact: true })).toBeVisible();
-    // 自己PR動画掲載（受注者PR）の見出し。「職場紹介動画掲載」と区別するため exact 一致
-    await expect(page.getByText("自己PR動画掲載", { exact: true })).toBeVisible();
+    // P10: 動画プランは 3 行（プロフィール動画制作 / ユーザー撮影 / ビジ友公式SNS動画制作）。
+    // 旧「自己PR動画掲載」「職場紹介動画掲載」の行は出ない
+    await expect(page.getByText("プロフィール動画制作プラン", { exact: true })).toBeVisible();
+    await expect(page.getByText("100,000円/動画", { exact: true })).toBeVisible();
+    await expect(page.getByText("自己PR動画掲載", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("職場紹介動画掲載", { exact: true })).toHaveCount(0);
+    // 説明文の注意書き（交通費 / プレミアム・ハイエンド付属）
+    await expect(
+      page.getByText("※エリアにより交通費等が発生する場合があります。").first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/※プレミアム・ハイエンドプランの方は本プランが含まれていますので/),
+    ).toBeVisible();
     // ユーザー撮影プラン（P7）: 無料の受注者でも申込ボタンが活性（発注者プラン不要）
     await expect(page.getByText("ユーザー撮影プラン", { exact: true })).toBeVisible();
-    await expect(page.getByText("20,000円/動画")).toBeVisible();
+    await expect(page.getByText("20,000円/動画", { exact: true })).toBeVisible();
     await expect(
       page.getByText("※ビジ友で決められた動画の構成に合わせて動画撮影をお願いします。"),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "ユーザー撮影プランを申し込む" }),
+    ).toBeEnabled();
+    // ビジ友公式SNS動画制作プラン（P10）: 無料の受注者でも申込ボタンが活性
+    await expect(page.getByText("ビジ友公式SNS動画制作プラン", { exact: true })).toBeVisible();
+    await expect(page.getByText("120,000円/動画", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(/※プレミアム・ハイエンドプランを年払いでご利用の方は本プランが含まれていますので/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "ビジ友公式SNS動画制作プランを申し込む" }),
     ).toBeEnabled();
     // P8: 補償オプションは販売停止（NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED 未設定）。
     // 未加入ユーザーには 2 行とも出ない（加入中ユーザーには解約用に自分の行だけ出る）

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { PROFILE_VIDEO_OPTION_TYPES } from "@/lib/billing/options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
@@ -8,9 +9,12 @@ import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { AdminUserFilters } from "./filters";
 
 const PAGE_SIZE = 20;
-// 受注者向けオプションのみ（職場紹介動画は発注者向けのため ADM-003 側のフィルタに置く）
+// オプションプラン加入者の絞り込み（P10、2026-09）。
+// "video" = プロフィール動画（統合前の video_workplace 行も含める）。急募は案件単位のため ADM-003 側
 const VALID_OPTIONS = [
   "video",
+  "video_shooting",
+  "video_sns",
   "compensation_5000",
   "compensation_9800",
 ] as const;
@@ -25,7 +29,7 @@ interface PageProps {
  *
  * - 対象は「受注者機能を使える人」= role IN ('contractor', 'client')
  *   （staff は発注者一覧 ADM-003 側・admin は運営のため除外）。退会済みは表示する
- * - キーワード検索（氏名・メールアドレス）+ オプションプラン加入者フィルタ（3 単一選択）。
+ * - キーワード検索（氏名・メールアドレス）+ オプションプラン加入者フィルタ（単一選択）。
  * - 絞り込みはサーバー側で適用。option フィルタは対象 option_type の active な
  *   user_id 集合を取り、メインクエリに `.in("id", ids)` で渡す。
  * - 20 件ページネーション。フィルタ状態は URL searchParams を SSOT とする。
@@ -44,10 +48,12 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   // オプションフィルタ: active な対象 option_type を持つ user_id 集合を先に取得
   let optionUserIds: string[] | null = null;
   if (option) {
+    const optionTypes =
+      option === "video" ? [...PROFILE_VIDEO_OPTION_TYPES] : [option];
     const { data: optRows } = await admin
       .from("option_subscriptions")
       .select("user_id")
-      .eq("option_type", option)
+      .in("option_type", optionTypes)
       .eq("status", "active");
     optionUserIds = Array.from(
       new Set((optRows ?? []).map((r) => r.user_id)),
