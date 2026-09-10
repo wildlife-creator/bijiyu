@@ -1,7 +1,13 @@
-# ステージング反映 設定チェックリスト（2026-09 改修 P1〜P9 + ステージング指摘修正）
+# ステージング反映 設定チェックリスト（2026-09 改修 P1〜P11 + ステージング指摘修正）
 
-作成: 2026-09-09。対象コード: `feature/spec-changes-202608`（origin に push 済、先端 678dfc6）。
+作成: 2026-09-09。更新: 2026-09-10（P10 動画プラン整理・P11 価格改定と比較表・運営宛メールを反映）。対象コード: `feature/spec-changes-202608`（origin に push 済、先端 6f07f42）。
 このファイルは **Claude（Cowork）に引き継いで設定作業を進めるための手順書**。根拠は 8 月末の分岐点（`client/staging` = 583711d）から現在までのコード差分。
+
+**2026-09-10 の追加分の要点**（詳細: `docs/requirements/video-plans-handoff-202609.md`）:
+- 動画プランを「プロフィール動画制作プラン（10 万）/ ユーザー撮影プラン（2 万）/ ビジ友公式SNS動画制作プラン（12 万・新設）」に整理。旧「職場紹介動画掲載」は新規販売停止 → Stripe Price の追加 1 本（A2）
+- 月額を 2,800 / 9,800 / 28,000 / 168,000 円、初回事務手数料を 12,000 円に改定 → **Stripe の月額 Price 4 本 + 事務手数料 Price を作り直し、環境変数 5 本を差し替え**（A0・B4）
+- 上位表示にスタンダードを追加、プレミアムの担当者上限 10 → 5 人 → マイグレーション 2 本追加（B1、計 8 本）
+- 運営宛メールを 1 通新設（プランの新規申込）。宛先は既存の `OPS_NOTIFICATION_EMAIL` で設定作業の追加なし
 
 ## 0. 大前提（作業する Claude と人間の役割分担）
 
@@ -36,8 +42,9 @@
   | `STRIPE_PRICE_CORPORATE`（プレミアム） | 48,000 | **28,000** |
   | `STRIPE_PRICE_CORPORATE_PREMIUM`（ハイエンド） | 148,000 | **168,000** |
   | `STRIPE_PRICE_INITIAL_FEE`（初回事務手数料・一回限り） | 20,000 | **12,000** |
-- 古い Price は「アーカイブ」しておく（既存の staging テスト契約が付いていても解約で消える）
-- 確認: `node scripts/cp1-verify-stripe.mjs`（期待金額は更新済み）
+- 古い Price は「アーカイブ」しておく
+- **注意: 旧 Price に紐づく staging のテスト契約は、環境変数を差し替えた後に Stripe からの更新通知（プラン変更・更新・解約）が来ると「unknown price id」で処理に失敗する**（アプリは環境変数にある Price ID しか知らないため）。対策: 差し替え前に Stripe ダッシュボードで旧 Price の契約（staging のテスト契約のみ）をすべて解約しておく。C6 のテストデータ整理と合わせて実施
+- 確認: `node scripts/cp1-verify-stripe.mjs`（期待金額は更新済み。`.env.local` の差し替え後に実行）
 
 ### A1. Stripe: 年払い Price 4 本 + プラン変更用ポータル設定
 
@@ -138,13 +145,18 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
 | `STRIPE_PORTAL_UPDATE_CONFIGURATION_ID` | A1（`bpc_…`） | 必須 | いいえ |
 | `STRIPE_PRICE_VIDEO_SHOOTING` | A2 | 必須 | いいえ |
 | `STRIPE_PRICE_VIDEO_SNS` | A2（P10） | 必須 | いいえ |
+| `STRIPE_PRICE_INDIVIDUAL` | A0（**既存の値を新 Price に差し替え**） | 必須 | いいえ |
+| `STRIPE_PRICE_SMALL` | A0（差し替え） | 必須 | いいえ |
+| `STRIPE_PRICE_CORPORATE` | A0（差し替え） | 必須 | いいえ |
+| `STRIPE_PRICE_CORPORATE_PREMIUM` | A0（差し替え） | 必須 | いいえ |
+| `STRIPE_PRICE_INITIAL_FEE` | A0（差し替え） | 必須 | いいえ |
 | `NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED` | 設定しない（未設定 = 補償オプション非表示・販売停止） | 任意 | — |
 | `NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED` | 設定しない（未設定 = 本人申込ボタン非表示、運営が代理登録） | 任意 | — |
 | `CLOUDFLARE_ACCOUNT_ID` | A3 | A3 完了後 | いいえ |
 | `CLOUDFLARE_STREAM_API_TOKEN` | A3 | A3 完了後 | **秘密** |
 | `CLOUDFLARE_STREAM_WEBHOOK_SECRET` | A4 の出力 | A4 完了後 | **秘密** |
 
-- 既存の変数（`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PRICE_*`（月額 4 + オプション） / `STRIPE_PORTAL_CONFIGURATION_ID` / `NEXT_PUBLIC_APP_URL` / Supabase 3 種 / Resend 系）はそのまま
+- 既存の変数（`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PRICE_VIDEO` / `STRIPE_PRICE_VIDEO_WORKPLACE` / `STRIPE_PRICE_URGENT` / 補償 2 本 / `STRIPE_PORTAL_CONFIGURATION_ID` / `NEXT_PUBLIC_APP_URL` / `OPS_NOTIFICATION_EMAIL` / Supabase 3 種 / Resend 系）はそのまま。**月額 4 本と初回事務手数料の 5 本だけは A0 の新 Price ID に差し替える**（上の表）
 - 環境変数を追加・変更したら **再デプロイが必要**（B5 のデプロイで反映される）
 
 ### B5. コードの反映（feature → クライアント側 staging）
@@ -153,7 +165,7 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
    ```
    git push client feature/spec-changes-202608
    ```
-2. GitHub `bijiyu-app/bijiyu` で Pull Request: base `staging` ← compare `feature/spec-changes-202608`。内容は P1〜P9 と ステージング指摘修正 A〜D（本文に `docs/requirements/spec-changes-202608.md` と `staging-check-fix-plan-202609.md` を参照）
+2. GitHub `bijiyu-app/bijiyu` で Pull Request: base `staging` ← compare `feature/spec-changes-202608`。内容は P1〜P11 と ステージング指摘修正 A〜D（本文に `docs/requirements/spec-changes-202608.md`、`staging-check-fix-plan-202609.md`、`video-plans-handoff-202609.md` を参照）
 3. マージ → Vercel が自動デプロイ。完了を待つ
 4. マージ前に B1〜B4 が済んでいること（コードが新しい DB 列・環境変数を前提にしている）
 
@@ -166,9 +178,11 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
 | C1 | スモーク: ログイン → マイページ → 料金プラン（年払い切替・新金額 2,800/9,800/28,000/168,000・動画 3 プランの行）→ プラン一覧（比較表）→ 案件一覧（おすすめ順でスタンダード以上が上）→ メッセージ を開く | Claude 案内 + 人間 |
 | C2 | **詰みデータの解消**: 管理画面 → 応募履歴一覧 → 「表町電気工事」「かずひで333」の応募詳細（ADM-014）→「完了扱いにする」。その後、該当クライアントのアカウントで退会画面が通ること（実際に退会はしない）を確認 | 人間 |
 | C3 | **管理運営アカウントの実登録**: 管理画面 → 発注者アカウント → 新規招待（ADM-006/007）で運営用アカウントを作成 → ユーザー詳細（ADM-009）の「管理運営アカウントに設定」 | 人間 |
-| C4 | Stripe 実決済: 年払いでの申込（初回事務手数料 12,000 円が乗ること）/ 月払い→年払い切替（Stripe ホスト画面）/ 撮影プラン購入 / 公式SNS動画購入 を各 1 回。Webhook で `subscriptions.billing_cycle` 等が入ること | 人間 |
+| C4 | Stripe 実決済: 年払いでの申込（初回事務手数料 12,000 円が乗ること）/ 月払い→年払い切替（Stripe ホスト画面）/ 撮影プラン購入 / 公式SNS動画購入 を各 1 回。Webhook で `subscriptions.billing_cycle` 等が入ること。**運営宛（`OPS_NOTIFICATION_EMAIL`）に「プランの新規お申し込みがありました」「動画オプションの新規お申し込みがありました」が届くこと** | 人間 |
+| C4b | 銀行振込: ADM-025 で申込を代理登録 → 申込者控えメール → ADM-026 で「入金確認して有効化」→ 会員宛「プランのお申し込みを承りました」と運営宛「プランの新規お申し込みがありました」が届き、料金プラン画面が「ご利用中」になること | 人間 |
+| C4c | 管理画面: ADM-008（ユーザーアカウント一覧）の絞り込みに「プロフィール動画 / ユーザー撮影プラン / ビジ友公式SNS動画」が出ること。ADM-027 のタブ名が「ユーザープロフィール（ユーザー詳細）」「発注者情報詳細（発注者詳細）」になっていること | 人間 |
 | C5 | Cloudflare（A3〜A4 済なら）: ADM-027 で MP4 を 1 本アップロード → 「状態を確認」で ready → 会員画面に表示 | 人間 |
-| C6 | 開発中のテストデータで不要なもの（名前に「テスト」）を削除。ステージング DB の実データは削除以外変更しない | 人間 |
+| C6 | 開発中のテストデータで不要なもの（名前に「テスト」）を削除。ステージング DB の実データは削除以外変更しない。旧 Price に紐づく Stripe のテスト契約が残っていれば Stripe 側でも解約（A0 の注意参照） | 人間 |
 
 ---
 
@@ -176,11 +190,12 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
 
 - 旧動画カラム（`users.video_url` / `client_profiles.workplace_video_url`）の **DROP マイグレーションは未作成**。B5 後に落ち着いてから作成・適用（残しておいて害はない）
 - 年払いの正式金額が決まったら `YEARLY_PRICE_TAX_INCLUDED`（`src/lib/constants/plans.ts`）と Stripe の年額 Price（`scripts/stripe/setup-yearly-prices.mjs` の `YEARLY_AMOUNTS` で上書き実行）を同時更新
+- 月額を再度変えるときは A0 と同じ手順（アプリ定数 `PLAN_LIMITS` + Stripe Price 作り直し + 環境変数差し替え + 旧 Price 契約の整理）
 - 本番公開前: 法務ページのプレースホルダー（利用規約の施行日、プライバシーポリシーの保護管理者・制定日）、ログイン CSRF の判断
 - 開発環境: `npx playwright install chromium` を対話ターミナルで完了させる（E2E の一時設定を不要にする）
 
 ## 参照
 
-- 変更内容: `docs/requirements/spec-changes-202608.md`（P1〜P9）、`docs/requirements/staging-check-fix-plan-202609.md`（指摘修正 A〜D と実装結果）
+- 変更内容: `docs/requirements/spec-changes-202608.md`（P1〜P9）、`docs/requirements/staging-check-fix-plan-202609.md`（指摘修正 A〜D と実装結果）、`docs/requirements/video-plans-handoff-202609.md`（P10 動画プラン整理・P11 価格改定と比較表・メール整理）
 - 環境変数の見本: `.env.local.example`
 - ブランチ運用: `spec-changes-202608.md` §5
