@@ -6,6 +6,7 @@ import {
 } from "@/lib/videos/display";
 
 import { VideoEmbedInner } from "./video-embed-inner";
+import { VIDEO_FRAME } from "./video-frame";
 
 interface VideoListProps {
   /** `getReadyVideos()` の戻り値（表示順ソート済み） */
@@ -24,6 +25,7 @@ interface VideoListProps {
  * - Cloudflare 動画: サムネは固定 URL（oEmbed 不要）
  * - external（TikTok 等）: サーバー側で oEmbed からサムネ取得（1 時間キャッシュ）
  * - 解析できない行は描画しない。全て描画不能なら null
+ * - 表示枠は埋込元・元動画の縦横比に関係なく `VIDEO_FRAME`（video-frame.ts）で統一
  * - 複数本のとき再生ボタンの aria-label は「{label} 2を再生」のように番号を付けて一意にする
  *   （1 本だけなら従来どおり「{label}を再生」）
  */
@@ -48,7 +50,7 @@ export async function VideoList({ videos, label }: VideoListProps) {
   return (
     <div className="flex flex-wrap justify-center gap-4">
       {renderable.map((item, index) => (
-        <div key={item.id} className="w-full max-w-[280px]">
+        <div key={item.id} className={VIDEO_FRAME.listItemWidth}>
           <VideoEmbedInner
             parsed={item.parsed}
             thumbnailUrl={item.thumbnailUrl}

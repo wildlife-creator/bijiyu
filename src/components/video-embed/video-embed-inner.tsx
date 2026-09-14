@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import type { ParsedVideo } from "@/lib/video-embed";
 
+import { VIDEO_FRAME } from "./video-frame";
+
 interface VideoEmbedInnerProps {
   /** parse 済みのメタ情報（aspect / embedUrl 等） */
   parsed: ParsedVideo;
@@ -22,10 +24,11 @@ interface VideoEmbedInnerProps {
  * 動画埋込のクライアント側（Dialog の開閉と画像フォールバックを担当）。
  * 親の <VideoList> (RSC) からサムネ URL を渡される。
  *
- * - thumbnailUrl があれば <img object-cover> で実サムネ表示
+ * - thumbnailUrl があれば <img object-contain> で実サムネ表示（切り取らずレターボックス）
  * - 取得失敗（thumbnailUrl === null）または <img onError>（CDN 署名期限切れ等）の
  *   ときは薄いロゴ placeholder にフォールバック
- * - aspect は parsed.aspect で 9:16 / 16:9 を切替
+ * - 枠の縦横比は埋込元に関係なく `VIDEO_FRAME`（video-frame.ts）で統一する。
+ *   サムネ枠と再生ダイアログの両方に同じ比率を使う
  */
 export function VideoEmbedInner({
   parsed,
@@ -36,8 +39,6 @@ export function VideoEmbedInner({
   const [thumbBroken, setThumbBroken] = useState(false);
 
   const title = label ?? "動画";
-  const aspectClass =
-    parsed.aspect === "9/16" ? "aspect-[9/16]" : "aspect-video";
   const showRealThumb = thumbnailUrl !== null && !thumbBroken;
 
   return (
@@ -46,14 +47,14 @@ export function VideoEmbedInner({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`${title}を再生`}
-        className={`group relative ${aspectClass} mx-auto block w-full max-w-[280px] overflow-hidden rounded-[8px] border border-border/20 bg-muted`}
+        className={`group relative ${VIDEO_FRAME.aspect} block w-full overflow-hidden rounded-[8px] border border-border/20 ${showRealThumb ? "bg-black" : "bg-muted"}`}
       >
         {showRealThumb ? (
           <img
             src={thumbnailUrl}
             alt=""
             onError={() => setThumbBroken(true)}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-contain"
           />
         ) : (
           <img
@@ -76,16 +77,10 @@ export function VideoEmbedInner({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          className={
-            parsed.aspect === "9/16"
-              ? "max-w-[360px] p-0 sm:max-w-[360px]"
-              : "max-w-[640px] p-0 sm:max-w-[640px]"
-          }
-        >
+        <DialogContent className={`${VIDEO_FRAME.dialogWidth} p-0`}>
           <DialogTitle className="sr-only">{title}</DialogTitle>
           <div
-            className={`${aspectClass} w-full overflow-hidden rounded-[8px]`}
+            className={`${VIDEO_FRAME.aspect} w-full overflow-hidden rounded-[8px]`}
           >
             {open && (
               <iframe
