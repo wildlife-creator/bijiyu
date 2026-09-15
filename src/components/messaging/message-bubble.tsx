@@ -3,6 +3,7 @@ import { FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { formatBubbleTime } from "@/lib/utils/format-message-time";
+import { linkifyText } from "@/lib/utils/linkify";
 import { ScoutInfoCard } from "./scout-info-card";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 
@@ -140,7 +141,10 @@ export function MessageBubble({
                   />
                 </ImageLightbox>
               ))}
-            <p className="whitespace-pre-wrap break-words text-sm">{body}</p>
+            {/* 本文中の http / https URL だけをリンクにする（Realtime 追加分も同じ吹き出しを通る） */}
+            <p className="whitespace-pre-wrap break-words text-sm">
+              {linkifyText(body)}
+            </p>
           </div>
           <div
             className={`mt-1 flex items-center gap-1 ${isMine ? "justify-end" : "justify-start"}`}

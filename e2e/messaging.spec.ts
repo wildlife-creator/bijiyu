@@ -94,6 +94,66 @@ test.describe("受注者: メッセージ詳細・送信（CON-009/010）", () =
     // 送信したメッセージが画面に表示される（楽観的UIで即時反映）
     await expect(page.getByText(messageText)).toBeVisible({ timeout: 10000 });
   });
+
+  test("本文中の URL がリンクになり、相手側でも新しいタブで開くリンクとして表示される", async ({
+    browser,
+  }) => {
+    const stamp = Date.now();
+    const url = `https://example.com/jobs/${stamp}`;
+    // 句点・全角括弧は URL に含めない / javascript: はリンクにしない
+    const messageText = `案件のご案内${stamp}（${url}）をご確認ください。\njavascript:alert(1)`;
+
+    const senderContext = await browser.newContext();
+    const sender = await senderContext.newPage();
+    await login(sender, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+    await sender.goto(`/messages/${MSG_THREAD_INDIV_CON}`);
+    const input = sender.locator("textarea[placeholder='メッセージ']");
+    await expect(input).toBeVisible({ timeout: 10000 });
+    const sendButton = sender.locator("button.rounded-full.bg-primary").last();
+    // 楽観的 UI で吹き出しは即時に出るため、Server Action の応答を待ってから進む
+    // （待たずにブラウザを閉じると送信が打ち切られ DB に残らない）。直前のテストと
+    // 同じ送信者なので 1 分 3 通の送信制限に当たったら窓を待って 1 回だけやり直す
+    // （e2e/ops-account.spec.ts と同じ方式）
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await input.fill(messageText);
+      const responsePromise = sender.waitForResponse(
+        (r) => r.request().method() === "POST" && /\/messages\/[0-9a-f-]+$/.test(r.url()),
+      );
+      await sendButton.click();
+      const responseBody = await (await responsePromise).text();
+      if (responseBody.includes('"success":true')) break;
+      if (attempt === 0 && responseBody.includes('"success":false')) {
+        test.setTimeout(150_000);
+        await sender.waitForTimeout(61_000);
+        await sender.reload();
+        await expect(input).toBeVisible({ timeout: 10000 });
+        continue;
+      }
+      expect(responseBody).toContain('"success":true');
+    }
+
+    const sentBubble = sender.locator("p", { hasText: `案件のご案内${stamp}` });
+    await expect(sentBubble.getByRole("link", { name: url, exact: true })).toHaveAttribute(
+      "href",
+      url,
+    );
+    await expect(sentBubble.getByRole("link")).toHaveCount(1);
+    await senderContext.close();
+
+    // 受信側（個人発注者）でもリンクとして表示される
+    const receiverContext = await browser.newContext();
+    const receiver = await receiverContext.newPage();
+    await login(receiver, TEST_INDIVIDUAL_CLIENT.email, TEST_INDIVIDUAL_CLIENT.password);
+    await receiver.goto(`/messages/${MSG_THREAD_INDIV_CON}`);
+    const receivedBubble = receiver.locator("p", { hasText: `案件のご案内${stamp}` });
+    const link = receivedBubble.getByRole("link", { name: url, exact: true });
+    await expect(link).toHaveAttribute("href", url, { timeout: 10000 });
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(receivedBubble.getByRole("link")).toHaveCount(1);
+    await expect(receivedBubble).toContainText("javascript:alert(1)");
+    await receiverContext.close();
+  });
 });
 
 // ---------------------------------------------------------------------------
