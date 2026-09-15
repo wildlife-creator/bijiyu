@@ -78,12 +78,16 @@ export function VideoManager({
         onValueChange={(v) => setPlacement(v as VideoPlacement)}
         className="mt-6 flex flex-col gap-2"
       >
-        <TabsList className="h-10 w-full bg-primary/[0.08]">
+        {/*
+          タブ名が長いため、スマホ幅では 1 タブの中で折り返す（折り返さないと
+          ページ全体が横にはみ出す）。break-keep で「（」の前で改行させる。
+        */}
+        <TabsList className="h-auto min-h-10 w-full bg-primary/[0.08] group-data-horizontal/tabs:h-auto">
           {groups.map((g) => (
             <TabsTrigger
               key={g.placement}
               value={g.placement}
-              className="flex-1 text-body-sm data-[state=active]:bg-background data-[state=active]:font-bold data-[state=active]:text-primary data-[state=active]:shadow-sm"
+              className="h-auto flex-1 self-stretch whitespace-normal break-keep py-1.5 text-body-sm data-[state=active]:bg-background data-[state=active]:font-bold data-[state=active]:text-primary data-[state=active]:shadow-sm"
             >
               {g.label}
             </TabsTrigger>
