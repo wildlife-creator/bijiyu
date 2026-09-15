@@ -133,8 +133,11 @@ const portalParams = {
       products,
     },
     // このポータル設定はプラン変更確認専用。他の操作は許可しない
+    // （payment_method_update のみ例外: Stripe の仕様で subscription_update とセットで
+    //   有効にする必要がある。2026-09-10 に enabled: false のままだと "Cannot enable
+    //   subscription updates while payment method update is disabled." の 400 になることを確認）
     subscription_cancel: { enabled: false },
-    payment_method_update: { enabled: false },
+    payment_method_update: { enabled: true },
     invoice_history: { enabled: false },
     customer_update: { enabled: false },
   },
