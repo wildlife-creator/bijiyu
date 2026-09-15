@@ -205,7 +205,7 @@ export function BankSubscriptionPanel({
             <AlertDialogHeader>
               <AlertDialogTitle>銀行振込の契約を解約しますか？</AlertDialogTitle>
               <AlertDialogDescription>
-                即時に有料プランが終了し、掲載中の案件はすべて掲載終了になります。法人プランの場合は配下の担当者アカウントも利用できなくなります。返金はアプリ外で対応してください。この操作は取り消せません。
+                即時に有料プランが終了し、掲載中の案件はすべて掲載終了になります。プレミアム・ハイエンドプランの場合は配下の担当者アカウントも利用できなくなります。返金はアプリ外で対応してください。この操作は取り消せません。
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
