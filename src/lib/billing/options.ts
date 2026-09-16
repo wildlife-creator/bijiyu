@@ -93,6 +93,17 @@ export const VIDEO_OPTION_TYPES = [
 
 export type VideoOptionType = (typeof VIDEO_OPTION_TYPES)[number];
 
+/**
+ * 動画系オプションの商品名（料金プラン画面・お問い合わせの希望プラン・管理画面の有効化で共用）。
+ * `OPTION_LABELS` はメール向けの短縮名、こちらは「〜制作プラン」まで含む正式名。
+ */
+export const VIDEO_OPTION_UI_NAMES: Record<VideoOptionType, string> = {
+  video: "プロフィール動画制作プラン",
+  video_workplace: "プロフィール動画制作プラン（旧: 職場紹介動画掲載）",
+  video_shooting: "ユーザー撮影プラン",
+  video_sns: "ビジ友公式SNS動画制作プラン",
+};
+
 export function isVideoOption(optionType: string): optionType is VideoOptionType {
   return (VIDEO_OPTION_TYPES as readonly string[]).includes(optionType);
 }
@@ -101,9 +112,9 @@ export function isVideoOption(optionType: string): optionType is VideoOptionType
  * 新規販売を停止したオプション（P10、2026-09。docs/requirements/video-plans-handoff-202609.md §4）。
  *
  * 旧「職場紹介動画」（video_workplace）は「プロフィール動画制作プラン」（video）に統合した。
- * 料金プラン画面から行を消すだけでなく、Stripe Checkout / 銀行振込の本人申込 / 運営の代理登録の
- * 3 入口すべてで拒否する（画面から消しても Server Action は直接呼べるため）。
- * 既存の契約行・Webhook・ADM-026 の有効化・メール・管理画面の表示はこの判定に関係なく動く。
+ * 料金プラン画面から行を消すだけでなく、Stripe Checkout の Server Action でも拒否する
+ * （画面から消しても Server Action は直接呼べるため）。
+ * 既存の契約行・Webhook・メール・管理画面の表示はこの判定に関係なく動く（P12 の銀行振込の動画有効化は BANK_TRANSFER_PLAN_CHOICES に含めないことで拒否）。
  */
 export const DISCONTINUED_OPTION_TYPES: readonly OptionType[] = ["video_workplace"];
 

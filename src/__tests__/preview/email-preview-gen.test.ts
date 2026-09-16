@@ -1485,7 +1485,7 @@ const fixtures: Fixture[] = [
       }),
     meta: {
       recipient: "運営 (OPS_NOTIFICATION_EMAIL)",
-      trigger: "§6.7 と同時（新規契約のみ。Stripe checkout.session.completed / 銀行振込の ADM-026 有効化 / 運営付与）。プラン変更・解約では送らない",
+      trigger: "§6.7 と同時（新規契約のみ。Stripe checkout.session.completed / 銀行振込の管理画面での有効化（ADM-009 / ADM-004、P12） / 運営付与）。プラン変更・解約では送らない",
       actionFile: "src/lib/billing/activation-emails.ts",
       specRef: "§6.7-Ops",
       classification: "新規",

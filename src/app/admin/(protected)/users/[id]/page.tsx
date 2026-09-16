@@ -19,6 +19,9 @@ import { formatResidence } from "@/lib/utils/format-residence";
 import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
+import { BankTransferPanel } from "@/components/admin/bank-transfer-panel";
+import { formatDateJst } from "@/lib/utils/format-date";
+import type { PaidPlanType } from "@/lib/constants/plans";
 import { PAYMENT_METHOD_LABELS, PLAN_LABELS } from "@/lib/constants/plans";
 import { DeleteUserButton } from "./delete-user-button";
 import { OpsAccountPanel } from "./ops-account-panel";
@@ -96,12 +99,13 @@ export default async function AdminUserDetailPage({
 
   if (!u) notFound();
 
-  // 管理運営アカウント（P5）: 現在の契約表示用
+  // 管理運営アカウント（P5）の契約表示 + 銀行振込（P12）の枠で使う現在の契約
   const { data: activeSubscription } = await admin
     .from("subscriptions")
-    .select("plan_type, payment_method")
+    .select("id, plan_type, status, payment_method, current_period_end")
     .eq("user_id", id)
     .in("status", ["active", "past_due"])
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   const currentPlanLabel = activeSubscription
@@ -345,6 +349,33 @@ export default async function AdminUserDetailPage({
           hrefForPage={(p) => `/admin/users/${id}?commentsPage=${p}`}
         />
       </section>
+
+      {/* 銀行振込（P12）: ADM-004 と同じ共通枠。契約主体になれる contractor / client のみ。
+          退会済み・担当者（staff）・管理者には出さない */}
+      {!isDeleted && (u.role === "contractor" || u.role === "client") && (
+        <section className="mt-6">
+          <h2 className="text-body-lg font-bold text-foreground">銀行振込</h2>
+          <BankTransferPanel
+            userId={id}
+            subscription={
+              activeSubscription
+                ? {
+                    id: activeSubscription.id,
+                    planType: activeSubscription.plan_type as PaidPlanType,
+                    paymentMethod: activeSubscription.payment_method,
+                    status: activeSubscription.status as "active" | "past_due",
+                    periodEndLabel:
+                      activeSubscription.payment_method === "stripe" &&
+                      activeSubscription.current_period_end
+                        ? formatDateJst(activeSubscription.current_period_end)
+                        : null,
+                  }
+                : null
+            }
+            showClientDetailLinkAfterActivate
+          />
+        </section>
+      )}
 
       {/* 管理運営アカウント（P5）: 退会済みには出さない */}
       {!isDeleted && (

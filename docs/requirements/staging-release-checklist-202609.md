@@ -92,7 +92,7 @@
   supabase db push --linked
   ```
 - 対象（すべて「追加のみ」。既存のステージング動作に影響しない）:
-  1. `20260901120000_bank_transfer.sql` … 銀行振込（申込テーブル・pg_cron 2 本）
+  1. `20260901120000_bank_transfer.sql` … 銀行振込（申込テーブル・pg_cron 2 本。→ 9. で申込テーブルと期限 cron は削除される）
   2. `20260901130000_stripe_yearly_billing_cycle.sql` … 年払い（billing_cycle）
   3. `20260902120000_videos.sql` … 動画テーブル（旧カラムからコピー移行。旧カラムは残す）
   4. `20260902130000_ops_account.sql` … 管理運営アカウント（users.is_hidden、messages RLS）
@@ -100,7 +100,8 @@
   6. `20260902150000_bank_transfer_video_shooting.sql` … 撮影プランの銀行振込許可
   7. `20260910120000_video_plans_consolidation.sql` … 公式SNS動画の銀行振込許可（P10）
   8. `20260910130000_list_plan_rank_small.sql` … 上位表示にスタンダードを追加（既存行を再計算。P11）
-- 確認: `supabase migration list --linked` で Remote 列に 8 本が並ぶ
+  9. `20260916120000_bank_transfer_onoff.sql` … 銀行振込をオン／オフだけに（P12。申込テーブル・期限 cron・期限 index を削除、contacts.bank_transfer_plan 追加、handle_checkout_completed_plan v3）
+- 確認: `supabase migration list --linked` で Remote 列に 9 本が並ぶ
 
 ### B2. cron ジョブの通知先を確認（Supabase Studio の SQL Editor）
 
@@ -108,28 +109,22 @@
   ```sql
   select jobname, schedule, command from cron.job order by jobname;
   ```
-- `bank-transfer-expiry-notify` の command 内 URL が `https://mfrlsbnqybvkzwsmiolm.supabase.co/functions/v1/bank-transfer-expiry-notify` になっていること。
-  `host.docker.internal` や `placeholder-set-via-app-settings` が入っていたら、既存の `auto-cancel-past-due` ジョブと同じ URL 形式・同じ Authorization ヘッダーの形に **人間が** SQL で登録し直す（`cron.unschedule` → `cron.schedule`。Authorization に service_role キーが入るため Claude は関与しない）。
-- あわせて `expire-options` が登録されていることも確認
+- P12 で `bank-transfer-expiry-notify` は廃止（migration 9. が `cron.unschedule` する）。一覧に **残っていないこと** を確認する
+- `auto-cancel-past-due` と `expire-options` が登録されていることを確認
 
-### B3. Edge Function 2 本をデプロイ + secrets
+### B3. Edge Function をデプロイ + secrets
 
-- デプロイ（Claude 実行可）:
+- デプロイ（Claude 実行可。P12 で `bank-transfer-expiry-notify` は廃止 = デプロイ不要。既にデプロイ済みなら `supabase functions delete bank-transfer-expiry-notify --project-ref mfrlsbnqybvkzwsmiolm` で消してよい）:
   ```
-  supabase functions deploy bank-transfer-expiry-notify --project-ref mfrlsbnqybvkzwsmiolm
   supabase functions deploy auto-cancel-past-due --project-ref mfrlsbnqybvkzwsmiolm
   ```
 - secrets（**人間のターミナルで**。値は Claude に見せない）。`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` は Supabase が自動で渡すため設定不要:
 
   | 名前 | 用途 | 秘密? |
   |---|---|---|
-  | `RESEND_API_KEY` | 期限通知メール送信 | **秘密** |
-  | `EMAIL_FROM` | 送信元アドレス（本体アプリと同じ値） | いいえ |
-  | `OPS_NOTIFICATION_EMAIL` | 運営の受信先 | いいえ |
-  | `APP_URL` | メール内リンクの基点 = https://staging.bijiyuu.net | いいえ |
   | `STRIPE_SECRET_KEY` | auto-cancel-past-due 用（既に設定済みのはず。無ければ追加） | **秘密** |
 
-  例: `supabase secrets set EMAIL_FROM=... OPS_NOTIFICATION_EMAIL=... APP_URL=https://staging.bijiyuu.net --project-ref mfrlsbnqybvkzwsmiolm`
+  ※ P12 で期限通知（`bank-transfer-expiry-notify`）を廃止したため、その用途だった `RESEND_API_KEY` / `EMAIL_FROM` / `OPS_NOTIFICATION_EMAIL` / `APP_URL` の Edge Function secrets は不要（設定済みでも害はない）
 - 確認（名前だけ）: `supabase secrets list --project-ref mfrlsbnqybvkzwsmiolm` の名前列に上記があること
 
 ### B4. Vercel（ステージング環境）の環境変数
@@ -179,7 +174,7 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
 | C2 | **詰みデータの解消**: 管理画面 → 応募履歴一覧 → 「表町電気工事」「かずひで333」の応募詳細（ADM-014）→「完了扱いにする」。その後、該当クライアントのアカウントで退会画面が通ること（実際に退会はしない）を確認 | 人間 |
 | C3 | **管理運営アカウントの実登録**: 管理画面 → 発注者アカウント → 新規招待（ADM-006/007）で運営用アカウントを作成 → ユーザー詳細（ADM-009）の「管理運営アカウントに設定」 | 人間 |
 | C4 | Stripe 実決済: 年払いでの申込（初回事務手数料 12,000 円が乗ること）/ 月払い→年払い切替（Stripe ホスト画面）/ 撮影プラン購入 / 公式SNS動画購入 を各 1 回。Webhook で `subscriptions.billing_cycle` 等が入ること。**運営宛（`OPS_NOTIFICATION_EMAIL`）に「プランの新規お申し込みがありました」「動画オプションの新規お申し込みがありました」が届くこと** | 人間 |
-| C4b | 銀行振込: ADM-025 で申込を代理登録 → 申込者控えメール → ADM-026 で「入金確認して有効化」→ 会員宛「プランのお申し込みを承りました」と運営宛「プランの新規お申し込みがありました」が届き、料金プラン画面が「ご利用中」になること | 人間 |
+| C4b | 銀行振込（P12）: 会員でログイン → お問い合わせで「お支払い方法（銀行振込）について」+ 希望プランを送信（会社名・氏名・メールが最初から入っていること）→ 運営宛通知メールに「希望プラン」が出ること → 管理画面「銀行振込お問い合わせ一覧」に出る → 「ユーザー詳細」→「銀行振込」枠で「有効にする」→ 会員宛「プランのお申し込みを承りました」と運営宛「プランの新規お申し込みがありました」が届き、料金プラン画面が「ご利用中」+「お支払い方法: 銀行振込」になること。発注者詳細でも同じ枠が出て「変更する」が効くこと | 人間 |
 | C4c | 管理画面: ADM-008（ユーザーアカウント一覧）の絞り込みに「プロフィール動画 / ユーザー撮影プラン / ビジ友公式SNS動画」が出ること。ADM-027 のタブ名が「ユーザープロフィール（ユーザー詳細）」「発注者情報詳細（発注者詳細）」になっていること | 人間 |
 | C5 | Cloudflare（A3〜A4 済なら）: ADM-027 で MP4 を 1 本アップロード → 「状態を確認」で ready → 会員画面に表示 | 人間 |
 | C6 | 開発中のテストデータで不要なもの（名前に「テスト」）を削除。ステージング DB の実データは削除以外変更しない。旧 Price に紐づく Stripe のテスト契約が残っていれば Stripe 側でも解約（A0 の注意参照） | 人間 |

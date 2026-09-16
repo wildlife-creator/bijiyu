@@ -36,8 +36,7 @@ import {
   BANK_TRANSFER_CONTACT_MESSAGE,
   BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE,
 } from "@/lib/billing/bank-transfer";
-import type { VideoOptionType } from "@/lib/billing/options";
-import { BankTransferApplyButton } from "./bank-transfer-apply-button";
+import { VIDEO_OPTION_UI_NAMES, type VideoOptionType } from "@/lib/billing/options";
 import { startCheckoutAction } from "./actions";
 import {
   changePlanAction,
@@ -82,13 +81,6 @@ interface SubscriptionInfo {
  * 名称は docs/requirements/video-plans-handoff-202609.md §4.1 で確定（P10、2026-09）。
  * video_workplace は新規販売停止のため行を出さないが、再購入ダイアログの型を満たすため残す。
  */
-const VIDEO_OPTION_UI_NAMES: Record<VideoOptionType, string> = {
-  video: "プロフィール動画制作プラン",
-  video_workplace: "プロフィール動画制作プラン（旧: 職場紹介動画掲載）",
-  video_shooting: "ユーザー撮影プラン",
-  video_sns: "ビジ友公式SNS動画制作プラン",
-};
-
 interface ActiveOption {
   id: string;
   optionType: string;
@@ -101,21 +93,12 @@ interface ClientProfile {
   isUrgentOption: boolean;
 }
 
-interface OpenBankTransferRequest {
-  targetKind: "plan" | "option";
-  optionType: string | null;
-  jobId: string | null;
-  targetLabel: string;
-  statusLabel: string;
-}
-
 interface BankTransferInfo {
-  /** 現在の有料プランが銀行振込契約か（変更・解約は運営が管理画面で行う） */
+  /**
+   * 現在の有料プランが銀行振込契約か（P12）。変更・無効化は運営が管理画面で行う。
+   * カード払いへの切り替えは本画面の「カード払いで申し込む」（Checkout 完了で銀行振込は自動終了）
+   */
   isBankTransferPlan: boolean;
-  billingCycleLabel: string | null;
-  currentPeriodEnd: string | null;
-  /** 処理中（申込受付 / 請求書送付済）の銀行振込申込 */
-  openRequests: OpenBankTransferRequest[];
 }
 
 interface BillingClientProps {
@@ -137,8 +120,6 @@ interface BillingClientProps {
   checkoutSuccess?: string;
   /** P8: 補償オプションの販売フラグ（false = 販売停止。加入中の行だけ解約用に出す） */
   compensationOptionEnabled: boolean;
-  /** P9: 銀行振込の本人申込ボタンを出すか（false = 案内文のみ。運営が代理登録する） */
-  bankTransferSelfServiceEnabled: boolean;
   /** P3: Stripe ホスト画面でプラン変更を確定して戻ってきた */
   planChangeConfirmed?: boolean;
   bankTransfer: BankTransferInfo;
@@ -179,7 +160,6 @@ export function BillingClient({
   urgentEligibleJobs,
   checkoutSuccess,
   compensationOptionEnabled,
-  bankTransferSelfServiceEnabled,
   planChangeConfirmed = false,
   bankTransfer,
 }: BillingClientProps) {
@@ -234,21 +214,8 @@ export function BillingClient({
   const [selectedCycle, setSelectedCycle] = useState<BillingCycle>(currentCycle);
   const planStates = planStatesByCycle[selectedCycle];
 
-  // 銀行振込（P2）
+  // 銀行振込（P12）
   const { isBankTransferPlan } = bankTransfer;
-  const openBankPlanRequest = bankTransfer.openRequests.find(
-    (r) => r.targetKind === "plan",
-  );
-  function openBankOptionRequest(optionType: string, jobId?: string) {
-    return bankTransfer.openRequests.find(
-      (r) =>
-        r.targetKind === "option" &&
-        r.optionType === optionType &&
-        (optionType !== "urgent" || !jobId || r.jobId === jobId),
-    );
-  }
-  // 初回事務手数料の表示判定（確定はサーバー側）
-  const bankNeedsInitialFee = showInitialFee;
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -527,20 +494,13 @@ export function BillingClient({
           </p>
         ) : null}
 
-        {openBankPlanRequest && (
-          <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-body-sm">
-            <p className="font-bold text-primary">銀行振込でのお申し込みを受付中です</p>
-            <p className="mt-1 text-muted-foreground">
-              {openBankPlanRequest.targetLabel}（{openBankPlanRequest.statusLabel}）。担当より請求書をお送りします。ご入金の確認後にご利用開始となります。
-            </p>
-          </div>
-        )}
         {isBankTransferPlan && (
           <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-body-sm text-muted-foreground">
-            お支払い方法: 銀行振込（{bankTransfer.billingCycleLabel}）
-            {bankTransfer.currentPeriodEnd && ` ／ 有効期限 ${formatDate(bankTransfer.currentPeriodEnd)}`}
+            お支払い方法: 銀行振込
             <br />
             {BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE}
+            <br />
+            クレジットカード払いへ切り替える場合は、下の「カード払いで申し込む」からお手続きください（決済完了後、銀行振込のご契約は自動的に終了します）。
           </div>
         )}
 
@@ -595,6 +555,20 @@ export function BillingClient({
                     <Badge variant="destructive" className="ml-2 text-xs">
                       お支払い確認中
                     </Badge>
+                  )}
+                  {/* 銀行振込契約中（P12）: 同じプランをカード払いに切り替える（Checkout。完了で銀行振込は自動終了） */}
+                  {!isStaff && isBankTransferPlan && (
+                    <div className="mt-3 flex justify-center">
+                      <Button
+                        variant="default"
+                        className="w-full max-w-xs rounded-full text-white"
+                        disabled={pending}
+                        pending={pendingKey === `plan-${plan.planType}`}
+                        onClick={() => handlePlanButton({ ...plan, buttonAction: "checkout" })}
+                      >
+                        {formatPrice(plan.price)}円/{plan.billingCycle === "yearly" ? "年" : "月"} カード払いに切り替える
+                      </Button>
+                    </div>
                   )}
                   {/* 解約ボタン（現在のプラン枠内）。銀行振込契約は運営が管理するため出さない */}
                   {!isStaff && !isBankTransferPlan && (
@@ -672,27 +646,16 @@ export function BillingClient({
                     title={plan.disabledReason ?? undefined}
                   >
                     {plan.buttonAction === "checkout"
-                      ? `${formatPrice(plan.price)}円/${plan.billingCycle === "yearly" ? "年" : "月"} 申し込む`
+                      ? `${formatPrice(plan.price)}円/${plan.billingCycle === "yearly" ? "年" : "月"} ${plan.buttonLabel}`
                       : plan.buttonLabel}
                   </Button>
-                  {/* 銀行振込（P2）: 新規申込のみ。契約中のプラン変更は運営対応。P9: 既定はボタン非表示 */}
-                  {!isStaff && isFirstPurchase && bankTransferSelfServiceEnabled && (
-                    <BankTransferApplyButton
-                      target={{ kind: "plan", planType: plan.planType }}
-                      needsInitialFee={bankNeedsInitialFee}
-                      disabled={!!openBankPlanRequest || pending}
-                      disabledReason={openBankPlanRequest ? "銀行振込でのお申し込みを受付中です" : null}
-                    />
-                  )}
                 </div>
               )}
             </div>
           ))}
         </div>
 
-        {!bankTransferSelfServiceEnabled && !isStaff && (
-          <BankTransferContactNote />
-        )}
+        {!isStaff && <BankTransferContactNote />}
       </section>
 
       {/* ===== オプションプラン セクション ===== */}
@@ -717,20 +680,12 @@ export function BillingClient({
               <Button
                 variant="default"
                 className="w-full max-w-xs rounded-full text-white"
-                disabled={pending || isStaff || !!openBankOptionRequest("video")}
+                disabled={pending || isStaff}
                 pending={pendingKey === "opt-video"}
                 onClick={() => handleVideoOptionButton("video")}
               >
                 {hasVideo ? "購入済み" : "プロフィール動画制作プランを申し込む"}
               </Button>
-              {!isStaff && (
-                <BankTransferOptionRow
-                      selfServiceEnabled={bankTransferSelfServiceEnabled}
-                  request={openBankOptionRequest("video")}
-                  target={{ kind: "option", optionType: "video" }}
-                  disabled={pending}
-                />
-              )}
             </div>
           </div>
 
@@ -750,20 +705,12 @@ export function BillingClient({
               <Button
                 variant="default"
                 className="w-full max-w-xs rounded-full text-white"
-                disabled={pending || isStaff || !!openBankOptionRequest("video_shooting")}
+                disabled={pending || isStaff}
                 pending={pendingKey === "opt-video_shooting"}
                 onClick={() => handleVideoOptionButton("video_shooting")}
               >
                 {hasVideoShooting ? "購入済み" : "ユーザー撮影プランを申し込む"}
               </Button>
-              {!isStaff && (
-                <BankTransferOptionRow
-                      selfServiceEnabled={bankTransferSelfServiceEnabled}
-                  request={openBankOptionRequest("video_shooting")}
-                  target={{ kind: "option", optionType: "video_shooting" }}
-                  disabled={pending}
-                />
-              )}
             </div>
           </div>
 
@@ -784,20 +731,12 @@ export function BillingClient({
               <Button
                 variant="default"
                 className="w-full max-w-xs rounded-full text-white"
-                disabled={pending || isStaff || !!openBankOptionRequest("video_sns")}
+                disabled={pending || isStaff}
                 pending={pendingKey === "opt-video_sns"}
                 onClick={() => handleVideoOptionButton("video_sns")}
               >
                 {hasVideoSns ? "購入済み" : "ビジ友公式SNS動画制作プランを申し込む"}
               </Button>
-              {!isStaff && (
-                <BankTransferOptionRow
-                      selfServiceEnabled={bankTransferSelfServiceEnabled}
-                  request={openBankOptionRequest("video_sns")}
-                  target={{ kind: "option", optionType: "video_sns" }}
-                  disabled={pending}
-                />
-              )}
             </div>
           </div>
 
@@ -838,7 +777,7 @@ export function BillingClient({
                   <Button
                     variant="default"
                     className="w-full max-w-xs rounded-full text-white"
-                    disabled={!selectedJobId || pending || isStaff || !!openBankOptionRequest("urgent", selectedJobId)}
+                    disabled={!selectedJobId || pending || isStaff}
                     pending={pendingKey === "opt-urgent"}
                     onClick={() =>
                       handleOptionCheckout("urgent", selectedJobId)
@@ -846,15 +785,6 @@ export function BillingClient({
                   >
                     急募を申し込む
                   </Button>
-                  {!isStaff && (
-                    <BankTransferOptionRow
-                      selfServiceEnabled={bankTransferSelfServiceEnabled}
-                      request={selectedJobId ? openBankOptionRequest("urgent", selectedJobId) : undefined}
-                      target={{ kind: "option", optionType: "urgent", jobId: selectedJobId }}
-                      disabled={!selectedJobId || pending}
-                      disabledReason={!selectedJobId ? "案件を選択してください" : null}
-                    />
-                  )}
                 </div>
               </>
             )}
@@ -898,20 +828,12 @@ export function BillingClient({
                   <Button
                     variant="default"
                     className="w-full max-w-xs rounded-full text-white"
-                    disabled={hasComp9800 || pending || isStaff || !!openBankOptionRequest("compensation_5000")}
+                    disabled={hasComp9800 || pending || isStaff}
                     pending={pendingKey === "opt-compensation_5000"}
                     onClick={() => handleOptionCheckout("compensation_5000")}
                   >
                     補償（5,000円）を申し込む
                   </Button>
-                  {!isStaff && (
-                    <BankTransferOptionRow
-                      selfServiceEnabled={bankTransferSelfServiceEnabled}
-                      request={openBankOptionRequest("compensation_5000")}
-                      target={{ kind: "option", optionType: "compensation_5000" }}
-                      disabled={hasComp9800 || pending}
-                    />
-                  )}
                 </div>
               )}
             </div>
@@ -955,29 +877,19 @@ export function BillingClient({
                   <Button
                     variant="default"
                     className="w-full max-w-xs rounded-full text-white"
-                    disabled={hasComp5000 || pending || isStaff || !!openBankOptionRequest("compensation_9800")}
+                    disabled={hasComp5000 || pending || isStaff}
                     pending={pendingKey === "opt-compensation_9800"}
                     onClick={() => handleOptionCheckout("compensation_9800")}
                   >
                     補償（9,800円）を申し込む
                   </Button>
-                  {!isStaff && (
-                    <BankTransferOptionRow
-                      selfServiceEnabled={bankTransferSelfServiceEnabled}
-                      request={openBankOptionRequest("compensation_9800")}
-                      target={{ kind: "option", optionType: "compensation_9800" }}
-                      disabled={hasComp5000 || pending}
-                    />
-                  )}
                 </div>
               )}
             </div>
           </div>
           )}
         </div>
-        {!bankTransferSelfServiceEnabled && !isStaff && (
-          <BankTransferContactNote />
-        )}
+        {!isStaff && <BankTransferContactNote />}
       </section>
 
       {/* Customer Portal（銀行振込契約には Stripe の支払情報が無いため出さない） */}
@@ -1237,11 +1149,11 @@ export function BillingClient({
 // Local helper — same as server-side comparePlans but avoids importing server modules
 
 // ---------------------------------------------------------------------------
-// 銀行振込（P2）: オプション行の「銀行振込で申し込む」/「申込中」表示（ヘルパー）
+// 銀行振込（P12）: 案内文（基本プラン欄・オプション欄の末尾へ表示）
 // ---------------------------------------------------------------------------
 
 /**
- * P9: 銀行振込の案内文（本人申込ボタンを出さないときに、基本プラン欄・オプション欄の末尾へ表示）。
+ * 銀行振込はお問い合わせで受け付け、運営が管理画面で有効にする。ここではリンクだけ出す。
  */
 function BankTransferContactNote() {
   return (
@@ -1255,33 +1167,3 @@ function BankTransferContactNote() {
   );
 }
 
-function BankTransferOptionRow({
-  request,
-  target,
-  disabled,
-  disabledReason = null,
-  selfServiceEnabled,
-}: {
-  request: OpenBankTransferRequest | undefined;
-  target: Parameters<typeof BankTransferApplyButton>[0]["target"];
-  disabled: boolean;
-  disabledReason?: string | null;
-  /** P9: false のときは申込中の案内だけ出し、ボタンは出さない */
-  selfServiceEnabled: boolean;
-}) {
-  if (request) {
-    return (
-      <p className="text-body-xs text-muted-foreground">
-        銀行振込で申込中（{request.statusLabel}）。請求書のご案内をお待ちください。
-      </p>
-    );
-  }
-  if (!selfServiceEnabled) return null;
-  return (
-    <BankTransferApplyButton
-      target={target}
-      disabled={disabled}
-      disabledReason={disabledReason}
-    />
-  );
-}

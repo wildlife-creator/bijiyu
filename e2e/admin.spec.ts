@@ -55,12 +55,13 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
       ["トラブル報告一覧", /\/admin\/trouble-reports/, "トラブル報告一覧"],
       ["求人問い合わせ一覧", /\/admin\/job-inquiries/, "求人問い合わせ一覧"],
       ["代理メッセージ一覧", /\/admin\/messages/, "代理メッセージ一覧"],
-      ["銀行振込申込一覧", /\/admin\/bank-transfers/, "銀行振込申込一覧"],
+      ["銀行振込お問い合わせ一覧", /\/admin\/bank-transfers/, "銀行振込お問い合わせ一覧"],
       ["パスワード再設定", /\/admin\/password/, "パスワード再設定"],
     ];
 
     for (const [label, urlPattern, heading] of menus) {
-      await page.getByRole("link", { name: label }).click();
+      // exact: 「お問い合わせ一覧」が「銀行振込お問い合わせ一覧」（P12）にも部分一致するため
+      await page.getByRole("link", { name: label, exact: true }).click();
       await page.waitForURL(urlPattern);
       await expect(
         page.getByRole("heading", { name: heading, exact: true }),

@@ -4,22 +4,12 @@ import { getActiveOrganizationContext } from "@/lib/organization/active-org-cont
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  BILLING_CYCLE_LABELS,
   PLAN_LABELS,
   planPriceFor,
   type BillingCycle,
   type PlanType,
   PAID_PLAN_TYPES,
 } from "@/lib/constants/plans";
-import {
-  BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE,
-  BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
-  BANK_TRANSFER_STATUS_LABELS,
-  OPEN_BANK_TRANSFER_STATUSES,
-  describeBankTransferTarget,
-  targetFromRequestRow,
-  isBankTransferSelfServiceEnabled,
-} from "@/lib/billing/bank-transfer";
 import { isCompensationOptionEnabled } from "@/lib/billing/options";
 import { comparePlanChange } from "@/lib/billing/compare-plans";
 import { FEE_COOKIE_NAME, readFeeCookie } from "@/lib/billing/fee-cookie";
@@ -58,7 +48,7 @@ export default async function BillingPage({
   // Single query for user + subscription + options + client_profiles
   const admin = createAdminClient();
 
-  const [userResult, subResult, optionResult, profileResult, bankRequestResult] = await Promise.all([
+  const [userResult, subResult, optionResult, profileResult] = await Promise.all([
     admin.from("users").select("id, role, email, last_name, first_name").eq("id", user.id).single(),
     admin.from("subscriptions")
       .select("id, plan_type, status, schedule_id, scheduled_plan_type, scheduled_billing_cycle, scheduled_at, cancel_at_period_end, current_period_end, stripe_subscription_id, payment_method, billing_cycle")
@@ -75,12 +65,6 @@ export default async function BillingPage({
       .select("is_urgent_option")
       .eq("user_id", billingOwnerId)
       .maybeSingle(),
-    // 銀行振込（P2）: 処理中の申込（申込受付 / 請求書送付済）
-    admin.from("bank_transfer_requests")
-      .select("id, target_kind, plan_type, option_type, job_id, billing_cycle, status")
-      .eq("user_id", billingOwnerId)
-      .in("status", [...OPEN_BANK_TRANSFER_STATUSES])
-      .order("created_at", { ascending: false }),
   ]);
 
   const userData = userResult.data;
@@ -98,19 +82,8 @@ export default async function BillingPage({
   const currentCycle: BillingCycle = subscription?.billing_cycle ?? "monthly";
   const isFirstPurchase = !subscription;
 
-  // 銀行振込（P2）
+  // 銀行振込（P12）
   const isBankTransferPlan = subscription?.payment_method === "bank_transfer";
-  const openBankRequests = (bankRequestResult.data ?? []).map((r) => {
-    const target = targetFromRequestRow(r);
-    return {
-      targetKind: r.target_kind,
-      optionType: r.option_type,
-      jobId: r.job_id,
-      targetLabel: target ? describeBankTransferTarget(target) : "お申し込み",
-      statusLabel: BANK_TRANSFER_STATUS_LABELS[r.status],
-    };
-  });
-  const hasOpenBankPlanRequest = openBankRequests.some((r) => r.targetKind === "plan");
 
   // Fee=free cookie check
   const cookieStore = await cookies();
@@ -142,17 +115,11 @@ export default async function BillingPage({
         buttonDisabled = true;
         buttonAction = "none";
       } else if (isBankTransferPlan) {
-        // 銀行振込契約中のプラン変更は運営が管理画面で行う（D3 / D6）
-        buttonLabel = "このプランに変更する";
-        buttonDisabled = true;
-        buttonAction = "none";
-        disabledReason = BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE;
-      } else if (hasOpenBankPlanRequest) {
-        // 銀行振込の申込を処理中は Stripe 決済にも進ませない（二重契約防止）
-        buttonLabel = "申し込む";
-        buttonDisabled = true;
-        buttonAction = "none";
-        disabledReason = BANK_TRANSFER_REQUEST_PENDING_MESSAGE;
+        // 銀行振込契約中（P12）: 銀行振込のままのプラン変更は運営が管理画面で行う。
+        // ここから押せるのはカード払いへの切り替え（Checkout。完了で銀行振込行は自動終了）
+        buttonLabel = "カード払いで申し込む";
+        buttonDisabled = false;
+        buttonAction = "checkout";
       } else if (isPastDue) {
         buttonLabel = "このプランに変更する";
         buttonDisabled = true;
@@ -227,7 +194,6 @@ export default async function BillingPage({
           userId={user.id}
           isStaff={isStaff}
           compensationOptionEnabled={isCompensationOptionEnabled()}
-          bankTransferSelfServiceEnabled={isBankTransferSelfServiceEnabled()}
           isPastDue={isPastDue}
           hasReservation={hasReservation}
           currentPlan={currentPlan}
@@ -242,14 +208,7 @@ export default async function BillingPage({
             currentPeriodEnd: subscription.current_period_end,
             stripeSubscriptionId: subscription.stripe_subscription_id,
           } : null}
-          bankTransfer={{
-            isBankTransferPlan,
-            billingCycleLabel: isBankTransferPlan && subscription
-              ? BILLING_CYCLE_LABELS[subscription.billing_cycle]
-              : null,
-            currentPeriodEnd: isBankTransferPlan ? (subscription?.current_period_end ?? null) : null,
-            openRequests: openBankRequests,
-          }}
+          bankTransfer={{ isBankTransferPlan }}
           planStatesByCycle={planStatesByCycle}
           showInitialFee={showInitialFee}
           activeOptions={activeOptions.map((o) => ({

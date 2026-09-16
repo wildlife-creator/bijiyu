@@ -27,7 +27,7 @@ const PLAN_SHORT_LABELS: Record<Exclude<PlanType, "free">, string> = {
 
 /**
  * 月額・年額は src/lib/constants/plans.ts（PLAN_LIMITS / YEARLY_PRICE_TAX_INCLUDED）から導出し、
- * 銀行振込の請求金額・料金プラン画面と必ず一致させる（手書きの金額を置かない）。
+ * 料金プラン画面と必ず一致させる（手書きの金額を置かない）。
  */
 const PLAN_COLUMNS: {
   key: PlanType;

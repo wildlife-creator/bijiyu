@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DocumentView } from "@/components/admin/document-view";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { getSignedDocumentUrls } from "@/lib/admin/signed-urls";
+import { bankTransferPlanLabel } from "@/lib/constants/contact-options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
 
@@ -118,6 +119,13 @@ export default async function AdminContactDetailPage({
             label="お問い合わせの種類"
             value={contact.inquiry_type}
           />
+          {/* 銀行振込のお問い合わせ（P12）だけ希望プランを持つ */}
+          {contact.bank_transfer_plan && (
+            <DetailRow
+              label="希望プラン"
+              value={bankTransferPlanLabel(contact.bank_transfer_plan)}
+            />
+          )}
           <DetailRow
             label="問い合わせ詳細"
             value={

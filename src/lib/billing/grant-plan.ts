@@ -9,7 +9,7 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 
 export type GrantPlanResult =
-  | { ok: true; subscriptionId: string; periodEndIso: string }
+  | { ok: true; subscriptionId: string; periodEndIso: string | null }
   | { ok: false; error: string };
 
 /**
@@ -17,7 +17,8 @@ export type GrantPlanResult =
  * `handle_checkout_completed_plan` と同じ副作用を再現する共通処理。
  *
  * 呼び出し元:
- * - ADM-026 銀行振込の有効化（`activateBankTransferAction`）: 有効化メールあり
+ * - ADM-009 / ADM-004 の「銀行振込」枠の有効化（`activateBankTransferPlanAction`、P12）:
+ *   有効化メールあり・期限なし（current_period_end = NULL）
  * - ADM-009 管理運営アカウントの設定（`setOpsAccountAction`）: 内部アカウントのため
  *   有効化メールなし・期限 2099 年（P5 / D10）
  *
@@ -43,8 +44,11 @@ export async function grantBankTransferPlan(
     billingCycle: BillingCycle;
     /** 利用開始日（YYYY-MM-DD、JST） */
     startDate: string;
-    /** 有効期限日（YYYY-MM-DD、JST。その日の 23:59:59 まで有効） */
-    periodEndDate: string;
+    /**
+     * 有効期限日（YYYY-MM-DD、JST。その日の 23:59:59 まで有効）。
+     * P12 の銀行振込は期限を管理しないため null（管理運営アカウントだけ 2099-12-31 を渡す）
+     */
+    periodEndDate: string | null;
     /** audit metadata の via（例: 'bank_transfer' / 'ops_account'） */
     via: string;
     sendActivationEmail: boolean;
@@ -52,7 +56,9 @@ export async function grantBankTransferPlan(
 ): Promise<GrantPlanResult> {
   const { userId, planType, billingCycle } = params;
   const startIso = dateStringToJstIso(params.startDate, "start");
-  const periodEndIso = dateStringToJstIso(params.periodEndDate, "end");
+  const periodEndIso = params.periodEndDate
+    ? dateStringToJstIso(params.periodEndDate, "end")
+    : null;
 
   const insert = await admin
     .from("subscriptions")

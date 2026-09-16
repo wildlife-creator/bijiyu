@@ -2408,12 +2408,12 @@ VALUES ('c105ed00-0000-4000-8000-00000000aa01', 'c105ed00-0000-4000-8000-0000000
   'c105ed00-0000-4000-8000-000000000002', 1, '常勤', CURRENT_DATE - 3, 'accepted', CURRENT_DATE - 3);
 
 -- ============================================================
--- 銀行振込（P2 / spec-changes-202608 §2.1(1)）テストデータ
+-- 銀行振込（P12 / docs/requirements/p12-bank-transfer-onoff-implementation-notes.md）テストデータ
 --   id 帯 ba100000-...（他の seed と重複しない）
---   ① bank-transfer-e2e@test.local : 無料の受注者。E2E で「銀行振込で申し込む → 運営が有効化」を通す
+--   ① bank-transfer-e2e@test.local : 無料の受注者。E2E で「ログインしてお問い合わせ（銀行振込）→ 運営がユーザー詳細で有効化」を通す
 --      （他の E2E が使う contractor@test.local は role が変わると壊れるため専用ユーザー）
---   ② bank-client@test.local        : 銀行振込（スタンダード・月払い）で契約中の発注者。期限 10 日後 = 「期限間近」バッジ
---   ③ bank-requested@test.local     : ライト（月払い）を銀行振込で申込済（申込受付）。ADM-025/026 の一覧・詳細・操作の E2E 用
+--   ② bank-client@test.local        : 銀行振込（スタンダード）で契約中の発注者。ADM-004 の「変更する」「無効にする」の E2E 用
+--   ③ bank-requested@test.local     : 銀行振込のお問い合わせ（希望: ライトプラン）を送信済みの受注者。ADM-025 一覧の表示 E2E 用
 -- ============================================================
 
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
@@ -2444,22 +2444,18 @@ INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
   ('ba100000-0000-4000-8000-000000000002', '東京都', NULL),
   ('ba100000-0000-4000-8000-000000000003', '神奈川県', NULL);
 
--- ② 銀行振込で契約中（スタンダード・月払い、期限 10 日後）
+-- ② 銀行振込で契約中（スタンダード。期限は管理しない = current_period_end NULL）
 INSERT INTO subscriptions (id, user_id, plan_type, status, payment_method, billing_cycle, stripe_subscription_id, current_period_start, current_period_end)
 VALUES ('ba100000-0000-4000-8000-00000000cc02', 'ba100000-0000-4000-8000-000000000002', 'small', 'active', 'bank_transfer', 'monthly', NULL,
-        (CURRENT_DATE - 20)::timestamptz, ((CURRENT_DATE + 10)::timestamptz + interval '23 hours 59 minutes 59 seconds'));
+        (CURRENT_DATE - 20)::timestamptz, NULL);
 
 INSERT INTO client_profiles (user_id, display_name) VALUES
   ('ba100000-0000-4000-8000-000000000002', '振込商店');
 
--- ②' 入金確認済の申込履歴（上の契約を作った申込）
-INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status, invoiced_at, paid_at, start_date, activated_subscription_id, created_at)
-VALUES ('ba100000-0000-4000-8000-00000000dd02', 'ba100000-0000-4000-8000-000000000002', 'plan', 'small', 'monthly', 9800, 12000, 'paid',
-        now() - interval '25 days', now() - interval '20 days', CURRENT_DATE - 20, 'ba100000-0000-4000-8000-00000000cc02', now() - interval '27 days');
-
--- ③ 申込受付のまま（ライト・月払い・初回事務手数料あり）
-INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status, created_at)
-VALUES ('ba100000-0000-4000-8000-00000000dd03', 'ba100000-0000-4000-8000-000000000003', 'plan', 'individual', 'monthly', 2800, 12000, 'requested', now() - interval '1 day');
+-- ③ 銀行振込のお問い合わせ（ログイン中に送信。希望プラン = ライト）→ ADM-025 銀行振込お問い合わせ一覧に出る
+INSERT INTO contacts (user_id, company_name, name, phone, email, address, inquiry_type, purpose, industry, detail, bank_transfer_plan, created_at)
+VALUES ('ba100000-0000-4000-8000-000000000003', '振込工務店', '振込次郎', '045-000-1111', 'bank-requested@test.local', '神奈川県',
+        'お支払い方法（銀行振込）について', '仕事を依頼したい', '大工', 'ライトプランを銀行振込で契約したいです。', 'individual', now() - interval '1 day');
 
 -- ============================================================
 -- P6 一覧改修（プラン順の既定並び + 並び替えプルダウン）E2E 用 seed

@@ -1,15 +1,25 @@
+import { VIDEO_OPTION_UI_NAMES } from "@/lib/billing/options";
+import { PAID_PLAN_TYPES, PLAN_LABELS } from "@/lib/constants/plans";
+
 // ---------------------------------------------------------------------------
 // Contact form options (COM-008)
 // ---------------------------------------------------------------------------
 // 値はラベル文字列で保存する。後から増減・改名・削除しても過去データは壊れない
 // （Requirements 9.1-9.3）。将来 master テーブル化する場合もこの定数を起点にする。
 
+/**
+ * 銀行振込のお問い合わせ種類（P12、2026-09-16）。
+ * ログイン中の会員だけが選べる（フォームは未ログインに出さず、Server Action でも拒否）。
+ * この種類のお問い合わせが ADM-025「銀行振込お問い合わせ一覧」に並ぶ。
+ */
+export const BANK_TRANSFER_INQUIRY_TYPE = "お支払い方法（銀行振込）について";
+
 // お問い合わせ内容（必須・単一選択）
 export const CONTACT_INQUIRY_TYPES = [
   "登録方法",
   "料金について",
-  // P9（2026-09）: 銀行振込は料金画面にボタンを出さず、問い合わせで受けて運営が代理登録する
-  "お支払い方法（銀行振込）について",
+  // P9（2026-09）: 銀行振込は料金画面にボタンを出さず、問い合わせで受けて運営が有効化する（P12）
+  BANK_TRANSFER_INQUIRY_TYPE,
   "仕事掲載",
   "協力会社募集",
   "職人募集",
@@ -54,3 +64,45 @@ export const CONTACT_VIDEO_CONSULTATIONS = [
 ] as const;
 export type ContactVideoConsultation =
   (typeof CONTACT_VIDEO_CONSULTATIONS)[number];
+
+// ---------------------------------------------------------------------------
+// 銀行振込の希望プラン（P12）
+// ---------------------------------------------------------------------------
+// お問い合わせの種類が BANK_TRANSFER_INQUIRY_TYPE のときだけ選ぶ（必須・単一選択）。
+// contacts.bank_transfer_plan には **キー** を保存し、表示はここのラベルで行う
+// （プラン名の改名に強い）。管理画面の「銀行振込」枠の有効化対象も同じ定数を使う。
+// 補償（販売停止中）・急募（案件単位）・旧 職場紹介動画（新規販売停止）は含めない。
+
+export const BANK_TRANSFER_VIDEO_PLAN_KEYS = ["video", "video_shooting", "video_sns"] as const;
+
+export type BankTransferVideoPlanKey = (typeof BANK_TRANSFER_VIDEO_PLAN_KEYS)[number];
+
+export type BankTransferPlanKey =
+  | (typeof PAID_PLAN_TYPES)[number]
+  | BankTransferVideoPlanKey;
+
+export const BANK_TRANSFER_PLAN_CHOICES: ReadonlyArray<{
+  key: BankTransferPlanKey;
+  label: string;
+  kind: "plan" | "video";
+}> = [
+  ...PAID_PLAN_TYPES.map((key) => ({ key, label: PLAN_LABELS[key], kind: "plan" as const })),
+  ...BANK_TRANSFER_VIDEO_PLAN_KEYS.map((key) => ({
+    key,
+    label: VIDEO_OPTION_UI_NAMES[key],
+    kind: "video" as const,
+  })),
+];
+
+export const BANK_TRANSFER_PLAN_KEYS: readonly BankTransferPlanKey[] =
+  BANK_TRANSFER_PLAN_CHOICES.map((c) => c.key);
+
+export function isBankTransferPlanKey(value: string): value is BankTransferPlanKey {
+  return (BANK_TRANSFER_PLAN_KEYS as readonly string[]).includes(value);
+}
+
+/** 保存済みキー → 表示ラベル。未知のキー（将来の廃止等）はそのまま返す。 */
+export function bankTransferPlanLabel(key: string | null | undefined): string | null {
+  if (!key) return null;
+  return BANK_TRANSFER_PLAN_CHOICES.find((c) => c.key === key)?.label ?? key;
+}

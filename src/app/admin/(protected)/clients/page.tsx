@@ -8,7 +8,6 @@ import {
   type ClientCategory,
   type ClientOptionBadge,
 } from "@/lib/admin/clients-list";
-import { EXPIRY_BADGE_LABELS } from "@/lib/billing/bank-transfer";
 import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { AdminClientFilters } from "./filters";
 
@@ -132,17 +131,6 @@ export default async function AdminClientsPage({ searchParams }: PageProps) {
                     <p className="text-body-xs text-muted-foreground">
                       プラン: {row.planLabel}
                       {row.paymentMethod === "bank_transfer" && "（銀行振込）"}
-                      {row.expiryBadge && (
-                        <span
-                          className={`ml-2 rounded-full px-2 py-0.5 text-body-xs font-bold ${
-                            row.expiryBadge === "expired"
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {EXPIRY_BADGE_LABELS[row.expiryBadge]}
-                        </span>
-                      )}
                     </p>
                   )}
                 </div>

@@ -1,8 +1,3 @@
-import {
-  deriveExpiryBadge,
-  todayJstDateString,
-  type ExpiryBadge,
-} from "@/lib/billing/bank-transfer";
 import { PROFILE_VIDEO_OPTION_TYPES } from "@/lib/billing/options";
 import type { PaymentMethod } from "@/lib/constants/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -79,31 +74,6 @@ export function deriveClientCategory(params: {
   return null;
 }
 
-/**
- * 銀行振込契約の期限バッジ（純粋関数）。Stripe 契約は Stripe が自動更新するため対象外。
- * 期限日は timestamptz を JST の暦日に落として比較する。
- */
-export function deriveBankTransferExpiryBadge(
-  sub: { paymentMethod: PaymentMethod; currentPeriodEnd: string | null } | null,
-  today: string,
-): ExpiryBadge | null {
-  if (!sub || sub.paymentMethod !== "bank_transfer" || !sub.currentPeriodEnd) {
-    return null;
-  }
-  return deriveExpiryBadge(isoToJstDate(sub.currentPeriodEnd), today);
-}
-
-function isoToJstDate(iso: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date(iso));
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
-}
-
 /** プラン列の表記（純粋関数）。有効サブスクなし・未知の値は null（画面では「—」） */
 export function derivePlanLabel(planType: string | null): string | null {
   if (!planType) return null;
@@ -148,8 +118,6 @@ export interface ClientListRow {
   planLabel: string | null;
   /** 契約主体の支払方法（有効サブスクなしは null） */
   paymentMethod: PaymentMethod | null;
-  /** 銀行振込契約の期限バッジ（Stripe 契約・有効サブスクなしは null） */
-  expiryBadge: ExpiryBadge | null;
   optionBadges: ClientOptionBadge[];
   isDeleted: boolean;
   /** 管理運営アカウント（users.is_hidden、P5） */
@@ -404,7 +372,6 @@ export async function fetchClientListPage(
     }
   }
 
-  const today = todayJstDateString();
   const rows: ClientListRow[] = pageUsers.map((u) => {
     const membership = membershipByUser.get(u.id);
     const holderId = holderIdByUser.get(u.id) ?? null;
@@ -423,7 +390,6 @@ export async function fetchClientListPage(
       }),
       planLabel: derivePlanLabel(planType),
       paymentMethod: subInfo?.paymentMethod ?? null,
-      expiryBadge: deriveBankTransferExpiryBadge(subInfo, today),
       optionBadges: holderId
         ? Array.from(badgesByHolder.get(holderId) ?? [])
         : [],

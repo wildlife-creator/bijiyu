@@ -5,10 +5,6 @@ import { z } from "zod";
 
 import { ensureStripeCustomer } from "@/lib/billing/ensure-stripe-customer";
 import { readFeeCookie, FEE_COOKIE_NAME } from "@/lib/billing/fee-cookie";
-import {
-  BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
-  OPEN_BANK_TRANSFER_STATUSES,
-} from "@/lib/billing/bank-transfer";
 import { priceIdFor } from "@/lib/constants/plans";
 import {
   COMPENSATION_OPTION_DISABLED_MESSAGE,
@@ -190,11 +186,14 @@ export async function startCheckoutAction(
 
   // 5. Pre-flight checks per type
   if (input.type === "plan") {
-    // 二重課金防止: active or past_due があれば拒否
+    // 二重課金防止: Stripe の active or past_due があれば拒否。
+    // 銀行振込行（payment_method = bank_transfer）は対象外 = カード払いへの切り替え経路（P12 §3.2）。
+    // Checkout 完了時に handle_checkout_completed_plan v3 が銀行振込行を後処理なしで終了させる
     const existingActive = await admin
       .from("subscriptions")
       .select("id")
       .eq("user_id", user.id)
+      .eq("payment_method", "stripe")
       .in("status", ["active", "past_due"])
       .limit(1);
     if ((existingActive.data?.length ?? 0) > 0) {
@@ -204,44 +203,11 @@ export async function startCheckoutAction(
           "すでにご契約中のプランがあります。プラン変更ボタンからお手続きください",
       };
     }
-    // 銀行振込のプラン申込（P2）を処理中なら Stripe 決済へ進ませない（二重契約防止）
-    const openBankPlan = await admin
-      .from("bank_transfer_requests")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("target_kind", "plan")
-      .in("status", [...OPEN_BANK_TRANSFER_STATUSES])
-      .limit(1);
-    if ((openBankPlan.data?.length ?? 0) > 0) {
-      return {
-        success: false,
-        error: BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
-      };
-    }
   } else {
     // P8: 補償オプションは販売停止中（フラグで復活可）。画面から消しても直接呼べるためここでも拒否
     if (isCompensationOption(input.optionType) && !isCompensationOptionEnabled()) {
       return { success: false, error: COMPENSATION_OPTION_DISABLED_MESSAGE };
     }
-    // 同じオプションの銀行振込申込（P2）を処理中なら Stripe 決済へ進ませない
-    let openBankOption = admin
-      .from("bank_transfer_requests")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("target_kind", "option")
-      .eq("option_type", input.optionType)
-      .in("status", [...OPEN_BANK_TRANSFER_STATUSES]);
-    if (input.optionType === "urgent") {
-      openBankOption = openBankOption.eq("job_id", input.jobId);
-    }
-    const { data: openBankOptionRows } = await openBankOption.limit(1);
-    if ((openBankOptionRows?.length ?? 0) > 0) {
-      return {
-        success: false,
-        error: BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
-      };
-    }
-
     // Option-specific checks
     if (
       input.optionType === "compensation_5000" ||

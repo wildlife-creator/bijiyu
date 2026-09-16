@@ -1,3 +1,6 @@
+// NOTE (2026-09-16, P12): 銀行振込の申込テーブル・ADM-025 代理登録・ADM-026 は廃止された。
+// このスクリプト内の銀行振込フロー（/admin/bank-transfers/new 等）は当時の記録用で、現行アプリでは動かない。
+// 現行の流れは docs/requirements/p12-bank-transfer-onoff-implementation-notes.md を参照。
 /**
  * 2026-08〜09 改修（P1〜P11 / クライアント指摘 B / 追加修正 C）の動作確認レポート生成
  *

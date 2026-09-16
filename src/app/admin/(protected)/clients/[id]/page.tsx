@@ -8,12 +8,7 @@ import { AreaList } from "@/components/area/area-list";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { VideoList } from "@/components/video-embed/video-list";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
-import { fetchBankTransferRequestsForUser } from "@/lib/admin/bank-transfers";
-import {
-  deriveBankTransferExpiryBadge,
-  derivePlanLabel,
-} from "@/lib/admin/clients-list";
-import { EXPIRY_BADGE_LABELS, todayJstDateString } from "@/lib/billing/bank-transfer";
+import { derivePlanLabel } from "@/lib/admin/clients-list";
 import {
   BILLING_CYCLE_LABELS,
   PAYMENT_METHOD_LABELS,
@@ -28,7 +23,7 @@ import { PROFILE_VIDEO_OPTION_TYPES } from "@/lib/billing/options";
 import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
-import { BankSubscriptionPanel } from "./bank-subscription-panel";
+import { BankTransferPanel } from "@/components/admin/bank-transfer-panel";
 import { DeleteAccountButton } from "./delete-account-button";
 import { JobSiteList } from "./job-site-list";
 import { MemberList } from "./member-list";
@@ -119,6 +114,8 @@ export default async function AdminClientDetailPage({
         .select("id, plan_type, status, payment_method, billing_cycle, current_period_end")
         .eq("user_id", id)
         .in("status", ["active", "past_due"])
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle(),
       admin
         .from("organizations")
@@ -136,18 +133,8 @@ export default async function AdminClientDetailPage({
     deletedAt: null,
   });
   const planLabel = derivePlanLabel(subscription?.plan_type ?? null);
-  // 銀行振込契約（P2）: 期限バッジ + 運営操作パネル + 申込履歴
+  // 銀行振込（P12）: 有効化・変更・無効化・カードからの切り替えを行う共通枠の入力
   const isBankTransfer = subscription?.payment_method === "bank_transfer";
-  const bankExpiryBadge = deriveBankTransferExpiryBadge(
-    subscription
-      ? {
-          paymentMethod: subscription.payment_method,
-          currentPeriodEnd: subscription.current_period_end,
-        }
-      : null,
-    todayJstDateString(),
-  );
-  const bankTransferRequests = await fetchBankTransferRequestsForUser(id);
 
   // 募集エリア
   const { data: areaRows } = await admin
@@ -366,40 +353,29 @@ export default async function AdminClientDetailPage({
         </div>
       </section>
 
-      {/* 3.5 銀行振込（P2）: 契約の運営操作 + 申込履歴。該当がなければ非表示 */}
-      {(isBankTransfer || bankTransferRequests.length > 0) && (
+      {/* 3.5 銀行振込（P12）: プランのオン／オフ・変更・カードからの切り替え・動画プラン。
+          ADM-009 と同じ共通枠。退会済みには出さない */}
+      {!isDeleted && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">銀行振込</h2>
-          {isBankTransfer && subscription && !isDeleted && (
-            <BankSubscriptionPanel
-              subscriptionId={subscription.id}
-              currentPlanType={subscription.plan_type as PaidPlanType}
-              billingCycleLabel={BILLING_CYCLE_LABELS[subscription.billing_cycle]}
-              periodEndLabel={formatDateJst(subscription.current_period_end)}
-            />
-          )}
-          {bankTransferRequests.length > 0 && (
-            <div className="mt-3 overflow-hidden rounded-[8px] border border-border/20 bg-background">
-              {bankTransferRequests.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/admin/bank-transfers/${r.id}`}
-                  className="flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3 text-body-sm last:border-b-0 hover:bg-muted/50"
-                >
-                  <span className="min-w-0 flex-1 truncate">
-                    {r.targetLabel}
-                    <span className="ml-2 text-muted-foreground">
-                      {formatDateJst(r.createdAt)} 申込
-                    </span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-body-xs">
-                    {r.statusLabel}
-                  </span>
-                  <span className="text-muted-foreground">›</span>
-                </Link>
-              ))}
-            </div>
-          )}
+          <BankTransferPanel
+            userId={id}
+            subscription={
+              subscription
+                ? {
+                    id: subscription.id,
+                    planType: subscription.plan_type as PaidPlanType,
+                    paymentMethod: subscription.payment_method,
+                    status: subscription.status as "active" | "past_due",
+                    periodEndLabel:
+                      subscription.payment_method === "stripe" && subscription.current_period_end
+                        ? formatDateJst(subscription.current_period_end)
+                        : null,
+                  }
+                : null
+            }
+            afterCancelHref={`/admin/users/${id}?backTo=${encodeURIComponent(backToForChildren)}`}
+          />
         </section>
       )}
 
@@ -439,19 +415,9 @@ export default async function AdminClientDetailPage({
               {subscription && (
                 <>
                   （{PAYMENT_METHOD_LABELS[subscription.payment_method]}
-                  {`・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}）
+                  {/* 銀行振込は月払い / 年払いを持たない（P12） */}
+                  {!isBankTransfer && `・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}）
                 </>
-              )}
-              {bankExpiryBadge && (
-                <span
-                  className={`ml-2 rounded-full px-2 py-0.5 text-body-xs font-bold ${
-                    bankExpiryBadge === "expired"
-                      ? "bg-destructive/10 text-destructive"
-                      : "bg-amber-100 text-amber-800"
-                  }`}
-                >
-                  {EXPIRY_BADGE_LABELS[bankExpiryBadge]}
-                </span>
               )}
             </p>
           </div>
