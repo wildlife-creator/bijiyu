@@ -51,3 +51,6 @@ scripts/capture/output/
 
 # Claude が作成した納品物（PDF・xlsx 等）の置き場
 /Claude outputs/
+
+# クライアント向けの配布資料（Word / PDF）は Git 管理外
+/docs/requirements/仕様変更の一覧_*
