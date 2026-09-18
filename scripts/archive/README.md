@@ -7,6 +7,7 @@
 |---|---|
 | `cp1-verify-playwright.mjs` | 課金 spec CP1 の画面検証 |
 | `cp3-stripe-checkout.mjs` | 課金 spec CP3 の Stripe Checkout 通し検証 |
-| `manual-test-recycle.mjs` | メール再利用（email-recycle-on-delete）の手動検証ヘルパー |
+| `manual-test-recycle.mjs` / `manual-test-recycle.sql` | メール再利用（email-recycle-on-delete）の手動検証ヘルパーと、その前提データ投入 SQL |
+| `verify-changes-202609.mjs` | 2026-08〜09 改修の動作確認レポート（PDF）生成。銀行振込の旧フロー（申込テーブル・ADM-026）を操作するため現行アプリでは動かない。元の置き場所は `scripts/capture/` |
 | `screenshot-billing.mjs` | 料金プラン画面のスクリーンショット取得 |
 | `generate-test-magic-links.mjs` | パスワード表示トグルの確認用マジックリンク生成 |

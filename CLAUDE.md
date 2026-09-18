@@ -10,7 +10,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - ステアリング: `.kiro/steering/`
 - 仕様書: `.kiro/specs/`
 - デザインアセット: `design-assets/`（画面PNG、CSS spec、globals.css）※ Tailwind v4: トークンは globals.css の @theme inline で定義
-- アイコン・ロゴ: `assets/`（`icons/` にUI用アイコンPNG、`images/` にロゴPNG）※ 画面実装時はこのアイコンを優先使用
+- アイコン・ロゴ: `public/images/`（`icons/` にUI用アイコンPNG、直下にロゴPNG。コードからは `/images/icons/icon-xxx.png` で参照）※ 画面実装時はこのアイコンを優先使用
 - リファレンス: `reference/`（PNG マッピング等）
 - 現行仕様まとめ: `docs/requirements/current-spec.md`（料金・オプション・動画・銀行振込・運営アカウント・一覧の「今の姿」。改修の経緯は `docs/requirements/archive/`）
 - Supabase: `supabase/`（migrations, seed, tests）※実装フェーズで作成
@@ -102,13 +102,13 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 機能要件（requirements.md）だけでなく、デザインカンプの見た目も実装の正とする。両者に矛盾がある場合はデザインカンプを優先し、判断に迷う場合は確認を求めること
 
 ### アイコン・ロゴの使用（必ず守ること）
-- アイコンボタン（♡お気に入りボタン等、テキストなしでアイコンのみ表示するボタン）では `assets/icons/` 内のプロジェクト専用アイコンを優先的に使用すること
-- lucide-react 等の汎用アイコンライブラリは、`assets/icons/` に該当するアイコンがない場合のみ使用可
+- アイコンボタン（♡お気に入りボタン等、テキストなしでアイコンのみ表示するボタン）では `public/images/icons/` 内のプロジェクト専用アイコンを優先的に使用すること
+- lucide-react 等の汎用アイコンライブラリは、`public/images/icons/` に該当するアイコンがない場合のみ使用可
 - lucide-react アイコンを使う場合は `className="w-4 h-4 text-primary/70"` で薄紫に統一すること（プロジェクト専用アイコンの色味と合わせる）
 - メニューリスト項目（マイページのナビゲーションリンク等）にはアイコンを付けない。テキスト + 右矢印（`>`）のみで構成すること
-- ロゴは `assets/images/` 内のファイルを使用すること
+- ロゴは `public/images/` 内のファイルを使用すること
 
-**アイコン一覧（assets/icons/）:**
+**アイコン一覧（public/images/icons/）:**
 
 | ファイル名 | 見た目 | 用途 |
 |-----------|-------|------|
@@ -124,7 +124,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 | icon-coin.png | コイン（紫） | 報酬表示のアイコン |
 | icon-calendar.png | カレンダー（紫） | 募集期間・日付表示のアイコン |
 
-**ロゴ一覧（assets/images/）:**
+**ロゴ一覧（public/images/）:**
 
 | ファイル名 | 用途 |
 |-----------|------|
@@ -442,7 +442,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - リファクタリングの詳細な手順とファイルリストは `.kiro/specs/organization/requirements.md` 付録 A および `tasks.md` Task 2〜8 / Task 16 / Task 16.1 / Task 16.2 に記載
 - リファクタリングの要点: `organizations.name` カラム廃止 → `client_profiles.display_name` に一本化。`getActiveCorporateOrgNames()` 廃止。`resolveParticipantName()` の引数・優先順位変更。全 14 画面のクエリ書き換え。`/mypage/organization-setup` の CLI-021 統合
 - **Task 16.1 / 16.2 を飛ばさないこと**（過去に漏れが発生）:
-  - Task 16.1: `scripts/task16-integration.mjs` の削除または更新（organization-setup 廃止で動作不能になる）
+  - Task 16.1: `scripts/task16-integration.mjs` の削除（organization-setup 廃止で動作不能になるため。削除済み）
   - Task 16.2: billing spec 4 ドキュメント（tasks.md / requirements.md / design.md / research.md）の記述を過去形に更新。`impl-memo.md` は歴史的記録として保持
   - これらはコード変更ではなく「周辺アセット（スクリプト・spec ドキュメント）の更新」のため、テストコマンドでは検知できない。tasks.md を頭から末尾まで辿ることで確実に実施する
 - リファクタリング完了後、`npm run test` / `supabase test db` / `npm run test:e2e` が全て通ることを確認してから画面実装（Task 9 以降）に着手する
@@ -451,8 +451,8 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 ### デザインカンプとの整合性
 - 画面実装の完了前に、`design-assets/screens/` 内の対応する PNG と実装結果を目視比較すること
 - 特にチェックすべき点: 要素の配置順序、セクションの分割、カードやボタンのスタイル、余白のバランス
-- アイコンが `assets/icons/` のプロジェクト専用アイコンを使用しているか確認すること（lucide-react 等の汎用アイコンになっていないか）
-- ロゴが `assets/images/` のプロジェクト専用ロゴを使用しているか確認すること
+- アイコンが `public/images/icons/` のプロジェクト専用アイコンを使用しているか確認すること（lucide-react 等の汎用アイコンになっていないか）
+- ロゴが `public/images/` のプロジェクト専用ロゴを使用しているか確認すること
 - ボタンのスタイルが design-rule.md のバリエーション定義（CTA = `bg-primary` ピル型、サブ = `outline` 等）に従っているか確認すること
 - カードの角丸が design-system.md の定義（8px = カード、47px = ピル型ボタン）に従っているか確認すること
 - 「機能は動くがデザインカンプと見た目が違う」は未完了とみなす
