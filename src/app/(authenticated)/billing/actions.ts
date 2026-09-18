@@ -5,21 +5,15 @@ import { z } from "zod";
 
 import { ensureStripeCustomer } from "@/lib/billing/ensure-stripe-customer";
 import { readFeeCookie, FEE_COOKIE_NAME } from "@/lib/billing/fee-cookie";
-import {
-  BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
-  OPEN_BANK_TRANSFER_STATUSES,
-} from "@/lib/billing/bank-transfer";
 import { priceIdFor } from "@/lib/constants/plans";
 import {
   COMPENSATION_OPTION_DISABLED_MESSAGE,
-  DISCONTINUED_OPTION_MESSAGE,
   isCompensationOption,
   isCompensationOptionEnabled,
-  isDiscontinuedOption,
   type OptionType,
 } from "@/lib/billing/options";
 import { getStripeClient } from "@/lib/billing/stripe";
-import { PAID_PLAN_TYPES, type PaidPlanType } from "@/lib/constants/plans";
+import { PAID_PLAN_TYPES } from "@/lib/constants/plans";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -33,7 +27,7 @@ import { cookies } from "next/headers";
 const planInputSchema = z.object({
   type: z.literal("plan"),
   planType: z.enum(PAID_PLAN_TYPES),
-  /** P3: 月払い / 年払い。省略時は月払い（既存呼出との互換） */
+  /** 月払い / 年払い。省略時は月払い（既存呼出との互換） */
   billingCycle: z.enum(["monthly", "yearly"]).default("monthly"),
 });
 
@@ -53,20 +47,13 @@ const videoOptionInputSchema = z.object({
   optionType: z.literal("video"),
 });
 
-// 旧 職場紹介動画掲載（video-display Task 4.1）。P10（2026-09）で「プロフィール動画制作プラン」（video）に
-// 統合し新規販売を停止。スキーマは残し、step 5 で isDiscontinuedOption により拒否する
-const videoWorkplaceOptionInputSchema = z.object({
-  type: z.literal("option"),
-  optionType: z.literal("video_workplace"),
-});
-
-// ユーザー撮影プラン（P7）。全会員（staff / admin 以外）が購入可。発注者プランの加入は問わない
+// ユーザー撮影動画制作プラン。全会員（staff / admin 以外）が購入可。発注者プランの加入は問わない
 const videoShootingOptionInputSchema = z.object({
   type: z.literal("option"),
   optionType: z.literal("video_shooting"),
 });
 
-// ビジ友公式SNS動画制作プラン（P10）。全会員（staff / admin 以外）が購入可・再購入可
+// ビジ友公式SNS動画制作プラン。全会員（staff / admin 以外）が購入可・再購入可
 const videoSnsOptionInputSchema = z.object({
   type: z.literal("option"),
   optionType: z.literal("video_sns"),
@@ -77,7 +64,6 @@ const startCheckoutInputSchema = z.union([
   compensationOptionInputSchema,
   urgentOptionInputSchema,
   videoOptionInputSchema,
-  videoWorkplaceOptionInputSchema,
   videoShootingOptionInputSchema,
   videoSnsOptionInputSchema,
 ]);
@@ -104,8 +90,6 @@ function priceIdForOption(optionType: OptionType): string {
       return process.env.STRIPE_PRICE_URGENT ?? "";
     case "video":
       return process.env.STRIPE_PRICE_VIDEO ?? "";
-    case "video_workplace":
-      return process.env.STRIPE_PRICE_VIDEO_WORKPLACE ?? "";
     case "video_shooting":
       return process.env.STRIPE_PRICE_VIDEO_SHOOTING ?? "";
     case "video_sns":
@@ -129,8 +113,6 @@ function buildSuccessUrl(input: StartCheckoutInput): string {
       return `${base}/billing?option_success=urgent`;
     case "video":
       return `${base}/billing?option_success=video`;
-    case "video_workplace":
-      return `${base}/billing?option_success=video_workplace`;
     case "video_shooting":
       return `${base}/billing?option_success=video_shooting`;
     case "video_sns":
@@ -190,11 +172,14 @@ export async function startCheckoutAction(
 
   // 5. Pre-flight checks per type
   if (input.type === "plan") {
-    // 二重課金防止: active or past_due があれば拒否
+    // 二重課金防止: Stripe の active or past_due があれば拒否。
+    // 銀行振込行（payment_method = bank_transfer）は対象外 = カード払いへの切り替え経路。
+    // Checkout 完了時に handle_checkout_completed_plan v3 が銀行振込行を後処理なしで終了させる
     const existingActive = await admin
       .from("subscriptions")
       .select("id")
       .eq("user_id", user.id)
+      .eq("payment_method", "stripe")
       .in("status", ["active", "past_due"])
       .limit(1);
     if ((existingActive.data?.length ?? 0) > 0) {
@@ -204,44 +189,11 @@ export async function startCheckoutAction(
           "すでにご契約中のプランがあります。プラン変更ボタンからお手続きください",
       };
     }
-    // 銀行振込のプラン申込（P2）を処理中なら Stripe 決済へ進ませない（二重契約防止）
-    const openBankPlan = await admin
-      .from("bank_transfer_requests")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("target_kind", "plan")
-      .in("status", [...OPEN_BANK_TRANSFER_STATUSES])
-      .limit(1);
-    if ((openBankPlan.data?.length ?? 0) > 0) {
-      return {
-        success: false,
-        error: BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
-      };
-    }
   } else {
-    // P8: 補償オプションは販売停止中（フラグで復活可）。画面から消しても直接呼べるためここでも拒否
+    // 補償オプションは販売停止中（フラグで復活可）。画面から消しても直接呼べるためここでも拒否
     if (isCompensationOption(input.optionType) && !isCompensationOptionEnabled()) {
       return { success: false, error: COMPENSATION_OPTION_DISABLED_MESSAGE };
     }
-    // 同じオプションの銀行振込申込（P2）を処理中なら Stripe 決済へ進ませない
-    let openBankOption = admin
-      .from("bank_transfer_requests")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("target_kind", "option")
-      .eq("option_type", input.optionType)
-      .in("status", [...OPEN_BANK_TRANSFER_STATUSES]);
-    if (input.optionType === "urgent") {
-      openBankOption = openBankOption.eq("job_id", input.jobId);
-    }
-    const { data: openBankOptionRows } = await openBankOption.limit(1);
-    if ((openBankOptionRows?.length ?? 0) > 0) {
-      return {
-        success: false,
-        error: BANK_TRANSFER_REQUEST_PENDING_MESSAGE,
-      };
-    }
-
     // Option-specific checks
     if (
       input.optionType === "compensation_5000" ||
@@ -305,11 +257,6 @@ export async function startCheckoutAction(
           error: "この案件は既に急募オプションが適用されています",
         };
       }
-    } else if (isDiscontinuedOption(input.optionType)) {
-      // 旧 職場紹介動画掲載（video_workplace）は P10 で「プロフィール動画制作プラン」に統合し
-      // 新規販売を停止。画面から行を消しても Server Action は直接呼べるためここでも拒否する。
-      // （旧「発注者プラン加入者のみ」のガードは統合に伴い撤廃。プロフィール動画は全会員が購入可）
-      return { success: false, error: DISCONTINUED_OPTION_MESSAGE };
     }
   }
 

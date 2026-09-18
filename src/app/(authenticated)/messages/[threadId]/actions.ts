@@ -25,7 +25,6 @@ const RATE_LIMIT_MAX = 3;
 async function canAccessThread(
   supabase: Awaited<ReturnType<typeof createClient>>,
   threadId: string,
-  userId: string,
 ) {
   // RLS handles this, but we also return the thread data.
   // A7 (R5.2): 退会判定に必要な情報を nested 取得。
@@ -163,7 +162,7 @@ export async function sendMessageAction(
     if (!threadId) return { success: false, error: "スレッドIDが必要です" };
 
     // Thread access check (RLS + explicit)
-    const thread = await canAccessThread(supabase, threadId, user.id);
+    const thread = await canAccessThread(supabase, threadId);
     if (!thread) return { success: false, error: "スレッドが見つかりません" };
 
     // R5.2 (A7 identity-based): viewer の active org を先に解決し、
@@ -326,7 +325,7 @@ export async function respondToScoutAction(
       return { success: false, error: "このスカウトには既に応答済みです" };
     }
 
-    // スカウト受信者 = 「送信者が属する side の反対側」（ステージング指摘 No.33）。
+    // スカウト受信者 = 「送信者が属する side の反対側」。
     // 旧実装は「organization_X_id が null な side の participant = 受注者」と決め打ちしており、
     // 法人プランの会員が職人としてスカウトを受ける（両側が組織 identity）ケースで
     // 正当な受信者を「応答権限がありません」で拒否していた。

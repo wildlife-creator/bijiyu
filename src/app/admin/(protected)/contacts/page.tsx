@@ -15,7 +15,7 @@ interface PageProps {
 /**
  * ADM-016: お問い合わせ一覧（デザインカンプなし・admin 共通スタイル）。
  * 受信日時降順・20件・絞込なし（共通方針）。
- * 「登録ユーザー」バッジは user_id あり時のみ（未ログイン送信があり得る contacts だけの仕様）。
+ * 「ログイン時に送信」バッジは user_id あり時のみ（未ログイン送信があり得る contacts だけの仕様）。
  */
 export default async function AdminContactsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
@@ -94,7 +94,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
                   </span>
                   {c.user_id && (
                     <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-body-xs font-medium text-primary">
-                      登録ユーザー
+                      ログイン時に送信
                     </span>
                   )}
                 </p>

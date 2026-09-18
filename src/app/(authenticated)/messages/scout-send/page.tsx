@@ -36,7 +36,7 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
 
   // 退会済みユーザーはスカウト対象外。RLS は生存中ユーザーのみ返すのが基本だが、
   // 過去にスレッドがある相手は退会後も例外的に SELECT できるため明示的に弾く。
-  // 管理運営アカウント（is_hidden、P5）もスカウト対象外
+  // 管理運営アカウント（is_hidden）もスカウト対象外
   if (!targetUser || targetUser.deleted_at || targetUser.is_hidden) notFound();
 
   // Fetch target user's skills

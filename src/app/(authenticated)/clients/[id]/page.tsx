@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
-import { BackButton } from "@/components/job-search/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
@@ -21,7 +21,7 @@ import {
   resolveTargetOrganizationId,
   resolveViewerOrganizationId,
 } from "@/lib/job-inquiry/resolve-context";
-import { InquirySuccessToast } from "./inquiry-success-toast";
+import { SuccessToast } from "@/components/shared/success-toast";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -81,7 +81,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
     )
     .eq("id", id)
     .eq("role", "client")
-    // 管理運営アカウント（P5）は直リンクでも表示しない
+    // 管理運営アカウントは直リンクでも表示しない
     .eq("is_hidden", false)
     .single();
 
@@ -118,7 +118,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
   // 個人発注者は null（従来どおり owner_id 軸）。
   const targetOrgId = await resolveTargetOrganizationId(adminClient, id);
 
-  // 職場紹介動画: videos テーブルの公開中の動画を表示順どおりに表示（P4）。
+  // 職場紹介動画: videos テーブルの公開中の動画を表示順どおりに表示。
   // オプション購入の有無ではゲートしない。公開中（ready）の行は RLS で誰でも読める。
   const workplaceVideos = isDeleted
     ? []
@@ -220,7 +220,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
   return (
     <div className="min-h-dvh bg-muted">
       <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
-        <InquirySuccessToast />
+        <SuccessToast param="inquiry" messages={{ success: "問い合わせを送信しました" }} />
 
         {/* Page title */}
         <div className="px-5 pt-6 pb-2">
@@ -437,7 +437,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
         {/* Back link */}
         <div className="mx-5 mt-8 mb-8">
-          <BackButton />
+          <BackButton className="mt-4" />
         </div>
       </div>
     </div>

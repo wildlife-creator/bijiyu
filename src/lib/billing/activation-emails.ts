@@ -33,7 +33,7 @@ import type { Database } from "@/types/database";
  * 契約 / オプション有効化時のメール送信ヘルパー。
  *
  * Stripe Webhook（`handle-checkout-completed.ts`）と、銀行振込の入金確認後に
- * 管理画面から有効化する Server Action（P2）の両方から呼ぶため、Webhook ファイル
+ * 管理画面から有効化する Server Actionの両方から呼ぶため、Webhook ファイル
  * から切り出して共通化した。送信内容は支払方法に依存しない（同じ「承りました」）。
  *
  * すべて失敗はサイレント（DB 整合は呼出側で完了済み。メール失敗で業務処理を巻き戻さない）。
@@ -44,10 +44,12 @@ export interface PlanActivatedEmailContext {
   billingCycle?: BillingCycle;
   /** 支払方法（運営宛の「お支払い方法」行）。不明なら省略 */
   paymentMethod?: PaymentMethod;
+  /** 銀行振込からカード決済への切り替えで、銀行振込行が自動終了した（運営宛に請求停止の一文を足す） */
+  endedBankTransfer?: boolean;
 }
 
 /**
- * §6.7 基本プラン契約完了（Owner 1 名のみ）+ §6.7-Ops 運営通知（P11、2026-09-10 新設）。
+ * §6.7 基本プラン契約完了（Owner 1 名のみ）+ §6.7-Ops 運営通知。
  *
  * 運営通知は新規契約時だけ（この関数の呼び出し元 = Stripe checkout 完了 / 銀行振込の有効化 /
  * 運営による付与）。プラン変更・解約・支払い失敗の Webhook からは呼ばれないので通知過多にならない。
@@ -101,6 +103,7 @@ export async function sendPlanActivatedEmail(
       activatedAt: formatBillingDate(activatedAtIso),
       userId,
       siteUrl,
+      endedBankTransfer: context.endedBankTransfer === true,
     });
     await send({ to: opsEmail, subject: tpl.subject, html: tpl.html });
   } catch (err) {
@@ -180,7 +183,7 @@ export async function sendUrgentActivatedEmails(
 }
 
 /**
- * §6.6.B-User + §6.6.B-Ops 並列送信ヘルパー（動画 / 職場紹介動画共通）。
+ * §6.6.B-User + §6.6.B-Ops 並列送信ヘルパー（動画系オプション共通）。
  *
  * - B-User: 申込者本人 + 法人プランなら組織メンバー全員（M-03 broadcast）
  * - B-Ops: `process.env.OPS_NOTIFICATION_EMAIL` 単一宛先（M-07）。運営はこの通知を

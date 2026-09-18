@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * ADM-014 「完了扱いにする」Server Action のテスト（ステージング指摘 No.8）。
+ * ADM-014 「完了扱いにする」Server Action のテスト。
  * - admin role 再チェック
  * - canAdminResolveExpired の再評価（UI と同一関数。accepted＋稼働終了日+5日を過ぎたもののみ）
  * - status='completed' 更新 + audit log（application_complete_admin, reason=review_window_expired）

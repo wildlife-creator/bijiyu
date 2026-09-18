@@ -12,7 +12,7 @@ import {
 import { buildSortSearch } from "@/lib/utils/sort-search-params";
 
 /**
- * P6 一覧改修: 並び替えプルダウンの定数・URL 生成の回帰テスト。
+ * 並び替えプルダウンの定数・URL 生成の回帰テスト。
  * - 既定値は各定数の先頭
  * - 未知の値 / 未指定 / 配列は既定に倒す
  * - URL 生成は検索条件（配列パラメータ含む）を保持し、page だけ落とす

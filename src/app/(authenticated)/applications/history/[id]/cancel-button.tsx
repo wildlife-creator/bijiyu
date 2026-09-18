@@ -19,7 +19,7 @@ interface CancelButtonProps {
   applicationId: string;
   /**
    * accepted = 発注後キャンセル（従来。初回稼働日 5 日前まで）
-   * applied  = 結果待ちの応募を取り下げる（2026-09-08 追加。FAQ「マッチング成立前であれば
+   * applied  = 結果待ちの応募を取り下げる（FAQ「マッチング成立前であれば
    *            応募の取り下げは可能」と整合。日付制限なし）
    */
   mode?: "accepted" | "applied";

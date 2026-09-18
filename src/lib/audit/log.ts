@@ -22,23 +22,22 @@ export type AuditAction =
   // 管理者自身の操作
   | "admin_password_change"
   | "admin_memo_update"
-  // 動画 URL 更新（旧 ADM-010 / ADM-010B。P4 で廃止。過去ログの値として残す）
+  // 動画 URL 更新（廃止済みの旧画面の値。過去ログの値としてのみ残す）
   | "video_url_update"
-  // 動画管理（ADM-027、P4）: 追加 / ラベル・状態更新 / 表示順入替 / 削除
+  // 動画管理（ADM-027）: 追加 / ラベル・状態更新 / 表示順入替 / 削除
   | "video_create"
   | "video_update"
   | "video_reorder"
   | "video_delete"
-  // 銀行振込（P2）: 申込レコードの状態遷移と、振込契約の運営操作
-  | "bank_transfer_invoiced"
-  | "bank_transfer_requested_by_admin" // P9: 運営による銀行振込申込の代理登録
-  | "bank_transfer_activate"
-  | "bank_transfer_cancel"
-  | "bank_transfer_memo_update"
-  | "bank_transfer_plan_change"
-  | "bank_transfer_extend"
-  | "bank_transfer_cancel_subscription"
-  // 管理運営アカウント（P5）: 設定（非表示 + 手動サブスク付与）/ 解除（非表示のみ戻す）
+  // 銀行振込: ADM-009 の「銀行振込」枠の運営操作
+  //（廃止済みの bank_transfer_invoiced / requested_by_admin / cancel / memo_update / extend は
+  //  過去ログの値としてのみ存在し、新規には書かない）
+  | "bank_transfer_activate" // 有効化（有効プランなし → 銀行振込行を作成）
+  | "bank_transfer_plan_change" // 変更
+  | "bank_transfer_cancel_subscription" // 無効化（解約と同じ後処理）
+  | "bank_transfer_switch_from_stripe" // カード払い → 銀行振込（同じ契約行を書き換え）
+  | "bank_transfer_option_activate" // 動画プランの有効化（option_subscriptions に bank_transfer 行）
+  // 管理運営アカウント（廃止済みの旧設定画面の値。過去ログの値としてのみ残す。現在は SQL で設定）
   | "ops_account_set"
   | "ops_account_unset";
 

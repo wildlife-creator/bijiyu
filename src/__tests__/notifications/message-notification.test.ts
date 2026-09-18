@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // ---------------------------------------------------------------------------
 
 const { sendEmailMock } = vi.hoisted(() => ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   sendEmailMock: vi.fn(async (_args: unknown) => ({ success: true as const })),
 }));
 vi.mock("@/lib/email/send-email", () => ({

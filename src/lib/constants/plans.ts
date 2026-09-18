@@ -21,8 +21,7 @@ export const PLAN_LIMITS = {
     hasProxy: false,
     monthlyPriceTaxIncluded: 0,
   },
-  // 月額（税込）は 2026-09-10 のクライアント決定値（P11）。それ以前は 3,800 / 14,800 / 48,000 / 148,000。
-  // Stripe の月額 Price（STRIPE_PRICE_*）もこの金額で作り直す必要がある（staging-release-checklist A1）
+  // 月額（税込）はクライアント決定値。Stripe の月額 Price（STRIPE_PRICE_*）と一致させること
   individual: {
     rank: 1,
     maxOpenJobs: 1,
@@ -40,7 +39,7 @@ export const PLAN_LIMITS = {
   corporate: {
     rank: 3,
     maxOpenJobs: Number.POSITIVE_INFINITY,
-    // 2026-09-10（P11）で 10 → 5 に変更（担当者追加の上限チェック insert_staff_member_with_limit に渡る実値）
+    // 担当者追加の上限チェック insert_staff_member_with_limit に渡る実値
     maxStaff: 5,
     hasProxy: true,
     monthlyPriceTaxIncluded: 28000,
@@ -79,7 +78,7 @@ export const PLAN_LABELS: Record<PlanType, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// 支払方法 / 支払サイクル（銀行振込 P2: docs/requirements/spec-changes-202608.md §2.1）
+// 支払方法 / 支払サイクル（docs/requirements/current-spec.md「お支払い方法」）
 // ---------------------------------------------------------------------------
 
 export type PaymentMethod = "stripe" | "bank_transfer";
@@ -99,16 +98,14 @@ export const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
  * 初回事務手数料（税込 JPY）。基本プランへ初めて申し込むときのみ。
  * Stripe 経路は STRIPE_PRICE_INITIAL_FEE（¥12,000）の Price を line item に足す。
  * 銀行振込経路はこの定数で申込金額を組み立てる。金額は両者で一致させること。
- * 2026-09-10（P11）で 20,000 → 12,000 に変更。
  */
 export const INITIAL_FEE_TAX_INCLUDED = 12000;
 
 /**
  * 年払いの料金（税込 JPY）。
  *
- * TODO(P3-yearly-price): 年払い金額はクライアント未確定のため「月額 × 10」を暫定値とする
- *   （2026-09-08 決定。それ以前は月額 × 12 だった。後で正式金額に差し替える可能性あり）。
- * P3 で Stripe の年額 Price を作成する際に正式金額へ差し替え、Stripe 側と一致させること。
+ * TODO(yearly-price): 年払い金額はクライアント未確定のため「月額 × 10」を暫定値とする。
+ * 正式金額が決まったら YEARLY_PRICE_TAX_INCLUDED と Stripe の年額 Price を同時に差し替える。
  * PLAN_LIMITS（月額）は変更しない。
  */
 /** 年払い金額の暫定係数（月額 × この月数）。正式金額が決まったら YEARLY_PRICE_TAX_INCLUDED を直接上書きする */
@@ -141,8 +138,8 @@ export function planDisplayName(
   return `${base}（${BILLING_CYCLE_LABELS[cycle]}）`;
 }
 
-/** Stripe Price ID を返す環境変数名（月額 4 + 年額 4、P3 で年額を追加）。 */
-export const STRIPE_PRICE_ENV_KEYS: Record<PaidPlanType, Record<BillingCycle, string>> = {
+/** Stripe Price ID を返す環境変数名（月額 4 + 年額 4）。 */
+const STRIPE_PRICE_ENV_KEYS: Record<PaidPlanType, Record<BillingCycle, string>> = {
   individual: {
     monthly: "STRIPE_PRICE_INDIVIDUAL",
     yearly: "STRIPE_PRICE_INDIVIDUAL_YEARLY",

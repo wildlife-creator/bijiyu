@@ -5,7 +5,7 @@
  *   node scripts/stripe/setup-video-prices.mjs
  *
  * やること（すべて冪等。何度実行しても同じ結果になる）:
- *   1. 「ユーザー撮影プラン」（一回限り ¥20,000）の商品 + Price を作る（P7）
+ *   1. 「ユーザー撮影動画制作プラン」（一回限り ¥20,000）の商品 + Price を作る（P7）
  *   2. 「ビジ友公式SNS動画制作プラン」（一回限り ¥120,000）の商品 + Price を作る（P10）
  *   3. 既存の「自己PR動画掲載」商品（STRIPE_PRICE_VIDEO の商品）の名称を
  *      「プロフィール動画制作プラン」に変更する（Price ID はそのまま）（P10）
@@ -14,8 +14,7 @@
  * 必要な環境変数（.env.local から読む）:
  *   STRIPE_SECRET_KEY, STRIPE_PRICE_VIDEO（名称変更の対象を特定するため）
  *
- * 「職場紹介動画掲載」（STRIPE_PRICE_VIDEO_WORKPLACE）は新規販売停止だが、
- * 既存契約の Webhook 用に環境変数ごと残す（このスクリプトでは触らない）。
+ * 旧「職場紹介動画掲載」の Price は 2026-09-18 にアプリから廃止済み（Stripe 側はアーカイブしてよい。このスクリプトでは触らない）。
  *
  * テストモードの鍵で実行すれば staging 用、本番の鍵で実行すれば本番用の ID が出る。
  */
@@ -38,7 +37,7 @@ try {
 const NEW_PLANS = [
   {
     envVar: "STRIPE_PRICE_VIDEO_SHOOTING",
-    productName: "ユーザー撮影プラン",
+    productName: "ユーザー撮影動画制作プラン",
     amount: 20000,
     lookupKey: "bijiyu_video_shooting",
   },

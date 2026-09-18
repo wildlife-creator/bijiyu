@@ -36,7 +36,7 @@ async function fetchApplicationForAdmin(
  * ADM-014: 発注取消。
  * - 初回稼働日前: 受注者の自力キャンセル期限（初回稼働日5日前）以降〜前日の取消の受け皿
  * - 期限切れ（稼働終了日+5日を過ぎた accepted）: 稼働しなかった案件を取消にしてデッドロックを
- *   解消する（ステージング指摘 No.8）。実際に稼働した案件は adminCompleteApplicationAction
+ *   解消する。実際に稼働した案件は adminCompleteApplicationAction
  * canAdminCancel / canAdminResolveExpired（UI のボタン表示と同一関数）を Server Action 内で再評価する。
  * 通知メールは送らない（運営が当事者連絡する運用）。
  */
@@ -91,7 +91,7 @@ export async function adminCancelApplicationAction(
  * ADM-014: 期限切れの発注済み応募を「完了扱い（completed）」にする。
  *
  * 評価・完了報告の入力期間（初回稼働日〜稼働終了日+5日）を過ぎた accepted は、当事者も運営も
- * 画面から解消できず、退会ガード（進行中案件あり）に永久に引っかかる（ステージング指摘 No.8）。
+ * 画面から解消できず、退会ガード（進行中案件あり）に永久に引っかかる。
  * 実際に稼働が終わった案件はこの操作で completed にする（評価は付かない）。
  * 稼働しなかった案件は adminCancelApplicationAction（取消）を使う。
  * canAdminResolveExpired（UI のボタン表示と同一関数）を Server Action 内で再評価する。

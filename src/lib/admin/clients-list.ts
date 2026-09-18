@@ -1,9 +1,3 @@
-import {
-  deriveExpiryBadge,
-  todayJstDateString,
-  type ExpiryBadge,
-} from "@/lib/billing/bank-transfer";
-import { PROFILE_VIDEO_OPTION_TYPES } from "@/lib/billing/options";
 import type { PaymentMethod } from "@/lib/constants/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -25,8 +19,8 @@ export type ClientCategory =
   | "individual"
   | "small";
 
-/** "video" = プロフィール動画（統合前の video_workplace 行も同じバッジに寄せる。P10） */
-export type ClientOptionBadge = "urgent" | "video";
+/** ADM-003 のバッジ・絞り込みは急募のみ（動画の加入状況は ADM-008 ユーザー一覧で見る） */
+export type ClientOptionBadge = "urgent";
 
 /** 画面表記（org_role=admin は運営のシステム管理者と区別するため「組織管理者」） */
 export const CLIENT_CATEGORY_LABELS: Record<ClientCategory, string> = {
@@ -47,13 +41,11 @@ export const ADMIN_PLAN_LABELS: Record<string, string> = {
 
 export const CLIENT_OPTION_BADGE_LABELS: Record<ClientOptionBadge, string> = {
   urgent: "急募",
-  video: "プロフィール動画",
 };
 
 /** option_subscriptions.option_type → ADM-003 のバッジ種別（対象外は null） */
-export function optionTypeToClientBadge(optionType: string): ClientOptionBadge | null {
+function optionTypeToClientBadge(optionType: string): ClientOptionBadge | null {
   if (optionType === "urgent") return "urgent";
-  if ((PROFILE_VIDEO_OPTION_TYPES as readonly string[]).includes(optionType)) return "video";
   return null;
 }
 
@@ -77,31 +69,6 @@ export function deriveClientCategory(params: {
   if (params.planType === "individual") return "individual";
   if (params.planType === "small") return "small";
   return null;
-}
-
-/**
- * 銀行振込契約の期限バッジ（純粋関数）。Stripe 契約は Stripe が自動更新するため対象外。
- * 期限日は timestamptz を JST の暦日に落として比較する。
- */
-export function deriveBankTransferExpiryBadge(
-  sub: { paymentMethod: PaymentMethod; currentPeriodEnd: string | null } | null,
-  today: string,
-): ExpiryBadge | null {
-  if (!sub || sub.paymentMethod !== "bank_transfer" || !sub.currentPeriodEnd) {
-    return null;
-  }
-  return deriveExpiryBadge(isoToJstDate(sub.currentPeriodEnd), today);
-}
-
-function isoToJstDate(iso: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date(iso));
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
 /** プラン列の表記（純粋関数）。有効サブスクなし・未知の値は null（画面では「—」） */
@@ -148,11 +115,9 @@ export interface ClientListRow {
   planLabel: string | null;
   /** 契約主体の支払方法（有効サブスクなしは null） */
   paymentMethod: PaymentMethod | null;
-  /** 銀行振込契約の期限バッジ（Stripe 契約・有効サブスクなしは null） */
-  expiryBadge: ExpiryBadge | null;
   optionBadges: ClientOptionBadge[];
   isDeleted: boolean;
-  /** 管理運営アカウント（users.is_hidden、P5） */
+  /** 管理運営アカウント（is_hidden） */
   isOpsAccount: boolean;
 }
 
@@ -250,12 +215,10 @@ export async function fetchClientListPage(
   if (filter.option) {
     // 契約主体基準: active なオプション保有者 → 自身＋配下メンバーに展開
     // （staff 行にも所属会社のバッジ・フィルタを効かせる）
-    const optionTypes =
-      filter.option === "video" ? [...PROFILE_VIDEO_OPTION_TYPES] : [filter.option];
     const { data: optRows } = await admin
       .from("option_subscriptions")
       .select("user_id")
-      .in("option_type", optionTypes)
+      .eq("option_type", filter.option)
       .eq("status", "active");
     const holderIds = Array.from(
       new Set((optRows ?? []).map((r) => r.user_id)),
@@ -383,7 +346,7 @@ export async function fetchClientListPage(
           .select("user_id, option_type")
           .in("user_id", holderIds)
           .eq("status", "active")
-          .in("option_type", ["urgent", ...PROFILE_VIDEO_OPTION_TYPES]),
+          .eq("option_type", "urgent"),
       ]);
     for (const p of profileRows ?? []) {
       companyByHolder.set(p.user_id, p.display_name);
@@ -404,7 +367,6 @@ export async function fetchClientListPage(
     }
   }
 
-  const today = todayJstDateString();
   const rows: ClientListRow[] = pageUsers.map((u) => {
     const membership = membershipByUser.get(u.id);
     const holderId = holderIdByUser.get(u.id) ?? null;
@@ -423,7 +385,6 @@ export async function fetchClientListPage(
       }),
       planLabel: derivePlanLabel(planType),
       paymentMethod: subInfo?.paymentMethod ?? null,
-      expiryBadge: deriveBankTransferExpiryBadge(subInfo, today),
       optionBadges: holderId
         ? Array.from(badgesByHolder.get(holderId) ?? [])
         : [],

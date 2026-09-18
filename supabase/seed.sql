@@ -403,7 +403,7 @@ UPDATE public.users SET
   skill_tags = ARRAY['壁装（クロス）工', '内装仕上工', '床施工']
 WHERE id = 'cc333333-3333-3333-3333-333333333333';
 
--- 個人発注者（組織なし）— ライトプラン（旧: 個人発注者様向けプラン）
+-- 個人発注者（組織なし）— ライトプラン
 UPDATE public.users SET
   role = 'client',
   last_name = '中村',
@@ -947,14 +947,14 @@ INSERT INTO messages (id, thread_id, sender_id, body, job_id, is_scout, scout_st
   ('eeee0006-0006-4006-8006-000000000006', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee06', 'aabbccdd-1111-2222-3333-444455556666', '内装工事の追いスカウトです。ぜひご応募ください。', '88888888-8888-8888-8888-888888888897', true, 'pending');
 
 -- ------------------------------------------------------------
--- 14c. ステージング指摘 No.33 E2E: 法人 ⇔ 法人 のスカウト（両側が組織 identity）
+-- 14c. E2E: 法人 ⇔ 法人 のスカウト（両側が組織 identity）
 --   client2 org (aabbccdd) → client org (55555555 / 鈴木工務店 Owner=22222222) へのスカウト。
 --   受信側 Owner にはボタンが出る / 受信側 staff (33333333) には「管理責任者のみ」の案内 /
 --   送信側には「返答待ち」が出ることを検証する。E2E の最後で Owner が辞退する（破壊的操作）ため
 --   他テストが参照しないスレッド・案件にしている。
 -- ------------------------------------------------------------
 INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
-VALUES ('88888888-8888-8888-8888-888888888c07', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', '法人間スカウト検証用案件（内装）', 'ステージング指摘 No.33 E2E: 法人 Owner が職人としてスカウトを受けるケースの検証用', ARRAY['建築/内装｜木工']::text[], 2, 'open', 19000, 23000, CURRENT_DATE, CURRENT_DATE + 60, CURRENT_DATE, CURRENT_DATE + 30);
+VALUES ('88888888-8888-8888-8888-888888888c07', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', '法人間スカウト検証用案件（内装）', '法人 Owner が職人としてスカウトを受けるケースの検証用', ARRAY['建築/内装｜木工']::text[], 2, 'open', 19000, 23000, CURRENT_DATE, CURRENT_DATE + 60, CURRENT_DATE, CURRENT_DATE + 30);
 
 INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
   ('88888888-8888-8888-8888-888888888c07', '東京都', NULL);
@@ -966,11 +966,11 @@ INSERT INTO messages (id, thread_id, sender_id, body, job_id, is_scout, scout_st
   ('eeee0008-0008-4008-8008-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee08', 'aabbccdd-1111-2222-3333-444455556666', '御社の職人さんに内装工事をお願いしたくスカウトをお送りします。', '88888888-8888-8888-8888-888888888c07', true, 'pending');
 
 -- ------------------------------------------------------------
--- 14d. ステージング指摘 No.8 付随 E2E: 結果待ち（applied）応募の受注者による取り下げ（CON-012）
+-- 14d. E2E: 結果待ち（applied）応募の受注者による取り下げ（CON-012）
 --   contractor3 (cc222222) → client2 org の案件。E2E で cancelled に変わる使い捨て。
 -- ------------------------------------------------------------
 INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
-VALUES ('88888888-8888-8888-8888-888888888c08', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', '応募取り下げ検証用案件（内装）', 'ステージング指摘 No.8 付随: 結果待ち応募を受注者が取り下げる E2E 用', ARRAY['建築/内装｜木工']::text[], 1, 'open', 19000, 23000, CURRENT_DATE + 20, CURRENT_DATE + 40, CURRENT_DATE, CURRENT_DATE + 15);
+VALUES ('88888888-8888-8888-8888-888888888c08', 'aabbccdd-1111-2222-3333-444455556666', 'aabbccdd-5555-5555-5555-555555555555', '応募取り下げ検証用案件（内装）', '結果待ち応募を受注者が取り下げる E2E 用', ARRAY['建築/内装｜木工']::text[], 1, 'open', 19000, 23000, CURRENT_DATE + 20, CURRENT_DATE + 40, CURRENT_DATE, CURRENT_DATE + 15);
 
 INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
   ('88888888-8888-8888-8888-888888888c08', '東京都', NULL);
@@ -1149,7 +1149,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types
     'open'
   );
 
--- ---------- 法人 + 補償 active ユーザー（旧: 連鎖キャンセルテスト用 / 現: 法人プラン × 補償併用パターン）----------
+-- ---------- 法人 + 補償 active ユーザー（法人プラン × 補償併用パターン）----------
 -- 仕様変更（2026-05-09）: 補償オプションは受注者向け報酬未払い保険となり
 -- 基本プランから独立。連鎖キャンセルは廃止済み。本フィクスチャは「法人プラン
 -- 契約者が併せて補償にも加入」したケースの検証用として継続利用する。
@@ -1419,9 +1419,9 @@ INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
 
 
 -- ============================================================
--- 動画テストデータ（video-display Task 7.1 → P4 動画基盤で videos テーブルへ移行）
+-- 動画テストデータ（videos テーブル）
 -- ============================================================
--- P4 以降、表示はオプション購入の有無でゲートしない（videos に ready 行があれば表示）。
+-- 表示はオプション購入の有無でゲートしない（videos に ready 行があれば表示）。
 -- option_subscriptions の行は課金画面（「購入済み」表示）・管理画面の絞込用に維持する。
 -- one_time オプションは CHECK 制約で stripe_subscription_id を NULL にする必要があるため
 -- stripe_payment_intent_id を使う。
@@ -1433,7 +1433,7 @@ INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_u
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
   VALUES ('11111111-1111-1111-1111-111111111111', 'one_time', 'pi_seed_video_11111', 'video', 'active', NULL);
 
--- (2) 受注者2 高橋 (cc111111): オプション未購入でも 2 本表示される（P4 でゲート撤廃）。
+-- (2) 受注者2 高橋 (cc111111): オプション未購入でも 2 本表示される。
 --     1 本目 external + 2 本目 Cloudflare（ready、UID はダミー）で複数本・表示順・両 provider を検証
 INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, cloudflare_uid, admin_label, status) VALUES
   ('d1d10000-0000-4000-8000-000000000002', 'cc111111-1111-1111-1111-111111111111', 'contractor_page', 0, 'external',
@@ -1441,12 +1441,12 @@ INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_u
   ('d1d10000-0000-4000-8000-000000000003', 'cc111111-1111-1111-1111-111111111111', 'contractor_page', 1, 'cloudflare',
    NULL, 'a1b2c3d4e5f60718293a4b5c6d7e8f90', 'ユーザー撮影（Cloudflare）', 'ready');
 
--- (3) client@test.local: 職場紹介動画 1 本 + active 'video_workplace' → CON-006 / CLI-020 で表示
+-- (3) client@test.local: 職場紹介動画 1 本 + active 'video' → CON-006 / CLI-020 で表示
 INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, admin_label, status) VALUES
   ('d1d10000-0000-4000-8000-000000000004', '22222222-2222-2222-2222-222222222222', 'client_page', 0, 'external',
    'https://www.tiktok.com/@suzuki/video/7333333333333333333', '鈴木工務店 職場紹介', 'ready');
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
-  VALUES ('22222222-2222-2222-2222-222222222222', 'one_time', 'pi_seed_vw_22222', 'video_workplace', 'active', NULL);
+  VALUES ('22222222-2222-2222-2222-222222222222', 'one_time', 'pi_seed_vw_22222', 'video', 'active', NULL);
 
 -- (4) 発注者2 山田 (aabbccdd): オプション未購入でも ready 1 本は表示、processing 1 本は非表示
 INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, cloudflare_uid, admin_label, status) VALUES
@@ -1461,39 +1461,30 @@ INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_u
   ('d1d10000-0000-4000-8000-000000000007', 'b1110000-0000-1000-8000-000000000005', 'client_page', 0, 'external',
    'https://www.tiktok.com/@hoshou/video/7555555555555555555', '削除テスト用', 'ready');
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
-  VALUES ('b1110000-0000-1000-8000-000000000005', 'one_time', 'pi_seed_vw_corpcomp', 'video_workplace', 'active', NULL);
+  VALUES ('b1110000-0000-1000-8000-000000000005', 'one_time', 'pi_seed_vw_corpcomp', 'video', 'active', NULL);
 
 -- ============================================================
--- 管理運営アカウント（P5 / spec-changes-202608 §2.4）テストデータ
+-- 管理運営アカウント テストデータ
 --   id 帯 0b500000-...（他の seed と重複しない）
---   ① ops-account@test.local   : 管理運営アカウント。is_hidden=true、ハイエンドの銀行振込行（期限 2099）、
+--   ① ops-account@test.local   : 管理運営アカウント。is_hidden=true、ハイエンドの銀行振込行（期限なし = ADM-009 の銀行振込枠で有効化したのと同じ形）、
 --      組織 + client_profiles「ビジ友運営（テスト）」。E2E: 一覧・検索・マイリストに出ない / 運営 → 発注者・職人へメッセージ
---   ② ops-candidate@test.local : 無料の受注者。ADM-009「管理運営アカウントに設定 / 解除」E2E 専用
 -- ============================================================
 
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
 VALUES
-  ('0b500000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ops-account@test.local',   crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
-  ('0b500000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ops-candidate@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+  ('0b500000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ops-account@test.local',   crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
 
 INSERT INTO auth.identities (user_id, id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at) VALUES
-  ('0b500000-0000-4000-8000-000000000001', '0b500000-0000-4000-8000-000000000001', 'ops-account@test.local',   '{"sub":"0b500000-0000-4000-8000-000000000001","email":"ops-account@test.local"}',   'email', now(), now(), now()),
-  ('0b500000-0000-4000-8000-000000000002', '0b500000-0000-4000-8000-000000000002', 'ops-candidate@test.local', '{"sub":"0b500000-0000-4000-8000-000000000002","email":"ops-candidate@test.local"}', 'email', now(), now(), now());
+  ('0b500000-0000-4000-8000-000000000001', '0b500000-0000-4000-8000-000000000001', 'ops-account@test.local',   '{"sub":"0b500000-0000-4000-8000-000000000001","email":"ops-account@test.local"}',   'email', now(), now(), now());
 
 UPDATE public.users SET role = 'client', last_name = 'ビジ友', first_name = '運営', prefecture = '東京都', is_hidden = true, password_set_at = now()
 WHERE id = '0b500000-0000-4000-8000-000000000001';
-UPDATE public.users SET role = 'contractor', last_name = '運営', first_name = '候補', prefecture = '東京都', skill_tags = ARRAY['造作大工']
-WHERE id = '0b500000-0000-4000-8000-000000000002';
 
-INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
-  ('0b500000-0000-4000-8000-000000000002', '建築/躯体｜大工', 2);
-INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
-  ('0b500000-0000-4000-8000-000000000002', '東京都', NULL);
 
--- ① 手動サブスク（ハイエンド・銀行振込扱い・期限 2099-12-31 JST）+ 組織 + 発注者プロフィール
+-- ① 契約（ハイエンド・銀行振込・期限なし。運営が有効化した銀行振込行と同じ形）+ 組織 + 発注者プロフィール
 INSERT INTO subscriptions (id, user_id, plan_type, status, payment_method, billing_cycle, stripe_subscription_id, current_period_start, current_period_end)
-VALUES ('0b500000-0000-4000-8000-00000000cc01', '0b500000-0000-4000-8000-000000000001', 'corporate_premium', 'active', 'bank_transfer', 'yearly', NULL,
-        now(), '2099-12-31 23:59:59+09');
+VALUES ('0b500000-0000-4000-8000-00000000cc01', '0b500000-0000-4000-8000-000000000001', 'corporate_premium', 'active', 'bank_transfer', 'monthly', NULL,
+        now(), NULL);
 INSERT INTO organizations (id, owner_id) VALUES
   ('0b500000-0000-4000-8000-00000000aa01', '0b500000-0000-4000-8000-000000000001');
 INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account) VALUES
@@ -1653,7 +1644,7 @@ INSERT INTO identity_verifications (user_id, document_type, document_url_1, stat
 
 -- ---------- 3. contacts（ADM-016/017: user_id あり/なし × 添付あり/なし） ----------
 INSERT INTO contacts (user_id, company_name, name, phone, email, address, inquiry_type, purpose, industry, project_description, project_area, video_consultation, detail, attachments, created_at) VALUES
-  -- 登録ユーザーから（user_id あり・添付なし）→「登録ユーザー」バッジ + ADM-009 導線
+  -- ログイン中に送信（user_id あり・添付なし）→「ログイン時に送信」バッジ +「送信時のログインアカウント」表示（ADM-009 への直リンクは無い）
   ('11111111-1111-1111-1111-111111111111', '田中建設', '田中一郎', '03-1234-5678', 'contractor@test.local', '東京都台東区雷門2-3-4', '仕事掲載', '職人として仕事を探したい', '大工', NULL, NULL, NULL, '掲載中の案件について操作方法を教えてください。', NULL, now() - interval '3 days'),
   -- 非ログイン（user_id なし・添付あり: 画像 + PDF の表示分岐検証用）
   (NULL, '株式会社青空電工', '青木次郎', '045-987-6543', 'aoki@example.com', '神奈川県横浜市西区みなとみらい1-1', '協力会社募集', '協力会社を探したい', '電気', '商業ビルの電気設備更新工事を予定しています。', '神奈川県横浜市', '会社紹介動画を作りたい', '協力会社の募集と動画掲載について相談したいです。', ARRAY['contact-anon/site-photo.jpg', 'contact-anon/project-summary.pdf'], now() - interval '2 days'),
@@ -1719,7 +1710,7 @@ INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
   ('ad660000-0000-4000-8000-000000000001', '東京都', NULL),
   ('ad660000-0000-4000-8000-000000000002', '東京都', '江東区');
 
--- ---------- 6b. ステージング指摘 No.8 E2E: 期限切れの発注済み応募（ADM-014 完了扱い） ----------
+-- ---------- 6b. E2E: 期限切れの発注済み応募（ADM-014 完了扱い） ----------
 -- 稼働終了日 +5 日を過ぎた accepted は、完了報告・受注者キャンセル・運営の発注取消のいずれも
 -- 期限切れで不可 = 当事者が退会できないデッドロック。ADM-014 の「完了扱いにする」で解消する。
 -- 使い捨て（E2E で completed に変わる）。
@@ -1729,7 +1720,7 @@ INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types
     'aabbccdd-1111-2222-3333-444455556666',
     'aabbccdd-5555-5555-5555-555555555555',
     '管理画面検証用 外構工事（期限切れ・発注済み）',
-    'ステージング指摘 No.8: 評価・完了報告の入力期間を過ぎた accepted を運営が完了扱いにする検証用。',
+    '評価・完了報告の入力期間を過ぎた accepted を運営が完了扱いにする検証用。',
     ARRAY['建築/躯体｜大工']::text[],
     1, 22000, 18000,
     CURRENT_DATE - interval '20 days', CURRENT_DATE - interval '10 days',
@@ -2408,12 +2399,12 @@ VALUES ('c105ed00-0000-4000-8000-00000000aa01', 'c105ed00-0000-4000-8000-0000000
   'c105ed00-0000-4000-8000-000000000002', 1, '常勤', CURRENT_DATE - 3, 'accepted', CURRENT_DATE - 3);
 
 -- ============================================================
--- 銀行振込（P2 / spec-changes-202608 §2.1(1)）テストデータ
+-- 銀行振込（docs/requirements/current-spec.md「銀行振込」）テストデータ
 --   id 帯 ba100000-...（他の seed と重複しない）
---   ① bank-transfer-e2e@test.local : 無料の受注者。E2E で「銀行振込で申し込む → 運営が有効化」を通す
+--   ① bank-transfer-e2e@test.local : 無料の受注者。E2E で「ログインしてお問い合わせ（銀行振込）→ 運営がユーザー詳細で有効化」を通す
 --      （他の E2E が使う contractor@test.local は role が変わると壊れるため専用ユーザー）
---   ② bank-client@test.local        : 銀行振込（スタンダード・月払い）で契約中の発注者。期限 10 日後 = 「期限間近」バッジ
---   ③ bank-requested@test.local     : ライト（月払い）を銀行振込で申込済（申込受付）。ADM-025/026 の一覧・詳細・操作の E2E 用
+--   ② bank-client@test.local        : 銀行振込（スタンダード）で契約中の発注者。ADM-004 の「変更する」「無効にする」の E2E 用
+--   ③ bank-requested@test.local     : 銀行振込のお問い合わせ（希望: ライトプラン）を送信済みの受注者。ADM-025 一覧の表示 E2E 用
 -- ============================================================
 
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
@@ -2444,25 +2435,21 @@ INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
   ('ba100000-0000-4000-8000-000000000002', '東京都', NULL),
   ('ba100000-0000-4000-8000-000000000003', '神奈川県', NULL);
 
--- ② 銀行振込で契約中（スタンダード・月払い、期限 10 日後）
+-- ② 銀行振込で契約中（スタンダード。期限は管理しない = current_period_end NULL）
 INSERT INTO subscriptions (id, user_id, plan_type, status, payment_method, billing_cycle, stripe_subscription_id, current_period_start, current_period_end)
 VALUES ('ba100000-0000-4000-8000-00000000cc02', 'ba100000-0000-4000-8000-000000000002', 'small', 'active', 'bank_transfer', 'monthly', NULL,
-        (CURRENT_DATE - 20)::timestamptz, ((CURRENT_DATE + 10)::timestamptz + interval '23 hours 59 minutes 59 seconds'));
+        (CURRENT_DATE - 20)::timestamptz, NULL);
 
 INSERT INTO client_profiles (user_id, display_name) VALUES
   ('ba100000-0000-4000-8000-000000000002', '振込商店');
 
--- ②' 入金確認済の申込履歴（上の契約を作った申込）
-INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status, invoiced_at, paid_at, start_date, activated_subscription_id, created_at)
-VALUES ('ba100000-0000-4000-8000-00000000dd02', 'ba100000-0000-4000-8000-000000000002', 'plan', 'small', 'monthly', 9800, 12000, 'paid',
-        now() - interval '25 days', now() - interval '20 days', CURRENT_DATE - 20, 'ba100000-0000-4000-8000-00000000cc02', now() - interval '27 days');
-
--- ③ 申込受付のまま（ライト・月払い・初回事務手数料あり）
-INSERT INTO bank_transfer_requests (id, user_id, target_kind, plan_type, billing_cycle, amount, initial_fee, status, created_at)
-VALUES ('ba100000-0000-4000-8000-00000000dd03', 'ba100000-0000-4000-8000-000000000003', 'plan', 'individual', 'monthly', 2800, 12000, 'requested', now() - interval '1 day');
+-- ③ 銀行振込のお問い合わせ（ログイン中に送信。希望プラン = ライト）→ ADM-025 銀行振込お問い合わせ一覧に出る
+INSERT INTO contacts (user_id, company_name, name, phone, email, address, inquiry_type, purpose, industry, detail, bank_transfer_plan, created_at)
+VALUES ('ba100000-0000-4000-8000-000000000003', '振込工務店', '振込次郎', '045-000-1111', 'bank-requested@test.local', '神奈川県',
+        'お支払い方法（銀行振込）について', '仕事を依頼したい', '大工', 'ライトプランを銀行振込で契約したいです。', 'individual', now() - interval '1 day');
 
 -- ============================================================
--- P6 一覧改修（プラン順の既定並び + 並び替えプルダウン）E2E 用 seed
+-- 一覧の並び替え（プラン順の既定並び + 並び替えプルダウン）E2E 用 seed
 -- ============================================================
 -- id 帯 f6000000-...（他の seed と重複しない）
 --   highend-client@test.local : 一覧に表示される（is_hidden=false）ハイエンド発注者。

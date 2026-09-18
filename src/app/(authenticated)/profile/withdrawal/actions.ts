@@ -10,8 +10,6 @@ import { executeWithdrawal } from "@/lib/withdrawal/execute";
 import { withdrawalSchema } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
 
-const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
-
 /**
  * 本人退会（COM 系・プロフィール配下）。
  * カスケード本体は executeWithdrawal（admin 削除と共有）に委譲し、

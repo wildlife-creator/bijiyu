@@ -20,8 +20,6 @@ import {
 } from "@/lib/utils/display-name";
 import type { ActionResult } from "@/lib/types/action-result";
 
-const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
-
 // ---------------------------------------------------------------------------
 // Helper: find or create thread by identity pair (Phase 2)
 // 相手 (受注者) の組織所属 identity も含めた identity ペアでスレッドを一意化。
@@ -209,7 +207,7 @@ export async function sendScoutAction(
         error: "一時的なエラーが発生しました。時間をおいて再度お試しください。",
       };
     }
-    // 管理運営アカウント（is_hidden、P5）は一覧に出ないため存在しない扱い
+    // 管理運営アカウント（is_hidden）は一覧に出ないため存在しない扱い
     if (!scoutTarget || scoutTarget.is_hidden) {
       return { success: false, error: "スカウト対象のユーザーが見つかりません" };
     }

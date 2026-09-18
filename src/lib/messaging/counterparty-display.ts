@@ -103,7 +103,7 @@ export function appendWithdrawnSuffix(
  *   4. viewerOrgId が organization_1_id と一致 → side 1
  *   5. どれもマッチしない場合はフォールバックとして side 1 とみなす
  */
-export function determineViewerSide(
+function determineViewerSide(
   thread: Pick<
     ThreadIdentitySides,
     | "participant_1_id"

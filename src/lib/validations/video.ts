@@ -11,7 +11,7 @@ import {
  * （Server Action）が同一スキーマを共有して二重防御する。
  */
 
-export const VIDEO_URL_ERROR_MESSAGE =
+const VIDEO_URL_ERROR_MESSAGE =
   "対応プラットフォームの URL を入力してください";
 
 /** URL 貼り付けで追加する動画の URL。空は不可、parseVideoUrl 通過が必須。 */

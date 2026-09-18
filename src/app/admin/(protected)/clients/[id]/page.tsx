@@ -8,27 +8,19 @@ import { AreaList } from "@/components/area/area-list";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { VideoList } from "@/components/video-embed/video-list";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
-import { fetchBankTransferRequestsForUser } from "@/lib/admin/bank-transfers";
-import {
-  deriveBankTransferExpiryBadge,
-  derivePlanLabel,
-} from "@/lib/admin/clients-list";
-import { EXPIRY_BADGE_LABELS, todayJstDateString } from "@/lib/billing/bank-transfer";
+import { derivePlanLabel } from "@/lib/admin/clients-list";
 import {
   BILLING_CYCLE_LABELS,
   PAYMENT_METHOD_LABELS,
-  type PaidPlanType,
 } from "@/lib/constants/plans";
 import { fetchClientReputation } from "@/lib/client-review/aggregate";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatDateJst, formatDateTime } from "@/lib/utils/format-date";
+import { formatDateTime } from "@/lib/utils/format-date";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
-import { PROFILE_VIDEO_OPTION_TYPES } from "@/lib/billing/options";
 import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
-import { BankSubscriptionPanel } from "./bank-subscription-panel";
 import { DeleteAccountButton } from "./delete-account-button";
 import { JobSiteList } from "./job-site-list";
 import { MemberList } from "./member-list";
@@ -119,6 +111,8 @@ export default async function AdminClientDetailPage({
         .select("id, plan_type, status, payment_method, billing_cycle, current_period_end")
         .eq("user_id", id)
         .in("status", ["active", "past_due"])
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle(),
       admin
         .from("organizations")
@@ -136,18 +130,8 @@ export default async function AdminClientDetailPage({
     deletedAt: null,
   });
   const planLabel = derivePlanLabel(subscription?.plan_type ?? null);
-  // 銀行振込契約（P2）: 期限バッジ + 運営操作パネル + 申込履歴
+  // 銀行振込は支払サイクルを持たないので表示を分ける。契約の操作は ADM-009 ユーザー詳細のみ
   const isBankTransfer = subscription?.payment_method === "bank_transfer";
-  const bankExpiryBadge = deriveBankTransferExpiryBadge(
-    subscription
-      ? {
-          paymentMethod: subscription.payment_method,
-          currentPeriodEnd: subscription.current_period_end,
-        }
-      : null,
-    todayJstDateString(),
-  );
-  const bankTransferRequests = await fetchBankTransferRequestsForUser(id);
 
   // 募集エリア
   const { data: areaRows } = await admin
@@ -159,34 +143,23 @@ export default async function AdminClientDetailPage({
     municipality: a.municipality,
   }));
 
-  // オプション加入状況: 急募（active 複数案件分 → 最長 end_date ＋件数）／プロフィール動画
+  // オプション加入状況: 急募は案件単位で複数同時に加入しうるため、案件名 + 期限を 1 件 1 行で出す
+  // （期限の近い順。期限切れ = status が active でない行は出さない）。
+  // 動画プランの加入状況はここには出さない（ADM-008 ユーザー一覧の絞り込みで見る）
   const { data: urgentRows } = await admin
     .from("option_subscriptions")
-    .select("end_date")
+    .select("id, end_date, jobs(title)")
     .eq("user_id", id)
     .eq("option_type", "urgent")
-    .eq("status", "active");
-  const urgentCount = (urgentRows ?? []).length;
-  const urgentMaxEnd =
-    urgentCount > 0
-      ? (urgentRows ?? [])
-          .map((r) => r.end_date)
-          .filter((d): d is string => !!d)
-          .sort()
-          .at(-1) ?? null
-      : null;
-  // 「オプション加入状況」のプロフィール動画チェック（課金の加入状況表示。P4 でも維持。
-  // P10 で旧 職場紹介動画 video_workplace を統合したため両方の option_type を見る）
-  const { data: profileVideoOptionRows } = await admin
-    .from("option_subscriptions")
-    .select("id")
-    .eq("user_id", id)
-    .in("option_type", [...PROFILE_VIDEO_OPTION_TYPES])
     .eq("status", "active")
-    .limit(1);
-  const hasProfileVideoOption = (profileVideoOptionRows ?? []).length > 0;
-
-  // プロフィール動画（会社ページ掲載分・公開中のみ）。P4 でオプション購入による表示ゲートは撤廃。
+    .order("end_date", { ascending: true, nullsFirst: false })
+    .order("id", { ascending: true });
+  const urgentOptions = (urgentRows ?? []).map((r) => ({
+    id: r.id,
+    jobTitle: r.jobs?.title ?? "（案件不明）",
+    endDate: r.end_date,
+  }));
+  // プロフィール動画（会社ページ掲載分・公開中のみ）。オプション購入の有無では出し分けない。
   // 退会済みでも登録済みの動画は運営者が後から確認できるよう表示を維持する
   const workplaceVideos = await getReadyVideos(admin, id, "client_page");
 
@@ -328,80 +301,31 @@ export default async function AdminClientDetailPage({
           <span
             aria-hidden
             className={`flex h-5 w-5 items-center justify-center rounded border text-body-xs ${
-              urgentCount > 0
+              urgentOptions.length > 0
                 ? "border-primary bg-primary text-white"
                 : "border-border bg-background"
             }`}
           >
-            {urgentCount > 0 ? "✓" : ""}
+            {urgentOptions.length > 0 ? "✓" : ""}
           </span>
           <span className="text-body-md font-bold text-foreground">
             急募オプション
           </span>
-          {urgentCount > 1 && (
-            <span className="text-body-sm text-muted-foreground">
-              （{urgentCount}件）
-            </span>
-          )}
         </div>
-        {urgentMaxEnd && (
-          <p className="pl-7 text-body-sm text-muted-foreground">
-            {formatDateTime(urgentMaxEnd)}まで
-          </p>
+        {urgentOptions.length > 0 && (
+          <ul className="space-y-1 pl-7">
+            {urgentOptions.map((o) => (
+              <li
+                key={o.id}
+                className="flex flex-wrap gap-x-3 text-body-sm text-muted-foreground"
+              >
+                <span className="min-w-0 break-words text-foreground">・{o.jobTitle}</span>
+                {o.endDate && <span>{formatDateTime(o.endDate)}まで</span>}
+              </li>
+            ))}
+          </ul>
         )}
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className={`flex h-5 w-5 items-center justify-center rounded border text-body-xs ${
-              hasProfileVideoOption
-                ? "border-primary bg-primary text-white"
-                : "border-border bg-background"
-            }`}
-          >
-            {hasProfileVideoOption ? "✓" : ""}
-          </span>
-          <span className="text-body-md font-bold text-foreground">
-            プロフィール動画
-          </span>
-        </div>
       </section>
-
-      {/* 3.5 銀行振込（P2）: 契約の運営操作 + 申込履歴。該当がなければ非表示 */}
-      {(isBankTransfer || bankTransferRequests.length > 0) && (
-        <section className="mt-6">
-          <h2 className="text-body-lg font-bold text-foreground">銀行振込</h2>
-          {isBankTransfer && subscription && !isDeleted && (
-            <BankSubscriptionPanel
-              subscriptionId={subscription.id}
-              currentPlanType={subscription.plan_type as PaidPlanType}
-              billingCycleLabel={BILLING_CYCLE_LABELS[subscription.billing_cycle]}
-              periodEndLabel={formatDateJst(subscription.current_period_end)}
-            />
-          )}
-          {bankTransferRequests.length > 0 && (
-            <div className="mt-3 overflow-hidden rounded-[8px] border border-border/20 bg-background">
-              {bankTransferRequests.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/admin/bank-transfers/${r.id}`}
-                  className="flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3 text-body-sm last:border-b-0 hover:bg-muted/50"
-                >
-                  <span className="min-w-0 flex-1 truncate">
-                    {r.targetLabel}
-                    <span className="ml-2 text-muted-foreground">
-                      {formatDateJst(r.createdAt)} 申込
-                    </span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-body-xs">
-                    {r.statusLabel}
-                  </span>
-                  <span className="text-muted-foreground">›</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
 
       {/* 4. 発注者情報（ここから受注者に見える発注者情報。運営の管理情報＝メモ／オプションと間隔を空ける） */}
       <section className="mt-16">
@@ -439,19 +363,9 @@ export default async function AdminClientDetailPage({
               {subscription && (
                 <>
                   （{PAYMENT_METHOD_LABELS[subscription.payment_method]}
-                  {`・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}）
+                  {/* 銀行振込は月払い / 年払いを持たない */}
+                  {!isBankTransfer && `・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}）
                 </>
-              )}
-              {bankExpiryBadge && (
-                <span
-                  className={`ml-2 rounded-full px-2 py-0.5 text-body-xs font-bold ${
-                    bankExpiryBadge === "expired"
-                      ? "bg-destructive/10 text-destructive"
-                      : "bg-amber-100 text-amber-800"
-                  }`}
-                >
-                  {EXPIRY_BADGE_LABELS[bankExpiryBadge]}
-                </span>
               )}
             </p>
           </div>
@@ -469,7 +383,7 @@ export default async function AdminClientDetailPage({
           </div>
         </section>
       )}
-      {/* 動画管理画面（ADM-027）への導線。P4 で購入ゲートを撤廃し常時表示（退会済みは出さない） */}
+      {/* 動画管理画面（ADM-027）への導線。購入の有無に関係なく常時表示（退会済みは出さない） */}
       {!isDeleted && (
         <div className="mt-3 flex justify-end">
           <Button

@@ -36,11 +36,6 @@ test.describe("受注者: スカウト経由応募のバッジ表示", () => {
       page.getByRole("heading", { name: "応募履歴" }),
     ).toBeVisible();
 
-    // The scout application card should have the badge
-    const scoutCard = page
-      .locator(`a[href*="${SCOUT_APPLICATION_ID}"]`)
-      .first()
-      .locator("..");
     // Look for the badge text anywhere in the card's parent
     const badgeOnPage = page.getByText("スカウト経由").first();
     await expect(badgeOnPage).toBeVisible();

@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { handleCheckoutCompleted } from "@/lib/billing/webhook/handle-checkout-completed";
 
@@ -587,77 +587,11 @@ describe("handleCheckoutCompleted (video option)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// metadata.type === 'option' / video_workplace（職場紹介動画掲載）
-// ---------------------------------------------------------------------------
-
-describe("handleCheckoutCompleted (video_workplace option)", () => {
-  it("inserts a one_time option_subscription with end_date null and option_type video_workplace", async () => {
-    const { admin, calls } = makeAdmin({});
-
-    await handleCheckoutCompleted(
-      admin,
-      makeSession({
-        type: "option",
-        option_type: "video_workplace",
-        user_id: "user-vw",
-      }),
-    );
-
-    const insert = calls.find(
-      (c) => c.op === "insert" && c.table === "option_subscriptions",
-    );
-    expect(insert?.payload).toMatchObject({
-      user_id: "user-vw",
-      payment_type: "one_time",
-      stripe_payment_intent_id: "pi_test_123",
-      option_type: "video_workplace",
-      status: "active",
-      end_date: null,
-    });
-  });
-
-  it("throws when payment_intent is missing", async () => {
-    const { admin } = makeAdmin({});
-    await expect(
-      handleCheckoutCompleted(
-        admin,
-        makeSession(
-          {
-            type: "option",
-            option_type: "video_workplace",
-            user_id: "user-vw",
-          },
-          { payment_intent: null },
-        ),
-      ),
-    ).rejects.toThrow(/no payment_intent/);
-  });
-
-  it("rethrows when the insert returns an error", async () => {
-    const { admin } = makeAdmin({
-      insertByTable: {
-        option_subscriptions: { error: { message: "insert boom" } },
-      },
-    });
-    await expect(
-      handleCheckoutCompleted(
-        admin,
-        makeSession({
-          type: "option",
-          option_type: "video_workplace",
-          user_id: "user-vw",
-        }),
-      ),
-    ).rejects.toThrow(/video_workplace option_subscriptions insert failed/);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// metadata.type === 'option' / video_shooting（ユーザー撮影プラン、P7）
+// metadata.type === 'option' / video_shooting（ユーザー撮影動画制作プラン）
 // 買い切り動画系 4 種は handleVideoOption に統合されている
 // ---------------------------------------------------------------------------
 
-describe("handleCheckoutCompleted (video_sns option, P10)", () => {
+describe("handleCheckoutCompleted (video_sns option)", () => {
   it("inserts a one_time option_subscription with end_date null and option_type video_sns", async () => {
     const { admin, calls } = makeAdmin({});
 
@@ -917,7 +851,7 @@ describe("handleCheckoutCompleted §6.5.A compensation email", () => {
     expect(args.html).toContain("ご利用開始日");
   });
 
-  it("§6.7-Ops (P11): OPS_NOTIFICATION_EMAIL が設定されていれば運営宛にも「プランの新規お申し込みがありました」を送る（クレジットカード・サイクル付きプラン名）", async () => {
+  it("§6.7-Ops: OPS_NOTIFICATION_EMAIL が設定されていれば運営宛にも「プランの新規お申し込みがありました」を送る（クレジットカード・サイクル付きプラン名）", async () => {
     const prev = process.env.OPS_NOTIFICATION_EMAIL;
     process.env.OPS_NOTIFICATION_EMAIL = "ops@test.local";
     try {
@@ -1005,5 +939,67 @@ describe("handleCheckoutCompleted §6.5.A compensation email", () => {
     ).resolves.toBeUndefined();
 
     expect(SEND).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 銀行振込 → カード決済への切り替え（RPC v3 が銀行振込行を終了して id を返す）
+// ---------------------------------------------------------------------------
+describe("handleCheckoutCompleted 銀行振込からカード決済への切り替え", () => {
+  const OPS = "ops@test.local";
+  let prevOps: string | undefined;
+  beforeEach(() => {
+    prevOps = process.env.OPS_NOTIFICATION_EMAIL;
+    process.env.OPS_NOTIFICATION_EMAIL = OPS;
+    SEND.mockClear();
+  });
+  afterEach(() => {
+    process.env.OPS_NOTIFICATION_EMAIL = prevOps;
+  });
+
+  function adminWith(rpcData: Record<string, unknown>) {
+    return makeAdmin({
+      rpcResults: { handle_checkout_completed_plan: { data: rpcData, error: null } },
+      selectByTable: {
+        users: {
+          data: {
+            email: "bank@test.local",
+            last_name: "振込",
+            first_name: "一郎",
+            client_profiles: null,
+          },
+        },
+      },
+    }).admin;
+  }
+
+  it("RPC が ended_bank_transfer_subscription_id を返したら、運営宛通知に「以後、銀行振込の請求書は不要」の一文が入る", async () => {
+    const admin = adminWith({
+      subscription_id: "sub-new",
+      ended_bank_transfer_subscription_id: "sub-bank-1",
+    });
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({ type: "plan", plan_type: "small", user_id: "user-bank" }),
+      { sendEmail: SEND as never },
+    );
+    const ops = SEND.mock.calls.map((c) => c[0] as SendArgs).find((m) => m.to === OPS);
+    expect(ops?.subject).toBe("【ビジ友 運営】プランの新規お申し込みがありました");
+    expect(ops?.html).toContain("以後、銀行振込の請求書は不要です");
+  });
+
+  it("銀行振込行が無かった（null）通常の新規契約では、その一文は入らない", async () => {
+    const admin = adminWith({
+      subscription_id: "sub-new",
+      ended_bank_transfer_subscription_id: null,
+    });
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({ type: "plan", plan_type: "small", user_id: "user-fresh" }),
+      { sendEmail: SEND as never },
+    );
+    const ops = SEND.mock.calls.map((c) => c[0] as SendArgs).find((m) => m.to === OPS);
+    expect(ops).toBeTruthy();
+    expect(ops?.html).not.toContain("請求書は不要");
   });
 });

@@ -103,12 +103,12 @@ const event = stripe.webhooks.constructEvent(
 | イベント | 処理内容 |
 |---------|---------|
 | checkout.session.completed | サブスクリプション作成、ロール変更 |
-| customer.subscription.updated | プラン変更の反映（P3: Stripe ホスト画面で確定したアップグレードはこの Webhook が DB 更新と完了メールの本経路。`billing_cycle` も Price ID から解決） |
+| customer.subscription.updated | プラン変更の反映（Stripe ホスト画面で確定したアップグレードはこの Webhook が DB 更新と完了メールの本経路。`billing_cycle` も Price ID から解決） |
 | customer.subscription.deleted | ロールダウングレード（発注者→受注者） |
 | invoice.payment_failed | 支払い失敗の通知、猶予期間の管理 |
 | invoice.payment_succeeded | past_due 復帰時: ステータスを 'active' に戻し、担当者の is_active を復帰（詳細は billing spec 参照） |
 
-**銀行振込（P2）との関係:** 銀行振込契約（`subscriptions.payment_method = 'bank_transfer'`）は Stripe にサブスクが無いため Webhook は届かない。有効化・プラン変更・期限延長・解約はすべて管理者の Server Action（`requireAdmin()` で三重防御 + `audit_logs`）で行う。Stripe 前提の Server Action（`plan-actions.ts` / `startCheckoutAction`）と Edge Function `auto-cancel-past-due` は `payment_method` で銀行振込行を除外している。新しく Stripe 前提の処理を書く場合も同様に除外すること。
+**銀行振込との関係:** 銀行振込契約（`subscriptions.payment_method = 'bank_transfer'`）は Stripe にサブスクが無いため Webhook は届かない。有効化・プラン変更・無効化・カードからの切り替えはすべて管理者の Server Action（`requireAdmin()` で三重防御 + `audit_logs`）で行う。Stripe 前提の Server Action（`plan-actions.ts` / `startCheckoutAction`）と Edge Function `auto-cancel-past-due` は `payment_method` で銀行振込行を除外している。新しく Stripe 前提の処理を書く場合も同様に除外すること。
 
 ## メール認証フロー
 - 新規登録: メールアドレス入力 → 認証メール送信 → リンククリック → 情報入力 → マイページ直接遷移

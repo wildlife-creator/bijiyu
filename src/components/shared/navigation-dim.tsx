@@ -13,6 +13,10 @@ function NavigationDimInner() {
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 遷移が完了して URL が変わったら覆いを消す。
+  // lint（react-hooks/set-state-in-effect）は「描画中に state を調整する」形を勧めるが、
+  // その形にすると覆いが消えず画面が操作できなくなる不具合が実際に出た（2026-09-18 に E2E で検出）。
+  // ここは意図的に effect 内で setState する
   useEffect(() => {
     if (showTimerRef.current) {
       clearTimeout(showTimerRef.current);
@@ -22,6 +26,7 @@ function NavigationDimInner() {
       clearTimeout(clearTimerRef.current);
       clearTimerRef.current = null;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisible(false);
   }, [pathname, searchParams]);
 

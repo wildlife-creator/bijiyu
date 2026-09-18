@@ -16,7 +16,7 @@ interface VideoListProps {
 }
 
 /**
- * 複数本の動画を表示順どおりに並べる（async RSC、P4 動画基盤）。
+ * 複数本の動画を表示順どおりに並べる（async RSC、動画基盤）。
  *
  * 表示 6 画面（COM-001 / CLI-006 / CON-006 / CLI-020 / ADM-004 / ADM-009）から
  * `<VideoList videos={...} label="PR動画" />` で使う。各要素は既存の

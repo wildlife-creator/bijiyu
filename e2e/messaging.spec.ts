@@ -2,7 +2,6 @@ import { test, expect } from "@playwright/test";
 import {
   login,
   TEST_CONTRACTOR,
-  TEST_CONTRACTOR2,
   TEST_CLIENT,
   TEST_CLIENT2,
   TEST_STAFF,
@@ -14,7 +13,6 @@ import {
 // ---------------------------------------------------------------------------
 const SCOUT_THREAD_ID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01";
 const MSG_THREAD_ORG_CON2 = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02";
-const MSG_THREAD_ORG_CON3 = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03";
 const MSG_THREAD_INDIV_CON = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05";
 
 // Target user for scout send
@@ -466,12 +464,12 @@ test.describe("R5.4 Phase 2: スカウト応答ボタンの表示 (R2 fix 回帰
 });
 
 // ---------------------------------------------------------------------------
-// ステージング指摘 No.33（2026-09）: 法人 ⇔ 法人 のスカウト（両側が組織 identity）
+// 法人 ⇔ 法人 のスカウト（両側が組織 identity）
 //   seed 14c: client2 org (aabbccdd) → client org (55555555 / 鈴木工務店) への pending スカウト
 // ---------------------------------------------------------------------------
 const CORP_SCOUT_THREAD_ID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee08";
 
-test.describe("ステージング指摘 No.33: 法人が職人としてスカウトを受ける", () => {
+test.describe("法人が職人としてスカウトを受ける", () => {
   test("受信側の管理責任者（Owner）に「スカウトを受ける／断る」が表示される", async ({
     page,
   }) => {

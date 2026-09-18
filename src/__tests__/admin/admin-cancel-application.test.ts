@@ -167,7 +167,7 @@ describe("adminCancelApplicationAction", () => {
     expect(result.success).toBe(true);
   });
 
-  it("期限切れ（稼働終了日+5日を過ぎた accepted）は取消可（ステージング指摘 No.8 の解消経路）", async () => {
+  it("期限切れ（稼働終了日+5日を過ぎた accepted）は取消可", async () => {
     adminState.application = {
       id: APPLICATION_ID,
       status: "accepted",

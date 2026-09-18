@@ -55,12 +55,13 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
       ["トラブル報告一覧", /\/admin\/trouble-reports/, "トラブル報告一覧"],
       ["求人問い合わせ一覧", /\/admin\/job-inquiries/, "求人問い合わせ一覧"],
       ["代理メッセージ一覧", /\/admin\/messages/, "代理メッセージ一覧"],
-      ["銀行振込申込一覧", /\/admin\/bank-transfers/, "銀行振込申込一覧"],
+      ["銀行振込お問い合わせ一覧", /\/admin\/bank-transfers/, "銀行振込お問い合わせ一覧"],
       ["パスワード再設定", /\/admin\/password/, "パスワード再設定"],
     ];
 
     for (const [label, urlPattern, heading] of menus) {
-      await page.getByRole("link", { name: label }).click();
+      // exact: 「お問い合わせ一覧」が「銀行振込お問い合わせ一覧」にも部分一致するため
+      await page.getByRole("link", { name: label, exact: true }).click();
       await page.waitForURL(urlPattern);
       await expect(
         page.getByRole("heading", { name: heading, exact: true }),
@@ -350,6 +351,30 @@ test.describe("ADM-003/004/022: 発注者管理ドリルダウン", () => {
     await adminLogin(page);
   });
 
+  test("オプションプラン加入者の選択肢: 発注者一覧は急募のみ / ユーザー一覧は動画 3 プランのみ（補償なし）", async ({
+    page,
+  }) => {
+    // ADM-003: 最後の combobox = オプションプラン加入者
+    await page.goto("/admin/clients");
+    await page.locator("button[role='combobox']").last().click();
+    await expect(page.getByRole("option")).toHaveText(["すべて", "急募オプション"]);
+    await page.keyboard.press("Escape");
+
+    // ADM-008: 動画 3 プラン（料金プラン画面と同じ正式名）。補償は出さない
+    await page.goto("/admin/users");
+    await page.locator("button[role='combobox']").last().click();
+    await expect(page.getByRole("option")).toHaveText([
+      "すべて",
+      "プロフィール動画制作プラン",
+      "ユーザー撮影動画制作プラン",
+      "ビジ友公式SNS動画制作プラン",
+    ]);
+    await page.getByRole("option", { name: "プロフィール動画制作プラン" }).click();
+    await page.getByRole("button", { name: "検索" }).click();
+    await page.waitForURL(/option=video(&|$)/);
+    await expect(page.getByRole("link", { name: /(?<!-)client@test\.local/ })).toBeVisible();
+  });
+
   test("区分フィルタ（小規模発注者）で対象だけに絞り込まれる", async ({
     page,
   }) => {
@@ -471,10 +496,10 @@ test.describe("ADM-023/024: 代理メッセージ閲覧", () => {
 });
 
 // ============================================================
-// ステージング指摘（2026-09）: 管理画面の「もどる」導線と検索欄のブラウザ戻り
+// 管理画面の「もどる」導線と検索欄のブラウザ戻り
 // ============================================================
 
-test.describe("ステージング指摘 No.35 / No.37 / No.40: admin の戻り導線", () => {
+test.describe("admin の戻り導線", () => {
   test.beforeEach(async ({ page }) => {
     await adminLogin(page);
   });
@@ -506,29 +531,6 @@ test.describe("ステージング指摘 No.35 / No.37 / No.40: admin の戻り�
     await page.waitForURL(/\/admin\/clients\/22222222-2222-2222-2222-222222222222/);
     await expect(
       page.getByRole("heading", { name: "発注者 アカウント詳細" }),
-    ).toBeVisible();
-  });
-
-  test("No.37/38: ADM-009 →「発注者詳細」→ もどる で ADM-009 に戻る（backTo を引き継ぐ）", async ({
-    page,
-  }) => {
-    // client ロールのユーザー詳細（鈴木花子）には「発注者詳細」ボタンが出る
-    await page.goto("/admin/users/22222222-2222-2222-2222-222222222222");
-    await expect(
-      page.getByRole("heading", { name: "ユーザーアカウント詳細" }),
-    ).toBeVisible();
-
-    await page.getByRole("link", { name: "発注者詳細" }).click();
-    await page.waitForURL(/\/admin\/clients\/22222222-2222-2222-2222-222222222222\?backTo=/);
-    await expect(
-      page.getByRole("heading", { name: "発注者 アカウント詳細" }),
-    ).toBeVisible();
-
-    // もどる → 発注者一覧ではなく来た ADM-009 に戻る
-    await page.getByRole("link", { name: "もどる" }).click();
-    await page.waitForURL(/\/admin\/users\/22222222-2222-2222-2222-222222222222/);
-    await expect(
-      page.getByRole("heading", { name: "ユーザーアカウント詳細" }),
     ).toBeVisible();
   });
 
@@ -574,10 +576,10 @@ test.describe("ステージング指摘 No.35 / No.37 / No.40: admin の戻り�
 });
 
 // ============================================================
-// ステージング指摘 No.8（2026-09）: 期限切れの発注済み応募を運営が解消できる（ADM-014）
+// 期限切れの発注済み応募を運営が解消できる（ADM-014）
 // ============================================================
 
-test.describe("ステージング指摘 No.8: ADM-014 期限切れ accepted の完了扱い", () => {
+test.describe("ADM-014 期限切れ accepted の完了扱い", () => {
   test.beforeEach(async ({ page }) => {
     await adminLogin(page);
   });

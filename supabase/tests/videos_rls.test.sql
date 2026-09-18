@@ -1,4 +1,4 @@
--- pgTAP tests for videos（P4 動画基盤）: RLS と CHECK 制約
+-- pgTAP tests for videos: RLS と CHECK 制約
 -- Run with: supabase test db
 -- seed と重複しない専用 UUID を使用する。
 --

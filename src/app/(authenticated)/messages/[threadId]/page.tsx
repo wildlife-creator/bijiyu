@@ -73,8 +73,8 @@ export default async function ThreadDetailPage({ params }: Props) {
     myOrgId,
   );
 
-  // スカウト応答ボタンの表示可否（ステージング指摘 No.33 で判定を変更）。
-  // 旧実装は「個人 identity 側 (organization_X_id が null な side) の participant = 受注者」
+  // スカウト応答ボタンの表示可否。
+  // 以前の実装は「個人 identity 側 (organization_X_id が null な side) の participant = 受注者」
   // と決め打ちしていたため、法人プランの会員が職人としてスカウトを受ける（両側が組織
   // identity になる）とボタンが一切出なかった。
   // 新ルール: スレッドを見られる人は必ずどちらかの side に居るので、
@@ -94,7 +94,7 @@ export default async function ThreadDetailPage({ params }: Props) {
   // 代理バッジは viewer が組織側 (送信元組織メンバー) のときのみ表示
   const showProxyBadge = counterparty.viewerIsOrgSide;
 
-  // 吹き出しの左右（自分側 / 相手側）判定用に、両 side の user id 集合を解決する（P5）。
+  // 吹き出しの左右（自分側 / 相手側）判定用に、両 side の user id 集合を解決する。
   // 旧実装は「個人 identity 側 = 受注者」前提で contractorId と比較していたため、
   // 両側が組織のスレッド（運営の組織 ⇔ 法人発注者）で崩れていた。
   // 組織側は organization_members 全員（代理スタッフの送信も自分側に含める）、

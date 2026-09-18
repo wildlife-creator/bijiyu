@@ -27,7 +27,7 @@ const PLAN_SHORT_LABELS: Record<Exclude<PlanType, "free">, string> = {
 
 /**
  * 月額・年額は src/lib/constants/plans.ts（PLAN_LIMITS / YEARLY_PRICE_TAX_INCLUDED）から導出し、
- * 銀行振込の請求金額・料金プラン画面と必ず一致させる（手書きの金額を置かない）。
+ * 料金プラン画面と必ず一致させる（手書きの金額を置かない）。
  */
 const PLAN_COLUMNS: {
   key: PlanType;
@@ -50,10 +50,10 @@ interface FeatureRow {
 }
 
 /**
- * 比較表の行（2026-09-10 クライアント確定、docs/requirements/video-plans-handoff-202609.md §8）。
- * 「上位表示」はスタンダード以上（P11 で list_plan_rank にスタンダードを追加）。
+ * 比較表の行（クライアント確定。docs/requirements/current-spec.md「プラン比較表」）。
+ * 「上位表示」はスタンダード以上。
  * 「検索機能」「サポート担当」「代理メッセージ」の通数はアプリで制御しない（案内上の目安）。
- * 「サポート担当（スカウト）」= 管理運営アカウント（P5、users.is_hidden）が職人へ企業を、企業へ職人を
+ * 「サポート担当（スカウト）」= 管理運営アカウント（users.is_hidden）が職人へ企業を、企業へ職人を
  * メッセージで紹介する運用。対象プランの限定は運営の判断で、アプリでは制御しない。
  * 「プロフィール動画制作」「ビジ友公式SNS動画制作」の付属もアプリで判定しない（運用対応）。
  */
@@ -130,7 +130,7 @@ const OPTION_ROWS: { label: string; price: string }[] = [
     price: `${OPTION_PRICES_TAX_INCLUDED.video.toLocaleString("ja-JP")}円/動画`,
   },
   {
-    label: "ユーザー撮影プラン",
+    label: "ユーザー撮影動画制作プラン",
     price: `${OPTION_PRICES_TAX_INCLUDED.video_shooting.toLocaleString("ja-JP")}円/動画`,
   },
   {

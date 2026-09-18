@@ -5,7 +5,7 @@ interface VideoPublishedOpsEmailProps {
   applicantName: string;
   /** `client_profiles.display_name` → `users.company_name` → null (行ごと省略)。 */
   companyName: string | null;
-  /** VIDEO_PLACEMENT_MEMBER_LABELS[placement] で解決した掲載先。P10 で動画種別から変更。 */
+  /** VIDEO_PLACEMENT_MEMBER_LABELS[placement] で解決した掲載先。 */
   placementLabel: string;
   /** YYYY/MM/DD HH:MM (分単位、ops workflow tracking 用)。 */
   publishedAt: string;

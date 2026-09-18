@@ -9,13 +9,13 @@ import {
 } from "./helpers";
 
 /**
- * 動画表示 + 管理（video-display spec → P4 動画基盤）の E2E。
+ * 動画表示 + 管理（video-display spec → 動画基盤）の E2E。
  *
  * seed（supabase/seed.sql「動画テストデータ」）:
  * - contractor@test.local (11111): PR動画 1 本（TikTok）+ active 'video'
  * - contractor2@test.local (cc111111): PR動画 2 本（TikTok + Cloudflare ready）、オプション未購入
- *   → P4 で購入ゲート撤廃のため表示される
- * - client@test.local (22222): 職場紹介動画 1 本 + active 'video_workplace'
+ *   → 購入の有無で出し分けないため表示される
+ * - client@test.local (22222): 職場紹介動画 1 本 + active 'video'
  * - 山田 (aabbccdd): 職場紹介動画 ready 1 本 + processing 1 本、オプション未購入
  *   → ready のみ表示される
  * - corp-comp (b111...0005): 管理画面の削除 E2E 専用（client_page 1 本）
@@ -33,17 +33,15 @@ const CLIENT_DELETE_TARGET_ID = "b1110000-0000-1000-8000-000000000005";
 const TIKTOK_PLAYER_IFRAME = 'iframe[src*="tiktok.com/player/v1"]';
 const CLOUDFLARE_PLAYER_IFRAME = 'iframe[src*="iframe.videodelivery.net/"]';
 
-test.describe("CLI-026: プロフィール動画制作プラン（P10 で旧 自己PR動画・職場紹介動画を統合）", () => {
-  test("統合前に職場紹介動画（video_workplace）を購入した発注者は「購入済み」（活性のまま・押下で再購入確認）", async ({ page }) => {
-    // client@test.local は seed で active な 'video_workplace' オプションを持つ。
-    // 統合後は同じ商品「プロフィール動画制作プラン」として購入済み扱いにする
+test.describe("CLI-026: プロフィール動画制作プラン", () => {
+  test("購入済みの発注者はボタンが「再度購入する」（活性・押下で再購入確認）", async ({ page }) => {
+    // client@test.local は seed で active な 'video' オプションを持つ
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/billing");
     await expect(
       page.getByText("プロフィール動画制作プラン", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("職場紹介動画掲載", { exact: true })).toHaveCount(0);
-    const btn = page.getByRole("button", { name: "購入済み", exact: true });
+    const btn = page.getByRole("button", { name: "プロフィール動画を再度購入する" });
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
   });
@@ -52,13 +50,10 @@ test.describe("CLI-026: プロフィール動画制作プラン（P10 で旧 自
     await login(page, TEST_CONTRACTOR2.email, TEST_CONTRACTOR2.password);
     await page.goto("/billing");
     const btn = page.getByRole("button", {
-      name: "プロフィール動画制作プランを申し込む",
+      name: "プロフィール動画を申し込む",
     });
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
-    await expect(
-      page.getByRole("button", { name: "職場紹介動画掲載を申し込む" }),
-    ).toHaveCount(0);
   });
 });
 
@@ -111,7 +106,7 @@ test.describe("CLI-006: 受注者詳細のPR動画（cross-user）", () => {
 });
 
 test.describe("CON-006: 発注者詳細の職場紹介動画", () => {
-  test("active video_workplace の発注者で職場紹介動画が表示される", async ({
+  test("動画を登録済みの発注者で職場紹介動画が表示される", async ({
     page,
   }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
@@ -182,7 +177,7 @@ test.describe("管理者: 動画管理（ADM ログイン → 一覧 → 詳細 
       .click();
     await expect(page).toHaveURL(/\/admin\/users\//);
 
-    // P4: 購入ゲート撤廃により導線は常時表示
+    // 購入ゲート撤廃により導線は常時表示
     await page
       .getByRole("link", { name: "動画を投稿/編集する" })
       .click();
@@ -266,16 +261,20 @@ test.describe("管理者: 動画管理（ADM ログイン → 一覧 → 詳細 
     const videoLinks = page.getByRole("link", { name: "動画を投稿/編集する" });
     await expect(videoLinks).toHaveCount(1);
     await expect(videoLinks).toHaveAttribute("href", /placement=contractor_page/);
-    // client ロールには削除ボタンの代わりに発注者詳細への導線が出る
-    await expect(
-      page.getByRole("link", { name: "発注者詳細" }),
-    ).toBeVisible();
+    // client ロールにも削除ボタンを出す（ADM-004 と同じ削除処理）。発注者詳細への導線は出さない
+    await expect(page.getByRole("link", { name: "発注者詳細" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "アカウントを削除する" })).toBeVisible();
   });
 
   test("ADM-027 で Cloudflare 未設定時はファイルアップロードが無効で案内が出る", async ({
     page,
   }) => {
-    // ローカル E2E 環境は CLOUDFLARE_* 未設定（URL 登録のみ動く graceful degradation）
+    // CLOUDFLARE_* 未設定の環境だけ対象（URL 登録のみ動く graceful degradation）。
+    // 設定済みの環境（staging 反映作業以降のローカル等）では前提が成り立たないので skip する
+    test.skip(
+      !!process.env.CLOUDFLARE_ACCOUNT_ID && !!process.env.CLOUDFLARE_STREAM_API_TOKEN,
+      "Cloudflare Stream が設定済みの環境では対象外",
+    );
     await login(page, TEST_ADMIN.email, TEST_ADMIN.password);
     await page.goto(
       `/admin/users/${CONTRACTOR2_ID}/videos?placement=contractor_page`,

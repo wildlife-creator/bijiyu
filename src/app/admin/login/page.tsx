@@ -54,7 +54,6 @@ export default function AdminLoginPage() {
       <header className="flex items-center justify-between border-b border-border bg-background px-5 py-3">
         <Link href="/admin/login" className="flex items-center">
           {/* 静的ロゴのため next/image ではなく site-header と同じ <img> を使う */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/images/logo-horizontal.png"
             alt="ビジ友 管理画面"

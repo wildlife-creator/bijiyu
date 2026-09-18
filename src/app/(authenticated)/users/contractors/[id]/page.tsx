@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
-import { BackButton } from "@/components/job-search/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
 import { VideoList } from "@/components/video-embed/video-list";
@@ -21,14 +21,6 @@ import { getReadyVideos } from "@/lib/videos/fetch";
 
 interface PageProps {
   params: Promise<{ id: string }>;
-}
-
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <div className="bg-primary/[0.08] px-4 py-2 rounded-t-[8px]">
-      <span className="text-body-sm font-medium">{label}</span>
-    </div>
-  );
 }
 
 function InfoRow({
@@ -77,7 +69,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
     )
     .eq("id", id)
     .in("role", ["contractor", "client"])
-    // 管理運営アカウント（P5）は直リンクでも表示しない
+    // 管理運営アカウントは直リンクでも表示しない
     .eq("is_hidden", false)
     .single();
 
@@ -135,7 +127,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       .maybeSingle(),
   ]);
 
-  // PR動画: videos テーブルの公開中の動画を表示順どおりに表示（P4）。
+  // PR動画: videos テーブルの公開中の動画を表示順どおりに表示。
   // オプション購入の有無ではゲートしない。公開中（ready）の行は RLS で誰でも読めるため
   // 通常クライアントでよい。退会済みユーザーの動画は出さない。
   const prVideos = isDeleted
@@ -282,7 +274,6 @@ export default async function ContractorDetailPage({ params }: PageProps) {
         </section>
       )}
 
-
       {/* 能力 */}
       {(() => {
         const skillTagList = (contractor.skill_tags ?? []) as string[];
@@ -406,7 +397,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
 
       {/* Back link */}
       <div className="mx-5 mb-8">
-        <BackButton />
+        <BackButton className="mt-4" />
       </div>
       </div>
     </div>

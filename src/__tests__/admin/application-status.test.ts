@@ -256,7 +256,7 @@ describe("canAdminCancel（発注取消可否）", () => {
 });
 
 // ---------------------------------------------------------------------------
-// canAdminResolveExpired（ステージング指摘 No.8: 期限切れ accepted の運営解消）
+// canAdminResolveExpired（期限切れ accepted の運営解消）
 // ---------------------------------------------------------------------------
 import { canAdminResolveExpired } from "@/lib/admin/application-status";
 

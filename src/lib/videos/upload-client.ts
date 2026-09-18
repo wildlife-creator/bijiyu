@@ -9,7 +9,7 @@ import {
 } from "@/lib/videos/constants";
 
 /**
- * ブラウザ → Cloudflare Stream 直接アップロード（P4 動画基盤）。
+ * ブラウザ → Cloudflare Stream 直接アップロード。
  *
  * Server Action（`createVideoUploadAction`）が発行した一時 URL へ、ファイル本体を
  * multipart/form-data（field: file）で POST する。Vercel の Server Action ボディ上限

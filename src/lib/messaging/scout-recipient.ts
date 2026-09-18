@@ -3,7 +3,7 @@ import type { createAdminClient } from "@/lib/supabase/admin";
 /**
  * スカウトの「受信者」判定（画面のボタン表示と Server Action の権限チェックで共用）。
  *
- * 【背景（ステージング指摘 No.33）】
+ * 【背景】
  * 旧実装は「organization_X_id が null な side（個人 identity）に居る participant = 受注者 =
  * スカウト受信者」と決め打ちしていた。しかしビジ友は「1 アカウントで受注・発注の両方が
  * 可能」で、法人プランの会員（Owner）も職人一覧に出てスカウトを受けられる。会社同士で

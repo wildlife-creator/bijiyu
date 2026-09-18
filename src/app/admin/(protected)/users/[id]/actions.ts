@@ -16,7 +16,8 @@ import type { ActionResult } from "@/lib/types/action-result";
  * executeWithdrawal（ソフトデリート＋auth ban＋Stripe 解約）に委譲する。
  *
  * 削除できるのは role='contractor' のみ。client は配下スタッフ連動削除を含む
- * ADM-004 の deleteClientAccountAction に一本化する（UI と二重防御）。
+ * deleteClientAccountAction に一本化する（ADM-009 の画面も client には
+ * そちらを呼ぶ `DeleteAccountButton` を出す。この Action は二重防御として client を拒否）。
  * 進行中取引ガードで拒否された場合はエラー文言をそのまま画面に表示する。
  */
 export async function deleteUserAccountAction(

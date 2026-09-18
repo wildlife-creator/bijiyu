@@ -12,8 +12,7 @@ import type { Database } from "@/types/database";
  *
  * - RLS `videos_select_ready` により、ログイン済みユーザーは他人の ready 行も読める。
  *   cross-user 参照でも admin client は不要。
- * - P4 でオプション購入の有無による表示ゲートは撤廃済み。ここで option_subscriptions
- *   を見てはならない。
+ * - オプション購入の有無で出し分けない。ここで option_subscriptions を見てはならない。
  * - error はフェイルセーフで空配列（動画セクションを出さない）。
  */
 export async function getReadyVideos(

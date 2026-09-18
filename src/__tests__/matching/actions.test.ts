@@ -143,7 +143,7 @@ describe("cancelApplicationAction", () => {
     );
   });
 
-  it("applied（結果待ち）は日付制限なしで取り下げできる（2026-09-08 追加・ステージング指摘 No.8 付随）", async () => {
+  it("applied（結果待ち）は日付制限なしで取り下げできる", async () => {
     mockAuth(USER_ID);
     const selectMock = createQueryMock({
       single: {

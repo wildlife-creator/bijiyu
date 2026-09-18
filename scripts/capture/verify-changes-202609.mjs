@@ -1,3 +1,6 @@
+// NOTE (2026-09-16, P12): 銀行振込の申込テーブル・ADM-025 代理登録・ADM-026 は廃止された。
+// このスクリプト内の銀行振込フロー（/admin/bank-transfers/new 等）は当時の記録用で、現行アプリでは動かない。
+// 現行の流れは docs/requirements/current-spec.md「銀行振込」を参照。
 /**
  * 2026-08〜09 改修（P1〜P11 / クライアント指摘 B / 追加修正 C）の動作確認レポート生成
  *
@@ -665,8 +668,8 @@ const SECTIONS = [
   // =========================================================================
   {
     id: "P7",
-    name: "ユーザー撮影プラン",
-    changes: ["新オプション「ユーザー撮影プラン」（20,000 円）を追加。カード決済と銀行振込の両方に対応。"],
+    name: "ユーザー撮影動画制作プラン",
+    changes: ["新オプション「ユーザー撮影動画制作プラン」（20,000 円）を追加。カード決済と銀行振込の両方に対応。"],
     tests: [
       "vitest: Checkout / Webhook / 銀行振込申込 / ADM-026 有効化 / 金額",
       "pgTAP: bank_transfer_video_shooting（銀行振込申込の制約）",
@@ -676,19 +679,19 @@ const SECTIONS = [
     async run(browser) {
       const { ctx, page } = await newPage(browser);
       await login(page, U.contractor);
-      await step(page, this, "料金プラン画面のユーザー撮影プラン", async () => {
+      await step(page, this, "料金プラン画面のユーザー撮影動画制作プラン", async () => {
         await page.goto(`${BASE}/billing`);
-        await page.getByText("ユーザー撮影プラン").first().waitFor();
+        await page.getByText("ユーザー撮影動画制作プラン").first().waitFor();
         check((await bodyText(page)).includes("20,000"), "20,000 円が表示される");
-      }, { target: () => page.getByText("ユーザー撮影プラン").first().locator("xpath=ancestor::*[self::div or self::section][3]"), desc: "操作: 料金プラン画面のオプション欄を見る。\n確認: 「ユーザー撮影プラン」20,000 円と申込ボタン。" });
+      }, { target: () => page.getByText("ユーザー撮影動画制作プラン").first().locator("xpath=ancestor::*[self::div or self::section][3]"), desc: "操作: 料金プラン画面のオプション欄を見る。\n確認: 「ユーザー撮影動画制作プラン」20,000 円と申込ボタン。" });
       await adminLogin(page);
       await step(page, this, "銀行振込の代理登録でも選べる", async () => {
         await page.goto(`${BASE}/admin/bank-transfers/new`);
         await page.getByRole("combobox", { name: "対象" }).click();
         await page.getByRole("option", { name: "オプション" }).click();
         await page.getByRole("combobox", { name: "オプション" }).click();
-        await page.getByRole("option", { name: /ユーザー撮影プラン/ }).waitFor();
-      }, { desc: "操作: 管理画面の「申込を登録する」で対象を「オプション」にし、オプションのプルダウンを開く。\n確認: 選択肢に「ユーザー撮影プラン」がある。" });
+        await page.getByRole("option", { name: /ユーザー撮影動画制作プラン/ }).waitFor();
+      }, { desc: "操作: 管理画面の「申込を登録する」で対象を「オプション」にし、オプションのプルダウンを開く。\n確認: 選択肢に「ユーザー撮影動画制作プラン」がある。" });
       await ctx.close();
     },
   },
@@ -803,7 +806,7 @@ const SECTIONS = [
       "画面上の呼び方を統一（会員が見る見出しは「プロフィール動画」、管理画面のタブは画面名に変更）。",
       "動画掲載のお知らせメールの記載を、商品名から掲載先に変更。",
       "動画オプションの申込完了メールの結びを、3 プラン共通の文言に変更。",
-      "管理画面の絞り込みに「ユーザー撮影プラン」「ビジ友公式 SNS 動画」を追加。",
+      "管理画面の絞り込みに「ユーザー撮影動画制作プラン」「ビジ友公式 SNS 動画」を追加。",
     ],
     tests: [
       "vitest: video_sns の Checkout / 銀行振込 / 代理登録、職場紹介動画の販売停止（3 入口で拒否）、メール文言",
@@ -820,7 +823,7 @@ const SECTIONS = [
         const t = await bodyText(page);
         for (const w of ["プロフィール動画制作プラン", "100,000", "120,000", "交通費", "お申し込みは不要"]) check(t.includes(w), `「${w}」がある`);
         for (const w of ["自己PR動画掲載", "職場紹介動画掲載", "TikTok紹介ページ"]) check(!t.includes(w), `旧表記「${w}」が無い`);
-      }, { fullPage: true, desc: "操作: 無料の職人（発注者プラン未加入）で料金プラン画面を開き、全文を検査。\n確認: プロフィール動画制作プラン 100,000 円 / ユーザー撮影プラン / ビジ友公式SNS動画制作プラン 120,000 円。無料会員でも申込ボタンが押せる。交通費・プレミアム/ハイエンド付属の注意書きがある。旧「自己PR動画掲載」「職場紹介動画掲載」「TikTok紹介ページ」が無い。" });
+      }, { fullPage: true, desc: "操作: 無料の職人（発注者プラン未加入）で料金プラン画面を開き、全文を検査。\n確認: プロフィール動画制作プラン 100,000 円 / ユーザー撮影動画制作プラン / ビジ友公式SNS動画制作プラン 120,000 円。無料会員でも申込ボタンが押せる。交通費・プレミアム/ハイエンド付属の注意書きがある。旧「自己PR動画掲載」「職場紹介動画掲載」「TikTok紹介ページ」が無い。" });
       await step(page, this, "会員が見る見出しは「プロフィール動画」", async () => {
         await page.goto(`${BASE}/clients/${ID.client}`);
         await page.getByRole("heading", { name: "プロフィール動画" }).waitFor();
@@ -835,9 +838,9 @@ const SECTIONS = [
       await step(page, this, "管理画面の絞り込みに新しいプラン（ADM-008）", async () => {
         await page.goto(`${BASE}/admin/users`);
         await page.getByRole("combobox").first().click();
-        await page.getByRole("option", { name: "ユーザー撮影プラン" }).waitFor();
+        await page.getByRole("option", { name: "ユーザー撮影動画制作プラン" }).waitFor();
         await page.getByRole("option", { name: "ビジ友公式SNS動画" }).waitFor();
-      }, { desc: "操作: ユーザー一覧のオプション絞り込みを開く。\n確認: 「プロフィール動画 / ユーザー撮影プラン / ビジ友公式SNS動画」が並ぶ。" });
+      }, { desc: "操作: ユーザー一覧のオプション絞り込みを開く。\n確認: 「プロフィール動画制作プラン / ユーザー撮影動画制作プラン / ビジ友公式SNS動画制作プラン」が並ぶ（補償は無い）。" });
       await page.keyboard.press("Escape");
       const { since } = await bankFlow(page, this, { email: U.contractor4, optionLabel: /ビジ友公式SNS動画/, labelForTitle: "ビジ友公式SNS動画制作プラン" });
       await shotMails(page, this, since, ["オプションのお申し込みを承りました", "お申し込みを承りました"], "メール: 動画オプションの申込完了（結びが 3 プラン共通）",
@@ -886,7 +889,7 @@ const SECTIONS = [
       await step(page, this, "比較表の下のオプション価格表", async () => {
         const t = await bodyText(page);
         for (const w of ["急募", "20,000", "100,000", "120,000"]) check(t.includes(w), `「${w}」がある`);
-      }, { target: () => page.locator("table").last(), desc: "確認: 急募 20,000 円 / プロフィール動画制作プラン 100,000 円 / ユーザー撮影プラン 20,000 円 / ビジ友公式SNS動画制作プラン 120,000 円。" });
+      }, { target: () => page.locator("table").last(), desc: "確認: 急募 20,000 円 / プロフィール動画制作プラン 100,000 円 / ユーザー撮影動画制作プラン 20,000 円 / ビジ友公式SNS動画制作プラン 120,000 円。" });
       await step(page, this, "上位表示にスタンダードを追加（発注者一覧の並び）", async () => {
         await page.goto(`${BASE}/clients`);
         await page.getByText("ハイエンド建設株式会社").first().waitFor();

@@ -352,7 +352,7 @@ describe("customer.subscription.updated", () => {
     expect(args.html).toContain("ただ今");
   });
 
-  it("P3: 同一プランで 月払い → 年払い（Stripe ホスト画面で確定）も (a) 分岐で「承りました」を送り、RPC に billing_cycle を渡す", async () => {
+  it("同一プランで 月払い → 年払い（Stripe ホスト画面で確定）も (a) 分岐で「承りました」を送り、RPC に billing_cycle を渡す", async () => {
     const sub = buildSubscription({ priceId: "price_individual_yearly" });
     const { admin, calls } = makeAdmin({
       results: {
@@ -607,7 +607,6 @@ describe("customer.subscription.updated", () => {
 
   it("§6.1-C-1 downgrade reservation removed (schedule_id non-null → null): subject 「ご予約を取り消しました」, 本文「プラン変更を取り消しました」", async () => {
     // before: schedule_id 設定済 / after: schedule_id 解除 (Stripe schedule null + same plan)
-    const sub = buildSubscription({ schedule: null });
     const { admin } = makeAdmin({
       results: {
         "select:subscriptions": {

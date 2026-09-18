@@ -17,7 +17,7 @@ interface FavoriteButtonProps {
    * 切替成功後に `router.refresh()` で画面を再取得する。
    * マイリスト（/favorites）のように「解除したカードをその場で消す」必要がある
    * 画面でのみ true にする。他の一覧・詳細画面では解除してもカードは残るのが正しい挙動なので
-   * 渡さない（ステージング指摘 No.22）。
+   * 渡さない。
    */
   refreshOnToggle?: boolean;
 }

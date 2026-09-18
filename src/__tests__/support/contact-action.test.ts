@@ -188,6 +188,51 @@ describe("submitContactAction", () => {
     expect(adminState.deletes).toHaveLength(1);
   });
 
+  it("銀行振込: 未ログインでは種類に「お支払い方法（銀行振込）について」を選べない（サーバーで拒否）", async () => {
+    const f = validForm();
+    f.set("inquiryType", "お支払い方法（銀行振込）について");
+    f.set("bankTransferPlan", "small");
+    const result = await submitContactAction(f);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("ログイン");
+    expect(adminState.inserts).toHaveLength(0);
+  });
+
+  it("銀行振込: ログイン中は希望プランのキーを bank_transfer_plan に保存する", async () => {
+    authState.user = { id: "user-9" };
+    const f = validForm();
+    f.set("inquiryType", "お支払い方法（銀行振込）について");
+    f.set("bankTransferPlan", "video_sns");
+    const result = await submitContactAction(f);
+    expect(result.success).toBe(true);
+    expect(adminState.inserts[0].payload).toMatchObject({
+      user_id: "user-9",
+      inquiry_type: "お支払い方法（銀行振込）について",
+      bank_transfer_plan: "video_sns",
+    });
+  });
+
+  it("銀行振込: ログイン中でも希望プランが空・不正なら拒否する", async () => {
+    authState.user = { id: "user-9" };
+    const f = validForm();
+    f.set("inquiryType", "お支払い方法（銀行振込）について");
+    expect((await submitContactAction(f)).success).toBe(false);
+    f.set("bankTransferPlan", "compensation_5000"); // 対象外のキーは選べない
+    expect((await submitContactAction(f)).success).toBe(false);
+    expect(adminState.inserts).toHaveLength(0);
+  });
+
+  it("銀行振込以外の種類では bank_transfer_plan を null で保存する（値が送られても弾く）", async () => {
+    authState.user = { id: "user-9" };
+    const f = validForm();
+    f.set("bankTransferPlan", "small");
+    expect((await submitContactAction(f)).success).toBe(false);
+    f.set("bankTransferPlan", "");
+    const result = await submitContactAction(f);
+    expect(result.success).toBe(true);
+    expect(adminState.inserts[0].payload.bank_transfer_plan).toBeNull();
+  });
+
   it("添付ありで成功時は attachments を更新する", async () => {
     const f = validForm();
     f.append("attachmentPaths", `contact/${VALID_UUID}.png`);

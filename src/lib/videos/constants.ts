@@ -1,7 +1,7 @@
 import type { Database } from "@/types/database";
 
 /**
- * 動画基盤（P4）の定数。掲載場所・状態・アップロード制限の single source of truth。
+ * 動画基盤の定数。掲載場所・状態・アップロード制限の single source of truth。
  *
  * 掲載場所（placement）は DB の enum `video_placement` と一致させる。
  * 新しい掲載場所を足すときは migration で `ALTER TYPE video_placement ADD VALUE` し、
@@ -19,8 +19,7 @@ export const VIDEO_PLACEMENTS: readonly VideoPlacement[] = [
 
 /**
  * 管理画面（ADM-027）のタブ名に使う掲載場所ラベル。
- * P10（2026-09）で商品名（受注者PR動画 / 職場紹介動画）から画面名へ変更した
- * （商品は「プロフィール動画」に統合され、掲載先はプランに関係なく運営が選ぶため）。
+ * 商品名ではなく画面名で呼ぶ（商品は「プロフィール動画」1 つで、掲載先はプランに関係なく運営が選ぶため）。
  * 「本人が見る画面名（他の会員が見る画面名）」の形。
  */
 export const VIDEO_PLACEMENT_LABELS: Record<VideoPlacement, string> = {
@@ -47,7 +46,7 @@ export const VIDEO_PLACEMENT_MEMBER_LABELS: Record<VideoPlacement, string> = {
 
 /**
  * 会員が見るページの動画欄の見出し・再生ボタンのラベル。
- * P10 で「PR動画」「職場紹介動画」を廃し、掲載先に関係なく「プロフィール動画」に統一。
+ * 掲載先に関係なく「プロフィール動画」で統一する。
  */
 export const VIDEO_SECTION_LABEL = "プロフィール動画";
 

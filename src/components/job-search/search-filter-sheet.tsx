@@ -31,11 +31,6 @@ interface SheetContextValue {
 
 const SheetContext = createContext<SheetContextValue | null>(null);
 
-/** Sheet を閉じる関数（後方互換）。 */
-export function useSheetClose() {
-  return useContext(SheetContext)?.close ?? null;
-}
-
 /** Sheet の close / navigate / isPending をまとめて取得する。 */
 export function useSheetContext() {
   return useContext(SheetContext);
@@ -81,7 +76,7 @@ export function SearchFilterSheet({ children, trigger }: SearchFilterSheetProps)
       </SheetTrigger>
       {/* onOpenAutoFocus 抑止: Radix Dialog は開いた瞬間にパネル内の最初のフォーカス可能要素
           （= キーワード入力欄）へ自動フォーカスし、スマホでキーボードが立ち上がってしまう
-          （ステージング指摘 No.21）。フォーカスはパネル自体に留める。 */}
+          。フォーカスはパネル自体に留める。 */}
       <SheetContent
         side="bottom"
         className="max-h-[85vh] overflow-y-auto rounded-t-2xl"

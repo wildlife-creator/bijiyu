@@ -16,7 +16,7 @@ import {
   resolveClientProfileForRow,
   resolveParticipantName,
 } from "@/lib/utils/display-name";
-import { SuccessToast } from "./success-toast";
+import { SuccessToast } from "@/components/shared/success-toast";
 
 // -------------------------------------------------------------------
 // Menu item definitions
@@ -59,7 +59,7 @@ const MANAGE_ORDERS_MENU: MenuItem[] = [
 // 注: Staff 固有のフィルタリング・ユーザープロフィール変更の遷移先差し替えは
 // コンポーネント内部で組み立てる（REQ-ORG-011 参照）
 const UPDATE_INFO_BASE_MENU: MenuItem[] = [
-  { label: "プラン変更", href: "/billing" },
+  { label: "料金プラン", href: "/billing" },
 ];
 
 const UPDATE_INFO_VERIFICATION_MENU: MenuItem = {
@@ -347,7 +347,7 @@ export default async function MyPage() {
   return (
     <div className="min-h-dvh bg-muted">
       <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
-      <SuccessToast />
+      <SuccessToast param="success" messages={{ report: "作業報告・評価を登録しました" }} />
       <h1 className="text-center text-heading-lg font-bold text-secondary">マイページ</h1>
 
       {/* Profile area */}

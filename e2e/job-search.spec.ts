@@ -268,11 +268,11 @@ test.describe("お気に入り機能", () => {
     await page.waitForLoadState("networkidle");
 
     await page.goto("/favorites?type=job");
-    // 種類プルダウンに「案件」が表示される（P6 で並び替えプルダウンも combobox になったため first）
+    // 種類プルダウンに「案件」が表示される
     await expect(page.getByRole("combobox").first()).toContainText("案件");
     // 案件カードが表示される
     await expect(page.locator("a[href^='/jobs/']").first()).toBeVisible();
-    // 並び替えプルダウン（P6: 既定「応募締め切りが近い順」）→ 「遠い順」を選ぶと URL と表示が切り替わる
+    // 並び替えプルダウン（既定「応募締め切りが近い順」）→ 「遠い順」を選ぶと URL と表示が切り替わる
     const sortSelect = page.getByLabel("並び替え");
     await expect(sortSelect).toContainText("応募締め切りが近い順");
     await sortSelect.click();
@@ -470,9 +470,9 @@ test.describe("CON-003 発注者情報リンク（担当者作成の法人案件
 });
 
 // ---------------------------------------------------------------------------
-// ステージング指摘（2026-09）: No.21 検索パネルの自動フォーカス抑止 / No.22 マイリスト解除の即時反映
+// No.21 検索パネルの自動フォーカス抑止 / No.22 マイリスト解除の即時反映
 // ---------------------------------------------------------------------------
-test.describe("ステージング指摘 No.21 / No.22", () => {
+test.describe("検索パネルの自動フォーカス抑止 / マイリスト解除の即時反映", () => {
   test("検索条件パネルを開いてもキーワード欄に自動フォーカスしない（No.21）", async ({
     page,
   }) => {

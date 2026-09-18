@@ -100,8 +100,9 @@ export default function ResetPasswordConfirmPage() {
 
     if (result.success) {
       // S2: サーバー側で signOut 済み。Router Cache 回避のためハードナビゲーション。
-      window.location.href =
-        result.data?.redirectTo ?? "/login?message=password_updated";
+      window.location.assign(
+        result.data?.redirectTo ?? "/login?message=password_updated",
+      );
     } else {
       setServerError(result.error);
       if (result.error.includes("有効期限")) {

@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { PROFILE_VIDEO_OPTION_TYPES } from "@/lib/billing/options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { getUserDisplayName } from "@/lib/utils/display-name";
@@ -9,14 +8,12 @@ import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { AdminUserFilters } from "./filters";
 
 const PAGE_SIZE = 20;
-// オプションプラン加入者の絞り込み（P10、2026-09）。
-// "video" = プロフィール動画（統合前の video_workplace 行も含める）。急募は案件単位のため ADM-003 側
+// オプションプラン加入者の絞り込み。
+// 急募は案件単位のため ADM-003 側
 const VALID_OPTIONS = [
   "video",
   "video_shooting",
   "video_sns",
-  "compensation_5000",
-  "compensation_9800",
 ] as const;
 
 interface PageProps {
@@ -48,12 +45,10 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   // オプションフィルタ: active な対象 option_type を持つ user_id 集合を先に取得
   let optionUserIds: string[] | null = null;
   if (option) {
-    const optionTypes =
-      option === "video" ? [...PROFILE_VIDEO_OPTION_TYPES] : [option];
     const { data: optRows } = await admin
       .from("option_subscriptions")
       .select("user_id")
-      .in("option_type", optionTypes)
+      .eq("option_type", option)
       .eq("status", "active");
     optionUserIds = Array.from(
       new Set((optRows ?? []).map((r) => r.user_id)),

@@ -20,13 +20,14 @@ import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 import { BackButton } from "@/components/shared/back-button";
-import { StatusFilter } from "./status-filter";
+import { StatusFilter } from "@/components/shared/status-filter";
+import { HISTORY_STATUS_FILTER_OPTIONS } from "@/lib/constants/application-status-filters";
 import { SortSelect } from "@/components/shared/sort-select";
 import {
   APPLICATION_SORT_OPTIONS,
   resolveSortValue,
 } from "@/lib/constants/sort-options";
-import { SuccessToast } from "./success-toast";
+import { SuccessToast } from "@/components/shared/success-toast";
 import { formatDate } from "@/lib/utils/format-date";
 
 // カード3列グリッド。3 と 2 の公倍数にして最終行の欠けを防ぐ（lg=3列 / md=2列）
@@ -149,12 +150,16 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
 
       {/* Success toast (from CON-013 etc.) */}
       <Suspense fallback={null}>
-        <SuccessToast />
+        <SuccessToast param="success" messages={{ report: "作業報告・評価を登録しました" }} />
       </Suspense>
 
       {/* Status filter */}
       <Suspense fallback={null}>
-        <StatusFilter currentSort={params.sort} />
+        <StatusFilter
+          options={HISTORY_STATUS_FILTER_OPTIONS}
+          paramName="filter"
+          basePath="/applications/history"
+        />
       </Suspense>
 
       {/* Search result count + sort */}

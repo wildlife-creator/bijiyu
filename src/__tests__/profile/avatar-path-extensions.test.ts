@@ -10,7 +10,7 @@ import { IMAGE_UPLOAD_RULE_5MB } from "@/lib/storage/direct-upload";
 /**
  * プロフィール写真（アバター）の拡張子許可リストの回帰防止。
  *
- * 2026-09 ステージング確認-3(b): 画面案内・direct-upload ルール・avatars バケットは
+ * 画面案内・direct-upload ルール・avatars バケットは
  * WebP を許可しているのに、DB 保存直前の `AVATAR_PATH_EXTENSIONS` だけ webp が漏れていて、
  * WebP を選ぶと Storage 保存は成功するのに「ファイルを選択してください」で弾かれていた。
  * 4 つの関門が揃っていることをここで固定する。

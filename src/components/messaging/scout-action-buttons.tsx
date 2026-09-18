@@ -19,9 +19,9 @@ import { toast } from "sonner";
 interface ScoutActionButtonsProps {
   /** viewer がこのスカウトに応答できる（受信側 かつ staff ではない） */
   showScoutActions: boolean;
-  /** このスカウトが自分側（送信側）のものか（ステージング指摘 1b: 返答待ちの表示） */
+  /** このスカウトが自分側（送信側）のものか（返答待ちの表示に使う） */
   isMine?: boolean;
-  /** viewer が担当者（staff）か（ステージング指摘 1c: 返答は管理責任者のみの案内） */
+  /** viewer が担当者（staff）か（返答は管理責任者のみ、と案内する） */
   viewerIsStaff?: boolean;
   scoutStatus: string | null;
   messageId: string;
@@ -29,9 +29,9 @@ interface ScoutActionButtonsProps {
 }
 
 /** 送信側に見せる文言（ボタンが無いのを不具合と誤認されないため） */
-export const SCOUT_WAITING_MESSAGE = "相手の返答を待っています";
+const SCOUT_WAITING_MESSAGE = "相手の返答を待っています";
 /** 受信側の担当者（staff）に見せる文言（受注者アクションは管理責任者のみ） */
-export const SCOUT_STAFF_NOTICE = "スカウトへの返答は管理責任者のみ行えます";
+const SCOUT_STAFF_NOTICE = "スカウトへの返答は管理責任者のみ行えます";
 
 export function ScoutActionButtons({
   showScoutActions,

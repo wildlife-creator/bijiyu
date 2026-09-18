@@ -162,7 +162,7 @@ async function handlePlanCheckout(
     );
   }
 
-  // P3: 支払サイクル。Checkout metadata を優先し、無ければ Stripe の Price ID から解決
+  // 支払サイクル。Checkout metadata を優先し、無ければ Stripe の Price ID から解決
   // （旧セッション / metadata 欠落時の保険）。どちらも取れなければ monthly。
   let billingCycle: BillingCycle = metadata.billing_cycle === "yearly" ? "yearly" : "monthly";
   if (!metadata.billing_cycle && fetchedPriceId) {
@@ -180,7 +180,7 @@ async function handlePlanCheckout(
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).rpc("handle_checkout_completed_plan", {
+  const { data: rpcData, error } = await (admin as any).rpc("handle_checkout_completed_plan", {
     event_data: eventData,
   });
 
@@ -190,15 +190,22 @@ async function handlePlanCheckout(
     );
   }
 
+  // 銀行振込で契約中の会員がカード決済に切り替えた場合、RPC v3 が銀行振込行を
+  // 後処理なしで終了させ、その id を返す。運営宛通知に「以後の請求書は不要」の一文を足す
+  const endedBankTransfer =
+    typeof (rpcData as { ended_bank_transfer_subscription_id?: string | null } | null)
+      ?.ended_bank_transfer_subscription_id === "string";
+
   // Phase 5 (proxy-account-multi-org-support) で reactivateCorporateMembers を撤廃。
   // 法人プラン再アップグレード時の配下 Admin/Staff 復帰は organization_members 行
   // 削除モデルに移行したため、checkout.session.completed では何も追加処理しない。
 
   // §6.7 基本プラン契約完了メール (初回契約 / 解約後の再契約両方をカバー、Owner 1 名のみ)
-  // + §6.7-Ops 運営通知（P11）。失敗はサイレント (DB 整合は RPC で完了済み)。
+  // + §6.7-Ops 運営通知。失敗はサイレント (DB 整合は RPC で完了済み)。
   await sendPlanActivatedEmail(admin, send, userId, planType as PlanType, undefined, {
     billingCycle,
     paymentMethod: "stripe",
+    endedBankTransfer,
   });
 }
 
@@ -231,7 +238,7 @@ async function handleOptionCheckout(
     return;
   }
 
-  // 買い切り動画系（プロフィール動画 / 旧 職場紹介動画 / ユーザー撮影プラン / 公式SNS動画）は同じ経路
+  // 買い切り動画系（プロフィール動画 / ユーザー撮影動画制作プラン / 公式SNS動画）は同じ経路
   if (isVideoOption(optionType)) {
     await handleVideoOption(admin, session, userId, optionType, send);
     return;
@@ -360,10 +367,9 @@ async function handleUrgentOption(
 }
 
 /**
- * 買い切り動画系オプション（プロフィール動画 / 旧 職場紹介動画 / ユーザー撮影プラン / 公式SNS動画）。
+ * 買い切り動画系オプション（プロフィール動画 / ユーザー撮影動画制作プラン / 公式SNS動画）。
  * option_subscriptions に one_time・期限なしの行を作り、申込者（+ 組織メンバー）と運営へ
  * 動画オプションのメールを送る。冪等性は webhook の event dedupe（stripe_webhook_events）に委ねる。
- * P7 で `video` / `video_workplace` の 2 関数を統合（option_type だけが違っていた）。
  */
 async function handleVideoOption(
   admin: SupabaseClient<Database>,

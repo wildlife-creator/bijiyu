@@ -471,7 +471,7 @@ describe("completionReportToContractorEmail — §3.1.B", () => {
 });
 
 // ----------------------------------------------------------------------------
-// §1.2.C / §1.2.D 応募取り下げ（2026-09-08 追加。ステージング指摘 No.8 の付随対応）
+// §1.2.C / §1.2.D 応募取り下げ（結果待ちの応募を受注者が取り下げる）
 // ----------------------------------------------------------------------------
 import { applicationWithdrawnControlEmail } from "@/lib/email/templates/application-withdrawn-control";
 import { applicationWithdrawnEmail } from "@/lib/email/templates/application-withdrawn";

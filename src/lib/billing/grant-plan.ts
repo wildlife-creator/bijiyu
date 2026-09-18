@@ -9,7 +9,7 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 
 export type GrantPlanResult =
-  | { ok: true; subscriptionId: string; periodEndIso: string }
+  | { ok: true; subscriptionId: string }
   | { ok: false; error: string };
 
 /**
@@ -17,9 +17,9 @@ export type GrantPlanResult =
  * `handle_checkout_completed_plan` と同じ副作用を再現する共通処理。
  *
  * 呼び出し元:
- * - ADM-026 銀行振込の有効化（`activateBankTransferAction`）: 有効化メールあり
- * - ADM-009 管理運営アカウントの設定（`setOpsAccountAction`）: 内部アカウントのため
- *   有効化メールなし・期限 2099 年（P5 / D10）
+ * - ADM-009 の「銀行振込」枠の有効化（`activateBankTransferPlanAction`）:
+ *   有効化メールあり・期限なし（current_period_end = NULL）
+ *   管理運営アカウントもこの経路でハイエンドを付ける（その後 開発側が SQL で users.is_hidden = true にする）
  *
  * 副作用（順序どおり）:
  * 1. subscriptions INSERT（payment_method='bank_transfer'、stripe_subscription_id NULL）
@@ -43,16 +43,12 @@ export async function grantBankTransferPlan(
     billingCycle: BillingCycle;
     /** 利用開始日（YYYY-MM-DD、JST） */
     startDate: string;
-    /** 有効期限日（YYYY-MM-DD、JST。その日の 23:59:59 まで有効） */
-    periodEndDate: string;
-    /** audit metadata の via（例: 'bank_transfer' / 'ops_account'） */
+    /** audit metadata の via（例: 'bank_transfer'） */
     via: string;
-    sendActivationEmail: boolean;
   },
 ): Promise<GrantPlanResult> {
   const { userId, planType, billingCycle } = params;
   const startIso = dateStringToJstIso(params.startDate, "start");
-  const periodEndIso = dateStringToJstIso(params.periodEndDate, "end");
 
   const insert = await admin
     .from("subscriptions")
@@ -64,7 +60,8 @@ export async function grantBankTransferPlan(
       billing_cycle: billingCycle,
       stripe_subscription_id: null,
       current_period_start: startIso,
-      current_period_end: periodEndIso,
+      // 銀行振込は期限を管理しない（運営が「無効にする」まで有効）
+      current_period_end: null,
     })
     .select("id")
     .single();
@@ -131,13 +128,11 @@ export async function grantBankTransferPlan(
     },
   });
 
-  if (params.sendActivationEmail) {
-    // §6.7 プラン契約完了メール（Stripe 経路と同じテンプレ）+ §6.7-Ops 運営通知（P11）
-    await sendPlanActivatedEmail(admin, sendEmail, userId, planType, startIso, {
-      billingCycle,
-      paymentMethod: "bank_transfer",
-    });
-  }
+  // §6.7 プラン契約完了メール（Stripe 経路と同じテンプレ）+ §6.7-Ops 運営通知
+  await sendPlanActivatedEmail(admin, sendEmail, userId, planType, startIso, {
+    billingCycle,
+    paymentMethod: "bank_transfer",
+  });
 
-  return { ok: true, subscriptionId, periodEndIso };
+  return { ok: true, subscriptionId };
 }

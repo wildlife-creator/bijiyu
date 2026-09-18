@@ -20,21 +20,24 @@ interface DeleteAccountButtonProps {
   userId: string;
   /** 法人（配下メンバーあり）の場合は連動削除の警告文を出す */
   hasOrganization: boolean;
+  /** 削除後に戻る一覧。ADM-009 ユーザー詳細から使うときは "users"（既定は発注者一覧） */
+  origin?: "clients" | "users";
 }
 
 /**
- * ADM-004: アカウント削除ボタン（確認ダイアログ付き）。
+ * ADM-004 / ADM-009（発注者でもある会員）: 発注者アカウント削除ボタン（確認ダイアログ付き）。
  * 進行中取引ガードで拒否された場合はエラー文言を toast でそのまま表示する。
  */
 export function DeleteAccountButton({
   userId,
   hasOrganization,
+  origin = "clients",
 }: DeleteAccountButtonProps) {
   const [isPending, startTransition] = useTransition();
 
   function handleDelete() {
     startTransition(async () => {
-      const result = await deleteClientAccountAction(userId);
+      const result = await deleteClientAccountAction(userId, origin);
       // 成功時は Server Action 内で redirect されるためここには戻らない
       if (result && !result.success) {
         toast.error(result.error);

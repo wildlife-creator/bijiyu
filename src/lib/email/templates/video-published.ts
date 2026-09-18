@@ -2,7 +2,7 @@ import { listItem, paragraph, renderLayout } from "@/lib/email/components";
 
 interface VideoPublishedEmailProps {
   recipientName: string;
-  /** VIDEO_PLACEMENT_MEMBER_LABELS[placement] で解決した掲載先 (「ユーザー詳細ページ」/「発注者詳細ページ」)。P10 で動画種別から変更。 */
+  /** VIDEO_PLACEMENT_MEMBER_LABELS[placement] で解決した掲載先 (「ユーザー詳細ページ」/「発注者詳細ページ」)。 */
   placementLabel: string;
   /** YYYY/MM/DD (Server Action 実行時刻)。 */
   publishedAt: string;

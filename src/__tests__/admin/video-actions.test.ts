@@ -11,7 +11,7 @@ import {
 } from "../video/in-memory-admin-client";
 
 /**
- * ADM-027 動画管理 Server Action の統合テスト（P4、書き込み + 権限系のためフルテスト）。
+ * ADM-027 動画管理 Server Action の統合テスト（書き込み + 権限系のためフルテスト）。
  *
  * Server Action 自体はモックせず内部ロジック（Zod / 1 本目メール判定 / 表示順 /
  * 監査ログ / Cloudflare 失敗時の扱い）を実行する。Supabase admin client はインメモリ実装、

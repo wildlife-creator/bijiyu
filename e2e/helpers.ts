@@ -164,38 +164,6 @@ export const TEST_PHASE8 = {
   },
 } as const;
 
-/**
- * Service role で Supabase REST API の RPC を呼び出す。
- * Phase 8 / Task 8.3 の Stripe webhook シミュレーション
- * （`handle_subscription_lifecycle_deleted` 直接呼び出し）で使用。
- *
- * SUPABASE_SERVICE_ROLE_KEY は `.env.local` から `playwright.config.ts`
- * 経由で `process.env` にロードされる（dotenv セットアップ）。
- */
-export async function invokeServiceRoleRpc(
-  request: { post: (url: string, opts: unknown) => Promise<unknown> },
-  fn: string,
-  args: Record<string, unknown>,
-): Promise<unknown> {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) {
-    throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY が未設定です。playwright.config.ts で dotenv を有効にしてください",
-    );
-  }
-  return request.post(
-    `http://127.0.0.1:54321/rest/v1/rpc/${fn}`,
-    {
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      data: args,
-    },
-  );
-}
-
 export async function login(
   page: Page,
   email: string = TEST_CONTRACTOR.email,

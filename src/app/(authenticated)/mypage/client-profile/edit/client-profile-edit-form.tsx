@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { Controller, useForm, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
@@ -12,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/shared/back-button";
+import { FieldError, FieldGroup, FieldLabel, RequiredBadge } from "@/components/form/field-parts";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { CategoryBulkSelector } from "@/components/master/category-bulk-selector";
 import { AreaListEditor } from "@/components/area/area-list-editor";
@@ -20,11 +20,7 @@ import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
 } from "@/lib/master/deprecated";
-import {
-  LANGUAGES,
-  PREFECTURES,
-  WORKING_WAYS,
-} from "@/lib/constants/options";
+import { LANGUAGES, WORKING_WAYS } from "@/lib/constants/options";
 import {
   selectClientProfileSchema,
   type ClientProfileFormInput,
@@ -64,12 +60,6 @@ const SNS_FIELDS = [
   { key: "snsFacebook" as const, label: "Facebook" },
 ];
 
-function RequiredBadge() {
-  return (
-    <span className="ml-2 text-body-xs font-bold text-destructive">必須</span>
-  );
-}
-
 export function ClientProfileEditForm({
   planType,
   profileUserId,
@@ -80,7 +70,6 @@ export function ClientProfileEditForm({
   candidateMunicipalitiesByPrefecture,
   existingDeprecatedMunicipalitiesByPrefecture,
 }: Props) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isUploading, startUpload] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,7 +201,6 @@ export function ClientProfileEditForm({
         <div className="mt-4 flex flex-col items-center gap-3">
           <div className="size-24 overflow-hidden rounded-full border border-border bg-background">
             {imageUrl ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={imageUrl}
                 alt="プロフィール画像"
@@ -485,30 +473,4 @@ export function ClientProfileEditForm({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function FieldGroup({ children }: { children: React.ReactNode }) {
-  return <div className="space-y-2">{children}</div>;
-}
-
-function FieldLabel({
-  htmlFor,
-  children,
-}: {
-  htmlFor?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className="flex items-center text-body-sm font-bold text-foreground"
-    >
-      {children}
-    </label>
-  );
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return <p className="text-body-sm text-destructive">{message}</p>;
-}
 

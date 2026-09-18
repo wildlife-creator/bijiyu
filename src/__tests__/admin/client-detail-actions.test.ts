@@ -216,6 +216,19 @@ describe("deleteClientAccountAction", () => {
     expect(mockExecuteWithdrawal).not.toHaveBeenCalled();
   });
 
+  it("成功: ADM-009 ユーザー詳細から呼ぶ（origin='users'）とユーザーアカウント一覧へ redirect", async () => {
+    await expect(deleteClientAccountAction(TARGET_ID, "users")).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/users$/,
+    );
+    expect(mockExecuteWithdrawal).toHaveBeenCalledTimes(1);
+  });
+
+  it("origin に未知の値が渡っても発注者一覧へ倒す", async () => {
+    await expect(
+      deleteClientAccountAction(TARGET_ID, "https://evil.example" as unknown as "users"),
+    ).rejects.toThrow(/^NEXT_REDIRECT:\/admin\/clients$/);
+  });
+
   it("成功: executeWithdrawal(admin・survey なし) + audit log + 一覧へ redirect", async () => {
     adminState.orgRow = { id: "org-1" };
     adminState.memberCount = 3;

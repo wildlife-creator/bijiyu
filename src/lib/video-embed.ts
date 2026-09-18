@@ -51,7 +51,7 @@ const PATTERNS: readonly PlatformPattern[] = [
   },
   {
     platform: "cloudflare",
-    // Cloudflare Stream の埋込プレイヤー URL（P4 動画基盤）。
+    // Cloudflare Stream の埋込プレイヤー URL。
     // 管理画面で「URL 貼り付け」された場合も Cloudflare の UID として扱えるようにする。
     hostMatch: (h) => h === "iframe.videodelivery.net",
     pathMatch: /^\/([A-Za-z0-9]{16,64})\/?$/,
@@ -61,7 +61,7 @@ const PATTERNS: readonly PlatformPattern[] = [
 ];
 
 /** Cloudflare Stream の埋込プレイヤー URL。 */
-export function cloudflareEmbedUrl(uid: string): string {
+function cloudflareEmbedUrl(uid: string): string {
   return `https://iframe.videodelivery.net/${uid}`;
 }
 

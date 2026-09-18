@@ -37,7 +37,7 @@ export default async function JobListPage({ searchParams }: PageProps) {
 
   const currentPage = Math.max(1, Number(params.page) || 1);
   const statusFilter = params.status || "all";
-  // P6 一覧改修: 新着順（既定）/ 古い順。並び順は URL を正とし、未知の値は既定に倒す
+  // 新着順（既定）/ 古い順。並び順は URL を正とし、未知の値は既定に倒す
   const sort = resolveSortValue(JOB_MANAGE_SORT_OPTIONS, params.sort);
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 

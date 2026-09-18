@@ -19,7 +19,7 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  * §6.6.C 動画掲載完了通知（C-User: 本人 + 法人なら組織メンバー全員 / C-Ops: 運営宛）。
  *
  * 発火条件は呼び出し側が判定する: **その掲載場所で公開中の動画が 0 → 1 本になったとき**
- * だけ（P4 承認済み既定。複数本まとめて掲載してもメールは 1 回）。
+ * だけ（複数本まとめて掲載してもメールは 1 回）。
  * 2 本目以降の追加・差し替え・削除では送らない。
  *
  * 呼び出し元: 管理画面の URL 登録（`addExternalVideoAction`）と、Cloudflare の処理完了

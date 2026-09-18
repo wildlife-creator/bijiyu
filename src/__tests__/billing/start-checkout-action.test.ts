@@ -229,10 +229,9 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_COMPENSATION_9800 = "price_comp_9800";
   process.env.STRIPE_PRICE_URGENT = "price_urgent";
   process.env.STRIPE_PRICE_VIDEO = "price_video";
-  process.env.STRIPE_PRICE_VIDEO_WORKPLACE = "price_video_workplace";
   process.env.STRIPE_PRICE_VIDEO_SHOOTING = "price_video_shooting";
   process.env.STRIPE_PRICE_VIDEO_SNS = "price_video_sns";
-  // P8: 補償は販売停止フラグ制御。既存の補償テストは「販売中」の状態で走らせる
+  // 補償は販売停止フラグ制御。既存の補償テストは「販売中」の状態で走らせる
   process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED = "true";
 
   // Reset mock state
@@ -336,7 +335,7 @@ describe("startCheckoutAction — basic plan happy path", () => {
       type: "plan",
       user_id: "user-c1",
       plan_type: "individual",
-      billing_cycle: "monthly", // P3: 省略時は月払い
+      billing_cycle: "monthly", // 省略時は月払い
     });
     expect(params.success_url).toBe(
       "http://localhost:3000/mypage/client-profile/edit?setup=true",
@@ -344,7 +343,7 @@ describe("startCheckoutAction — basic plan happy path", () => {
     expect(params.cancel_url).toBe("http://localhost:3000/billing");
   });
 
-  it("P3: 年払いを指定すると年額 Price が line item になり、metadata.billing_cycle=yearly", async () => {
+  it("年払いを指定すると年額 Price が line item になり、metadata.billing_cycle=yearly", async () => {
     process.env.STRIPE_PRICE_INDIVIDUAL_YEARLY = "price_individual_yearly";
     supabaseAuthState.user = { id: "user-c1" };
     supabaseAuthState.userRow = { id: "user-c1", role: "contractor", email: "c1@test.local" };
@@ -457,7 +456,7 @@ describe("startCheckoutAction — basic plan happy path", () => {
   });
 });
 
-describe("startCheckoutAction — compensation option 販売停止フラグ (P8)", () => {
+describe("startCheckoutAction — compensation option 販売停止フラグ ", () => {
   it("NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED 未設定なら補償の Checkout を拒否し Stripe を呼ばない", async () => {
     delete process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED;
     try {
@@ -475,7 +474,7 @@ describe("startCheckoutAction — compensation option 販売停止フラグ (P8)
     }
   });
 
-  it("フラグが false でも補償以外（ユーザー撮影プラン）は影響を受けない", async () => {
+  it("フラグが false でも補償以外（ユーザー撮影動画制作プラン）は影響を受けない", async () => {
     process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED = "false";
     try {
       const result = await startCheckoutAction({
@@ -702,7 +701,7 @@ describe("startCheckoutAction — video option", () => {
   });
 });
 
-describe("startCheckoutAction — video_shooting option (ユーザー撮影プラン、P7)", () => {
+describe("startCheckoutAction — video_shooting option (ユーザー撮影動画制作プラン)", () => {
   it("happy path: 無料の受注者でも payment mode + video_shooting success_url（発注者プラン不要）", async () => {
     supabaseAuthState.userRow = {
       id: "user-c1",
@@ -745,7 +744,7 @@ describe("startCheckoutAction — video_shooting option (ユーザー撮影プ�
   });
 });
 
-describe("startCheckoutAction — video_sns option (ビジ友公式SNS動画制作プラン、P10)", () => {
+describe("startCheckoutAction — video_sns option (ビジ友公式SNS動画制作プラン)", () => {
   it("happy path: 無料の受注者でも payment mode + video_sns success_url（発注者プラン不要）", async () => {
     supabaseAuthState.userRow = {
       id: "user-c1",
@@ -788,29 +787,8 @@ describe("startCheckoutAction — video_sns option (ビジ友公式SNS動画制�
   });
 });
 
-describe("startCheckoutAction — video_workplace option (旧 職場紹介動画掲載。P10 で新規販売停止)", () => {
-  it("rejects 発注者プラン active でも新規販売停止のため Checkout を作らない", async () => {
-    supabaseAuthState.userRow = {
-      id: "user-c1",
-      role: "client",
-      email: "client@test.local",
-    };
-    adminResults["select:subscriptions"] = {
-      data: [{ id: "sub-active" }],
-      error: null,
-    };
-    const result = await startCheckoutAction({
-      type: "option",
-      optionType: "video_workplace",
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toContain("プロフィール動画制作プラン");
-    }
-    expect(stripeMockState.sessionsCreated).toHaveLength(0);
-  });
-
-  it("video（プロフィール動画制作プラン）は発注者プラン未加入の受注者でも購入できる（P10 で全会員に開放）", async () => {
+describe("startCheckoutAction — video option (プロフィール動画制作プラン)", () => {
+  it("video（プロフィール動画制作プラン）は発注者プラン未加入の受注者でも購入できる", async () => {
     supabaseAuthState.userRow = {
       id: "user-c1",
       role: "contractor",
@@ -837,7 +815,7 @@ describe("startCheckoutAction — video_workplace option (旧 職場紹介動画
     };
     const result = await startCheckoutAction({
       type: "option",
-      optionType: "video_workplace",
+      optionType: "video",
     });
     expect(result.success).toBe(false);
     expect(stripeMockState.sessionsCreated).toHaveLength(0);
@@ -851,7 +829,7 @@ describe("startCheckoutAction — video_workplace option (旧 職場紹介動画
     };
     const result = await startCheckoutAction({
       type: "option",
-      optionType: "video_workplace",
+      optionType: "video",
     });
     expect(result.success).toBe(false);
     expect(stripeMockState.sessionsCreated).toHaveLength(0);

@@ -170,14 +170,3 @@ export function selectClientProfileSchema(
   return isCorporate ? clientProfileSchema : clientProfilePersonalSchema;
 }
 
-// ============================================================
-// 画像アップロード（CLI-021 の「画像を登録する」ボタン）
-// ============================================================
-
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png"] as const;
-
-export const CLIENT_PROFILE_IMAGE_CONSTRAINTS = {
-  maxSize: MAX_IMAGE_SIZE,
-  allowedTypes: ALLOWED_IMAGE_TYPES,
-} as const;

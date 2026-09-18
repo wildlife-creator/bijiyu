@@ -144,19 +144,6 @@ function redirectTo(request: NextRequest, path: string): NextResponse {
 }
 
 /**
- * Create a redirect to login with an error message parameter
- */
-function redirectToLoginWithError(
-  request: NextRequest,
-  message: string,
-): NextResponse {
-  const url = request.nextUrl.clone();
-  url.pathname = "/login";
-  url.searchParams.set("error", message);
-  return NextResponse.redirect(url);
-}
-
-/**
  * is_active=false / deleted_at セット時にログイン画面へ戻す際、
  * Supabase セッション Cookie を削除してリダイレクトループを断つ。
  */
@@ -284,7 +271,7 @@ export async function middleware(request: NextRequest) {
    *   Cookie は付与されない（fee=free は新規申込専用のフロー）。
    */
   function finalize(response: NextResponse): NextResponse {
-    // CSP frame-src（video-display Task 3.5 / P4 動画基盤）:
+    // CSP frame-src（video-display Task 3.5 / 動画基盤）:
     //   TikTok 埋込プレイヤーと Cloudflare Stream プレイヤーの iframe を許可する。
     //   default-src 等は付けず frame-src のみのスコープ限定（他リソースは無制限のまま）。
     //   将来 YouTube/Vimeo 追加時はドメインを追記する（要件 3.10）。

@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
- * Cloudflare Stream との通信（P4 動画基盤）。SDK は使わず REST を直接叩く。
+ * Cloudflare Stream との通信。SDK は使わず REST を直接叩く。
  *
  * - 認証情報はサーバー専用の環境変数（ブラウザに出さない）
  *   - CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_STREAM_API_TOKEN（Stream 編集権限）
@@ -14,7 +14,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const API_BASE = "https://api.cloudflare.com/client/v4";
 const FETCH_TIMEOUT_MS = 15_000;
 /** Webhook の time ヘッダとの許容ずれ（秒）。再送遅延を考慮して 5 分。 */
-export const WEBHOOK_TOLERANCE_SECONDS = 300;
+const WEBHOOK_TOLERANCE_SECONDS = 300;
 
 export interface CloudflareStreamConfig {
   accountId: string;

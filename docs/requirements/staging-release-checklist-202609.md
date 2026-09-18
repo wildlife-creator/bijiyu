@@ -3,8 +3,8 @@
 作成: 2026-09-09。更新: 2026-09-10（P10 動画プラン整理・P11 価格改定と比較表・運営宛メールを反映）。対象コード: `feature/spec-changes-202608`（origin に push 済。先端は `git log origin/feature/spec-changes-202608 -1` で確認。2026-09-10 時点で 4d1f979 以降）。
 このファイルは **Claude（Cowork）に引き継いで設定作業を進めるための手順書**。根拠は 8 月末の分岐点（`client/staging` = 583711d）から現在までのコード差分。
 
-**2026-09-10 の追加分の要点**（詳細: `docs/requirements/video-plans-handoff-202609.md`）:
-- 動画プランを「プロフィール動画制作プラン（10 万）/ ユーザー撮影プラン（2 万）/ ビジ友公式SNS動画制作プラン（12 万・新設）」に整理。旧「職場紹介動画掲載」は新規販売停止 → Stripe Price の追加 1 本（A2）
+**2026-09-10 の追加分の要点**（詳細: `docs/requirements/archive/2026-08-09/video-plans-handoff-202609.md`。現在の仕様は `docs/requirements/current-spec.md`）:
+- 動画プランを「プロフィール動画制作プラン（10 万）/ ユーザー撮影動画制作プラン（2 万）/ ビジ友公式SNS動画制作プラン（12 万・新設）」に整理。旧「職場紹介動画掲載」は新規販売停止 → Stripe Price の追加 1 本（A2）
 - 月額を 2,800 / 9,800 / 28,000 / 168,000 円、初回事務手数料を 12,000 円に改定 → **Stripe の月額 Price 4 本 + 事務手数料 Price を作り直し、環境変数 5 本を差し替え**（A0・B4）
 - 上位表示にスタンダードを追加、プレミアムの担当者上限 10 → 5 人 → マイグレーション 2 本追加（B1、計 8 本）
 - 運営宛メールを 1 通新設（プランの新規申込）。宛先は既存の `OPS_NOTIFICATION_EMAIL` で設定作業の追加なし
@@ -57,9 +57,9 @@
     `STRIPE_PRICE_INDIVIDUAL_YEARLY` / `STRIPE_PRICE_SMALL_YEARLY` / `STRIPE_PRICE_CORPORATE_YEARLY` / `STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY` / `STRIPE_PORTAL_UPDATE_CONFIGURATION_ID`
   - 期待金額（税込・年、月額 × 10）: ライト 28,000 / スタンダード 98,000 / プレミアム 280,000 / ハイエンド 1,680,000（A0 の新しい月額 Price を元に作られる。A0 より先に実行すると旧金額で作られるので順番に注意）
 
-### A2. Stripe: ユーザー撮影プラン（買い切り 20,000 円）・ビジ友公式SNS動画制作プラン（買い切り 120,000 円）の Price
+### A2. Stripe: ユーザー撮影動画制作プラン（買い切り 20,000 円）・ビジ友公式SNS動画制作プラン（買い切り 120,000 円）の Price
 
-- Stripe ダッシュボード → 商品 → 新規作成（名称例「ユーザー撮影プラン」、一回限り、¥20,000 税込）
+- Stripe ダッシュボード → 商品 → 新規作成（名称例「ユーザー撮影動画制作プラン」、一回限り、¥20,000 税込）
 - 作成された `price_…` を控える → `STRIPE_PRICE_VIDEO_SHOOTING`
 - 同様に「ビジ友公式SNS動画制作プラン」（一回限り、¥120,000 税込）を作成 → `STRIPE_PRICE_VIDEO_SNS`（P10、2026-09-10 追加）
 - 既存の「自己PR動画掲載」商品（`STRIPE_PRICE_VIDEO`）は名称を「プロフィール動画制作プラン」に変更しておく（Price ID はそのまま）。「職場紹介動画掲載」（`STRIPE_PRICE_VIDEO_WORKPLACE`）は新規販売停止だが、環境変数は残す（既存契約の Webhook 用。staging では未購入のため実害なし）
@@ -92,7 +92,7 @@
   supabase db push --linked
   ```
 - 対象（すべて「追加のみ」。既存のステージング動作に影響しない）:
-  1. `20260901120000_bank_transfer.sql` … 銀行振込（申込テーブル・pg_cron 2 本）
+  1. `20260901120000_bank_transfer.sql` … 銀行振込（申込テーブル・pg_cron 2 本。→ 9. で申込テーブルと期限 cron は削除される）
   2. `20260901130000_stripe_yearly_billing_cycle.sql` … 年払い（billing_cycle）
   3. `20260902120000_videos.sql` … 動画テーブル（旧カラムからコピー移行。旧カラムは残す）
   4. `20260902130000_ops_account.sql` … 管理運営アカウント（users.is_hidden、messages RLS）
@@ -100,7 +100,8 @@
   6. `20260902150000_bank_transfer_video_shooting.sql` … 撮影プランの銀行振込許可
   7. `20260910120000_video_plans_consolidation.sql` … 公式SNS動画の銀行振込許可（P10）
   8. `20260910130000_list_plan_rank_small.sql` … 上位表示にスタンダードを追加（既存行を再計算。P11）
-- 確認: `supabase migration list --linked` で Remote 列に 8 本が並ぶ
+  9. `20260916120000_bank_transfer_onoff.sql` … 銀行振込をオン／オフだけに（P12。申込テーブル・期限 cron・期限 index を削除、contacts.bank_transfer_plan 追加、handle_checkout_completed_plan v3）
+- 確認: `supabase migration list --linked` で Remote 列に 9 本が並ぶ
 
 ### B2. cron ジョブの通知先を確認（Supabase Studio の SQL Editor）
 
@@ -108,28 +109,22 @@
   ```sql
   select jobname, schedule, command from cron.job order by jobname;
   ```
-- `bank-transfer-expiry-notify` の command 内 URL が `https://mfrlsbnqybvkzwsmiolm.supabase.co/functions/v1/bank-transfer-expiry-notify` になっていること。
-  `host.docker.internal` や `placeholder-set-via-app-settings` が入っていたら、既存の `auto-cancel-past-due` ジョブと同じ URL 形式・同じ Authorization ヘッダーの形に **人間が** SQL で登録し直す（`cron.unschedule` → `cron.schedule`。Authorization に service_role キーが入るため Claude は関与しない）。
-- あわせて `expire-options` が登録されていることも確認
+- P12 で `bank-transfer-expiry-notify` は廃止（migration 9. が `cron.unschedule` する）。一覧に **残っていないこと** を確認する
+- `auto-cancel-past-due` と `expire-options` が登録されていることを確認
 
-### B3. Edge Function 2 本をデプロイ + secrets
+### B3. Edge Function をデプロイ + secrets
 
-- デプロイ（Claude 実行可）:
+- デプロイ（Claude 実行可。P12 で `bank-transfer-expiry-notify` は廃止 = デプロイ不要。既にデプロイ済みなら `supabase functions delete bank-transfer-expiry-notify --project-ref mfrlsbnqybvkzwsmiolm` で消してよい）:
   ```
-  supabase functions deploy bank-transfer-expiry-notify --project-ref mfrlsbnqybvkzwsmiolm
   supabase functions deploy auto-cancel-past-due --project-ref mfrlsbnqybvkzwsmiolm
   ```
 - secrets（**人間のターミナルで**。値は Claude に見せない）。`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` は Supabase が自動で渡すため設定不要:
 
   | 名前 | 用途 | 秘密? |
   |---|---|---|
-  | `RESEND_API_KEY` | 期限通知メール送信 | **秘密** |
-  | `EMAIL_FROM` | 送信元アドレス（本体アプリと同じ値） | いいえ |
-  | `OPS_NOTIFICATION_EMAIL` | 運営の受信先 | いいえ |
-  | `APP_URL` | メール内リンクの基点 = https://staging.bijiyuu.net | いいえ |
   | `STRIPE_SECRET_KEY` | auto-cancel-past-due 用（既に設定済みのはず。無ければ追加） | **秘密** |
 
-  例: `supabase secrets set EMAIL_FROM=... OPS_NOTIFICATION_EMAIL=... APP_URL=https://staging.bijiyuu.net --project-ref mfrlsbnqybvkzwsmiolm`
+  ※ P12 で期限通知（`bank-transfer-expiry-notify`）を廃止したため、その用途だった `RESEND_API_KEY` / `EMAIL_FROM` / `OPS_NOTIFICATION_EMAIL` / `APP_URL` の Edge Function secrets は不要（設定済みでも害はない）
 - 確認（名前だけ）: `supabase secrets list --project-ref mfrlsbnqybvkzwsmiolm` の名前列に上記があること
 
 ### B4. Vercel（ステージング環境）の環境変数
@@ -165,7 +160,7 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
    ```
    git push client feature/spec-changes-202608
    ```
-2. GitHub `bijiyu-app/bijiyu` で Pull Request: base `staging` ← compare `feature/spec-changes-202608`。内容は P1〜P11 と ステージング指摘修正 A〜D（本文に `docs/requirements/spec-changes-202608.md`、`staging-check-fix-plan-202609.md`、`video-plans-handoff-202609.md` を参照）
+2. GitHub `bijiyu-app/bijiyu` で Pull Request: base `staging` ← compare `feature/spec-changes-202608`。内容は P1〜P11 と ステージング指摘修正 A〜D（本文に `docs/requirements/archive/2026-08-09/` の `spec-changes-202608.md`、`staging-check-fix-plan-202609.md`、`video-plans-handoff-202609.md` を参照）
 3. マージ → Vercel が自動デプロイ。完了を待つ
 4. マージ前に B1〜B4 が済んでいること（コードが新しい DB 列・環境変数を前提にしている）
 
@@ -177,10 +172,10 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
 |---|---|---|
 | C1 | スモーク: ログイン → マイページ → 料金プラン（年払い切替・新金額 2,800/9,800/28,000/168,000・動画 3 プランの行）→ プラン一覧（比較表）→ 案件一覧（おすすめ順でスタンダード以上が上）→ メッセージ を開く | Claude 案内 + 人間 |
 | C2 | **詰みデータの解消**: 管理画面 → 応募履歴一覧 → 「表町電気工事」「かずひで333」の応募詳細（ADM-014）→「完了扱いにする」。その後、該当クライアントのアカウントで退会画面が通ること（実際に退会はしない）を確認 | 人間 |
-| C3 | **管理運営アカウントの実登録**: 管理画面 → 発注者アカウント → 新規招待（ADM-006/007）で運営用アカウントを作成 → ユーザー詳細（ADM-009）の「管理運営アカウントに設定」 | 人間 |
+| C3 | **管理運営アカウントの実登録**: 管理画面 → 発注者アカウント → 新規招待（ADM-006/007）で運営用アカウントを作成 → ユーザー詳細（ADM-009）の「銀行振込」枠でハイエンドを「有効にする」→ **開発側が** Supabase の SQL エディタで `UPDATE users SET is_hidden = true WHERE email = '（運営用アカウントのメール）';` を実行（2026-09-17 変更: 管理画面の「管理運営アカウントに設定」は廃止）。確認: 管理画面の一覧に「管理運営」バッジが出る / 会員側の職人一覧・発注者一覧に出ない | 人間 + 開発 |
 | C4 | Stripe 実決済: 年払いでの申込（初回事務手数料 12,000 円が乗ること）/ 月払い→年払い切替（Stripe ホスト画面）/ 撮影プラン購入 / 公式SNS動画購入 を各 1 回。Webhook で `subscriptions.billing_cycle` 等が入ること。**運営宛（`OPS_NOTIFICATION_EMAIL`）に「プランの新規お申し込みがありました」「動画オプションの新規お申し込みがありました」が届くこと** | 人間 |
-| C4b | 銀行振込: ADM-025 で申込を代理登録 → 申込者控えメール → ADM-026 で「入金確認して有効化」→ 会員宛「プランのお申し込みを承りました」と運営宛「プランの新規お申し込みがありました」が届き、料金プラン画面が「ご利用中」になること | 人間 |
-| C4c | 管理画面: ADM-008（ユーザーアカウント一覧）の絞り込みに「プロフィール動画 / ユーザー撮影プラン / ビジ友公式SNS動画」が出ること。ADM-027 のタブ名が「ユーザープロフィール（ユーザー詳細）」「発注者情報詳細（発注者詳細）」になっていること | 人間 |
+| C4b | 銀行振込（P12）: 会員でログイン → お問い合わせで「お支払い方法（銀行振込）について」+ 希望プランを送信（会社名・氏名・メールが最初から入っていること）→ 運営宛通知メールに「希望プラン」が出ること → 管理画面「銀行振込お問い合わせ一覧」に出る → 「ユーザー詳細」→「銀行振込」枠で「有効にする」→ 会員宛「プランのお申し込みを承りました」と運営宛「プランの新規お申し込みがありました」が届き、料金プラン画面が「ご利用中」+「お支払い方法: 銀行振込」になること。発注者詳細でも同じ枠が出て「変更する」が効くこと | 人間 |
+| C4c | 管理画面: ADM-008（ユーザーアカウント一覧）の絞り込みが「すべて / プロフィール動画制作プラン / ユーザー撮影動画制作プラン / ビジ友公式SNS動画制作プラン」だけであること（補償は無い）。ADM-003（発注者アカウント一覧）の絞り込みと行のバッジが急募だけであること。ADM-027 のタブ名が「ユーザープロフィール（ユーザー詳細）」「発注者情報詳細（発注者詳細）」になっていること | 人間 |
 | C5 | Cloudflare（A3〜A4 済なら）: ADM-027 で MP4 を 1 本アップロード → 「状態を確認」で ready → 会員画面に表示 | 人間 |
 | C6 | 開発中のテストデータで不要なもの（名前に「テスト」）を削除。ステージング DB の実データは削除以外変更しない。旧 Price に紐づく Stripe のテスト契約が残っていれば Stripe 側でも解約（A0 の注意参照） | 人間 |
 
@@ -196,6 +191,6 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
 
 ## 参照
 
-- 変更内容: `docs/requirements/spec-changes-202608.md`（P1〜P9）、`docs/requirements/staging-check-fix-plan-202609.md`（指摘修正 A〜D と実装結果）、`docs/requirements/video-plans-handoff-202609.md`（P10 動画プラン整理・P11 価格改定と比較表・メール整理）
+- 変更内容: `docs/requirements/archive/2026-08-09/spec-changes-202608.md`（P1〜P9）、同 `staging-check-fix-plan-202609.md`（指摘修正 A〜D と実装結果）、同 `video-plans-handoff-202609.md`（P10 動画プラン整理・P11 価格改定と比較表・メール整理）。現在の仕様は `docs/requirements/current-spec.md`
 - 環境変数の見本: `.env.local.example`
-- ブランチ運用: `spec-changes-202608.md` §5
+- ブランチ運用: `docs/requirements/archive/2026-08-09/spec-changes-202608.md` §5

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { BackButton } from "@/components/job-search/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -59,7 +59,7 @@ export default async function NewMessagePage({ searchParams }: Props) {
   const { active } = await getActiveOrganizationContext(supabase);
   const myOrgId = active?.organizationId ?? null;
 
-  // 相手の存在・状態チェック（P5）。自分自身・退会済み・admin ロールは新規スレッドを作らない。
+  // 相手の存在・状態チェック。自分自身・退会済み・admin ロールは新規スレッドを作らない。
   // 管理運営アカウント（is_hidden）は他の会員から新規に始められない（運営が始めた
   // 既存スレッドは下の候補検索で見つかり、そのまま開ける）。
   if (targetUserId === user.id) notFound();
@@ -166,9 +166,7 @@ export default async function NewMessagePage({ searchParams }: Props) {
               >
                 <Link href="/billing">料金プランを見る</Link>
               </Button>
-              {/* 親が flex flex-col items-center のため、外側 wrapper に
-                  幅指定を渡さないと BackButton が「もどる」文字幅に縮む */}
-              <BackButton className="mt-0 w-full max-w-xs" />
+              <BackButton />
             </div>
           </div>
         </div>

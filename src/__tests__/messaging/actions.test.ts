@@ -643,7 +643,7 @@ describe("respondToScoutAction", () => {
 });
 
 // ===========================================================================
-// respondToScoutAction — ステージング指摘 No.33（法人 ⇔ 法人 のスカウト）
+// respondToScoutAction — 法人 ⇔ 法人 のスカウト（両側が組織 identity）
 // ===========================================================================
 describe("respondToScoutAction: 両側が組織 identity のスレッド（No.33）", () => {
   const ORG_A = "aaaa0000-0000-4000-8000-00000000000a";

@@ -114,18 +114,6 @@ export const getActiveTradeTypes = unstable_cache(
   { revalidate: 3600, tags: ["master-skills"] },
 );
 
-export const getActiveQualifications = unstable_cache(
-  () => fetchActive("qualifications"),
-  ["master-skills", "qualifications", "active", "v2"],
-  { revalidate: 3600, tags: ["master-skills"] },
-);
-
-export const getActiveSkillTags = unstable_cache(
-  () => fetchActive("skill-tags"),
-  ["master-skills", "skill-tags", "active", "v2"],
-  { revalidate: 3600, tags: ["master-skills"] },
-);
-
 const allFetchers: Record<MasterKind, () => Promise<MasterRow[]>> = {
   "trade-types": unstable_cache(
     () => fetchAll("trade-types"),

@@ -88,7 +88,7 @@ const RATING_AGAIN_LABELS: Record<string, string> = {
  * - 発注取消ボタンは canAdminCancel が true の場合のみ（Server Action 内でも再評価）
  * - 期限切れ（稼働終了日+5日を過ぎた accepted）は canAdminResolveExpired が true になり、
  *   「完了扱いにする」「発注を取り消す」を表示する。当事者も運営も画面から解消できず
- *   退会がブロックされ続けるデッドロック（ステージング指摘 No.8）の解消手段
+ *   退会がブロックされ続けるデッドロックの解消手段
  */
 export default async function AdminApplicationDetailPage({
   params,

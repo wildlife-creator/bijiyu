@@ -15,7 +15,8 @@ import { BackButton } from "@/components/shared/back-button";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
-import { StatusFilter } from "@/app/(authenticated)/applications/orders/status-filter";
+import { StatusFilter } from "@/components/shared/status-filter";
+import { APPLICANTS_STATUS_FILTER_OPTIONS } from "@/lib/constants/application-status-filters";
 import { SortSelect } from "@/components/shared/sort-select";
 import {
   APPLICATION_SORT_OPTIONS,
@@ -169,7 +170,11 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
 
       {/* Status filter */}
       <Suspense fallback={null}>
-        <StatusFilter basePath={basePath} includeApplied={true} />
+        <StatusFilter
+          options={APPLICANTS_STATUS_FILTER_OPTIONS}
+          paramName="status"
+          basePath={basePath}
+        />
       </Suspense>
 
       {/* Search result count + sort */}

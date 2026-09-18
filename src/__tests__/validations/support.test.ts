@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { CONTACT_INQUIRY_TYPES } from "@/lib/constants/contact-options";
+import {
+  BANK_TRANSFER_INQUIRY_TYPE,
+  BANK_TRANSFER_PLAN_CHOICES,
+  BANK_TRANSFER_PLAN_KEYS,
+  CONTACT_INQUIRY_TYPES,
+  bankTransferPlanLabel,
+  isBankTransferPlanKey,
+} from "@/lib/constants/contact-options";
 import { TROUBLE_CATEGORIES } from "@/lib/constants/trouble-options";
 import { contactSchema } from "@/lib/validations/contact";
 import { troubleReportSchema } from "@/lib/validations/trouble";
 
 // ---------------------------------------------------------------------------
-// P8: 報酬未払いの窓口（お問い合わせ内容 / トラブル種類）
+// 報酬未払いの窓口（お問い合わせ内容 / トラブル種類）
 // ---------------------------------------------------------------------------
-describe("P8 報酬未払い窓口の選択肢", () => {
+describe("報酬未払い窓口の選択肢", () => {
   it("お問い合わせ内容に「報酬未払いについて」があり、「その他」の直前に並ぶ", () => {
     const list = [...CONTACT_INQUIRY_TYPES];
     expect(list).toContain("報酬未払いについて");
@@ -123,5 +130,61 @@ describe("troubleReportSchema", () => {
     expect(
       troubleReportSchema.safeParse({ ...valid, category: "不正" }).success,
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 銀行振込のお問い合わせ（希望プラン）
+// ---------------------------------------------------------------------------
+describe("銀行振込の希望プラン", () => {
+  const base = {
+    companyName: "山田工務店",
+    name: "山田太郎",
+    phone: "09012345678",
+    email: "test@example.com",
+    inquiryType: BANK_TRANSFER_INQUIRY_TYPE,
+    purpose: "仕事を依頼したい",
+    industry: "大工",
+    detail: "銀行振込で契約したいです",
+  };
+
+  it("選択肢は基本プラン 4 種 + 動画プラン 3 種。補償・急募は含まない", () => {
+    expect(BANK_TRANSFER_PLAN_KEYS).toEqual([
+      "individual",
+      "small",
+      "corporate",
+      "corporate_premium",
+      "video",
+      "video_shooting",
+      "video_sns",
+    ]);
+    expect(BANK_TRANSFER_PLAN_CHOICES.map((c) => c.kind)).toEqual([
+      "plan", "plan", "plan", "plan", "video", "video", "video",
+    ]);
+    expect(isBankTransferPlanKey("urgent")).toBe(false);
+    expect(isBankTransferPlanKey("compensation_5000")).toBe(false);
+    expect(bankTransferPlanLabel("small")).toBe("スタンダードプラン");
+    expect(bankTransferPlanLabel("video")).toBe("プロフィール動画制作プラン");
+    expect(bankTransferPlanLabel(null)).toBeNull();
+    // 未知のキー（将来の廃止等）は壊さずそのまま返す
+    expect(bankTransferPlanLabel("legacy_key")).toBe("legacy_key");
+  });
+
+  it("銀行振込を選んだら希望プランが必須（キーで検証）", () => {
+    expect(contactSchema.safeParse({ ...base, bankTransferPlan: "" }).success).toBe(false);
+    expect(contactSchema.safeParse({ ...base }).success).toBe(false);
+    expect(contactSchema.safeParse({ ...base, bankTransferPlan: "スタンダードプラン" }).success).toBe(false);
+    expect(contactSchema.safeParse({ ...base, bankTransferPlan: "small" }).success).toBe(true);
+    const r = contactSchema.safeParse({ ...base, bankTransferPlan: "" });
+    expect(r.success ? [] : r.error.issues.map((i) => i.path.join("."))).toContain("bankTransferPlan");
+  });
+
+  it("銀行振込以外では希望プランは空でなければならない", () => {
+    expect(
+      contactSchema.safeParse({ ...base, inquiryType: "料金について", bankTransferPlan: "small" }).success,
+    ).toBe(false);
+    expect(
+      contactSchema.safeParse({ ...base, inquiryType: "料金について", bankTransferPlan: "" }).success,
+    ).toBe(true);
   });
 });

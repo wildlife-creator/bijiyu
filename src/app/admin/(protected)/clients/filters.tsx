@@ -1,28 +1,16 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { PendingOverlay } from "@/components/shared/pending-overlay";
+import { AdminFilterForm } from "@/components/admin/admin-filter-form";
 
 interface AdminClientFiltersProps {
   initialKeyword: string;
   /** "all" | ClientCategory */
   initialCategory: string;
-  /** "all" | "urgent" | "video" */
+  /** "all" | "urgent" */
   initialOption: string;
 }
 
-const CATEGORY_ITEMS: { value: string; label: string }[] = [
+const CATEGORY_ITEMS = [
   { value: "all", label: "すべて" },
   { value: "owner", label: "管理責任者" },
   { value: "org_admin", label: "組織管理者" },
@@ -31,115 +19,32 @@ const CATEGORY_ITEMS: { value: string; label: string }[] = [
   { value: "small", label: "小規模発注者" },
 ];
 
-const OPTION_ITEMS: { value: string; label: string }[] = [
+const OPTION_ITEMS = [
   { value: "all", label: "すべて" },
   { value: "urgent", label: "急募オプション" },
-  { value: "video", label: "プロフィール動画" },
 ];
 
-/**
- * ADM-003 のキーワード検索 + 2枠フィルタ（区分／オプション・各単一選択）。
- * フィルタ状態は URL searchParams を SSOT とし、検索ボタンで router.push する。
- *
- * ブラウザの戻る/進むで URL（= initial*）が変わったときに入力欄の表示も追従させるため、
- * URL 由来の初期値を key にして内部 state を作り直す（ステージング指摘 No.40:
- * 「マウント時に一度だけ URL から写す」実装では、戻るで URL が検索前に戻っても
- * 入力欄が検索後の値のまま残っていた）。検索ボタンを押すまでの入力途中の値は
- * URL が変わらない限り保持される。
- */
-export function AdminClientFilters(props: AdminClientFiltersProps) {
-  const resetKey = `${props.initialKeyword}|${props.initialCategory}|${props.initialOption}`;
-  return <AdminClientFiltersInner key={resetKey} {...props} />;
-}
-
-function AdminClientFiltersInner({
+/** ADM-003 のキーワード検索 + 2 枠の絞り込み（区分／オプション・各単一選択）。 */
+export function AdminClientFilters({
   initialKeyword,
   initialCategory,
   initialOption,
 }: AdminClientFiltersProps) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [keyword, setKeyword] = useState(initialKeyword);
-  const [category, setCategory] = useState(initialCategory || "all");
-  const [option, setOption] = useState(initialOption || "all");
-
-  function handleSearch() {
-    const params = new URLSearchParams();
-    if (keyword.trim()) params.set("q", keyword.trim());
-    if (category && category !== "all") params.set("category", category);
-    if (option && option !== "all") params.set("option", option);
-    // 新規検索時はページを 1 に戻す（page は付けない = 既定 1）
-    startTransition(() =>
-      router.push(`/admin/clients${params.toString() ? `?${params}` : ""}`),
-    );
-  }
-
   return (
-    <div className="mt-6 space-y-4">
-      <PendingOverlay active={isPending} />
-      <div>
-        <label htmlFor="admin-client-keyword" className="text-body-sm font-bold">
-          キーワード
-        </label>
-        <div className="relative mt-1">
-          <img
-            src="/images/icons/icon-search.png"
-            alt=""
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-60"
-          />
-          <Input
-            id="admin-client-keyword"
-            type="text"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="氏名・メールアドレス・会社名"
-            className="bg-background pl-9"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="text-body-sm font-bold">権限</label>
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="mt-1 w-full bg-background">
-            <SelectValue placeholder="お選びください" />
-          </SelectTrigger>
-          <SelectContent>
-            {CATEGORY_ITEMS.map((c) => (
-              <SelectItem key={c.value} value={c.value}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <label className="text-body-sm font-bold">オプションプラン加入者</label>
-        <Select value={option} onValueChange={setOption}>
-          <SelectTrigger className="mt-1 w-full bg-background">
-            <SelectValue placeholder="お選びください" />
-          </SelectTrigger>
-          <SelectContent>
-            {OPTION_ITEMS.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          onClick={handleSearch}
-          disabled={isPending}
-          className="h-9 rounded-full bg-primary px-10 text-body-md text-white hover:bg-primary/90"
-        >
-          検索
-        </Button>
-      </div>
-    </div>
+    <AdminFilterForm
+      basePath="/admin/clients"
+      keywordId="admin-client-keyword"
+      keywordPlaceholder="氏名・メールアドレス・会社名"
+      initialKeyword={initialKeyword}
+      selects={[
+        { name: "category", label: "権限", initialValue: initialCategory, items: CATEGORY_ITEMS },
+        {
+          name: "option",
+          label: "オプションプラン加入者",
+          initialValue: initialOption,
+          items: OPTION_ITEMS,
+        },
+      ]}
+    />
   );
 }

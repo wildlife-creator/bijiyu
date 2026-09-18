@@ -1,4 +1,4 @@
--- pgTAP tests for 管理運営アカウント（P5）
+-- pgTAP tests for 管理運営アカウント
 --   1. users.is_hidden 列（既定 false、RLS で隠さない = 公開 SELECT でも読める）
 --   2. messages の SELECT / INSERT ポリシーが identity ペア（organization_1_id / organization_2_id）対応
 --      → 組織⇔組織スレッドで、旧 organization_id に入らなかった側の組織メンバー（担当者）も本文を読め・返信できる
