@@ -238,7 +238,7 @@ async function handleOptionCheckout(
     return;
   }
 
-  // 買い切り動画系（プロフィール動画 / 旧 職場紹介動画 / ユーザー撮影動画制作プラン / 公式SNS動画）は同じ経路
+  // 買い切り動画系（プロフィール動画 / ユーザー撮影動画制作プラン / 公式SNS動画）は同じ経路
   if (isVideoOption(optionType)) {
     await handleVideoOption(admin, session, userId, optionType, send);
     return;
@@ -367,10 +367,9 @@ async function handleUrgentOption(
 }
 
 /**
- * 買い切り動画系オプション（プロフィール動画 / 旧 職場紹介動画 / ユーザー撮影動画制作プラン / 公式SNS動画）。
+ * 買い切り動画系オプション（プロフィール動画 / ユーザー撮影動画制作プラン / 公式SNS動画）。
  * option_subscriptions に one_time・期限なしの行を作り、申込者（+ 組織メンバー）と運営へ
  * 動画オプションのメールを送る。冪等性は webhook の event dedupe（stripe_webhook_events）に委ねる。
- * P7 で `video` / `video_workplace` の 2 関数を統合（option_type だけが違っていた）。
  */
 async function handleVideoOption(
   admin: SupabaseClient<Database>,

@@ -15,7 +15,7 @@ import {
  * - contractor@test.local (11111): PR動画 1 本（TikTok）+ active 'video'
  * - contractor2@test.local (cc111111): PR動画 2 本（TikTok + Cloudflare ready）、オプション未購入
  *   → P4 で購入ゲート撤廃のため表示される
- * - client@test.local (22222): 職場紹介動画 1 本 + active 'video_workplace'
+ * - client@test.local (22222): 職場紹介動画 1 本 + active 'video'
  * - 山田 (aabbccdd): 職場紹介動画 ready 1 本 + processing 1 本、オプション未購入
  *   → ready のみ表示される
  * - corp-comp (b111...0005): 管理画面の削除 E2E 専用（client_page 1 本）
@@ -33,16 +33,14 @@ const CLIENT_DELETE_TARGET_ID = "b1110000-0000-1000-8000-000000000005";
 const TIKTOK_PLAYER_IFRAME = 'iframe[src*="tiktok.com/player/v1"]';
 const CLOUDFLARE_PLAYER_IFRAME = 'iframe[src*="iframe.videodelivery.net/"]';
 
-test.describe("CLI-026: プロフィール動画制作プラン（P10 で旧 自己PR動画・職場紹介動画を統合）", () => {
-  test("統合前に職場紹介動画（video_workplace）を購入した発注者はボタンが「再度購入する」（活性・押下で再購入確認）", async ({ page }) => {
-    // client@test.local は seed で active な 'video_workplace' オプションを持つ。
-    // 統合後は同じ商品「プロフィール動画制作プラン」として購入済み扱いにする
+test.describe("CLI-026: プロフィール動画制作プラン", () => {
+  test("購入済みの発注者はボタンが「再度購入する」（活性・押下で再購入確認）", async ({ page }) => {
+    // client@test.local は seed で active な 'video' オプションを持つ
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/billing");
     await expect(
       page.getByText("プロフィール動画制作プラン", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("職場紹介動画掲載", { exact: true })).toHaveCount(0);
     const btn = page.getByRole("button", { name: "再度購入する", exact: true });
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
@@ -56,9 +54,6 @@ test.describe("CLI-026: プロフィール動画制作プラン（P10 で旧 自
     });
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
-    await expect(
-      page.getByRole("button", { name: "職場紹介動画掲載を申し込む" }),
-    ).toHaveCount(0);
   });
 });
 
@@ -111,7 +106,7 @@ test.describe("CLI-006: 受注者詳細のPR動画（cross-user）", () => {
 });
 
 test.describe("CON-006: 発注者詳細の職場紹介動画", () => {
-  test("active video_workplace の発注者で職場紹介動画が表示される", async ({
+  test("動画を登録済みの発注者で職場紹介動画が表示される", async ({
     page,
   }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
@@ -274,7 +269,12 @@ test.describe("管理者: 動画管理（ADM ログイン → 一覧 → 詳細 
   test("ADM-027 で Cloudflare 未設定時はファイルアップロードが無効で案内が出る", async ({
     page,
   }) => {
-    // ローカル E2E 環境は CLOUDFLARE_* 未設定（URL 登録のみ動く graceful degradation）
+    // CLOUDFLARE_* 未設定の環境だけ対象（URL 登録のみ動く graceful degradation）。
+    // 設定済みの環境（staging 反映作業以降のローカル等）では前提が成り立たないので skip する
+    test.skip(
+      !!process.env.CLOUDFLARE_ACCOUNT_ID && !!process.env.CLOUDFLARE_STREAM_API_TOKEN,
+      "Cloudflare Stream が設定済みの環境では対象外",
+    );
     await login(page, TEST_ADMIN.email, TEST_ADMIN.password);
     await page.goto(
       `/admin/users/${CONTRACTOR2_ID}/videos?placement=contractor_page`,

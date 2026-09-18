@@ -318,7 +318,7 @@ async function handleSubscriptionDeleted(
     // §6.5.C 補償オプション解約通知。
     // 退会 suppression: 退会済なら skip（E-8 退会通知に集約）。
     // 補償系は subscription mode のため `compensation_*` のみ通知対象。
-    // urgent / video / video_workplace は payment mode で本パスに来ない想定だが、
+    // urgent / 動画系は payment mode で本パスに来ない想定だが、
     // データ異常で来た場合は通知 skip して DB 整合のみ取る。
     const optionType = existingOption.data.option_type as OptionType;
     const isCompensation =

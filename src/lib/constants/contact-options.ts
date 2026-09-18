@@ -71,7 +71,7 @@ export type ContactVideoConsultation =
 // お問い合わせの種類が BANK_TRANSFER_INQUIRY_TYPE のときだけ選ぶ（必須・単一選択）。
 // contacts.bank_transfer_plan には **キー** を保存し、表示はここのラベルで行う
 // （プラン名の改名に強い）。管理画面の「銀行振込」枠の有効化対象も同じ定数を使う。
-// 補償（販売停止中）・急募（案件単位）・旧 職場紹介動画（新規販売停止）は含めない。
+// 補償（販売停止中）・急募（案件単位）は含めない。
 
 export const BANK_TRANSFER_VIDEO_PLAN_KEYS = ["video", "video_shooting", "video_sns"] as const;
 

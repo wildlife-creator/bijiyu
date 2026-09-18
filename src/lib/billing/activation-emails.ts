@@ -183,7 +183,7 @@ export async function sendUrgentActivatedEmails(
 }
 
 /**
- * §6.6.B-User + §6.6.B-Ops 並列送信ヘルパー（動画 / 職場紹介動画共通）。
+ * §6.6.B-User + §6.6.B-Ops 並列送信ヘルパー（動画系オプション共通）。
  *
  * - B-User: 申込者本人 + 法人プランなら組織メンバー全員（M-03 broadcast）
  * - B-Ops: `process.env.OPS_NOTIFICATION_EMAIL` 単一宛先（M-07）。運営はこの通知を

@@ -60,12 +60,9 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await page.goto("/billing");
     await expect(page.getByText("オプションプラン")).toBeVisible();
     await expect(page.getByText("急募", { exact: true })).toBeVisible();
-    // P10: 動画プランは 3 行（プロフィール動画制作 / ユーザー撮影 / ビジ友公式SNS動画制作）。
-    // 旧「自己PR動画掲載」「職場紹介動画掲載」の行は出ない
+    // 動画プランは 3 行（プロフィール動画制作 / ユーザー撮影 / ビジ友公式SNS動画制作）
     await expect(page.getByText("プロフィール動画制作プラン", { exact: true })).toBeVisible();
     await expect(page.getByText("100,000円/動画", { exact: true })).toBeVisible();
-    await expect(page.getByText("自己PR動画掲載", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("職場紹介動画掲載", { exact: true })).toHaveCount(0);
     // 説明文の注意書き（交通費 / プレミアム・ハイエンド付属）
     await expect(
       page.getByText("※エリアにより交通費等が発生する場合があります。").first(),

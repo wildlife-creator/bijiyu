@@ -8,10 +8,8 @@ import { readFeeCookie, FEE_COOKIE_NAME } from "@/lib/billing/fee-cookie";
 import { priceIdFor } from "@/lib/constants/plans";
 import {
   COMPENSATION_OPTION_DISABLED_MESSAGE,
-  DISCONTINUED_OPTION_MESSAGE,
   isCompensationOption,
   isCompensationOptionEnabled,
-  isDiscontinuedOption,
   type OptionType,
 } from "@/lib/billing/options";
 import { getStripeClient } from "@/lib/billing/stripe";
@@ -49,13 +47,6 @@ const videoOptionInputSchema = z.object({
   optionType: z.literal("video"),
 });
 
-// 旧 職場紹介動画掲載（video-display Task 4.1）。P10（2026-09）で「プロフィール動画制作プラン」（video）に
-// 統合し新規販売を停止。スキーマは残し、step 5 で isDiscontinuedOption により拒否する
-const videoWorkplaceOptionInputSchema = z.object({
-  type: z.literal("option"),
-  optionType: z.literal("video_workplace"),
-});
-
 // ユーザー撮影動画制作プラン（P7）。全会員（staff / admin 以外）が購入可。発注者プランの加入は問わない
 const videoShootingOptionInputSchema = z.object({
   type: z.literal("option"),
@@ -73,7 +64,6 @@ const startCheckoutInputSchema = z.union([
   compensationOptionInputSchema,
   urgentOptionInputSchema,
   videoOptionInputSchema,
-  videoWorkplaceOptionInputSchema,
   videoShootingOptionInputSchema,
   videoSnsOptionInputSchema,
 ]);
@@ -100,8 +90,6 @@ function priceIdForOption(optionType: OptionType): string {
       return process.env.STRIPE_PRICE_URGENT ?? "";
     case "video":
       return process.env.STRIPE_PRICE_VIDEO ?? "";
-    case "video_workplace":
-      return process.env.STRIPE_PRICE_VIDEO_WORKPLACE ?? "";
     case "video_shooting":
       return process.env.STRIPE_PRICE_VIDEO_SHOOTING ?? "";
     case "video_sns":
@@ -125,8 +113,6 @@ function buildSuccessUrl(input: StartCheckoutInput): string {
       return `${base}/billing?option_success=urgent`;
     case "video":
       return `${base}/billing?option_success=video`;
-    case "video_workplace":
-      return `${base}/billing?option_success=video_workplace`;
     case "video_shooting":
       return `${base}/billing?option_success=video_shooting`;
     case "video_sns":
@@ -271,11 +257,6 @@ export async function startCheckoutAction(
           error: "この案件は既に急募オプションが適用されています",
         };
       }
-    } else if (isDiscontinuedOption(input.optionType)) {
-      // 旧 職場紹介動画掲載（video_workplace）は P10 で「プロフィール動画制作プラン」に統合し
-      // 新規販売を停止。画面から行を消しても Server Action は直接呼べるためここでも拒否する。
-      // （旧「発注者プラン加入者のみ」のガードは統合に伴い撤廃。プロフィール動画は全会員が購入可）
-      return { success: false, error: DISCONTINUED_OPTION_MESSAGE };
     }
   }
 

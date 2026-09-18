@@ -8,8 +8,7 @@
 
 /** 正準 option_type union（要件 8.1）。 */
 export type OptionType =
-  | "video" // プロフィール動画制作プラン（P10 で旧「自己PR動画」「職場紹介動画」を統合。新規販売はこのキーのみ）
-  | "video_workplace" // 旧 職場紹介動画（P10、2026-09 で新規販売停止。既存行・Webhook・管理画面は維持）
+  | "video" // プロフィール動画制作プラン（P10 で旧「自己PR動画」「職場紹介動画」を統合。旧キー video_workplace は 2026-09-18 に廃止し既存行も video に書き換え済み）
   | "video_shooting" // ユーザー撮影動画制作プラン（P7、2026-09。ユーザーが撮った素材を運営が編集・掲載）
   | "video_sns" // ビジ友公式SNS動画制作プラン（P10、2026-09。運営が撮影・編集し公式 SNS に掲載）
   | "urgent"
@@ -27,20 +26,18 @@ export const OPTION_LABELS: Record<OptionType, string> = {
   compensation_9800: "補償（9,800円/月、最大500万円）",
   urgent: "急募オプション",
   video: "プロフィール動画",
-  video_workplace: "プロフィール動画（旧: 職場紹介動画）",
   video_shooting: "ユーザー撮影動画制作プラン",
   video_sns: "ビジ友公式SNS動画",
 };
 
 /**
  * オプション価格（税込 JPY）。Stripe の Price と一致させること
- * （STRIPE_PRICE_VIDEO / STRIPE_PRICE_VIDEO_WORKPLACE / STRIPE_PRICE_VIDEO_SHOOTING / STRIPE_PRICE_VIDEO_SNS /
+ * （STRIPE_PRICE_VIDEO / STRIPE_PRICE_VIDEO_SHOOTING / STRIPE_PRICE_VIDEO_SNS /
  *   STRIPE_PRICE_URGENT / STRIPE_PRICE_COMPENSATION_5000 / STRIPE_PRICE_COMPENSATION_9800）。
  * 銀行振込（P2）の申込金額と、料金プラン画面の表示に使う。補償は月額。
  */
 export const OPTION_PRICES_TAX_INCLUDED: Record<OptionType, number> = {
   video: 100000,
-  video_workplace: 100000,
   video_shooting: 20000,
   video_sns: 120000,
   urgent: 20000,
@@ -81,12 +78,11 @@ export function isCompensationOption(
 
 /**
  * 買い切り・期限なしの動画系オプション（購入後は運営が動画を制作 / 編集して掲載する 2 ステップ）。
- * Checkout / Webhook / 銀行振込の有効化 / メールはこの 4 種を同じ経路で扱う。
+ * Checkout / Webhook / 銀行振込の有効化 / メールはこの 3 種を同じ経路で扱う。
  * 表示側の出し分けには使わない（P4 で表示ゲートは撤廃済み）。
  */
 export const VIDEO_OPTION_TYPES = [
   "video",
-  "video_workplace",
   "video_shooting",
   "video_sns",
 ] as const satisfies readonly OptionType[];
@@ -99,7 +95,6 @@ export type VideoOptionType = (typeof VIDEO_OPTION_TYPES)[number];
  */
 export const VIDEO_OPTION_UI_NAMES: Record<VideoOptionType, string> = {
   video: "プロフィール動画制作プラン",
-  video_workplace: "プロフィール動画制作プラン（旧: 職場紹介動画掲載）",
   video_shooting: "ユーザー撮影動画制作プラン",
   video_sns: "ビジ友公式SNS動画制作プラン",
 };
@@ -108,25 +103,3 @@ export function isVideoOption(optionType: string): optionType is VideoOptionType
   return (VIDEO_OPTION_TYPES as readonly string[]).includes(optionType);
 }
 
-/**
- * 新規販売を停止したオプション（P10、2026-09。docs/requirements/video-plans-handoff-202609.md §4）。
- *
- * 旧「職場紹介動画」（video_workplace）は「プロフィール動画制作プラン」（video）に統合した。
- * 料金プラン画面から行を消すだけでなく、Stripe Checkout の Server Action でも拒否する
- * （画面から消しても Server Action は直接呼べるため）。
- * 既存の契約行・Webhook・メール・管理画面の表示はこの判定に関係なく動く（P12 の銀行振込の動画有効化は BANK_TRANSFER_PLAN_CHOICES に含めないことで拒否）。
- */
-export const DISCONTINUED_OPTION_TYPES: readonly OptionType[] = ["video_workplace"];
-
-export function isDiscontinuedOption(optionType: string): boolean {
-  return (DISCONTINUED_OPTION_TYPES as readonly string[]).includes(optionType);
-}
-
-export const DISCONTINUED_OPTION_MESSAGE =
-  "このオプションは「プロフィール動画制作プラン」に統合されました。プロフィール動画制作プランからお申し込みください";
-
-/**
- * 管理画面の絞り込み「プロフィール動画」で対象にする option_type。
- * 統合前に購入された video_workplace 行も同じ商品として扱う（ADM-003 / ADM-008 / ADM-004）。
- */
-export const PROFILE_VIDEO_OPTION_TYPES: readonly OptionType[] = ["video", "video_workplace"];

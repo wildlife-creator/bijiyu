@@ -161,7 +161,7 @@ describe("P12 銀行振込の希望プラン", () => {
     expect(BANK_TRANSFER_PLAN_CHOICES.map((c) => c.kind)).toEqual([
       "plan", "plan", "plan", "plan", "video", "video", "video",
     ]);
-    expect(isBankTransferPlanKey("video_workplace")).toBe(false);
+    expect(isBankTransferPlanKey("urgent")).toBe(false);
     expect(isBankTransferPlanKey("compensation_5000")).toBe(false);
     expect(bankTransferPlanLabel("small")).toBe("スタンダードプラン");
     expect(bankTransferPlanLabel("video")).toBe("プロフィール動画制作プラン");

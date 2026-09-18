@@ -79,7 +79,6 @@ interface SubscriptionInfo {
  * 買い切り動画系オプションの画面上の商品名（料金プラン画面・再購入ダイアログ用）。
  * メール用の OPTION_LABELS（短縮名）とは別に、この画面の見出しに合わせる。
  * 名称は docs/requirements/video-plans-handoff-202609.md §4.1 で確定（P10、2026-09）。
- * video_workplace は新規販売停止のため行を出さないが、再購入ダイアログの型を満たすため残す。
  */
 interface ActiveOption {
   id: string;
@@ -184,13 +183,7 @@ export function BillingClient({
   // 全会員（staff 以外）が購入可。発注者プランの加入は問わない（P10 で旧 職場紹介動画の制限を撤廃）。
   // プレミアム・ハイエンドへの付属はアプリで判定せず、説明文の注意書きで案内する（運用対応）。
   const hasVideoOption: Record<VideoOptionType, boolean> = {
-    // 統合前に購入した旧 職場紹介動画（video_workplace）も同じ商品として「購入済み」に含める
-    video: activeOptions.some(
-      (o) => o.optionType === "video" || o.optionType === "video_workplace",
-    ),
-    video_workplace: activeOptions.some(
-      (o) => o.optionType === "video_workplace",
-    ),
+    video: activeOptions.some((o) => o.optionType === "video"),
     video_shooting: activeOptions.some(
       (o) => o.optionType === "video_shooting",
     ),
@@ -247,10 +240,6 @@ export function BillingClient({
       toast.success("急募オプションのお申し込みが完了しました");
       router.replace("/billing");
     } else if (checkoutSuccess === "video") {
-      toast.success("プロフィール動画制作プランのお申し込みが完了しました");
-      router.replace("/billing");
-    } else if (checkoutSuccess === "video_workplace") {
-      // 統合前の success_url が残っている場合の互換（新規販売は停止済み）
       toast.success("プロフィール動画制作プランのお申し込みが完了しました");
       router.replace("/billing");
     } else if (checkoutSuccess === "video_shooting") {

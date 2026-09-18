@@ -123,9 +123,7 @@ export default async function AdminUserDetailPage({
       ? [
           {
             id: r.id,
-            // 旧 職場紹介動画（video_workplace）は統合先の名前だけを出す（「旧:」の注記は付けない）
-            planName:
-              VIDEO_OPTION_UI_NAMES[r.option_type === "video_workplace" ? "video" : r.option_type],
+            planName: VIDEO_OPTION_UI_NAMES[r.option_type],
             purchasedOnLabel: formatDateJst(r.start_date ?? r.created_at),
             paymentMethodLabel: PAYMENT_METHOD_LABELS[r.payment_method],
           },

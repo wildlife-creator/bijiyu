@@ -214,9 +214,9 @@ SELECT ok(
   EXISTS (
     SELECT 1 FROM option_subscriptions o
     JOIN public.users u ON u.id = o.user_id AND u.role = 'client' AND u.deleted_at IS NULL
-    WHERE o.option_type = 'video_workplace' AND o.status = 'active'
+    WHERE o.option_type = 'video' AND o.status = 'active'
   ),
-  'オプション: 職場紹介動画（video_workplace）active の発注者が存在する'
+  'オプション: プロフィール動画制作プラン（video）active の発注者が存在する'
 );
 
 SELECT * FROM finish();

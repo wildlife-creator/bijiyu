@@ -23,7 +23,6 @@ interface AdminUserFiltersProps {
 
 // 動画 3 プランのみ（名称は料金プラン画面と同じ正式名 = VIDEO_OPTION_UI_NAMES）。
 // 補償は販売停止中で加入者もいないため 2026-09-18 に選択肢から外した。急募は案件単位のため ADM-003 側に置く。
-// "video" は旧 職場紹介動画（video_workplace）の購入者にもヒットする（PROFILE_VIDEO_OPTION_TYPES）
 const OPTION_ITEMS: { value: string; label: string }[] = [
   { value: "all", label: "すべて" },
   { value: "video", label: VIDEO_OPTION_UI_NAMES.video },

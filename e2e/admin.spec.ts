@@ -369,7 +369,6 @@ test.describe("ADM-003/004/022: 発注者管理ドリルダウン", () => {
       "ユーザー撮影動画制作プラン",
       "ビジ友公式SNS動画制作プラン",
     ]);
-    // 旧 職場紹介動画（video_workplace）の購入者も「プロフィール動画制作プラン」でヒットする
     await page.getByRole("option", { name: "プロフィール動画制作プラン" }).click();
     await page.getByRole("button", { name: "検索" }).click();
     await page.waitForURL(/option=video(&|$)/);

@@ -217,7 +217,7 @@ describe("submitContactAction", () => {
     const f = validForm();
     f.set("inquiryType", "お支払い方法（銀行振込）について");
     expect((await submitContactAction(f)).success).toBe(false);
-    f.set("bankTransferPlan", "video_workplace"); // 新規販売停止のキーは選べない
+    f.set("bankTransferPlan", "compensation_5000"); // 対象外のキーは選べない
     expect((await submitContactAction(f)).success).toBe(false);
     expect(adminState.inserts).toHaveLength(0);
   });

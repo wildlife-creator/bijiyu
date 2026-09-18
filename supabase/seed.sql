@@ -1441,12 +1441,12 @@ INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_u
   ('d1d10000-0000-4000-8000-000000000003', 'cc111111-1111-1111-1111-111111111111', 'contractor_page', 1, 'cloudflare',
    NULL, 'a1b2c3d4e5f60718293a4b5c6d7e8f90', 'ユーザー撮影（Cloudflare）', 'ready');
 
--- (3) client@test.local: 職場紹介動画 1 本 + active 'video_workplace' → CON-006 / CLI-020 で表示
+-- (3) client@test.local: 職場紹介動画 1 本 + active 'video' → CON-006 / CLI-020 で表示
 INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, admin_label, status) VALUES
   ('d1d10000-0000-4000-8000-000000000004', '22222222-2222-2222-2222-222222222222', 'client_page', 0, 'external',
    'https://www.tiktok.com/@suzuki/video/7333333333333333333', '鈴木工務店 職場紹介', 'ready');
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
-  VALUES ('22222222-2222-2222-2222-222222222222', 'one_time', 'pi_seed_vw_22222', 'video_workplace', 'active', NULL);
+  VALUES ('22222222-2222-2222-2222-222222222222', 'one_time', 'pi_seed_vw_22222', 'video', 'active', NULL);
 
 -- (4) 発注者2 山田 (aabbccdd): オプション未購入でも ready 1 本は表示、processing 1 本は非表示
 INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_url, cloudflare_uid, admin_label, status) VALUES
@@ -1461,7 +1461,7 @@ INSERT INTO videos (id, user_id, placement, sort_order, provider, embed_source_u
   ('d1d10000-0000-4000-8000-000000000007', 'b1110000-0000-1000-8000-000000000005', 'client_page', 0, 'external',
    'https://www.tiktok.com/@hoshou/video/7555555555555555555', '削除テスト用', 'ready');
 INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_id, option_type, status, end_date)
-  VALUES ('b1110000-0000-1000-8000-000000000005', 'one_time', 'pi_seed_vw_corpcomp', 'video_workplace', 'active', NULL);
+  VALUES ('b1110000-0000-1000-8000-000000000005', 'one_time', 'pi_seed_vw_corpcomp', 'video', 'active', NULL);
 
 -- ============================================================
 -- 管理運営アカウント（P5 / spec-changes-202608 §2.4）テストデータ

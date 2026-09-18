@@ -229,7 +229,6 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_COMPENSATION_9800 = "price_comp_9800";
   process.env.STRIPE_PRICE_URGENT = "price_urgent";
   process.env.STRIPE_PRICE_VIDEO = "price_video";
-  process.env.STRIPE_PRICE_VIDEO_WORKPLACE = "price_video_workplace";
   process.env.STRIPE_PRICE_VIDEO_SHOOTING = "price_video_shooting";
   process.env.STRIPE_PRICE_VIDEO_SNS = "price_video_sns";
   // P8: 補償は販売停止フラグ制御。既存の補償テストは「販売中」の状態で走らせる
@@ -788,28 +787,7 @@ describe("startCheckoutAction — video_sns option (ビジ友公式SNS動画制�
   });
 });
 
-describe("startCheckoutAction — video_workplace option (旧 職場紹介動画掲載。P10 で新規販売停止)", () => {
-  it("rejects 発注者プラン active でも新規販売停止のため Checkout を作らない", async () => {
-    supabaseAuthState.userRow = {
-      id: "user-c1",
-      role: "client",
-      email: "client@test.local",
-    };
-    adminResults["select:subscriptions"] = {
-      data: [{ id: "sub-active" }],
-      error: null,
-    };
-    const result = await startCheckoutAction({
-      type: "option",
-      optionType: "video_workplace",
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toContain("プロフィール動画制作プラン");
-    }
-    expect(stripeMockState.sessionsCreated).toHaveLength(0);
-  });
-
+describe("startCheckoutAction — video option (プロフィール動画制作プラン)", () => {
   it("video（プロフィール動画制作プラン）は発注者プラン未加入の受注者でも購入できる（P10 で全会員に開放）", async () => {
     supabaseAuthState.userRow = {
       id: "user-c1",
@@ -837,7 +815,7 @@ describe("startCheckoutAction — video_workplace option (旧 職場紹介動画
     };
     const result = await startCheckoutAction({
       type: "option",
-      optionType: "video_workplace",
+      optionType: "video",
     });
     expect(result.success).toBe(false);
     expect(stripeMockState.sessionsCreated).toHaveLength(0);
@@ -851,7 +829,7 @@ describe("startCheckoutAction — video_workplace option (旧 職場紹介動画
     };
     const result = await startCheckoutAction({
       type: "option",
-      optionType: "video_workplace",
+      optionType: "video",
     });
     expect(result.success).toBe(false);
     expect(stripeMockState.sessionsCreated).toHaveLength(0);

@@ -479,8 +479,8 @@ describe("activateBankTransferVideoOptionAction（動画プランを有効にす
     });
   });
 
-  it("旧 職場紹介動画（video_workplace）や補償・急募は対象外として拒否", async () => {
-    for (const optionType of ["video_workplace", "compensation_5000", "urgent"]) {
+  it("補償・急募・不明なキーは対象外として拒否", async () => {
+    for (const optionType of ["compensation_5000", "urgent", "video_workplace"]) {
       const r = await activateBankTransferVideoOptionAction(USER_ID, fd({ optionType }));
       expect(r).toEqual({ success: false, error: "動画プランを選択してください" });
     }

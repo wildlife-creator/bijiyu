@@ -210,7 +210,7 @@ const FLOWS = [
     id: "F2",
     name: "発注者（プレミアム）: 料金プラン → 比較表 → 案件作成 → 応募一覧 → 発注可否（発注を依頼する）",
     intro: {
-      user: "client@test.local（プレミアムプラン・月払い・法人 Owner「鈴木工務店株式会社」。旧 職場紹介動画を購入済み）",
+      user: "client@test.local（プレミアムプラン・月払い・法人 Owner「鈴木工務店株式会社」。プロフィール動画制作プランを購入済み）",
       precondition: "seed 投入直後。応募 bbbe（contractor4 → 千葉案件）が「応募中」",
       expect: "料金プラン画面と比較表に P10/P11 の変更（新価格・動画 3 プラン・注意書き・新しい行）が出る。発注者の基本操作（案件作成・発注可否）が壊れていない",
     },
@@ -422,8 +422,8 @@ const FLOWS = [
     name: "管理画面（一覧）: オプション絞り込み（ユーザー一覧 = 動画 3 プラン / 発注者一覧 = 急募のみ）と発注者詳細",
     intro: {
       user: "admin@test.local（運営）",
-      precondition: "seed 投入直後（contractor@test.local = 旧 video、client@test.local = 旧 video_workplace を購入済み）",
-      expect: "ユーザー一覧の絞り込みが動画 3 プランの正式名だけ（補償なし）で、「プロフィール動画制作プラン」で旧 video と旧 video_workplace の購入者がまとめて出る。発注者一覧の絞り込み・バッジは急募のみ。詳細画面の見出し・ボタン名が新名称",
+      precondition: "seed 投入直後（contractor@test.local と client@test.local がプロフィール動画制作プランを購入済み）",
+      expect: "ユーザー一覧の絞り込みが動画 3 プランの正式名だけ（補償なし）で、「プロフィール動画制作プラン」で購入者が出る。発注者一覧の絞り込み・バッジは急募のみ。詳細画面の見出し・ボタン名が新名称",
     },
     async run(page) {
       await step(page, this, "運営ログイン → ユーザーアカウント一覧", async () => {
@@ -440,7 +440,7 @@ const FLOWS = [
         await page.getByRole("button", { name: "検索" }).click();
         await page.waitForURL(/option=video/);
         await page.getByText(/検索結果：/).waitFor();
-      }, { desc: "操作: 「プロフィール動画制作プラン」を選んで「検索」。\n確認: 旧 video（contractor@test.local）と旧 video_workplace（client@test.local）の購入者が両方ヒットする（統合前の購入を同じ商品として扱う）。" });
+      }, { desc: "操作: 「プロフィール動画制作プラン」を選んで「検索」。\n確認: 購入者（contractor@test.local と client@test.local）が両方ヒットする。" });
       await step(page, this, "発注者アカウント一覧（絞り込み・バッジは急募のみ）", async () => {
         await page.goto(`${BASE}/admin/clients`);
         await page.getByRole("heading", { level: 1 }).first().waitFor();
