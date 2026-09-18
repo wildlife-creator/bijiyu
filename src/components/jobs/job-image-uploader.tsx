@@ -3,7 +3,6 @@
 import { useCallback, useState } from "react";
 import { Camera, FileText, X } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { validateJobImageFile } from "@/lib/validations/job";
 import {
   convertImageForUpload,

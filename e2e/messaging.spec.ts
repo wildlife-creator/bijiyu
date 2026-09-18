@@ -2,7 +2,6 @@ import { test, expect } from "@playwright/test";
 import {
   login,
   TEST_CONTRACTOR,
-  TEST_CONTRACTOR2,
   TEST_CLIENT,
   TEST_CLIENT2,
   TEST_STAFF,
@@ -14,7 +13,6 @@ import {
 // ---------------------------------------------------------------------------
 const SCOUT_THREAD_ID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01";
 const MSG_THREAD_ORG_CON2 = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02";
-const MSG_THREAD_ORG_CON3 = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03";
 const MSG_THREAD_INDIV_CON = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05";
 
 // Target user for scout send

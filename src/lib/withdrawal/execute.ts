@@ -41,11 +41,11 @@ const GUARD_TITLE_LIMIT = 2;
  * 退会ガードの案内文。稼働終了日+5日を過ぎた発注済み応募は当事者が
  * 画面から完了報告できないため、運営（ADM-014 の完了扱い／取消）に解消を依頼する導線を示す。
  */
-export const WITHDRAWAL_EXPIRED_GUIDANCE =
+const WITHDRAWAL_EXPIRED_GUIDANCE =
   "稼働終了日から5日を過ぎて完了報告ができない場合は、お問い合わせからご連絡ください。";
 
 /** ガード対象の案件タイトルを「（A、B ほかN件）」の形に整える（タイトルが取れなければ空文字） */
-export function formatJobTitlesForGuard(
+function formatJobTitlesForGuard(
   rows: Array<{ jobs?: { title?: string | null } | { title?: string | null }[] | null }>,
 ): string {
   const titles = Array.from(

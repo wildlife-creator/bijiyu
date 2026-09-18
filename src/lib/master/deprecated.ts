@@ -6,7 +6,7 @@
  * 保存時は `stripDeprecatedSuffix` で素の label に戻してから validate に渡す。
  */
 
-export const DEPRECATED_SUFFIX = "（廃止）";
+const DEPRECATED_SUFFIX = "（廃止）";
 
 export function applyDeprecatedSuffix(
   labels: string[],
@@ -15,10 +15,6 @@ export function applyDeprecatedSuffix(
   return labels.map((label) =>
     deprecatedSet.has(label) ? `${label}${DEPRECATED_SUFFIX}` : label,
   );
-}
-
-export function isDeprecated(label: string): boolean {
-  return label.endsWith(DEPRECATED_SUFFIX);
 }
 
 export function stripDeprecatedSuffix(label: string): string {

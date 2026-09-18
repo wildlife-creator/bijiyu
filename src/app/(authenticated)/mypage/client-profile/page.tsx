@@ -174,7 +174,6 @@ export default async function ClientProfilePage() {
       <div className="mt-4 flex items-center gap-4">
         <div className="size-20 shrink-0 overflow-hidden rounded-full bg-background border border-border">
           {profile?.image_url ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={profile.image_url}
               alt={`${displayName}のプロフィール画像`}

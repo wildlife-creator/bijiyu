@@ -12,7 +12,7 @@ type AdminClient = SupabaseClient<Database>;
  * §2.1 通常メッセージ受信通知メールの throttle 窓 (15 分)。
  * spec WIP §2.1「連投スパム防止と急ぎ対応のバランス」確定値。
  */
-export const MESSAGE_EMAIL_THROTTLE_MS = 15 * 60 * 1000;
+const MESSAGE_EMAIL_THROTTLE_MS = 15 * 60 * 1000;
 
 interface SendMessageNotificationParams {
   /** 対象スレッド ID */

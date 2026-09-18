@@ -45,16 +45,6 @@ export const OPTION_PRICES_TAX_INCLUDED: Record<OptionType, number> = {
   compensation_9800: 9800,
 };
 
-/** 月額課金型（subscription）のオプション。それ以外は買い切り（one_time）。 */
-export const SUBSCRIPTION_OPTION_TYPES: readonly OptionType[] = [
-  "compensation_5000",
-  "compensation_9800",
-];
-
-export function isSubscriptionOption(optionType: OptionType): boolean {
-  return SUBSCRIPTION_OPTION_TYPES.includes(optionType);
-}
-
 /**
  * 補償オプション（compensation_5000 / 9800）の販売フラグ。
  *

@@ -139,7 +139,7 @@ export function planDisplayName(
 }
 
 /** Stripe Price ID を返す環境変数名（月額 4 + 年額 4）。 */
-export const STRIPE_PRICE_ENV_KEYS: Record<PaidPlanType, Record<BillingCycle, string>> = {
+const STRIPE_PRICE_ENV_KEYS: Record<PaidPlanType, Record<BillingCycle, string>> = {
   individual: {
     monthly: "STRIPE_PRICE_INDIVIDUAL",
     yearly: "STRIPE_PRICE_INDIVIDUAL_YEARLY",

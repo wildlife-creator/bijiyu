@@ -34,7 +34,7 @@ function optionalChoice(options: readonly string[], label: string) {
     );
 }
 
-export const BANK_TRANSFER_PLAN_REQUIRED_MESSAGE = "希望プランを選択してください";
+const BANK_TRANSFER_PLAN_REQUIRED_MESSAGE = "希望プランを選択してください";
 
 export const contactSchema = z
   .object({

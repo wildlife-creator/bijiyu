@@ -1313,7 +1313,7 @@ messages テーブルの RLS ポリシーでは、「自分がアクセス可能
 - インデックス: `WHERE deprecated_at IS NULL` の部分 B-tree インデックス（label）
 
 **取得:**
-- `getActiveTradeTypes()` / `getActiveQualifications()` / `getActiveSkillTags()` は `deprecated_at IS NULL` で絞った label の配列
+- `getAllMasterRows(kind)`（kind = trade-types / qualifications / skill-tags）は label の配列（`deprecated_at` 付き。描画側で active に絞る）。`getActiveTradeTypes()` は `deprecated_at IS NULL` で絞った label の配列
 - `getAllMasterRows(kind)` は廃止判定セット組み立て用（`deprecated_at` 付き全行）
 - いずれも `unstable_cache` で 1 時間キャッシュし、tag は共通の `'master-skills'`。admin 側で値を変更した場合は `revalidateTag('master-skills')` で一括無効化する設計
 

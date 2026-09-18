@@ -47,7 +47,7 @@ const DISPLAY_CATEGORY_MAP: Record<
  * Map DB status + review existence to display category for contractor.
  * hasClientReview = 自分（受注者）の評価, hasUserReview = 相手（発注者）の評価
  */
-export function getDisplayCategory(
+function getDisplayCategory(
   status: string,
   hasClientReview: boolean,
   hasUserReview: boolean = false,

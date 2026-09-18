@@ -123,7 +123,6 @@ export function SiteHeader({
         href={isAuthenticated ? "/mypage" : "/"}
         className="flex items-center"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/images/logo-horizontal.png"
           alt="ビジ友"

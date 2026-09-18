@@ -29,9 +29,9 @@ interface ScoutActionButtonsProps {
 }
 
 /** 送信側に見せる文言（ボタンが無いのを不具合と誤認されないため） */
-export const SCOUT_WAITING_MESSAGE = "相手の返答を待っています";
+const SCOUT_WAITING_MESSAGE = "相手の返答を待っています";
 /** 受信側の担当者（staff）に見せる文言（受注者アクションは管理責任者のみ） */
-export const SCOUT_STAFF_NOTICE = "スカウトへの返答は管理責任者のみ行えます";
+const SCOUT_STAFF_NOTICE = "スカウトへの返答は管理責任者のみ行えます";
 
 export function ScoutActionButtons({
   showScoutActions,

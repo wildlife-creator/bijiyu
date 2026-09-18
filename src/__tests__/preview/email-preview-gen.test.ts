@@ -2526,7 +2526,6 @@ describe.skipIf(!process.env.GENERATE_EMAIL_PREVIEWS)("email preview generator",
     fs.writeFileSync(path.join(OUTPUT_DIR, "index.html"), indexHtml, "utf-8");
 
     // 標準出力に件数報告 (vitest reporter で見える)
-    // eslint-disable-next-line no-console
     console.log(
       `\n[email-preview-gen] generated ${entries.length} email previews + index.html\n  output: ${OUTPUT_DIR}\n  open:   file://${path.join(OUTPUT_DIR, "index.html")}\n`,
     );

@@ -607,7 +607,6 @@ describe("customer.subscription.updated", () => {
 
   it("§6.1-C-1 downgrade reservation removed (schedule_id non-null → null): subject 「ご予約を取り消しました」, 本文「プラン変更を取り消しました」", async () => {
     // before: schedule_id 設定済 / after: schedule_id 解除 (Stripe schedule null + same plan)
-    const sub = buildSubscription({ schedule: null });
     const { admin } = makeAdmin({
       results: {
         "select:subscriptions": {

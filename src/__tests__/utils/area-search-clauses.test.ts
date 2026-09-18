@@ -30,12 +30,6 @@ function mockQuery<T>(result: MockResult<T>) {
   return chain;
 }
 
-interface CallSpec {
-  prefecture: string;
-  municipalityCondition: "eq" | "is-null" | null;
-  result: MockResult<{ job_id?: string; client_id?: string; user_id?: string }>;
-}
-
 /**
  * Build supabase mock whose `.from(table)` returns chained queries.
  * Each `.from()` call dequeues the next pre-specified result.

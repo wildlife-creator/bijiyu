@@ -46,8 +46,6 @@ vi.mock("@/lib/master/fetch", () => {
   ];
   return {
     getActiveTradeTypes: vi.fn().mockResolvedValue(MOCK_TRADES.map((r) => r.label)),
-    getActiveQualifications: vi.fn().mockResolvedValue([]),
-    getActiveSkillTags: vi.fn().mockResolvedValue([]),
     getAllMasterRows: vi.fn().mockImplementation((kind: string) => {
       if (kind === "trade-types") {
         return Promise.resolve(MOCK_TRADES);

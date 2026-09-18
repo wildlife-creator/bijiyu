@@ -31,11 +31,6 @@ interface SheetContextValue {
 
 const SheetContext = createContext<SheetContextValue | null>(null);
 
-/** Sheet を閉じる関数（後方互換）。 */
-export function useSheetClose() {
-  return useContext(SheetContext)?.close ?? null;
-}
-
 /** Sheet の close / navigate / isPending をまとめて取得する。 */
 export function useSheetContext() {
   return useContext(SheetContext);

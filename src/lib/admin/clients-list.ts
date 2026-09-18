@@ -44,7 +44,7 @@ export const CLIENT_OPTION_BADGE_LABELS: Record<ClientOptionBadge, string> = {
 };
 
 /** option_subscriptions.option_type → ADM-003 のバッジ種別（対象外は null） */
-export function optionTypeToClientBadge(optionType: string): ClientOptionBadge | null {
+function optionTypeToClientBadge(optionType: string): ClientOptionBadge | null {
   if (optionType === "urgent") return "urgent";
   return null;
 }

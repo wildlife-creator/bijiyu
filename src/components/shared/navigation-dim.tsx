@@ -13,6 +13,14 @@ function NavigationDimInner() {
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 遷移が完了して URL が変わったら、その描画中に非表示へ戻す（effect 内で setState しない）
+  const navKey = `${pathname}?${searchParams.toString()}`;
+  const [seenNavKey, setSeenNavKey] = useState(navKey);
+  if (seenNavKey !== navKey) {
+    setSeenNavKey(navKey);
+    setVisible(false);
+  }
+
   useEffect(() => {
     if (showTimerRef.current) {
       clearTimeout(showTimerRef.current);
@@ -22,8 +30,7 @@ function NavigationDimInner() {
       clearTimeout(clearTimerRef.current);
       clearTimerRef.current = null;
     }
-    setVisible(false);
-  }, [pathname, searchParams]);
+  }, [navKey]);
 
   useEffect(() => {
     function scheduleShow() {

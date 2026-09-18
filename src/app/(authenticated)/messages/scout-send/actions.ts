@@ -20,8 +20,6 @@ import {
 } from "@/lib/utils/display-name";
 import type { ActionResult } from "@/lib/types/action-result";
 
-const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
-
 // ---------------------------------------------------------------------------
 // Helper: find or create thread by identity pair (Phase 2)
 // 相手 (受注者) の組織所属 identity も含めた identity ペアでスレッドを一意化。

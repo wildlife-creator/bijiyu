@@ -26,7 +26,7 @@ export const areaErrorMessages = {
     "エリアは最大 10 件までです。1 つ以上削除してください",
 } as const;
 
-export const areaRowSchema = z.object({
+const areaRowSchema = z.object({
   prefecture: z.string().min(1),
   whole: z.boolean(),
   municipalities: z.array(z.string()),

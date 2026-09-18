@@ -27,21 +27,6 @@ interface SaveOpts {
 
 type PlanType = "individual" | "small" | "corporate" | "corporate_premium";
 
-/**
- * 操作者（Admin / Staff）の場合は所属組織 Owner の user_id を返す。
- * Owner 自身の場合は自身の user_id を返す。
- * 組織非所属の個人発注者は user_id 自身を返す。
- */
-async function resolveProfileUserId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  actorUserId: string,
-): Promise<string> {
-  const { active } = await getActiveOrganizationContext(supabase);
-  if (!active) return actorUserId; // 個人発注者
-  if (active.orgRole === "owner") return actorUserId;
-  return active.orgOwnerId;
-}
-
 async function getPlanType(
   _supabase: Awaited<ReturnType<typeof createClient>>,
   profileUserId: string,

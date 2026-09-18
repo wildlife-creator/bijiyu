@@ -14,7 +14,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const API_BASE = "https://api.cloudflare.com/client/v4";
 const FETCH_TIMEOUT_MS = 15_000;
 /** Webhook の time ヘッダとの許容ずれ（秒）。再送遅延を考慮して 5 分。 */
-export const WEBHOOK_TOLERANCE_SECONDS = 300;
+const WEBHOOK_TOLERANCE_SECONDS = 300;
 
 export interface CloudflareStreamConfig {
   accountId: string;

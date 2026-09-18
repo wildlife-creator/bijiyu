@@ -552,7 +552,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - この3項目は意味論が異なる。受注者詳細（CLI-006）や応募詳細（applications/received・orders）で **`trade_type` を「保有スキル」ラベルで表示してはならない**。`users.skill_tags` を参照すること
 - 2026-04-22 実例: COM-001/002 で保有スキル欄が欠落していた。それに合わせて CLI-006 / applications 詳細画面でも `skills.map((s) => s.trade_type).join("、")` を「保有スキル」として表示する hack が入っていたため、`users.skill_tags` に一本化
 - 新しく「保有スキル」を表示する画面を作る際は必ず `users.skill_tags` を SELECT すること。user_skills から引かないこと
-- マスタ候補の取得は `getActiveTradeTypes()` / `getActiveQualifications()` / `getActiveSkillTags()`（`src/lib/master/fetch.ts`）を使い、検索ポップアップ・編集フォーム共に MasterCombobox に渡す。`unstable_cache` で 1 時間キャッシュ + tag `'master-skills'` で一括無効化可能
+- マスタ候補の取得は `getAllMasterRows(kind)`（`src/lib/master/fetch.ts`。kind = trade-types / qualifications / skill-tags）を使い、検索ポップアップ・編集フォーム共に MasterCombobox に渡す。`unstable_cache` で 1 時間キャッシュ + tag `'master-skills'` で一括無効化可能
 
 ### 対応エリア・募集エリアの設計（必ず守ること — master-area）
 - **保存形式**: 1 行 = 1 (prefecture, municipality?) ペア。`municipality IS NULL` = 「県全域」(受注者) / 「現場未定」(案件) / 「全域募集」(発注者)

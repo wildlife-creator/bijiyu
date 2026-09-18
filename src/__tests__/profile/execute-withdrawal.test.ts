@@ -40,7 +40,6 @@ vi.mock("@/lib/billing/stripe", () => ({
 // §8.5 / §8.5.5 cascade メール送信 (関数末尾で await Promise.all) を観察するため
 // sendEmail を vi.hoisted で巻き上げて mock 化する。
 const { sendEmailMock } = vi.hoisted(() => ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   sendEmailMock: vi.fn(async (_args: unknown) => ({ success: true as const })),
 }));
 vi.mock("@/lib/email/send-email", () => ({

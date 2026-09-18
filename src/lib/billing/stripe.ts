@@ -38,11 +38,3 @@ export function getStripeClient(): Stripe {
 
   return cachedClient;
 }
-
-/**
- * Test-only helper to reset the cached Stripe client between test runs
- * after mocking env vars.
- */
-export function resetStripeClient(): void {
-  cachedClient = null;
-}

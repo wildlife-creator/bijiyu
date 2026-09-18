@@ -37,8 +37,6 @@ import {
 import { formatDateTime, getJstToday } from "@/lib/utils/format-date";
 import type { ActionResult } from "@/lib/types/action-result";
 
-const SERVICE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
-
 // ---------------------------------------------------------------------------
 // Helper: fetch application with job and applicant info
 // ---------------------------------------------------------------------------

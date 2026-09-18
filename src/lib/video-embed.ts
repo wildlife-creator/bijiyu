@@ -61,7 +61,7 @@ const PATTERNS: readonly PlatformPattern[] = [
 ];
 
 /** Cloudflare Stream の埋込プレイヤー URL。 */
-export function cloudflareEmbedUrl(uid: string): string {
+function cloudflareEmbedUrl(uid: string): string {
   return `https://iframe.videodelivery.net/${uid}`;
 }
 

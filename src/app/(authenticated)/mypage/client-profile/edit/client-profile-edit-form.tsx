@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { Controller, useForm, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
@@ -20,11 +19,7 @@ import {
   applyDeprecatedSuffix,
   stripDeprecatedSuffix,
 } from "@/lib/master/deprecated";
-import {
-  LANGUAGES,
-  PREFECTURES,
-  WORKING_WAYS,
-} from "@/lib/constants/options";
+import { LANGUAGES, WORKING_WAYS } from "@/lib/constants/options";
 import {
   selectClientProfileSchema,
   type ClientProfileFormInput,
@@ -80,7 +75,6 @@ export function ClientProfileEditForm({
   candidateMunicipalitiesByPrefecture,
   existingDeprecatedMunicipalitiesByPrefecture,
 }: Props) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isUploading, startUpload] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,7 +206,6 @@ export function ClientProfileEditForm({
         <div className="mt-4 flex flex-col items-center gap-3">
           <div className="size-24 overflow-hidden rounded-full border border-border bg-background">
             {imageUrl ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={imageUrl}
                 alt="プロフィール画像"

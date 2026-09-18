@@ -23,14 +23,6 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <div className="bg-primary/[0.08] px-4 py-2 rounded-t-[8px]">
-      <span className="text-body-sm font-medium">{label}</span>
-    </div>
-  );
-}
-
 function InfoRow({
   label,
   value,
@@ -281,7 +273,6 @@ export default async function ContractorDetailPage({ params }: PageProps) {
           </div>
         </section>
       )}
-
 
       {/* 能力 */}
       {(() => {
