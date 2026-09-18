@@ -484,15 +484,13 @@ export function BillingClient({
         <p className="mt-3 text-body-sm text-muted-foreground">
           無料プランを含め、全部で5種類のプランがあります。各プランの詳細は<a href="/billing/plans" className="text-primary underline">こちら</a>をご確認ください。
         </p>
-        {showInitialFee ? (
+        {/* 初回だけ事務手数料の注意書き。再契約・切り替え時の「不要」の文は紛らわしいため出さない
+            （手数料の要否はサーバー側が契約歴で判定する。表示は案内のみ） */}
+        {showInitialFee && (
           <p className="mt-2 text-body-sm text-muted-foreground">
             ※基本プランの有料プランへ初めて申し込みをした場合、初回事務手数料として{INITIAL_FEE_TAX_INCLUDED.toLocaleString("ja-JP")}円が必要となります。
           </p>
-        ) : !isFirstPurchase ? (
-          <p className="mt-2 text-body-sm text-muted-foreground">
-            ※この画面から基本プランに申し込んだ場合は、初回事務手数料の{INITIAL_FEE_TAX_INCLUDED.toLocaleString("ja-JP")}円は不要となります。
-          </p>
-        ) : null}
+        )}
 
         {isBankTransferPlan && (
           <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-body-sm text-muted-foreground">

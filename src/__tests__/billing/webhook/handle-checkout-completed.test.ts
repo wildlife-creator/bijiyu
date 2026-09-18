@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { handleCheckoutCompleted } from "@/lib/billing/webhook/handle-checkout-completed";
 
@@ -1005,5 +1005,67 @@ describe("handleCheckoutCompleted §6.5.A compensation email", () => {
     ).resolves.toBeUndefined();
 
     expect(SEND).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P12 §3.2: 銀行振込 → カード決済への切り替え（RPC v3 が銀行振込行を終了して id を返す）
+// ---------------------------------------------------------------------------
+describe("handleCheckoutCompleted P12 銀行振込からの切り替え", () => {
+  const OPS = "ops@test.local";
+  let prevOps: string | undefined;
+  beforeEach(() => {
+    prevOps = process.env.OPS_NOTIFICATION_EMAIL;
+    process.env.OPS_NOTIFICATION_EMAIL = OPS;
+    SEND.mockClear();
+  });
+  afterEach(() => {
+    process.env.OPS_NOTIFICATION_EMAIL = prevOps;
+  });
+
+  function adminWith(rpcData: Record<string, unknown>) {
+    return makeAdmin({
+      rpcResults: { handle_checkout_completed_plan: { data: rpcData, error: null } },
+      selectByTable: {
+        users: {
+          data: {
+            email: "bank@test.local",
+            last_name: "振込",
+            first_name: "一郎",
+            client_profiles: null,
+          },
+        },
+      },
+    }).admin;
+  }
+
+  it("RPC が ended_bank_transfer_subscription_id を返したら、運営宛通知に「以後、銀行振込の請求書は不要」の一文が入る", async () => {
+    const admin = adminWith({
+      subscription_id: "sub-new",
+      ended_bank_transfer_subscription_id: "sub-bank-1",
+    });
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({ type: "plan", plan_type: "small", user_id: "user-bank" }),
+      { sendEmail: SEND as never },
+    );
+    const ops = SEND.mock.calls.map((c) => c[0] as SendArgs).find((m) => m.to === OPS);
+    expect(ops?.subject).toBe("【ビジ友 運営】プランの新規お申し込みがありました");
+    expect(ops?.html).toContain("以後、銀行振込の請求書は不要です");
+  });
+
+  it("銀行振込行が無かった（null）通常の新規契約では、その一文は入らない", async () => {
+    const admin = adminWith({
+      subscription_id: "sub-new",
+      ended_bank_transfer_subscription_id: null,
+    });
+    await handleCheckoutCompleted(
+      admin,
+      makeSession({ type: "plan", plan_type: "small", user_id: "user-fresh" }),
+      { sendEmail: SEND as never },
+    );
+    const ops = SEND.mock.calls.map((c) => c[0] as SendArgs).find((m) => m.to === OPS);
+    expect(ops).toBeTruthy();
+    expect(ops?.html).not.toContain("請求書は不要");
   });
 });

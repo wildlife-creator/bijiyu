@@ -182,10 +182,11 @@ test.describe("CLI-026 表示: active client (corporate)", () => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/billing");
     // 初回事務手数料「必要」の注意書きは出てはいけない
-    // （既存ユーザー向けには「不要となります」の注意書きが出る仕様）
+    // （P12 で「不要となります」の注意書きは廃止。手数料の要否はサーバー側が契約歴で判定する）
     await expect(
       page.getByText("初回事務手数料として12,000円が必要となります"),
     ).not.toBeVisible();
+    await expect(page.getByText(/初回事務手数料の.*不要となります/)).toHaveCount(0);
   });
 });
 

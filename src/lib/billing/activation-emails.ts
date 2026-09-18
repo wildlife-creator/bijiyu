@@ -44,6 +44,8 @@ export interface PlanActivatedEmailContext {
   billingCycle?: BillingCycle;
   /** 支払方法（運営宛の「お支払い方法」行）。不明なら省略 */
   paymentMethod?: PaymentMethod;
+  /** 銀行振込からカード決済への切り替えで、銀行振込行が自動終了した（運営宛に請求停止の一文を足す） */
+  endedBankTransfer?: boolean;
 }
 
 /**
@@ -101,6 +103,7 @@ export async function sendPlanActivatedEmail(
       activatedAt: formatBillingDate(activatedAtIso),
       userId,
       siteUrl,
+      endedBankTransfer: context.endedBankTransfer === true,
     });
     await send({ to: opsEmail, subject: tpl.subject, html: tpl.html });
   } catch (err) {

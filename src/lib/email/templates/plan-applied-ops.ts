@@ -15,6 +15,11 @@ interface PlanAppliedOpsEmailProps {
   userId: string;
   /** deep link 用 site URL。 */
   siteUrl: string;
+  /**
+   * 銀行振込で契約中の会員がカード決済に切り替えた（P12 §3.2。Checkout 完了で銀行振込行が自動終了）。
+   * true のとき「以後、銀行振込の請求書は不要」の一文を足し、運営が二重に請求しないようにする
+   */
+  endedBankTransfer?: boolean;
 }
 
 /**
@@ -36,6 +41,7 @@ export function planAppliedOpsEmail({
   activatedAt,
   userId,
   siteUrl,
+  endedBankTransfer = false,
 }: PlanAppliedOpsEmailProps): { subject: string; html: string } {
   const deepLink = `${siteUrl}/admin/clients/${userId}`;
   const bodyParts: string[] = [
@@ -49,6 +55,15 @@ export function planAppliedOpsEmail({
     listItem("お申し込みプラン", planName),
     listItem("お支払い方法", paymentMethodLabel),
     listItem("ご利用開始日", activatedAt, { blockEnd: true }),
+  );
+  if (endedBankTransfer) {
+    bodyParts.push(
+      paragraph(
+        "この会員は銀行振込でご契約中でしたが、クレジットカード決済に切り替わりました。銀行振込の契約は自動的に終了しています。以後、銀行振込の請求書は不要です。",
+      ),
+    );
+  }
+  bodyParts.push(
     paragraph(
       "申込者の詳細は下記からご確認いただけます。ログインした状態でクリックしてください。",
     ),

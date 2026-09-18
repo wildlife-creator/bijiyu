@@ -591,6 +591,23 @@ describe("planAppliedOpsEmail §6.7-Ops 基本プラン新規契約の運営通�
     expect(out.html).not.toContain("会社名");
     expect(out.html).not.toContain("動画");
     expect(out.html).toContain("クレジットカード");
+    expect(out.html).not.toContain("請求書は不要");
+  });
+
+  it("P12: 銀行振込からカード決済に切り替わったときだけ「以後、銀行振込の請求書は不要」の一文を足す", () => {
+    const out = planAppliedOpsEmail({
+      applicantName: "振込一郎",
+      companyName: "振込一郎建設",
+      planName: "スタンダードプラン（月払い）",
+      paymentMethodLabel: "クレジットカード",
+      activatedAt: "2026/09/16",
+      userId: "user-001",
+      siteUrl: "https://bijiyu.example.com",
+      endedBankTransfer: true,
+    });
+    expect(out.html).toContain(
+      "この会員は銀行振込でご契約中でしたが、クレジットカード決済に切り替わりました。銀行振込の契約は自動的に終了しています。以後、銀行振込の請求書は不要です。",
+    );
   });
 });
 

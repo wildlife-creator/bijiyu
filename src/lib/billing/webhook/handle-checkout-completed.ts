@@ -180,7 +180,7 @@ async function handlePlanCheckout(
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).rpc("handle_checkout_completed_plan", {
+  const { data: rpcData, error } = await (admin as any).rpc("handle_checkout_completed_plan", {
     event_data: eventData,
   });
 
@@ -189,6 +189,12 @@ async function handlePlanCheckout(
       `handle_checkout_completed_plan RPC failed: ${error.message ?? String(error)}`,
     );
   }
+
+  // P12 §3.2: 銀行振込で契約中の会員がカード決済に切り替えた場合、RPC v3 が銀行振込行を
+  // 後処理なしで終了させ、その id を返す。運営宛通知に「以後の請求書は不要」の一文を足す
+  const endedBankTransfer =
+    typeof (rpcData as { ended_bank_transfer_subscription_id?: string | null } | null)
+      ?.ended_bank_transfer_subscription_id === "string";
 
   // Phase 5 (proxy-account-multi-org-support) で reactivateCorporateMembers を撤廃。
   // 法人プラン再アップグレード時の配下 Admin/Staff 復帰は organization_members 行
@@ -199,6 +205,7 @@ async function handlePlanCheckout(
   await sendPlanActivatedEmail(admin, send, userId, planType as PlanType, undefined, {
     billingCycle,
     paymentMethod: "stripe",
+    endedBankTransfer,
   });
 }
 
