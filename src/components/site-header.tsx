@@ -47,7 +47,7 @@ const AUTH_PRIMARY: MenuItem[] = [
 
 // design-assets/screens/UI-header-login.png 下段
 const AUTH_SECONDARY: MenuItem[] = [
-  { label: "プラン変更", href: "/billing" },
+  { label: "料金プラン", href: "/billing" },
   { label: "本人確認・CCUS登録", href: "/profile/verification" },
   { label: "ユーザープロフィール", href: "/profile" },
   { label: "自社の発注者情報詳細", href: "/mypage/client-profile", paidOnly: true },

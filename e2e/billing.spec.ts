@@ -28,16 +28,19 @@ const TEST_DOWNGRADE_RESERVED = {
 // ===========================================================================
 
 test.describe("CLI-026 表示: 未課金 contractor", () => {
-  test("基本プランに「申し込む」ボタンが4つ表示される", async ({ page }) => {
+  test("基本プランに「このプランにする」ボタンが4つ表示される", async ({ page }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto("/billing");
-    await expect(page.getByText("プラン変更")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "料金プラン" })).toBeVisible();
+    // ご契約状況カード（無料）
+    await expect(page.getByRole("heading", { name: "ご契約状況" })).toBeVisible();
+    await expect(page.getByText("無料プラン", { exact: true })).toBeVisible();
     // 見出し単独をターゲット（「基本プラン」は注意書きにも含まれるため）
     await expect(page.getByRole("heading", { name: "基本プラン" })).toBeVisible();
 
-    // 4 plan buttons should show "申し込む"
-    const buttons = page.getByRole("button", { name: "申し込む" });
-    await expect(buttons.first()).toBeVisible();
+    // 4 plan buttons should show "このプランにする"
+    const buttons = page.getByRole("button", { name: "このプランにする" });
+    await expect(buttons).toHaveCount(4);
 
     // Initial fee note (first purchase case) should be visible
     await expect(
@@ -49,10 +52,11 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto("/billing");
     await page.getByRole("tab", { name: "年払い" }).click();
-    // ライトプラン 2,800 × 10 = 28,000 円/年（暫定係数 YEARLY_PRICE_MONTHS）
-    await expect(page.getByRole("button", { name: /28,000円\/年 申し込む/ })).toBeVisible();
+    // ライトプラン 2,800 × 10 = 28,000 円/年（暫定係数 YEARLY_PRICE_MONTHS）。価格は行の右側に出る
+    await expect(page.getByText("28,000円/年", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "このプランにする" })).toHaveCount(4);
     await page.getByRole("tab", { name: "月払い" }).click();
-    await expect(page.getByRole("button", { name: /2,800円\/月 申し込む/ })).toBeVisible();
+    await expect(page.getByText("2,800円/月", { exact: true })).toBeVisible();
   });
 
   test("オプションプランセクションが表示される", async ({ page }) => {
@@ -63,6 +67,10 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     // 動画プランは 3 行（プロフィール動画制作 / ユーザー撮影 / ビジ友公式SNS動画制作）
     await expect(page.getByText("プロフィール動画制作プラン", { exact: true })).toBeVisible();
     await expect(page.getByText("100,000円/動画", { exact: true })).toBeVisible();
+    // 注意書きは「詳しく見る」でたたまれているので、先に全部開く
+    for (const d of await page.getByText("詳しく見る").all()) {
+      await d.click();
+    }
     // 説明文の注意書き（交通費 / プレミアム・ハイエンド付属）
     await expect(
       page.getByText("※エリアにより交通費等が発生する場合があります。").first(),
@@ -101,10 +109,10 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
 });
 
 test.describe("CLI-026 プラン一覧（/billing/plans、P11 で確定した比較表）", () => {
-  test("料金プラン画面の「こちら」から遷移し、月額・年額・確定した行・オプション価格が表示される", async ({ page }) => {
+  test("料金プラン画面の「プラン比較表」から遷移し、月額・年額・確定した行・オプション価格が表示される", async ({ page }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto("/billing");
-    await page.getByRole("link", { name: "こちら" }).click();
+    await page.getByRole("link", { name: "プラン比較表" }).click();
     await expect(page).toHaveURL(/\/billing\/plans$/);
     await expect(page.getByRole("heading", { name: "プラン一覧" })).toBeVisible();
 
@@ -144,16 +152,17 @@ test.describe("CLI-026 表示: active client (corporate)", () => {
   test("現在プランに「ご利用中」バッジが表示される", async ({ page }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/billing");
-    await expect(page.getByText("ご利用中")).toBeVisible();
+    // 「ご契約状況」カードと基本プランの該当行の 2 か所に出る
+    await expect(page.getByText("ご利用中")).toHaveCount(2);
   });
 
-  test("他プランに「このプランに変更する」ボタンが表示される", async ({
+  test("他プランに「このプランにする」ボタンが表示される", async ({
     page,
   }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/billing");
     const changeButtons = page.getByRole("button", {
-      name: "このプランに変更する",
+      name: "このプランにする",
     });
     // corporate user has 3 other plans to change to
     await expect(changeButtons.first()).toBeVisible();
@@ -199,7 +208,9 @@ test.describe("CLI-026 表示: staff", () => {
   test("すべての申し込みボタンが無効", async ({ page }) => {
     await login(page, TEST_STAFF.email, TEST_STAFF.password);
     await page.goto("/billing");
-    const buttons = page.getByRole("button", { name: "申し込む" });
+    // 契約中のプランの行はバッジだけなので、ボタンは残り 3 つ
+    const buttons = page.getByRole("button", { name: "このプランにする" });
+    await expect(buttons).toHaveCount(3);
     for (const btn of await buttons.all()) {
       await expect(btn).toBeDisabled();
     }

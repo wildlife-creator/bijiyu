@@ -11,7 +11,7 @@ import { TEST_ADMIN, login } from "./helpers";
  *  2. 運営が ADM-002 → 銀行振込お問い合わせ一覧 → 行の「お問い合わせ詳細」で「送信時のログインアカウント」を確認
  *     → ユーザーアカウント一覧で検索して開く → ユーザー詳細の「銀行振込」枠で有効にする
  *     （お問い合わせ一覧・詳細からユーザー詳細への直リンクは置かない = 取り違え防止）
- *     → 会員の /billing が「ご利用中」+「お支払い方法: 銀行振込」。Stripe 前提のボタン（解約・お支払い情報）は
+ *     → 会員の /billing が「ご利用中」+ お支払い方法「銀行振込」。Stripe 前提のボタン（解約・お支払い情報）は
  *     出ず、カード払いへの切り替えボタンは押せる
  *  3. 未ログインのお問い合わせでは銀行振込の選択肢が出ない
  *  4. 銀行振込で契約中の発注者（seed）を、ユーザー詳細で「変更する」「無効にする」できる
@@ -107,14 +107,14 @@ test.describe.serial("銀行振込: お問い合わせ → 一覧 → ユーザ�
   test("3. 会員の /billing は「ご利用中」+ 銀行振込表示。Stripe 前提のボタンは出ず、カード払いへの切り替えは押せる", async ({ page }) => {
     await login(page, TEST_BANK_E2E.email, TEST_BANK_E2E.password);
     await page.goto("/billing");
-    await expect(page.getByText("ご利用中", { exact: true })).toBeVisible();
-    await expect(page.getByText(/お支払い方法: 銀行振込/)).toBeVisible();
+    await expect(page.getByText("ご利用中", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("銀行振込", { exact: true })).toBeVisible();
     await expect(page.getByText(/運営までご連絡ください/)).toBeVisible();
     await expect(page.getByRole("button", { name: "解約する" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "お支払い情報を管理する" })).toHaveCount(0);
-    // カード払いへの切り替え: 現在のプランは「カード払いに切り替える」、他のプランは「カード払いで申し込む」
-    await expect(page.getByRole("button", { name: /カード払いに切り替える/ })).toBeEnabled();
-    await expect(page.getByRole("button", { name: /カード払いで申し込む/ }).first()).toBeEnabled();
+    // カード払いへの切り替え: 全プランの行が「カード払いにする」（現在のプランも含む）
+    await expect(page.getByRole("button", { name: "カード払いにする" })).toHaveCount(4);
+    await expect(page.getByRole("button", { name: "カード払いにする" }).first()).toBeEnabled();
     // 旧 本人申込ボタンは無く、お問い合わせへの案内が出る
     await expect(page.getByRole("button", { name: "銀行振込で申し込む" })).toHaveCount(0);
     await expect(page.getByText(/銀行振込をご希望の方は/).first()).toBeVisible();

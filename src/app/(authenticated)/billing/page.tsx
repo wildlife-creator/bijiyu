@@ -18,7 +18,7 @@ import { cookies } from "next/headers";
 import { BillingClient } from "./BillingClient";
 
 /**
- * CLI-026: プラン案内画面（Server Component）
+ * CLI-026: 料金プラン画面（Server Component）。上から「ご契約状況」→「基本プラン」→「オプションプラン」
  *
  * デザインカンプ: CLI-026.png (初回申込), CLI-026-b.png (プラン変更)
  */
@@ -58,7 +58,7 @@ export default async function BillingPage({
       .limit(1)
       .maybeSingle(),
     admin.from("option_subscriptions")
-      .select("id, option_type, status, job_id, stripe_subscription_id, end_date")
+      .select("id, option_type, status, job_id, stripe_subscription_id, end_date, start_date, created_at")
       .eq("user_id", billingOwnerId)
       .eq("status", "active"),
   ]);
@@ -100,37 +100,38 @@ export default async function BillingPage({
       let buttonAction: "checkout" | "change" | "none";
       let disabledReason: string | null = null;
 
-      if (isStaff) {
-        buttonLabel = "申し込む";
+      // ボタンの文言は 1 種類（「このプランにする」）。銀行振込契約中だけ「カード払いにする」。
+      // 契約中のプランは画面側でバッジ表示になる（銀行振込中は同じプランをカードに切り替えられる）
+      if (isBankTransferPlan) {
+        // 銀行振込契約中（P12）: 銀行振込のままのプラン変更は運営が管理画面で行う。
+        // ここから押せるのはカード払いへの切り替え（Checkout。完了で銀行振込行は自動終了）
+        buttonLabel = "カード払いにする";
+        buttonDisabled = isStaff;
+        buttonAction = isStaff ? "none" : "checkout";
+      } else if (isStaff) {
+        buttonLabel = "このプランにする";
         buttonDisabled = true;
         buttonAction = "none";
-        disabledReason = null;
       } else if (isCurrent) {
         buttonLabel = "ご利用中";
         buttonDisabled = true;
         buttonAction = "none";
-      } else if (isBankTransferPlan) {
-        // 銀行振込契約中（P12）: 銀行振込のままのプラン変更は運営が管理画面で行う。
-        // ここから押せるのはカード払いへの切り替え（Checkout。完了で銀行振込行は自動終了）
-        buttonLabel = "カード払いで申し込む";
-        buttonDisabled = false;
-        buttonAction = "checkout";
       } else if (isPastDue) {
-        buttonLabel = "このプランに変更する";
+        buttonLabel = "このプランにする";
         buttonDisabled = true;
         buttonAction = "none";
         disabledReason = "お支払い確認中のため変更できません";
       } else if (hasReservation) {
-        buttonLabel = "このプランに変更する";
+        buttonLabel = "このプランにする";
         buttonDisabled = true;
         buttonAction = "none";
         disabledReason = "予約をキャンセルしてから操作してください";
       } else if (isFirstPurchase || !subscription) {
-        buttonLabel = "申し込む";
+        buttonLabel = "このプランにする";
         buttonDisabled = false;
         buttonAction = "checkout";
       } else {
-        buttonLabel = "このプランに変更する";
+        buttonLabel = "このプランにする";
         buttonDisabled = false;
         buttonAction = "change";
       }
@@ -210,6 +211,7 @@ export default async function BillingPage({
             jobId: o.job_id,
             stripeSubscriptionId: o.stripe_subscription_id,
             endDate: o.end_date,
+            purchasedAt: o.start_date ?? o.created_at,
           }))}
           urgentEligibleJobs={urgentEligibleJobs.map((j) => ({ id: j.id, title: j.title }))}
           checkoutSuccess={sp.checkout === "success" ? "plan" : sp.option_success as string | undefined}

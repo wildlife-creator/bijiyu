@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -36,7 +36,11 @@ import {
   BANK_TRANSFER_CONTACT_MESSAGE,
   BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE,
 } from "@/lib/billing/bank-transfer";
-import { VIDEO_OPTION_UI_NAMES, type VideoOptionType } from "@/lib/billing/options";
+import {
+  VIDEO_OPTION_TYPES,
+  VIDEO_OPTION_UI_NAMES,
+  type VideoOptionType,
+} from "@/lib/billing/options";
 import { startCheckoutAction } from "./actions";
 import {
   changePlanAction,
@@ -86,6 +90,8 @@ interface ActiveOption {
   jobId: string | null;
   stripeSubscriptionId: string | null;
   endDate: string | null;
+  /** 購入日（start_date ?? created_at）。オプション欄の「購入済み」表示用 */
+  purchasedAt: string;
 }
 
 interface BankTransferInfo {
@@ -189,9 +195,6 @@ export function BillingClient({
     ),
     video_sns: activeOptions.some((o) => o.optionType === "video_sns"),
   };
-  const hasVideo = hasVideoOption.video;
-  const hasVideoShooting = hasVideoOption.video_shooting;
-  const hasVideoSns = hasVideoOption.video_sns;
 
   // P3: 月払い / 年払いの表示切替。既定は現在の契約サイクル（無料は月払い）
   const [selectedCycle, setSelectedCycle] = useState<BillingCycle>(currentCycle);
@@ -439,9 +442,19 @@ export function BillingClient({
     });
   }
 
+  // 動画プランの購入履歴（オプション欄の「購入済み」。買い切りなので複数行ありうる）
+  const purchasedVideoOptions = activeOptions
+    .filter((o): o is ActiveOption & { optionType: VideoOptionType } =>
+      (VIDEO_OPTION_TYPES as readonly string[]).includes(o.optionType),
+    )
+    .sort((a, b) => (a.purchasedAt < b.purchasedAt ? 1 : -1));
+
+  const priceUnit = (cycle: BillingCycle) => (cycle === "yearly" ? "年" : "月");
+  const isFree = currentPlan === "free";
+
   return (
     <>
-      <h1 className="text-center text-heading-lg font-bold text-secondary">プラン変更</h1>
+      <h1 className="text-center text-heading-lg font-bold text-secondary">料金プラン</h1>
 
       {/* staff 制限メッセージ */}
       {isStaff && (
@@ -450,36 +463,162 @@ export function BillingClient({
         </div>
       )}
 
-      {/* past_due 警告 */}
-      {isPastDue && !isStaff && (
-        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-body-sm text-destructive">
-          お支払いが完了していません。お支払い方法を更新するか、解約をお選びください。
-        </div>
-      )}
+      {/* ===== ご契約状況（今の契約・支払い方法・更新日・予約と、契約に対する操作をここに集約） ===== */}
+      <section className="mt-6 rounded-lg border border-border bg-background p-5">
+        <h2 className="text-heading-sm font-bold">ご契約状況</h2>
 
-      {/* ===== 基本プラン セクション ===== */}
-      <section className="mt-6 rounded-lg border border-border bg-background p-5 pb-8">
-        <h2 className="text-heading-sm font-bold">基本プラン</h2>
-        <p className="mt-3 text-body-sm text-muted-foreground">
-          無料プランを含め、全部で5種類のプランがあります。各プランの詳細は<a href="/billing/plans" className="text-primary underline">こちら</a>をご確認ください。
-        </p>
-        {/* 初回だけ事務手数料の注意書き。再契約・切り替え時の「不要」の文は紛らわしいため出さない
-            （手数料の要否はサーバー側が契約歴で判定する。表示は案内のみ） */}
-        {showInitialFee && (
-          <p className="mt-2 text-body-sm text-muted-foreground">
-            ※基本プランの有料プランへ初めて申し込みをした場合、初回事務手数料として{INITIAL_FEE_TAX_INCLUDED.toLocaleString("ja-JP")}円が必要となります。
-          </p>
-        )}
+        {isFree ? (
+          <div className="mt-3 space-y-2">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-body-sm">
+              <dt className="text-muted-foreground">プラン</dt>
+              <dd className="font-medium">無料プラン</dd>
+            </dl>
+            <p className="text-body-sm text-muted-foreground">
+              有料プランに申し込むと、案件の掲載や職人の検索が使えるようになります。
+            </p>
+            {/* 初回だけ事務手数料の注意書き。再契約・切り替え時の「不要」の文は紛らわしいため出さない
+                （手数料の要否はサーバー側が契約歴で判定する。表示は案内のみ） */}
+            {showInitialFee && (
+              <p className="text-body-sm text-muted-foreground">
+                ※初めて有料プランへ申し込む場合、初回事務手数料として{INITIAL_FEE_TAX_INCLUDED.toLocaleString("ja-JP")}円が必要となります。
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="mt-3 space-y-3">
+            <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5 text-body-sm">
+              <dt className="text-muted-foreground">プラン</dt>
+              <dd className="flex flex-wrap items-center gap-2 font-medium">
+                {planDisplayName(currentPlan)}
+                <Badge variant="outline" className="border-emerald-600 bg-emerald-50 text-xs text-emerald-700">
+                  ご利用中
+                </Badge>
+                {isPastDue && (
+                  <Badge variant="destructive" className="text-xs">
+                    お支払い確認中
+                  </Badge>
+                )}
+              </dd>
+              <dt className="text-muted-foreground">お支払い方法</dt>
+              <dd className="font-medium">
+                {isBankTransferPlan
+                  ? "銀行振込"
+                  : `クレジットカード・${BILLING_CYCLE_LABELS[currentCycle]}`}
+              </dd>
+              {!isBankTransferPlan && subscription?.currentPeriodEnd && (
+                <>
+                  <dt className="text-muted-foreground">次回更新日</dt>
+                  <dd className="font-medium">{formatDate(subscription.currentPeriodEnd)}</dd>
+                </>
+              )}
+            </dl>
 
-        {isBankTransferPlan && (
-          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-body-sm text-muted-foreground">
-            お支払い方法: 銀行振込
-            <br />
-            {BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE}
-            <br />
-            クレジットカード払いへ切り替える場合は、下の「カード払いで申し込む」からお手続きください（決済完了後、銀行振込のご契約は自動的に終了します）。
+            {/* 支払い遅延 */}
+            {isPastDue && !isStaff && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-body-sm text-destructive">
+                お支払いが完了していません。お支払い方法を更新するか、解約をお選びください。
+              </div>
+            )}
+
+            {/* ダウングレード予約 */}
+            {subscription?.scheduledPlanType && subscription.scheduleId && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-body-sm">
+                <Badge variant="outline" className="border-amber-500 bg-amber-50 text-xs text-amber-800">
+                  変更予定
+                </Badge>
+                <span className="ml-2">
+                  {formatDate(subscription.scheduledAt)}に
+                  {planDisplayName(
+                    (subscription.scheduledPlanType as PlanType) ?? "free",
+                    subscription.scheduledBillingCycle ?? currentCycle,
+                  )}
+                  に変更予定
+                </span>
+              </div>
+            )}
+
+            {/* 解約予約 */}
+            {subscription?.cancelAtPeriodEnd && !subscription.scheduleId && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-body-sm">
+                <Badge variant="outline" className="border-amber-500 bg-amber-50 text-xs text-amber-800">
+                  解約予定
+                </Badge>
+                <span className="ml-2">{formatDate(subscription.currentPeriodEnd)}に解約予定</span>
+              </div>
+            )}
+
+            {/* 銀行振込（P12）: 変更・停止は運営。カードへの切り替えは基本プラン欄のボタンから */}
+            {isBankTransferPlan && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-body-sm text-muted-foreground">
+                {BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE}
+                <br />
+                クレジットカード払いへ切り替える場合は、下の基本プランから「カード払いにする」を選んでください。
+              </div>
+            )}
+
+            {/* 契約に対する操作（Stripe 契約のみ。担当者は操作不可） */}
+            {!isStaff && !isBankTransferPlan && (
+              <div className="flex flex-wrap justify-center gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="rounded-full text-primary border-primary/50"
+                  disabled={pending}
+                  pending={pendingKey === "portal"}
+                  onClick={handleOpenPortal}
+                >
+                  お支払い情報を管理する
+                </Button>
+                {isPastDue ? (
+                  <Button
+                    variant="destructive"
+                    className="rounded-full"
+                    disabled={pending}
+                    onClick={handleCancelImmediately}
+                  >
+                    即時解約する
+                  </Button>
+                ) : subscription?.scheduleId && subscription.scheduledPlanType ? (
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    disabled={pending}
+                    pending={pendingKey === "cancel-reservation"}
+                    onClick={handleCancelReservation}
+                  >
+                    変更をキャンセルする
+                  </Button>
+                ) : subscription?.cancelAtPeriodEnd ? (
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    disabled={pending}
+                    pending={pendingKey === "cancel-reservation"}
+                    onClick={handleCancelReservation}
+                  >
+                    解約をキャンセルする
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="rounded-full text-destructive border-destructive/50"
+                    disabled={pending}
+                    onClick={handleScheduleCancel}
+                  >
+                    解約する
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         )}
+      </section>
+
+      {/* ===== 基本プラン（どの状態でも同じ形。行のボタンは 1 種類） ===== */}
+      <section className="mt-6 rounded-lg border border-border bg-background p-5">
+        <h2 className="text-heading-sm font-bold">基本プラン</h2>
+        <p className="mt-3 text-body-sm text-muted-foreground">
+          各プランでできることは<a href="/billing/plans" className="text-primary underline">プラン比較表</a>をご覧ください。
+        </p>
 
         {/* P3: 月払い / 年払い 切替 */}
         <div
@@ -504,9 +643,14 @@ export function BillingClient({
             </button>
           ))}
         </div>
-        {currentPlan !== "free" && (
+        {!isFree && !isBankTransferPlan && (
           <p className="mt-2 text-body-xs text-muted-foreground">
-            現在は{BILLING_CYCLE_LABELS[currentCycle]}でご契約中です。月払い → 年払いは即時、年払い → 月払いは次回更新日に切り替わります。
+            月払い → 年払いは即時、年払い → 月払いは次回更新日に切り替わります。
+          </p>
+        )}
+        {hasReservation && !isPastDue && (
+          <p className="mt-2 text-body-xs text-muted-foreground">
+            変更予定がある間は他のプランを選べません。先に「ご契約状況」の予約をキャンセルしてください。
           </p>
         )}
 
@@ -516,104 +660,23 @@ export function BillingClient({
               <div className="flex items-center justify-between">
                 <span className="text-body-md font-bold">{plan.label}</span>
                 <span className="text-body-md">
-                  {formatPrice(plan.price)}円/{plan.billingCycle === "yearly" ? "年" : "月"}
+                  {formatPrice(plan.price)}円/{priceUnit(plan.billingCycle)}
                 </span>
               </div>
 
-              {plan.isCurrent ? (
-                <div className="mt-2">
+              {plan.isCurrent && !isBankTransferPlan ? (
+                <div className="mt-2 text-center">
                   <Badge variant="outline" className="border-emerald-600 bg-emerald-50 text-xs text-emerald-700">
                     ご利用中
                   </Badge>
-                  <span className="ml-2 text-body-xs text-muted-foreground">
-                    {BILLING_CYCLE_LABELS[currentCycle]}
-                  </span>
-                  {plan.isPastDue && (
-                    <Badge variant="destructive" className="ml-2 text-xs">
-                      お支払い確認中
-                    </Badge>
-                  )}
-                  {/* 銀行振込契約中（P12）: 同じプランをカード払いに切り替える（Checkout。完了で銀行振込は自動終了） */}
-                  {!isStaff && isBankTransferPlan && (
-                    <div className="mt-3 flex justify-center">
-                      <Button
-                        variant="default"
-                        className="w-full max-w-xs rounded-full text-white"
-                        disabled={pending}
-                        pending={pendingKey === `plan-${plan.planType}`}
-                        onClick={() => handlePlanButton({ ...plan, buttonAction: "checkout" })}
-                      >
-                        {formatPrice(plan.price)}円/{plan.billingCycle === "yearly" ? "年" : "月"} カード払いに切り替える
-                      </Button>
-                    </div>
-                  )}
-                  {/* 解約ボタン（現在のプラン枠内）。銀行振込契約は運営が管理するため出さない */}
-                  {!isStaff && !isBankTransferPlan && (
-                    <div className="mt-3 flex justify-center">
-                      {isPastDue ? (
-                        <Button
-                          variant="destructive"
-                          className="w-full max-w-xs rounded-full"
-                          disabled={pending}
-                          onClick={handleCancelImmediately}
-                        >
-                          即時解約する
-                        </Button>
-                      ) : !hasReservation ? (
-                        <Button
-                          variant="outline"
-                          className="w-full max-w-xs rounded-full text-destructive border-destructive/50"
-                          disabled={pending}
-                          onClick={handleScheduleCancel}
-                        >
-                          解約する
-                        </Button>
-                      ) : null}
-                    </div>
-                  )}
-                  {/* Reservation label on current plan */}
-                  {subscription?.scheduledPlanType && subscription.scheduleId && (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-body-sm text-muted-foreground">
-                        {formatDate(subscription.scheduledAt)}に
-                        {planDisplayName(
-                          (subscription.scheduledPlanType as PlanType) ?? "free",
-                          subscription.scheduledBillingCycle ?? currentCycle,
-                        )}
-                        に変更予定
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full"
-                        disabled={pending || isStaff}
-                        pending={pendingKey === "cancel-reservation"}
-                        onClick={handleCancelReservation}
-                      >
-                        変更をキャンセルする
-                      </Button>
-                    </div>
-                  )}
-                  {subscription?.cancelAtPeriodEnd && !subscription.scheduleId && (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-body-sm text-muted-foreground">
-                        {formatDate(subscription.currentPeriodEnd)}に解約予定
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full"
-                        disabled={pending || isStaff}
-                        pending={pendingKey === "cancel-reservation"}
-                        onClick={handleCancelReservation}
-                      >
-                        解約をキャンセルする
-                      </Button>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="mt-3 flex flex-col items-center gap-2">
+                  {plan.isCurrent && (
+                    <Badge variant="outline" className="border-emerald-600 bg-emerald-50 text-xs text-emerald-700">
+                      ご利用中
+                    </Badge>
+                  )}
                   <Button
                     variant="default"
                     className="w-full max-w-xs rounded-full text-white"
@@ -622,111 +685,97 @@ export function BillingClient({
                     onClick={() => handlePlanButton(plan)}
                     title={plan.disabledReason ?? undefined}
                   >
-                    {plan.buttonAction === "checkout"
-                      ? `${formatPrice(plan.price)}円/${plan.billingCycle === "yearly" ? "年" : "月"} ${plan.buttonLabel}`
-                      : plan.buttonLabel}
+                    {plan.buttonLabel}
                   </Button>
                 </div>
               )}
             </div>
           ))}
         </div>
-
-        {!isStaff && <BankTransferContactNote />}
       </section>
 
-      {/* ===== オプションプラン セクション ===== */}
-      <section className="mt-6 rounded-lg border border-border bg-background p-5 pb-8">
+      {/* ===== オプションプラン（購入済み → 動画 3 つ → 急募 → 補償（販売停止中は加入者のみ）） ===== */}
+      <section className="mt-6 rounded-lg border border-border bg-background p-5">
         <h2 className="text-heading-sm font-bold">オプションプラン</h2>
-        <div className="mt-5 divide-y divide-border">
-          {/* プロフィール動画制作プラン（P10: 旧 自己PR動画掲載 + 職場紹介動画掲載を統合。全会員向け） */}
-          <div className="py-4 first:pt-0">
-            <div className="flex items-center justify-between">
-              <span className="text-body-md font-bold">
-                {VIDEO_OPTION_UI_NAMES.video}
-              </span>
-              <span className="text-body-md">100,000円/動画</span>
-            </div>
-            <p className="mt-1 text-body-sm text-muted-foreground">
-              ビジ友のスタッフが現地にお伺いして撮影・編集し、あなたや会社を紹介する動画を制作します。<br />
-              ご希望に応じてビジ友のユーザー詳細や発注者詳細のページに掲載することができます。<br />
-              ※エリアにより交通費等が発生する場合があります。<br />
-              ※プレミアム・ハイエンドプランの方は本プランが含まれていますので、お申し込みは不要です（2本目以降をご希望の場合はお申し込みください）。
-            </p>
-            <div className="mt-3 flex flex-col items-center gap-2">
-              <Button
-                variant="default"
-                className="w-full max-w-xs rounded-full text-white"
-                disabled={pending || isStaff}
-                pending={pendingKey === "opt-video"}
-                onClick={() => handleVideoOptionButton("video")}
-              >
-                {hasVideo ? "再度購入する" : "プロフィール動画制作プランを申し込む"}
-              </Button>
-            </div>
-          </div>
 
-          {/* ユーザー撮影動画制作プラン（P7、全会員向け） */}
-          <div className="py-4">
-            <div className="flex items-center justify-between">
-              <span className="text-body-md font-bold">
-                {VIDEO_OPTION_UI_NAMES.video_shooting}
-              </span>
-              <span className="text-body-md">20,000円/動画</span>
-            </div>
-            <p className="mt-1 text-body-sm text-muted-foreground">
-              ご自身で撮影した動画をビジ友運営が編集して、ご希望に応じてビジ友のユーザー詳細や発注者詳細のページに掲載することができます。<br />
-              ※ビジ友で決められた動画の構成に合わせて動画撮影をお願いします。
+        {purchasedVideoOptions.length > 0 && (
+          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-body-sm">
+            <p className="font-bold">購入済み</p>
+            <ul className="mt-1 space-y-0.5">
+              {purchasedVideoOptions.map((o) => (
+                <li key={o.id}>
+                  {VIDEO_OPTION_UI_NAMES[o.optionType]}（{formatDate(o.purchasedAt)}）
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-muted-foreground">
+              制作の進め方は運営からご連絡します。作り直しのために同じプランを再度購入することもできます。
             </p>
-            <div className="mt-3 flex flex-col items-center gap-2">
-              <Button
-                variant="default"
-                className="w-full max-w-xs rounded-full text-white"
-                disabled={pending || isStaff}
-                pending={pendingKey === "opt-video_shooting"}
-                onClick={() => handleVideoOptionButton("video_shooting")}
-              >
-                {hasVideoShooting ? "再度購入する" : "ユーザー撮影動画制作プランを申し込む"}
-              </Button>
-            </div>
           </div>
+        )}
 
-          {/* ビジ友公式SNS動画制作プラン（P10、全会員向け） */}
-          <div className="py-4">
-            <div className="flex items-center justify-between">
-              <span className="text-body-md font-bold">
-                {VIDEO_OPTION_UI_NAMES.video_sns}
-              </span>
-              <span className="text-body-md">120,000円/動画</span>
-            </div>
-            <p className="mt-1 text-body-sm text-muted-foreground">
-              ビジ友のスタッフが現地にお伺いして撮影・編集し、ビジ友の公式SNSで紹介する動画を制作します。<br />
-              ※エリアにより交通費等が発生する場合があります。<br />
-              ※プレミアム・ハイエンドプランを年払いでご利用の方は本プランが含まれていますので、お申し込みは不要です。
-            </p>
-            <div className="mt-3 flex flex-col items-center gap-2">
-              <Button
-                variant="default"
-                className="w-full max-w-xs rounded-full text-white"
-                disabled={pending || isStaff}
-                pending={pendingKey === "opt-video_sns"}
-                onClick={() => handleVideoOptionButton("video_sns")}
-              >
-                {hasVideoSns ? "再度購入する" : "ビジ友公式SNS動画制作プランを申し込む"}
-              </Button>
-            </div>
-          </div>
+        <div className="mt-3 divide-y divide-border">
+          <VideoOptionRow
+            optionType="video"
+            price="100,000円/動画"
+            summary="ビジ友のスタッフが撮影・編集し、あなたや会社を紹介する動画を制作します。"
+            details={
+              <>
+                ご希望に応じてビジ友のユーザー詳細や発注者詳細のページに掲載することができます。<br />
+                ※エリアにより交通費等が発生する場合があります。<br />
+                ※プレミアム・ハイエンドプランの方は本プランが含まれていますので、お申し込みは不要です（2本目以降をご希望の場合はお申し込みください）。
+              </>
+            }
+            purchased={hasVideoOption.video}
+            disabled={pending || isStaff}
+            pending={pendingKey === "opt-video"}
+            onClick={() => handleVideoOptionButton("video")}
+          />
+          <VideoOptionRow
+            optionType="video_shooting"
+            price="20,000円/動画"
+            summary="ご自身で撮影した動画をビジ友運営が編集して掲載します。"
+            details={
+              <>
+                ご希望に応じてビジ友のユーザー詳細や発注者詳細のページに掲載することができます。<br />
+                ※ビジ友で決められた動画の構成に合わせて動画撮影をお願いします。
+              </>
+            }
+            purchased={hasVideoOption.video_shooting}
+            disabled={pending || isStaff}
+            pending={pendingKey === "opt-video_shooting"}
+            onClick={() => handleVideoOptionButton("video_shooting")}
+          />
+          <VideoOptionRow
+            optionType="video_sns"
+            price="120,000円/動画"
+            summary="ビジ友のスタッフが撮影・編集し、ビジ友の公式SNSで紹介する動画を制作します。"
+            details={
+              <>
+                ※エリアにより交通費等が発生する場合があります。<br />
+                ※プレミアム・ハイエンドプランを年払いでご利用の方は本プランが含まれていますので、お申し込みは不要です。
+              </>
+            }
+            purchased={hasVideoOption.video_sns}
+            disabled={pending || isStaff}
+            pending={pendingKey === "opt-video_sns"}
+            onClick={() => handleVideoOptionButton("video_sns")}
+          />
 
-          {/* 急募 */}
+          {/* 急募（案件を掲載できる有料プランの方だけ操作できる。価格と説明は誰にでも見せる） */}
           <div className="py-4">
             <div className="flex items-center justify-between">
               <span className="text-body-md font-bold">急募</span>
-              <span className="text-body-md">20,000円</span>
+              <span className="text-body-md">20,000円（7日間）</span>
             </div>
             <p className="mt-1 text-body-sm text-muted-foreground">
-              7日間募集が最上位表示され、急募のタグが表示されます。
+              掲載中の案件を7日間、募集一覧の最上位に表示し、「急募」のタグを付けます。
             </p>
-            {urgentEligibleJobs.length === 0 ? (
+            {isFree ? (
+              <p className="mt-2 text-body-sm text-muted-foreground">
+                案件を掲載できる有料プランの方がお申し込みいただけます。
+              </p>
+            ) : urgentEligibleJobs.length === 0 ? (
               <p className="mt-2 text-body-sm text-muted-foreground">
                 掲載中の案件がありません
               </p>
@@ -766,7 +815,6 @@ export function BillingClient({
               </>
             )}
           </div>
-
           {/* 補償 ¥5,000/月（受注者向け 報酬未払い保険）
               P8: 販売停止中は加入中の人にだけ行を出す（解約のみ。新規申込ボタンは出さない） */}
           {(compensationOptionEnabled || hasComp5000) && (
@@ -866,23 +914,9 @@ export function BillingClient({
           </div>
           )}
         </div>
-        {!isStaff && <BankTransferContactNote />}
       </section>
 
-      {/* Customer Portal（銀行振込契約には Stripe の支払情報が無いため出さない） */}
-      {currentPlan !== "free" && !isStaff && !isBankTransferPlan && (
-        <section className="mt-6 flex justify-center">
-          <Button
-            variant="outline"
-            className="w-full max-w-xs rounded-full text-primary border-primary/50"
-            disabled={pending}
-            pending={pendingKey === "portal"}
-            onClick={handleOpenPortal}
-          >
-            お支払い情報を管理する
-          </Button>
-        </section>
-      )}
+      {!isStaff && <BankTransferContactNote />}
 
       {/* もどる */}
       <div className="mt-8 flex justify-center">
@@ -1123,10 +1157,63 @@ export function BillingClient({
   );
 }
 
-// Local helper — same as server-side comparePlans but avoids importing server modules
+// ---------------------------------------------------------------------------
+// 動画プランの 1 行（価格 + 1 行の説明 + 「詳しく見る」でたたむ注意書き + ボタン）
+// ---------------------------------------------------------------------------
+
+interface VideoOptionRowProps {
+  optionType: VideoOptionType;
+  price: string;
+  summary: string;
+  details: ReactNode;
+  purchased: boolean;
+  disabled: boolean;
+  pending: boolean;
+  onClick: () => void;
+}
+
+function VideoOptionRow({
+  optionType,
+  price,
+  summary,
+  details,
+  purchased,
+  disabled,
+  pending,
+  onClick,
+}: VideoOptionRowProps) {
+  const name = VIDEO_OPTION_UI_NAMES[optionType];
+  return (
+    <div className="py-4 first:pt-0">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-body-md font-bold">{name}</span>
+        <span className="shrink-0 text-body-md">{price}</span>
+      </div>
+      <p className="mt-1 text-body-sm text-muted-foreground">{summary}</p>
+      <details className="mt-1 text-body-sm text-muted-foreground">
+        <summary className="cursor-pointer text-secondary underline-offset-2 hover:underline">
+          詳しく見る
+        </summary>
+        <p className="mt-1">{details}</p>
+      </details>
+      <div className="mt-3 flex flex-col items-center gap-2">
+        <Button
+          variant="default"
+          className="w-full max-w-xs rounded-full text-white"
+          disabled={disabled}
+          pending={pending}
+          onClick={onClick}
+          aria-label={purchased ? undefined : `${name}を申し込む`}
+        >
+          {purchased ? "再度購入する" : "申し込む"}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
-// 銀行振込（P12）: 案内文（基本プラン欄・オプション欄の末尾へ表示）
+// 銀行振込（P12）: 案内文（画面末尾へ表示）
 // ---------------------------------------------------------------------------
 
 /**

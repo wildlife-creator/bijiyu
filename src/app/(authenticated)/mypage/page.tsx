@@ -59,7 +59,7 @@ const MANAGE_ORDERS_MENU: MenuItem[] = [
 // 注: Staff 固有のフィルタリング・ユーザープロフィール変更の遷移先差し替えは
 // コンポーネント内部で組み立てる（REQ-ORG-011 参照）
 const UPDATE_INFO_BASE_MENU: MenuItem[] = [
-  { label: "プラン変更", href: "/billing" },
+  { label: "料金プラン", href: "/billing" },
 ];
 
 const UPDATE_INFO_VERIFICATION_MENU: MenuItem = {
