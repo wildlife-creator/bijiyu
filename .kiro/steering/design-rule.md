@@ -124,7 +124,7 @@ CON-002-design-sp.png / CON-002-design-pc.png を
 - カード上部: 画像サムネイル（1枚目、なければプレースホルダー）
 - 画像左上: ステータスバッジ absolute 配置（rounded-[33px]）
 - カード下部: タイトル、会社名、職種、報酬、エリア、稼働期間、応募締め切り
-- アイコンは assets/icons/ のプロジェクト専用アイコンを使用
+- アイコンは public/images/icons/ のプロジェクト専用アイコンを使用
 
 #### 判断基準
 上記リストにない画面でも、案件データが一覧表示される画面では同じパターンを適用する。
@@ -281,11 +281,11 @@ lg: 1024px〜（ワイドPC、必要な場合のみ）
 - `<img>` タグで表示する（Supabase Storage からの画像は `<img>` を使う — CLAUDE.md の実装チェック項目を参照）
 
 ### アイコン
-- `assets/icons/` 内のプロジェクト専用アイコン PNG を優先的に使用する
+- `public/images/icons/` 内のプロジェクト専用アイコン PNG を優先的に使用する
 - 実装時は `public/icons/` にコピーして配置し、`<img src="/icons/icon-briefcase.png" alt="" className="w-5 h-5" />` のように `<img>` タグで表示する
 - サイズ: `w-4 h-4`（インライン）/ `w-5 h-5`（ボタン内）
 - メニューリスト項目（ナビゲーションリンク）にはアイコンを付けない。テキスト + 右矢印のみで構成する
-- `assets/icons/` に該当するアイコンがない場合のみ Lucide React を使用する
+- `public/images/icons/` に該当するアイコンがない場合のみ Lucide React を使用する
 - Lucide React アイコンを使う場合は `className="w-4 h-4 text-primary/70"` で薄紫に統一すること
 - アイコン一覧は CLAUDE.md の「アイコン・ロゴの使用」セクションを参照
 
