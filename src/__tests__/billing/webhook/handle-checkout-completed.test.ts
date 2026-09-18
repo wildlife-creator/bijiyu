@@ -653,7 +653,7 @@ describe("handleCheckoutCompleted (video_workplace option)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// metadata.type === 'option' / video_shooting（ユーザー撮影プラン、P7）
+// metadata.type === 'option' / video_shooting（ユーザー撮影動画制作プラン、P7）
 // 買い切り動画系 4 種は handleVideoOption に統合されている
 // ---------------------------------------------------------------------------
 

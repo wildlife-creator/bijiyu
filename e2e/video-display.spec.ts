@@ -34,7 +34,7 @@ const TIKTOK_PLAYER_IFRAME = 'iframe[src*="tiktok.com/player/v1"]';
 const CLOUDFLARE_PLAYER_IFRAME = 'iframe[src*="iframe.videodelivery.net/"]';
 
 test.describe("CLI-026: プロフィール動画制作プラン（P10 で旧 自己PR動画・職場紹介動画を統合）", () => {
-  test("統合前に職場紹介動画（video_workplace）を購入した発注者は「購入済み」（活性のまま・押下で再購入確認）", async ({ page }) => {
+  test("統合前に職場紹介動画（video_workplace）を購入した発注者はボタンが「再度購入する」（活性・押下で再購入確認）", async ({ page }) => {
     // client@test.local は seed で active な 'video_workplace' オプションを持つ。
     // 統合後は同じ商品「プロフィール動画制作プラン」として購入済み扱いにする
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
@@ -43,7 +43,7 @@ test.describe("CLI-026: プロフィール動画制作プラン（P10 で旧 自
       page.getByText("プロフィール動画制作プラン", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText("職場紹介動画掲載", { exact: true })).toHaveCount(0);
-    const btn = page.getByRole("button", { name: "購入済み", exact: true });
+    const btn = page.getByRole("button", { name: "再度購入する", exact: true });
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
   });
@@ -266,10 +266,9 @@ test.describe("管理者: 動画管理（ADM ログイン → 一覧 → 詳細 
     const videoLinks = page.getByRole("link", { name: "動画を投稿/編集する" });
     await expect(videoLinks).toHaveCount(1);
     await expect(videoLinks).toHaveAttribute("href", /placement=contractor_page/);
-    // client ロールには削除ボタンの代わりに発注者詳細への導線が出る
-    await expect(
-      page.getByRole("link", { name: "発注者詳細" }),
-    ).toBeVisible();
+    // client ロールにも削除ボタンを出す（ADM-004 と同じ削除処理）。発注者詳細への導線は出さない
+    await expect(page.getByRole("link", { name: "発注者詳細" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "アカウントを削除する" })).toBeVisible();
   });
 
   test("ADM-027 で Cloudflare 未設定時はファイルアップロードが無効で案内が出る", async ({

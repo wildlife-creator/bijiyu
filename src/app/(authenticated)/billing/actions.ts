@@ -15,7 +15,7 @@ import {
   type OptionType,
 } from "@/lib/billing/options";
 import { getStripeClient } from "@/lib/billing/stripe";
-import { PAID_PLAN_TYPES, type PaidPlanType } from "@/lib/constants/plans";
+import { PAID_PLAN_TYPES } from "@/lib/constants/plans";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -56,7 +56,7 @@ const videoWorkplaceOptionInputSchema = z.object({
   optionType: z.literal("video_workplace"),
 });
 
-// ユーザー撮影プラン（P7）。全会員（staff / admin 以外）が購入可。発注者プランの加入は問わない
+// ユーザー撮影動画制作プラン（P7）。全会員（staff / admin 以外）が購入可。発注者プランの加入は問わない
 const videoShootingOptionInputSchema = z.object({
   type: z.literal("option"),
   optionType: z.literal("video_shooting"),

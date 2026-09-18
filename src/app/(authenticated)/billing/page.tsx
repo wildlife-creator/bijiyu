@@ -48,7 +48,7 @@ export default async function BillingPage({
   // Single query for user + subscription + options + client_profiles
   const admin = createAdminClient();
 
-  const [userResult, subResult, optionResult, profileResult] = await Promise.all([
+  const [userResult, subResult, optionResult] = await Promise.all([
     admin.from("users").select("id, role, email, last_name, first_name").eq("id", user.id).single(),
     admin.from("subscriptions")
       .select("id, plan_type, status, schedule_id, scheduled_plan_type, scheduled_billing_cycle, scheduled_at, cancel_at_period_end, current_period_end, stripe_subscription_id, payment_method, billing_cycle")
@@ -61,10 +61,6 @@ export default async function BillingPage({
       .select("id, option_type, status, job_id, stripe_subscription_id, end_date")
       .eq("user_id", billingOwnerId)
       .eq("status", "active"),
-    admin.from("client_profiles")
-      .select("is_urgent_option")
-      .eq("user_id", billingOwnerId)
-      .maybeSingle(),
   ]);
 
   const userData = userResult.data;
@@ -72,7 +68,6 @@ export default async function BillingPage({
 
   const subscription = subResult.data;
   const activeOptions = optionResult.data ?? [];
-  const clientProfile = profileResult.data;
 
   const isStaff = userData.role === "staff";
   const isPastDue = subscription?.status === "past_due";
@@ -191,14 +186,12 @@ export default async function BillingPage({
     <div className="min-h-screen bg-muted">
       <div className="mx-auto w-full max-w-lg px-4 py-6 md:px-8 md:py-8">
         <BillingClient
-          userId={user.id}
           isStaff={isStaff}
           compensationOptionEnabled={isCompensationOptionEnabled()}
           isPastDue={isPastDue}
           hasReservation={hasReservation}
           currentPlan={currentPlan}
           currentCycle={currentCycle}
-          isFirstPurchase={isFirstPurchase}
           subscription={subscription ? {
             scheduleId: subscription.schedule_id,
             scheduledPlanType: subscription.scheduled_plan_type,
@@ -218,9 +211,6 @@ export default async function BillingPage({
             stripeSubscriptionId: o.stripe_subscription_id,
             endDate: o.end_date,
           }))}
-          clientProfile={{
-            isUrgentOption: clientProfile?.is_urgent_option ?? false,
-          }}
           urgentEligibleJobs={urgentEligibleJobs.map((j) => ({ id: j.id, title: j.title }))}
           checkoutSuccess={sp.checkout === "success" ? "plan" : sp.option_success as string | undefined}
           planChangeConfirmed={sp.plan_change === "confirmed"}

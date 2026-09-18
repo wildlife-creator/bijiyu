@@ -1466,34 +1466,25 @@ INSERT INTO option_subscriptions (user_id, payment_type, stripe_payment_intent_i
 -- ============================================================
 -- 管理運営アカウント（P5 / spec-changes-202608 §2.4）テストデータ
 --   id 帯 0b500000-...（他の seed と重複しない）
---   ① ops-account@test.local   : 管理運営アカウント。is_hidden=true、ハイエンドの銀行振込行（期限 2099）、
+--   ① ops-account@test.local   : 管理運営アカウント。is_hidden=true、ハイエンドの銀行振込行（期限なし = ADM-009 の銀行振込枠で有効化したのと同じ形）、
 --      組織 + client_profiles「ビジ友運営（テスト）」。E2E: 一覧・検索・マイリストに出ない / 運営 → 発注者・職人へメッセージ
---   ② ops-candidate@test.local : 無料の受注者。ADM-009「管理運営アカウントに設定 / 解除」E2E 専用
 -- ============================================================
 
 INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change, email_change_token_new, phone, phone_change, phone_change_token, email_change_token_current, email_change_confirm_status, reauthentication_token, is_sso_user)
 VALUES
-  ('0b500000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ops-account@test.local',   crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false),
-  ('0b500000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ops-candidate@test.local', crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
+  ('0b500000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ops-account@test.local',   crypt('testpass123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', NULL, '', '', '', 0, '', false);
 
 INSERT INTO auth.identities (user_id, id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at) VALUES
-  ('0b500000-0000-4000-8000-000000000001', '0b500000-0000-4000-8000-000000000001', 'ops-account@test.local',   '{"sub":"0b500000-0000-4000-8000-000000000001","email":"ops-account@test.local"}',   'email', now(), now(), now()),
-  ('0b500000-0000-4000-8000-000000000002', '0b500000-0000-4000-8000-000000000002', 'ops-candidate@test.local', '{"sub":"0b500000-0000-4000-8000-000000000002","email":"ops-candidate@test.local"}', 'email', now(), now(), now());
+  ('0b500000-0000-4000-8000-000000000001', '0b500000-0000-4000-8000-000000000001', 'ops-account@test.local',   '{"sub":"0b500000-0000-4000-8000-000000000001","email":"ops-account@test.local"}',   'email', now(), now(), now());
 
 UPDATE public.users SET role = 'client', last_name = 'ビジ友', first_name = '運営', prefecture = '東京都', is_hidden = true, password_set_at = now()
 WHERE id = '0b500000-0000-4000-8000-000000000001';
-UPDATE public.users SET role = 'contractor', last_name = '運営', first_name = '候補', prefecture = '東京都', skill_tags = ARRAY['造作大工']
-WHERE id = '0b500000-0000-4000-8000-000000000002';
 
-INSERT INTO user_skills (user_id, trade_type, experience_years) VALUES
-  ('0b500000-0000-4000-8000-000000000002', '建築/躯体｜大工', 2);
-INSERT INTO user_available_areas (user_id, prefecture, municipality) VALUES
-  ('0b500000-0000-4000-8000-000000000002', '東京都', NULL);
 
--- ① 手動サブスク（ハイエンド・銀行振込扱い・期限 2099-12-31 JST）+ 組織 + 発注者プロフィール
+-- ① 契約（ハイエンド・銀行振込・期限なし。P12 の銀行振込行と同じ形）+ 組織 + 発注者プロフィール
 INSERT INTO subscriptions (id, user_id, plan_type, status, payment_method, billing_cycle, stripe_subscription_id, current_period_start, current_period_end)
-VALUES ('0b500000-0000-4000-8000-00000000cc01', '0b500000-0000-4000-8000-000000000001', 'corporate_premium', 'active', 'bank_transfer', 'yearly', NULL,
-        now(), '2099-12-31 23:59:59+09');
+VALUES ('0b500000-0000-4000-8000-00000000cc01', '0b500000-0000-4000-8000-000000000001', 'corporate_premium', 'active', 'bank_transfer', 'monthly', NULL,
+        now(), NULL);
 INSERT INTO organizations (id, owner_id) VALUES
   ('0b500000-0000-4000-8000-00000000aa01', '0b500000-0000-4000-8000-000000000001');
 INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account) VALUES
@@ -1653,7 +1644,7 @@ INSERT INTO identity_verifications (user_id, document_type, document_url_1, stat
 
 -- ---------- 3. contacts（ADM-016/017: user_id あり/なし × 添付あり/なし） ----------
 INSERT INTO contacts (user_id, company_name, name, phone, email, address, inquiry_type, purpose, industry, project_description, project_area, video_consultation, detail, attachments, created_at) VALUES
-  -- 登録ユーザーから（user_id あり・添付なし）→「登録ユーザー」バッジ + ADM-009 導線
+  -- ログイン中に送信（user_id あり・添付なし）→「ログイン時に送信」バッジ +「送信時のログインアカウント」表示（ADM-009 への直リンクは無い）
   ('11111111-1111-1111-1111-111111111111', '田中建設', '田中一郎', '03-1234-5678', 'contractor@test.local', '東京都台東区雷門2-3-4', '仕事掲載', '職人として仕事を探したい', '大工', NULL, NULL, NULL, '掲載中の案件について操作方法を教えてください。', NULL, now() - interval '3 days'),
   -- 非ログイン（user_id なし・添付あり: 画像 + PDF の表示分岐検証用）
   (NULL, '株式会社青空電工', '青木次郎', '045-987-6543', 'aoki@example.com', '神奈川県横浜市西区みなとみらい1-1', '協力会社募集', '協力会社を探したい', '電気', '商業ビルの電気設備更新工事を予定しています。', '神奈川県横浜市', '会社紹介動画を作りたい', '協力会社の募集と動画掲載について相談したいです。', ARRAY['contact-anon/site-photo.jpg', 'contact-anon/project-summary.pdf'], now() - interval '2 days'),

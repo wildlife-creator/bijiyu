@@ -89,10 +89,6 @@ interface ActiveOption {
   endDate: string | null;
 }
 
-interface ClientProfile {
-  isUrgentOption: boolean;
-}
-
 interface BankTransferInfo {
   /**
    * 現在の有料プランが銀行振込契約か（P12）。変更・無効化は運営が管理画面で行う。
@@ -102,20 +98,17 @@ interface BankTransferInfo {
 }
 
 interface BillingClientProps {
-  userId: string;
   isStaff: boolean;
   isPastDue: boolean;
   hasReservation: boolean;
   currentPlan: PlanType;
   /** P3: 現在の支払サイクル（無料プランは monthly） */
   currentCycle: BillingCycle;
-  isFirstPurchase: boolean;
   subscription: SubscriptionInfo | null;
   /** P3: 月払い / 年払い それぞれのボタン状態 */
   planStatesByCycle: Record<BillingCycle, PlanState[]>;
   showInitialFee: boolean;
   activeOptions: ActiveOption[];
-  clientProfile: ClientProfile;
   urgentEligibleJobs: Array<{ id: string; title: string }>;
   checkoutSuccess?: string;
   /** P8: 補償オプションの販売フラグ（false = 販売停止。加入中の行だけ解約用に出す） */
@@ -145,18 +138,15 @@ function formatDate(iso: string | null | undefined): string {
 // ---------------------------------------------------------------------------
 
 export function BillingClient({
-  userId,
   isStaff,
   isPastDue,
   hasReservation,
   currentPlan,
   currentCycle,
-  isFirstPurchase,
   subscription,
   planStatesByCycle,
   showInitialFee,
   activeOptions,
-  clientProfile,
   urgentEligibleJobs,
   checkoutSuccess,
   compensationOptionEnabled,
@@ -190,7 +180,7 @@ export function BillingClient({
   );
 
   // 動画オプションは買い切りだが「作り直しのための再購入」が正当にありうるため、
-  // 購入済みでもボタンは活性のまま、押下時に再購入確認ダイアログを挟む。
+  // 購入済みならボタンを「再度購入する」にして活性のまま、押下時に再購入確認ダイアログを挟む。
   // 全会員（staff 以外）が購入可。発注者プランの加入は問わない（P10 で旧 職場紹介動画の制限を撤廃）。
   // プレミアム・ハイエンドへの付属はアプリで判定せず、説明文の注意書きで案内する（運用対応）。
   const hasVideoOption: Record<VideoOptionType, boolean> = {
@@ -264,7 +254,7 @@ export function BillingClient({
       toast.success("プロフィール動画制作プランのお申し込みが完了しました");
       router.replace("/billing");
     } else if (checkoutSuccess === "video_shooting") {
-      toast.success("ユーザー撮影プランのお申し込みが完了しました");
+      toast.success("ユーザー撮影動画制作プランのお申し込みが完了しました");
       router.replace("/billing");
     } else if (checkoutSuccess === "video_sns") {
       toast.success("ビジ友公式SNS動画制作プランのお申し込みが完了しました");
@@ -682,12 +672,12 @@ export function BillingClient({
                 pending={pendingKey === "opt-video"}
                 onClick={() => handleVideoOptionButton("video")}
               >
-                {hasVideo ? "購入済み" : "プロフィール動画制作プランを申し込む"}
+                {hasVideo ? "再度購入する" : "プロフィール動画制作プランを申し込む"}
               </Button>
             </div>
           </div>
 
-          {/* ユーザー撮影プラン（P7、全会員向け） */}
+          {/* ユーザー撮影動画制作プラン（P7、全会員向け） */}
           <div className="py-4">
             <div className="flex items-center justify-between">
               <span className="text-body-md font-bold">
@@ -707,7 +697,7 @@ export function BillingClient({
                 pending={pendingKey === "opt-video_shooting"}
                 onClick={() => handleVideoOptionButton("video_shooting")}
               >
-                {hasVideoShooting ? "購入済み" : "ユーザー撮影プランを申し込む"}
+                {hasVideoShooting ? "再度購入する" : "ユーザー撮影動画制作プランを申し込む"}
               </Button>
             </div>
           </div>
@@ -733,7 +723,7 @@ export function BillingClient({
                 pending={pendingKey === "opt-video_sns"}
                 onClick={() => handleVideoOptionButton("video_sns")}
               >
-                {hasVideoSns ? "購入済み" : "ビジ友公式SNS動画制作プランを申し込む"}
+                {hasVideoSns ? "再度購入する" : "ビジ友公式SNS動画制作プランを申し込む"}
               </Button>
             </div>
           </div>

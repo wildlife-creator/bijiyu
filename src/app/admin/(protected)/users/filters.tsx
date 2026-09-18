@@ -13,21 +13,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PendingOverlay } from "@/components/shared/pending-overlay";
+import { VIDEO_OPTION_UI_NAMES } from "@/lib/billing/options";
 
 interface AdminUserFiltersProps {
   initialKeyword: string;
-  /** "all" | "video" | "video_shooting" | "video_sns" | "compensation_5000" | "compensation_9800" */
+  /** "all" | "video" | "video_shooting" | "video_sns" */
   initialOption: string;
 }
 
-// 動画 3 プラン + 補償（P10、2026-09）。急募は案件単位のため ADM-003 側に置く
+// 動画 3 プランのみ（名称は料金プラン画面と同じ正式名 = VIDEO_OPTION_UI_NAMES）。
+// 補償は販売停止中で加入者もいないため 2026-09-18 に選択肢から外した。急募は案件単位のため ADM-003 側に置く。
+// "video" は旧 職場紹介動画（video_workplace）の購入者にもヒットする（PROFILE_VIDEO_OPTION_TYPES）
 const OPTION_ITEMS: { value: string; label: string }[] = [
   { value: "all", label: "すべて" },
-  { value: "video", label: "プロフィール動画" },
-  { value: "video_shooting", label: "ユーザー撮影プラン" },
-  { value: "video_sns", label: "ビジ友公式SNS動画" },
-  { value: "compensation_5000", label: "補償¥5,000" },
-  { value: "compensation_9800", label: "補償¥9,800" },
+  { value: "video", label: VIDEO_OPTION_UI_NAMES.video },
+  { value: "video_shooting", label: VIDEO_OPTION_UI_NAMES.video_shooting },
+  { value: "video_sns", label: VIDEO_OPTION_UI_NAMES.video_sns },
 ];
 
 /**

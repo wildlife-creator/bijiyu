@@ -18,7 +18,7 @@ interface AdminClientFiltersProps {
   initialKeyword: string;
   /** "all" | ClientCategory */
   initialCategory: string;
-  /** "all" | "urgent" | "video" */
+  /** "all" | "urgent" */
   initialOption: string;
 }
 
@@ -34,7 +34,6 @@ const CATEGORY_ITEMS: { value: string; label: string }[] = [
 const OPTION_ITEMS: { value: string; label: string }[] = [
   { value: "all", label: "すべて" },
   { value: "urgent", label: "急募オプション" },
-  { value: "video", label: "プロフィール動画" },
 ];
 
 /**

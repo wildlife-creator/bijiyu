@@ -10,7 +10,7 @@ import { RatingSummaryCard } from "@/components/reviews/rating-summary-card";
 import { CommentListCard } from "@/components/reviews/comment-list-card";
 import { CommentsPagination } from "@/components/reviews/comments-pagination";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
-import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
+import { resolveBackTo } from "@/lib/admin/back-to";
 import { fetchPerItemSummary } from "@/lib/rating/aggregate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
@@ -21,10 +21,14 @@ import { getReadyVideos } from "@/lib/videos/fetch";
 import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { BankTransferPanel } from "@/components/admin/bank-transfer-panel";
 import { formatDateJst } from "@/lib/utils/format-date";
-import type { PaidPlanType } from "@/lib/constants/plans";
-import { PAYMENT_METHOD_LABELS, PLAN_LABELS } from "@/lib/constants/plans";
+import {
+  isVideoOption,
+  VIDEO_OPTION_TYPES,
+  VIDEO_OPTION_UI_NAMES,
+} from "@/lib/billing/options";
+import { PAYMENT_METHOD_LABELS, type PaidPlanType } from "@/lib/constants/plans";
+import { DeleteAccountButton } from "@/app/admin/(protected)/clients/[id]/delete-account-button";
 import { DeleteUserButton } from "./delete-user-button";
-import { OpsAccountPanel } from "./ops-account-panel";
 
 // アカウント削除の退会カスケード（メール送信を含む）がタイムアウトしないよう
 // Server Action の実行時間上限を延長する
@@ -78,10 +82,6 @@ export default async function AdminUserDetailPage({
   // 公開リダイレクター悪用を避けるため /admin/ 始まりのみ受け入れる（resolveBackTo）。
   const rawBackTo = resolveBackTo(sp.backTo);
   const backTo = rawBackTo ?? "/admin/users";
-  // 子画面（発注者詳細 ADM-004 等）へ渡す戻り先 = 本画面の URL（自分の backTo 込み）。
-  // ステージング指摘 No.37/38: これを渡していなかったため ADM-004 の「もどる」が
-  // 発注者一覧へ飛び、来た画面（本画面）に戻れなかった
-  const backToForChildren = buildBackToValue(`/admin/users/${id}`, rawBackTo);
   const admin = createAdminClient();
 
   const { data: u } = await admin
@@ -99,7 +99,7 @@ export default async function AdminUserDetailPage({
 
   if (!u) notFound();
 
-  // 管理運営アカウント（P5）の契約表示 + 銀行振込（P12）の枠で使う現在の契約
+  // 銀行振込（P12）の枠で使う現在の契約
   const { data: activeSubscription } = await admin
     .from("subscriptions")
     .select("id, plan_type, status, payment_method, current_period_end")
@@ -108,9 +108,41 @@ export default async function AdminUserDetailPage({
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const currentPlanLabel = activeSubscription
-    ? `${PLAN_LABELS[activeSubscription.plan_type as keyof typeof PLAN_LABELS] ?? activeSubscription.plan_type}（${PAYMENT_METHOD_LABELS[activeSubscription.payment_method]}）`
-    : null;
+  // 銀行振込枠の「購入済みの動画プラン」（カード・銀行振込の両方。買い切りなので複数行ありうる）。
+  // 二重の有効化に運営が気づけるようにするための表示専用データ
+  const { data: videoOptionRows } = await admin
+    .from("option_subscriptions")
+    .select("id, option_type, payment_method, start_date, created_at")
+    .eq("user_id", id)
+    .in("option_type", [...VIDEO_OPTION_TYPES])
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true });
+  const videoPurchases = (videoOptionRows ?? []).flatMap((r) =>
+    isVideoOption(r.option_type)
+      ? [
+          {
+            id: r.id,
+            // 旧 職場紹介動画（video_workplace）は統合先の名前だけを出す（「旧:」の注記は付けない）
+            planName:
+              VIDEO_OPTION_UI_NAMES[r.option_type === "video_workplace" ? "video" : r.option_type],
+            purchasedOnLabel: formatDateJst(r.start_date ?? r.created_at),
+            paymentMethodLabel: PAYMENT_METHOD_LABELS[r.payment_method],
+          },
+        ]
+      : [],
+  );
+
+  // 発注者でもある会員の削除確認で「配下の担当者も削除される」警告を出すか（ADM-004 と同じ判定）
+  let hasOrganization = false;
+  if (u.role === "client") {
+    const { data: org } = await admin
+      .from("organizations")
+      .select("id")
+      .eq("owner_id", id)
+      .maybeSingle();
+    hasOrganization = !!org;
+  }
 
   // PR動画（公開中のみ）。P4 でオプション購入によるゲートは撤廃。
   // 退会済みでも登録済みの動画は運営者が後から確認できるよう表示を維持する
@@ -350,13 +382,14 @@ export default async function AdminUserDetailPage({
         />
       </section>
 
-      {/* 銀行振込（P12）: ADM-004 と同じ共通枠。契約主体になれる contractor / client のみ。
+      {/* 銀行振込（P12）: 契約は会員に紐づくため、枠はこの画面だけ（ADM-004 には置かない）。契約主体になれる contractor / client のみ。
           退会済み・担当者（staff）・管理者には出さない */}
       {!isDeleted && (u.role === "contractor" || u.role === "client") && (
         <section className="mt-6">
           <h2 className="text-body-lg font-bold text-foreground">銀行振込</h2>
           <BankTransferPanel
             userId={id}
+            videoPurchases={videoPurchases}
             subscription={
               activeSubscription
                 ? {
@@ -372,22 +405,7 @@ export default async function AdminUserDetailPage({
                   }
                 : null
             }
-            showClientDetailLinkAfterActivate
           />
-        </section>
-      )}
-
-      {/* 管理運営アカウント（P5）: 退会済みには出さない */}
-      {!isDeleted && (
-        <section className="mt-6">
-          <h2 className="text-body-lg font-bold text-foreground">管理運営アカウント</h2>
-          <div className="mt-2">
-            <OpsAccountPanel
-              userId={id}
-              isHidden={u.is_hidden}
-              currentPlanLabel={currentPlanLabel}
-            />
-          </div>
         </section>
       )}
 
@@ -400,22 +418,17 @@ export default async function AdminUserDetailPage({
           <Link href={backTo}>もどる</Link>
         </Button>
 
-        {/* 削除は contractor のみ。client は ADM-004（Stripe 解約＋配下スタッフ連動削除）に一本化 */}
+        {/* 削除: 受注者は deleteUserAccountAction、発注者でもある会員は ADM-004 と同じ
+            deleteClientAccountAction（Stripe 解約＋配下スタッフ連動削除）を呼ぶ。処理は二重に作らない */}
         {u.role === "contractor" && !isDeleted && (
           <DeleteUserButton userId={id} />
         )}
-        {u.role === "client" && (
-          <Button
-            asChild
-            variant="outline"
-            className="w-full max-w-xs rounded-full border-secondary text-secondary"
-          >
-            <Link
-              href={`/admin/clients/${id}?backTo=${encodeURIComponent(backToForChildren)}`}
-            >
-              発注者詳細
-            </Link>
-          </Button>
+        {u.role === "client" && !isDeleted && (
+          <DeleteAccountButton
+            userId={id}
+            hasOrganization={hasOrganization}
+            origin="users"
+          />
         )}
       </div>
     </div>

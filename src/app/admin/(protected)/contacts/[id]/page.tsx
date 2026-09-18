@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DocumentView } from "@/components/admin/document-view";
-import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
+import { resolveBackTo } from "@/lib/admin/back-to";
 import { getSignedDocumentUrls } from "@/lib/admin/signed-urls";
 import { bankTransferPlanLabel } from "@/lib/constants/contact-options";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -57,8 +57,6 @@ export default async function AdminContactDetailPage({
   const { id } = await params;
   const sp = await searchParams;
   const backTo = resolveBackTo(sp.backTo);
-  const currentPath = `/admin/contacts/${id}`;
-  const backToForChildren = buildBackToValue(currentPath, backTo);
   const admin = createAdminClient();
 
   const { data: contact } = await admin
@@ -68,6 +66,21 @@ export default async function AdminContactDetailPage({
     .maybeSingle();
 
   if (!contact) notFound();
+
+  // 送信時のログインアカウント（登録メール）。フォームのメールは自由入力で、会員登録と違う値に
+  // 書き換えられるため、食い違いに運営が気づけるよう並べて見せる（リンクは付けない）
+  let senderAccountEmail: string | null = null;
+  if (contact.user_id) {
+    const { data: sender } = await admin
+      .from("users")
+      .select("email")
+      .eq("id", contact.user_id)
+      .maybeSingle();
+    senderAccountEmail = sender?.email ?? null;
+  }
+  const emailDiffers =
+    senderAccountEmail !== null &&
+    senderAccountEmail.trim().toLowerCase() !== contact.email.trim().toLowerCase();
 
   const attachmentDocs =
     contact.attachments && contact.attachments.length > 0
@@ -83,17 +96,29 @@ export default async function AdminContactDetailPage({
         お問い合わせ詳細
       </h1>
 
-      {/* 上部メタ情報（admin 専用：受信日時 + 登録ユーザーバッジ） */}
+      {/* 上部メタ情報（admin 専用：受信日時 +「ログイン時に送信」バッジ） */}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <p className="text-body-sm text-muted-foreground">
           受信日時：{formatDateTime(contact.created_at)}
         </p>
         {contact.user_id && (
           <span className="rounded-full bg-primary/10 px-3 py-0.5 text-body-xs font-medium text-primary">
-            登録ユーザー
+            ログイン時に送信
           </span>
         )}
       </div>
+      {senderAccountEmail && (
+        <div className="mt-2 text-body-sm">
+          <p className="break-all text-foreground">
+            送信時のログインアカウント：{senderAccountEmail}
+          </p>
+          {emailDiffers && (
+            <p className="text-destructive">
+              ※ フォームのメールアドレスと異なります
+            </p>
+          )}
+        </div>
+      )}
 
       {/* 基本情報（フォーム COM-008 の基本情報セクションに準拠） */}
       <section className="mt-6">
@@ -180,23 +205,11 @@ export default async function AdminContactDetailPage({
         </section>
       )}
 
-      {/* 導線: 送信ユーザー → ADM-009 ／ もどる
-          ADM-021 / ADM-022 に揃えて縦積み中央寄せ。
-          紫文字＋紫枠で統一し、backTo を伝播 */}
+      {/* 導線は「もどる」のみ。送信ユーザー（ADM-009）への直リンクは 2026-09-18 に削除:
+          複数アカウントを持つ会員が別アカウント宛ての依頼を送ることがあり、ボタンで開いた相手を
+          そのまま操作すると取り違える。運営はユーザーアカウント一覧で検索して確認する。
+          判断材料として「送信時のログインアカウント」を上部に文字だけで出す */}
       <div className="mt-10 flex flex-col items-center gap-3">
-        {contact.user_id && (
-          <Button
-            asChild
-            variant="outline"
-            className="w-full max-w-xs rounded-full border-secondary text-secondary"
-          >
-            <Link
-              href={`/admin/users/${contact.user_id}?backTo=${encodeURIComponent(backToForChildren)}`}
-            >
-              送信ユーザーの詳細を見る
-            </Link>
-          </Button>
-        )}
         <Button
           asChild
           variant="outline"

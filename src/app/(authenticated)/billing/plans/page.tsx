@@ -130,7 +130,7 @@ const OPTION_ROWS: { label: string; price: string }[] = [
     price: `${OPTION_PRICES_TAX_INCLUDED.video.toLocaleString("ja-JP")}円/動画`,
   },
   {
-    label: "ユーザー撮影プラン",
+    label: "ユーザー撮影動画制作プラン",
     price: `${OPTION_PRICES_TAX_INCLUDED.video_shooting.toLocaleString("ja-JP")}円/動画`,
   },
   {

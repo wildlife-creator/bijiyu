@@ -73,14 +73,14 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await expect(
       page.getByText(/※プレミアム・ハイエンドプランの方は本プランが含まれていますので/),
     ).toBeVisible();
-    // ユーザー撮影プラン（P7）: 無料の受注者でも申込ボタンが活性（発注者プラン不要）
-    await expect(page.getByText("ユーザー撮影プラン", { exact: true })).toBeVisible();
+    // ユーザー撮影動画制作プラン（P7）: 無料の受注者でも申込ボタンが活性（発注者プラン不要）
+    await expect(page.getByText("ユーザー撮影動画制作プラン", { exact: true })).toBeVisible();
     await expect(page.getByText("20,000円/動画", { exact: true })).toBeVisible();
     await expect(
       page.getByText("※ビジ友で決められた動画の構成に合わせて動画撮影をお願いします。"),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "ユーザー撮影プランを申し込む" }),
+      page.getByRole("button", { name: "ユーザー撮影動画制作プランを申し込む" }),
     ).toBeEnabled();
     // ビジ友公式SNS動画制作プラン（P10）: 無料の受注者でも申込ボタンが活性
     await expect(page.getByText("ビジ友公式SNS動画制作プラン", { exact: true })).toBeVisible();

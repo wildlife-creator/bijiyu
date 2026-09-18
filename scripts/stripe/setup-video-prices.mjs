@@ -5,7 +5,7 @@
  *   node scripts/stripe/setup-video-prices.mjs
  *
  * やること（すべて冪等。何度実行しても同じ結果になる）:
- *   1. 「ユーザー撮影プラン」（一回限り ¥20,000）の商品 + Price を作る（P7）
+ *   1. 「ユーザー撮影動画制作プラン」（一回限り ¥20,000）の商品 + Price を作る（P7）
  *   2. 「ビジ友公式SNS動画制作プラン」（一回限り ¥120,000）の商品 + Price を作る（P10）
  *   3. 既存の「自己PR動画掲載」商品（STRIPE_PRICE_VIDEO の商品）の名称を
  *      「プロフィール動画制作プラン」に変更する（Price ID はそのまま）（P10）
@@ -38,7 +38,7 @@ try {
 const NEW_PLANS = [
   {
     envVar: "STRIPE_PRICE_VIDEO_SHOOTING",
-    productName: "ユーザー撮影プラン",
+    productName: "ユーザー撮影動画制作プラン",
     amount: 20000,
     lookupKey: "bijiyu_video_shooting",
   },

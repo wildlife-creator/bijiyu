@@ -13,9 +13,8 @@ import {
  * 管理運営アカウント（P5 / spec-changes-202608 §2.4）の E2E。
  *
  * seed（supabase/seed.sql「管理運営アカウント」）:
- * - ops-account@test.local (0b50…0001): is_hidden=true、ハイエンドの銀行振込行（期限 2099）、
+ * - ops-account@test.local (0b50…0001): is_hidden=true、ハイエンドの銀行振込行（期限なし）、
  *   組織 + 表示名「ビジ友運営（テスト）」
- * - ops-candidate@test.local (0b50…0002): 無料の受注者。ADM-009 の設定 / 解除専用
  *
  * ユーザーストーリー:
  *  A. 一般会員からは運営アカウントが見えない（一覧・直リンク・新規スレッド）
@@ -26,7 +25,6 @@ import {
 
 const OPS = { email: "ops-account@test.local", password: "testpass123" };
 const OPS_ID = "0b500000-0000-4000-8000-000000000001";
-const CANDIDATE_ID = "0b500000-0000-4000-8000-000000000002";
 const CLIENT_ID = "22222222-2222-2222-2222-222222222222";
 const CONTRACTOR_ID = "11111111-1111-1111-1111-111111111111";
 const OPS_DISPLAY_NAME = "ビジ友運営（テスト）";
@@ -193,35 +191,17 @@ test.describe("C. 運営 → 職人へメッセージ", () => {
   });
 });
 
-test.describe("D. 管理画面（ADM-009）で設定 / 解除", () => {
-  test("設定 → バッジと契約が付き、解除 → 通常の会員に戻る", async ({ page }) => {
+test.describe("D. 管理画面の表示（設定は開発側で行うため、設定 / 解除の画面は無い）", () => {
+  test("ユーザー詳細（ADM-009）と一覧にバッジが出る。設定用のセクションは無い", async ({ page }) => {
     await login(page, TEST_ADMIN.email, TEST_ADMIN.password);
-    await page.goto(`/admin/users/${CANDIDATE_ID}`);
-    await expect(
-      page.getByRole("heading", { name: "管理運営アカウント" }),
-    ).toBeVisible();
-    await expect(page.getByText("現在の状態: 通常の会員")).toBeVisible();
-
-    await page.getByRole("button", { name: "管理運営アカウントに設定する" }).click();
-    await page.getByRole("button", { name: "設定する" }).click();
-    await expect(page.getByText("管理運営アカウントに設定しました")).toBeVisible();
-    await expect(page.getByText("契約: ハイエンドプラン（銀行振込）")).toBeVisible();
+    await page.goto(`/admin/users/${OPS_ID}`);
+    await expect(page.getByRole("heading", { name: "ユーザーアカウント詳細" })).toBeVisible();
     await expect(page.getByText("管理運営", { exact: true })).toBeVisible();
-    // 受注者 → 発注者に昇格したので発注者詳細への導線が出る
-    await expect(page.getByRole("link", { name: "発注者詳細" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "管理運営アカウント" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /管理運営アカウント/ })).toHaveCount(0);
 
-    // 一覧にもバッジ
-    await page.goto("/admin/users?q=ops-candidate");
+    await page.goto("/admin/users?q=ops-account");
     await expect(page.getByText("管理運営", { exact: true })).toBeVisible();
-
-    // 解除
-    await page.goto(`/admin/users/${CANDIDATE_ID}`);
-    await page.getByRole("button", { name: "管理運営アカウントを解除する" }).click();
-    await page.getByRole("button", { name: "解除する" }).click();
-    await expect(page.getByText("管理運営アカウントを解除しました")).toBeVisible();
-    await expect(page.getByText("現在の状態: 通常の会員")).toBeVisible();
-    // 契約は残る
-    await expect(page.getByText("契約: ハイエンドプラン（銀行振込）")).toBeVisible();
   });
 
   test("運営アカウントの発注者詳細（ADM-004）にバッジが出る", async ({ page }) => {

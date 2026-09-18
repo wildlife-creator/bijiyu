@@ -220,7 +220,7 @@ const FLOWS = [
       await step(page, this, "料金プラン画面（新価格・動画 3 プラン・注意書き）", async () => {
         await page.goto(`${BASE}/billing`);
         await page.getByText("オプションプラン").first().waitFor();
-      }, { desc: "操作: 料金プラン画面（/billing）を開く。\n確認: 基本プランの月額が 2,800 / 9,800 / 28,000 / 168,000 円、プレミアムに「ご利用中」。初回事務手数料の文言が 12,000 円。オプションが「プロフィール動画制作プラン（購入済み。旧 職場紹介動画の購入を引き継ぐ）/ ユーザー撮影プラン / ビジ友公式SNS動画制作プラン / 急募」の順で、旧「自己PR動画掲載」「職場紹介動画掲載」の行が無い。交通費・プラン付属の注意書きが出る。" });
+      }, { desc: "操作: 料金プラン画面（/billing）を開く。\n確認: 基本プランの月額が 2,800 / 9,800 / 28,000 / 168,000 円、プレミアムに「ご利用中」。初回事務手数料の文言が 12,000 円。オプションが「プロフィール動画制作プラン（購入済み。旧 職場紹介動画の購入を引き継ぐ）/ ユーザー撮影動画制作プラン / ビジ友公式SNS動画制作プラン / 急募」の順で、旧「自己PR動画掲載」「職場紹介動画掲載」の行が無い。交通費・プラン付属の注意書きが出る。" });
       await step(page, this, "年払いタブに切替（年額 = 月額 × 10）", async () => {
         await page.getByRole("tab", { name: "年払い" }).click();
         await page.waitForTimeout(300);
@@ -419,11 +419,11 @@ const FLOWS = [
   },
   {
     id: "F6",
-    name: "管理画面（一覧）: オプション絞り込み（プロフィール動画 / ユーザー撮影プラン / ビジ友公式SNS動画）と発注者詳細",
+    name: "管理画面（一覧）: オプション絞り込み（ユーザー一覧 = 動画 3 プラン / 発注者一覧 = 急募のみ）と発注者詳細",
     intro: {
       user: "admin@test.local（運営）",
       precondition: "seed 投入直後（contractor@test.local = 旧 video、client@test.local = 旧 video_workplace を購入済み）",
-      expect: "絞り込みの選択肢が P10 の 3 プラン名になり、「プロフィール動画」で旧 video と旧 video_workplace の購入者がまとめて出る。詳細画面の見出し・ボタン名が新名称",
+      expect: "ユーザー一覧の絞り込みが動画 3 プランの正式名だけ（補償なし）で、「プロフィール動画制作プラン」で旧 video と旧 video_workplace の購入者がまとめて出る。発注者一覧の絞り込み・バッジは急募のみ。詳細画面の見出し・ボタン名が新名称",
     },
     async run(page) {
       await step(page, this, "運営ログイン → ユーザーアカウント一覧", async () => {
@@ -434,21 +434,21 @@ const FLOWS = [
       await step(page, this, "絞り込みの選択肢を開く", async () => {
         await page.getByRole("combobox").first().click();
         await page.getByRole("option", { name: "ビジ友公式SNS動画" }).waitFor();
-      }, { fullPage: false, desc: "操作: 「オプションプラン加入者」のプルダウンを開く。\n確認: 選択肢が「すべて / プロフィール動画 / ユーザー撮影プラン / ビジ友公式SNS動画 / 補償¥5,000 / 補償¥9,800」（旧「動画掲載(受注者PR)」が無い）。" });
-      await step(page, this, "「プロフィール動画」で検索", async () => {
-        await page.getByRole("option", { name: "プロフィール動画" }).click();
+      }, { fullPage: false, desc: "操作: 「オプションプラン加入者」のプルダウンを開く。\n確認: 選択肢が「すべて / プロフィール動画制作プラン / ユーザー撮影動画制作プラン / ビジ友公式SNS動画制作プラン」（補償は無い）。" });
+      await step(page, this, "「プロフィール動画制作プラン」で検索", async () => {
+        await page.getByRole("option", { name: "プロフィール動画制作プラン" }).click();
         await page.getByRole("button", { name: "検索" }).click();
         await page.waitForURL(/option=video/);
         await page.getByText(/検索結果：/).waitFor();
-      }, { desc: "操作: 「プロフィール動画」を選んで「検索」。\n確認: 旧 video（contractor@test.local）と旧 video_workplace（client@test.local）の購入者が両方ヒットする（統合前の購入を同じ商品として扱う）。" });
-      await step(page, this, "発注者アカウント一覧（絞り込み: プロフィール動画 / バッジ）", async () => {
-        await page.goto(`${BASE}/admin/clients?option=video`);
+      }, { desc: "操作: 「プロフィール動画制作プラン」を選んで「検索」。\n確認: 旧 video（contractor@test.local）と旧 video_workplace（client@test.local）の購入者が両方ヒットする（統合前の購入を同じ商品として扱う）。" });
+      await step(page, this, "発注者アカウント一覧（絞り込み・バッジは急募のみ）", async () => {
+        await page.goto(`${BASE}/admin/clients`);
         await page.getByRole("heading", { level: 1 }).first().waitFor();
-      }, { desc: "操作: 発注者アカウント一覧（ADM-003）をオプション「プロフィール動画」で絞って開く。\n確認: 選択肢が「急募オプション / プロフィール動画」（旧「動画掲載（職場紹介）」が無い）。該当行のバッジが「プロフィール動画」（旧「職場紹介動画」）。" });
+      }, { desc: "操作: 発注者アカウント一覧（ADM-003）を開く。\n確認: オプションプラン加入者の選択肢が「すべて / 急募オプション」だけ。行のバッジも「急募」だけ（動画の加入状況はユーザーアカウント一覧で見る）。" });
       await step(page, this, "発注者アカウント詳細（オプション加入状況・動画欄・ボタン）", async () => {
         await page.goto(`${BASE}/admin/clients/${CLIENT_ID}`);
         await page.getByRole("heading", { level: 1 }).first().waitFor();
-      }, { desc: "操作: 鈴木工務店株式会社の発注者アカウント詳細（ADM-004）を開く。\n確認: オプション加入状況のチェック項目が「プロフィール動画」（旧 video_workplace の購入で ✓）。動画欄の見出しが「プロフィール動画」、ボタンが「動画を投稿/編集する」。プラン表示に支払方法・月払い/年払いが併記される。" });
+      }, { desc: "操作: 鈴木工務店株式会社の発注者アカウント詳細（ADM-004）を開く。\n確認: オプション加入状況は「急募オプション」だけ（加入中は案件名と期限を 1 件 1 行で表示）。動画欄の見出しが「プロフィール動画」、ボタンが「動画を投稿/編集する」。プラン表示に支払方法・月払い/年払いが併記される。" });
       await step(page, this, "ユーザーアカウント詳細（動画欄・ボタン）", async () => {
         await page.goto(`${BASE}/admin/users/${CONTRACTOR_ID}`);
         await page.getByRole("heading", { name: "ユーザーアカウント詳細" }).waitFor();

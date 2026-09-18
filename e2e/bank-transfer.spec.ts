@@ -8,12 +8,15 @@ import { TEST_ADMIN, login } from "./helpers";
  * ユーザーストーリー:
  *  1. 会員がログインしてお問い合わせを開くと会員情報が入っている → 「お支払い方法（銀行振込）について」
  *     + 希望プランを選んで送信できる
- *  2. 運営が ADM-002 → 銀行振込お問い合わせ一覧 → 行の「ユーザー詳細」→ 「銀行振込」枠で有効にする
+ *  2. 運営が ADM-002 → 銀行振込お問い合わせ一覧 → 行の「お問い合わせ詳細」で「送信時のログインアカウント」を確認
+ *     → ユーザーアカウント一覧で検索して開く → ユーザー詳細の「銀行振込」枠で有効にする
+ *     （お問い合わせ一覧・詳細からユーザー詳細への直リンクは置かない = 取り違え防止）
  *     → 会員の /billing が「ご利用中」+「お支払い方法: 銀行振込」。Stripe 前提のボタン（解約・お支払い情報）は
  *     出ず、カード払いへの切り替えボタンは押せる
  *  3. 未ログインのお問い合わせでは銀行振込の選択肢が出ない
- *  4. 銀行振込で契約中の発注者（seed）を、発注者詳細で「変更する」「無効にする」できる
- *     （無効化すると受注者に戻るため、発注者詳細からユーザー詳細へ移る）
+ *  4. 銀行振込で契約中の発注者（seed）を、ユーザー詳細で「変更する」「無効にする」できる
+ *     （契約は会員に紐づくため、銀行振込の枠はユーザー詳細だけ。発注者詳細には枠が無く、
+ *     プランと支払い方法の表示だけが残る）
  *
  * 前提 seed（supabase/seed.sql「銀行振込 テストデータ」。`supabase db reset` 直後に実行）:
  *  - bank-transfer-e2e@test.local: 無料の受注者（本テストで client になる。他テストは使わない）
@@ -59,7 +62,7 @@ test.describe.serial("銀行振込: お問い合わせ → 一覧 → ユーザ�
     await expect(page.getByText("お問い合わせを受け付けました。")).toBeVisible();
   });
 
-  test("2. 運営が銀行振込お問い合わせ一覧 → ユーザー詳細 → 「有効にする」", async ({ page }) => {
+  test("2. 運営が銀行振込お問い合わせ一覧 → お問い合わせ詳細 → ユーザー詳細 → 「有効にする」", async ({ page }) => {
     await adminLogin(page);
 
     // ダッシュボード → 銀行振込お問い合わせ一覧（クリック導線）
@@ -72,8 +75,19 @@ test.describe.serial("銀行振込: お問い合わせ → 一覧 → ユーザ�
     const row = page.getByText(TEST_BANK_E2E.email).locator("..");
     await expect(row).toContainText("振込一郎");
     await expect(row).toContainText("希望：スタンダードプラン");
-    // まだ発注者ではないので「ユーザー詳細」（ADM-009）へ
-    await row.getByRole("link", { name: "ユーザー詳細" }).click();
+    // 行のリンクは「お問い合わせ詳細」だけ（ユーザー詳細・発注者詳細への直リンクは置かない）
+    await expect(row.getByRole("link")).toHaveCount(1);
+    await row.getByRole("link", { name: "お問い合わせ詳細" }).click();
+    await page.waitForURL(/\/admin\/contacts\/[0-9a-f-]{36}/);
+    // お問い合わせ詳細: 送信時のログインアカウントを文字で確認できる（フォームのメールと同じなので注意書きは出ない）。
+    // ユーザー詳細への直リンクは無い
+    await expect(page.getByText(`送信時のログインアカウント：${TEST_BANK_E2E.email}`)).toBeVisible();
+    await expect(page.getByText("※ フォームのメールアドレスと異なります")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "送信ユーザーの詳細を見る" })).toHaveCount(0);
+
+    // 運営が自分でユーザーアカウント一覧から検索して開く
+    await page.goto(`/admin/users?q=${encodeURIComponent(TEST_BANK_E2E.email)}`);
+    await page.getByRole("link", { name: new RegExp(TEST_BANK_E2E.email.replace(/\./g, "\\.")) }).click();
     await page.waitForURL(/\/admin\/users\/[0-9a-f-]{36}/);
     await expect(page.getByRole("heading", { name: "ユーザーアカウント詳細" })).toBeVisible();
 
@@ -83,8 +97,8 @@ test.describe.serial("銀行振込: お問い合わせ → 一覧 → ユーザ�
     const dialog = page.getByRole("alertdialog", { name: "銀行振込でプランを有効にしますか？" });
     await dialog.getByRole("button", { name: "有効にする" }).click();
     await expect(page.getByText("スタンダードプランを有効にしました")).toBeVisible();
-    // 受注者だった人が発注者になったので、発注者詳細への導線が出る
-    await expect(page.getByRole("link", { name: "発注者詳細を開く" })).toBeVisible();
+    // ユーザー詳細から発注者詳細への導線は置かない
+    await expect(page.getByRole("link", { name: /発注者詳細/ })).toHaveCount(0);
     // 契約中の表示に切り替わる（変更する / 無効にする）
     await expect(page.getByText("現在: スタンダードプラン（銀行振込）")).toBeVisible();
     await expect(page.getByRole("button", { name: "無効にする" })).toBeVisible();
@@ -119,14 +133,18 @@ test.describe("銀行振込: 未ログインのお問い合わせ", () => {
   });
 });
 
+/** ユーザーアカウント一覧 → seed の bank-client（振込商店）のユーザー詳細（ADM-009）を開く */
+async function openBankClientUserDetail(page: Page) {
+  await page.goto("/admin/users?q=bank-client");
+  await page.getByRole("link", { name: /(?<!-)bank-client@test\.local/ }).first().click();
+  await page.waitForURL(/\/admin\/users\/[0-9a-f-]{36}/);
+  await expect(page.getByRole("heading", { name: "ユーザーアカウント詳細" })).toBeVisible();
+}
+
 test.describe.serial("銀行振込: 契約中の発注者を「変更する」「無効にする」", () => {
-  test("発注者詳細（ADM-004）でプランを変更できる", async ({ page }) => {
+  test("ユーザー詳細（ADM-009）でプランを変更できる。発注者詳細（ADM-004）には枠が無く表示だけ変わる", async ({ page }) => {
     await adminLogin(page);
-    await page.goto("/admin/clients?q=bank-client");
-    const row = page.getByRole("link", { name: /振込商店/ });
-    await expect(row).toContainText("プラン: スタンダード（銀行振込）");
-    await row.click();
-    await page.waitForURL(/\/admin\/clients\//);
+    await openBankClientUserDetail(page);
 
     await expect(page.getByText("現在: スタンダードプラン（銀行振込）")).toBeVisible();
     await pickSelect(page, "bt-plan", "プレミアムプラン");
@@ -135,25 +153,45 @@ test.describe.serial("銀行振込: 契約中の発注者を「変更する」�
     await dialog.getByRole("button", { name: "変更する" }).click();
     await expect(page.getByText("プレミアムプランに変更しました")).toBeVisible();
     await expect(page.getByText("現在: プレミアムプラン（銀行振込）")).toBeVisible();
-    // 銀行振込は月払い / 年払い・有効期限を持たない
-    await expect(page.getByText(/プラン: プレミアム（銀行振込）/)).toBeVisible();
     await expect(page.getByText(/期限間近|期限切れ|期限を延長する/)).toHaveCount(0);
-  });
 
-  test("発注者詳細（ADM-004）で無効にすると、受注者に戻るのでユーザー詳細（ADM-009）へ移り、有効化の枠に戻る", async ({ page }) => {
-    await adminLogin(page);
+    // 発注者詳細: プランと支払い方法は表示される（銀行振込は月払い / 年払いを持たない）が、操作の枠は無い
     await page.goto("/admin/clients?q=bank-client");
     await page.getByRole("link", { name: /振込商店/ }).click();
     await page.waitForURL(/\/admin\/clients\//);
+    await expect(page.getByText(/プラン: プレミアム（銀行振込）/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "銀行振込", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "無効にする" })).toHaveCount(0);
+  });
+
+  test("動画プランは何回でも有効にでき、購入済みの一覧に 1 回ごとに 1 行増える", async ({ page }) => {
+    await adminLogin(page);
+    await openBankClientUserDetail(page);
+    const section = page.getByRole("heading", { name: "銀行振込", exact: true }).locator("..");
+    await expect(section.getByText("購入済み:")).toBeVisible();
+    await expect(section.getByText("なし", { exact: true })).toBeVisible();
+
+    for (const expected of [1, 2]) {
+      await pickSelect(page, "bt-video", "ユーザー撮影動画制作プラン");
+      await page.getByRole("button", { name: "動画プランを有効にする" }).click();
+      const dialog = page.getByRole("alertdialog", { name: "動画プランを有効にしますか？" });
+      await dialog.getByRole("button", { name: "有効にする" }).click();
+      await expect(
+        section.getByRole("listitem").filter({ hasText: "ユーザー撮影動画制作プラン" }),
+      ).toHaveCount(expected);
+    }
+    await expect(section.getByRole("listitem").first()).toContainText("（銀行振込）");
+  });
+
+  test("ユーザー詳細（ADM-009）で無効にすると、その場で有効化の枠に戻る", async ({ page }) => {
+    await adminLogin(page);
+    await openBankClientUserDetail(page);
 
     await expect(page.getByText("現在: プレミアムプラン（銀行振込）")).toBeVisible();
     await page.getByRole("button", { name: "無効にする" }).click();
     const dialog = page.getByRole("alertdialog", { name: "銀行振込の契約を無効にしますか？" });
     await dialog.getByRole("button", { name: "無効にする" }).click();
     await expect(page.getByText("無効にしました")).toBeVisible();
-    // 無効化で発注者ではなくなる（ADM-004 は開けない）ため、ユーザー詳細へ移る
-    await page.waitForURL(/\/admin\/users\/[0-9a-f-]{36}/);
-    await expect(page.getByRole("heading", { name: "ユーザーアカウント詳細" })).toBeVisible();
     // 有料プランなし → 「有効にする」が出る
     await expect(page.getByRole("button", { name: "有効にする", exact: true })).toBeVisible();
     await expect(page.getByText(/現在: .*（銀行振込）/)).toHaveCount(0);

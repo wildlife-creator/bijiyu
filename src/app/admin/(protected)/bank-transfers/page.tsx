@@ -85,19 +85,14 @@ export default async function AdminBankTransfersPage({ searchParams }: PageProps
                 希望：{row.planLabel ?? "—"}
               </p>
               <div className="mt-2 flex flex-wrap justify-end gap-2">
-                <Button asChild variant="outline" size="sm" className="rounded-full">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full border-secondary text-secondary"
+                >
                   <Link href={withBackTo(`/admin/contacts/${row.id}`)}>お問い合わせ詳細</Link>
                 </Button>
-                {row.userDetailHref && (
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full border-secondary text-secondary"
-                  >
-                    <Link href={withBackTo(row.userDetailHref)}>{row.userDetailLabel}</Link>
-                  </Button>
-                )}
               </div>
             </div>
           ))

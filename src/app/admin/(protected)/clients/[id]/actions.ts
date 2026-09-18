@@ -81,9 +81,13 @@ export async function updateAdminMemoAction(
  * ADM-004: 発注者アカウント削除。
  * executeWithdrawal（C案カスケード: 配下メンバー連動凍結・org ソフトデリート・Stripe 解約）に
  * 委譲する。進行中取引ガードで拒否された場合はエラー文言をそのまま画面に表示する。
+ *
+ * ADM-009 ユーザー詳細（発注者でもある会員）からも同じ処理を呼ぶ（削除処理を二重に作らない）。
+ * `origin` は削除後に戻る一覧を決めるだけ（"users" → ユーザーアカウント一覧）。
  */
 export async function deleteClientAccountAction(
   userId: string,
+  origin: "clients" | "users" = "clients",
 ): Promise<ActionResult> {
   const auth = await requireAdmin();
   if (!auth.ok) {
@@ -159,5 +163,7 @@ export async function deleteClientAccountAction(
   }
 
   revalidatePath("/admin/clients");
-  redirect("/admin/clients");
+  revalidatePath("/admin/users");
+  // クライアントから渡る値なので、既知の 2 値以外は発注者一覧に倒す
+  redirect(origin === "users" ? "/admin/users" : "/admin/clients");
 }

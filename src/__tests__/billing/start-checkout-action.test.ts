@@ -475,7 +475,7 @@ describe("startCheckoutAction — compensation option 販売停止フラグ (P8)
     }
   });
 
-  it("フラグが false でも補償以外（ユーザー撮影プラン）は影響を受けない", async () => {
+  it("フラグが false でも補償以外（ユーザー撮影動画制作プラン）は影響を受けない", async () => {
     process.env.NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED = "false";
     try {
       const result = await startCheckoutAction({
@@ -702,7 +702,7 @@ describe("startCheckoutAction — video option", () => {
   });
 });
 
-describe("startCheckoutAction — video_shooting option (ユーザー撮影プラン、P7)", () => {
+describe("startCheckoutAction — video_shooting option (ユーザー撮影動画制作プラン、P7)", () => {
   it("happy path: 無料の受注者でも payment mode + video_shooting success_url（発注者プラン不要）", async () => {
     supabaseAuthState.userRow = {
       id: "user-c1",

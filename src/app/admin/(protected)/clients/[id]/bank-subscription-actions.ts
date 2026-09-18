@@ -26,7 +26,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/lib/types/action-result";
 
 /**
- * ADM-009 ユーザー詳細 / ADM-004 発注者詳細 の「銀行振込」枠（`<BankTransferPanel>`）の
+ * ADM-009 ユーザー詳細 の「銀行振込」枠（`<BankTransferPanel>`）の
  * Server Action（P12 / docs/requirements/p12-bank-transfer-onoff-implementation-notes.md §2.3, §3）。
  *
  * 銀行振込はアプリ上「プランのオン／オフ」だけ。請求書・入金確認・更新時期はアプリ外。
@@ -146,9 +146,7 @@ export async function activateBankTransferPlanAction(
     planType,
     billingCycle: "monthly",
     startDate: todayJstDateString(),
-    periodEndDate: null,
     via: "bank_transfer",
-    sendActivationEmail: true,
   });
   if (!granted.ok) return { success: false, error: granted.error };
 

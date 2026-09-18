@@ -31,7 +31,7 @@ const EXPECTED = [
   { envVar: "STRIPE_PRICE_SMALL_YEARLY", label: "スタンダード（年払い）", amount: 98000, interval: "year" },
   { envVar: "STRIPE_PRICE_CORPORATE_YEARLY", label: "プレミアム（年払い）", amount: 280000, interval: "year" },
   { envVar: "STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY", label: "ハイエンド（年払い）", amount: 1680000, interval: "year" },
-  { envVar: "STRIPE_PRICE_VIDEO_SHOOTING", label: "ユーザー撮影プラン", amount: 20000, interval: null },
+  { envVar: "STRIPE_PRICE_VIDEO_SHOOTING", label: "ユーザー撮影動画制作プラン", amount: 20000, interval: null },
   { envVar: "STRIPE_PRICE_VIDEO_SNS", label: "ビジ友公式SNS動画制作プラン", amount: 120000, interval: null },
 ];
 

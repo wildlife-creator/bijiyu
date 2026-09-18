@@ -391,7 +391,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 - ダウングレード（下位プラン / 年→月）は Subscription Schedule の次フェーズに切替先 Price を入れる。Webhook が次フェーズの Price から `scheduled_plan_type` / `scheduled_billing_cycle` を解決
 
 **銀行振込（payment_method = 'bank_transfer'）の運用（2026-09-16 P12。P2 の申込テーブル・期限管理は廃止）:**
-- 決済・請求書・更新時期はアプリ外。アプリは「プランのオン／オフ」だけ。入口はお問い合わせ（`contacts.inquiry_type = 'お支払い方法（銀行振込）について'`、ログイン中のみ、`bank_transfer_plan` に希望プランのキー）→ ADM-025 銀行振込お問い合わせ一覧 → ADM-009 / ADM-004 の「銀行振込」枠（`<BankTransferPanel>`）で運営が有効化
+- 決済・請求書・更新時期はアプリ外。アプリは「プランのオン／オフ」だけ。入口はお問い合わせ（`contacts.inquiry_type = 'お支払い方法（銀行振込）について'`、ログイン中のみ、`bank_transfer_plan` に希望プランのキー）→ ADM-025 銀行振込お問い合わせ一覧 → 運営が ADM-008 で会員を検索して開き、ADM-009 ユーザー詳細の「銀行振込」枠（`<BankTransferPanel>`）で運営が有効化
 - 有効化 = `grantBankTransferPlan()` がこのテーブルに `bank_transfer` 行を作る（`current_period_end` NULL・`billing_cycle` monthly）。無効化 = `handle_subscription_lifecycle_deleted`（v4: `subscription_id` 指定）で Stripe 解約と同じ後処理。変更 = `plan_type` の即時 UPDATE
 - **支払い方法の切り替えは同じ行を書き換える**（`subscriptions_unique_active` は据え置き）。カード → 銀行振込 = `switchStripeToBankTransferAction` が Stripe を即時解約し `payment_method='bank_transfer'` / `stripe_subscription_id=NULL` に UPDATE（その後の Webhook は行が見つからず skip）。銀行振込 → カード = 会員の Checkout。`handle_checkout_completed_plan` v3 が有効な bank_transfer 行を後処理なしで `cancelled` にしてから Stripe 行を INSERT（監査 `bank_transfer_ended_by_stripe_checkout`）
 - `/billing` の Stripe 前提の操作（変更・解約・ポータル）には流入させない（`plan-actions.ts` でガード）。`startCheckoutAction` の二重契約ガードは Stripe 行だけを見る（銀行振込中の会員がカードへ切り替えられるように）
@@ -418,7 +418,7 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | stripe_subscription_id | text (nullable) | Stripe Subscription ID（月額課金の場合のみ。単発課金では null） |
 | stripe_payment_intent_id | text (nullable) | Stripe Payment Intent ID（単発課金の場合のみ。月額課金では null） |
 | payment_method | payment_method_type | 'stripe'（既定）/ 'bank_transfer'（P2）。銀行振込行は Stripe ID が両方 NULL（CHECK）。銀行振込の補償は end_date を期限として持つが `expire-options` の自動停止対象外（手動運用） |
-| option_type | text | 'urgent'（急募）/ 'compensation_5000'（補償¥5,000）/ 'compensation_9800'（補償¥9,800）/ 'video'（プロフィール動画制作プラン。P10 で旧 受注者PR動画・職場紹介動画を統合）/ 'video_workplace'（旧 職場紹介動画掲載。P10 で新規販売停止・既存行のみ）/ 'video_shooting'（ユーザー撮影プラン、P7）/ 'video_sns'（ビジ友公式SNS動画制作プラン、P10）。動画系 4 種は買い切り・期限なし。CHECK 制約なし |
+| option_type | text | 'urgent'（急募）/ 'compensation_5000'（補償¥5,000）/ 'compensation_9800'（補償¥9,800）/ 'video'（プロフィール動画制作プラン。P10 で旧 受注者PR動画・職場紹介動画を統合）/ 'video_workplace'（旧 職場紹介動画掲載。P10 で新規販売停止・既存行のみ）/ 'video_shooting'（ユーザー撮影動画制作プラン、P7）/ 'video_sns'（ビジ友公式SNS動画制作プラン、P10）。動画系 4 種は買い切り・期限なし。CHECK 制約なし |
 | status | text | 'active' / 'expired' / 'cancelled' |
 | start_date | timestamptz | オプション有効開始日 |
 | end_date | timestamptz (nullable) | オプション有効終了日（急募: start_date + 7日。動画掲載: null = 期限なし。補償: Stripe が管理） |
@@ -780,11 +780,11 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 ## 管理運営アカウント（P5、2026-09）
 
 - 運営が「職人を発注者へ提案 / 案件を職人へ提案」するために使う、ハイエンド相当の一般会員（`users.role = 'client'`。admin ロールは `/admin/*` 以外に入れないため別アカウント）
-- 作成: ADM-006/007 の招待で通常どおり作成 → ADM-009「管理運営アカウントに設定する」で `users.is_hidden = true` + 手動サブスク行を付与（`grantBankTransferPlan`、`src/lib/billing/grant-plan.ts`。P12 の銀行振込有効化と共通）
-- 手動サブスク行: `subscriptions(plan_type='corporate_premium', payment_method='bank_transfer', billing_cycle='yearly', current_period_end='2099-12-31 JST')`。新しい支払方法（enum）は追加しない。有料判定（`is_paid_user()` / `resolveEffectiveSubscription`）は支払方法・期限を見ないためそのままハイエンド会員として動き、Stripe 前提の処理（プラン変更・解約・未払い自動解約）には流入しない。期限バッジ・期限通知（30 日前）も発火しない
-- 監査: `ops_account_set` / `ops_account_unset`（+ 付与時は `subscription_created` / `role_changed` に `via: 'ops_account'`）
+- 作成: ADM-006/007 の招待で通常どおり作成 → **設定は開発側で行う（2026-09-17 に ADM-009 の「管理運営アカウント」設定セクションを廃止。アカウントは 1 個で足り、管理画面にあるとクライアント側スタッフに意味が伝わらないため）**: ① 管理画面の ADM-009 ユーザー詳細 →「銀行振込」枠でハイエンドを「有効にする」（発注者への昇格・client_profiles・組織作成まで済む。期限なし。本人宛に有効化メールが 1 通届く）→ ② SQL `UPDATE users SET is_hidden = true WHERE email = '…';`（staging / 本番は Supabase の SQL エディタ）。解除は `is_hidden = false`。管理画面の「管理運営」バッジ（`OpsAccountBadge`）は残す（運営のアカウントだと見分けて、誤って無効化・削除しないため）。設定用の画面・Server Action を足し直さないこと
+- 契約行: P12 の銀行振込行と同じ形（`plan_type='corporate_premium'`, `payment_method='bank_transfer'`, `billing_cycle='monthly'`, `current_period_end=NULL`）。（2026-09-17 以前に旧 設定画面で作った行は `yearly` / `2099-12-31` のことがある。動作は同じ）新しい支払方法（enum）は追加しない。有料判定（`is_paid_user()` / `resolveEffectiveSubscription`）は支払方法・期限を見ないためそのままハイエンド会員として動き、Stripe 前提の処理（プラン変更・解約・未払い自動解約）には流入しない。期限バッジ・期限通知（30 日前）も発火しない
+- 監査: 付与は銀行振込の有効化と同じ（`subscription_created` / `role_changed`、`via: 'bank_transfer'`）。`is_hidden` の切り替えは SQL のため監査ログには残らない（`ops_account_set` / `ops_account_unset` は旧 設定画面の履歴用に型だけ残す）
 - メッセージ: 新しい入口は無し。既存の「メッセージを送る」（CLI-006 → 職人、CON-006 → 発注者、`/messages/new?to=`）を使う。`messages` の SELECT / INSERT RLS は `20260902130000_ops_account.sql` で identity ペア（`organization_1_id` / `organization_2_id`）対応済み（組織⇔組織スレッドで相手組織の担当者も本文を読め・返信できる）
-- pgTAP: `supabase/tests/ops_account.test.sql`。seed: `ops-account@test.local`（`0b500000-…0001`、is_hidden）/ `ops-candidate@test.local`（`…0002`、設定 E2E 用）
+- pgTAP: `supabase/tests/ops_account.test.sql`。seed: `ops-account@test.local`（`0b500000-…0001`、is_hidden）
 
 ## 一覧のプラン順ランク（P6、2026-09）
 
@@ -792,7 +792,7 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 - 方式: **ランク列 + トリガー**（`20260902140000_list_plan_rank.sql`）。`users.list_plan_rank` / `jobs.owner_plan_rank` に非正規化し、並び替えは既存クエリに `.order()` を 1 行足すだけ。ビュー案（subscriptions の RLS が本人行のみで他人のランクが 0 になる）・RPC 案（2 画面分のフィルタを SQL に書き直す）は不採用
 - 関数: `list_plan_rank_of(uid)`（corporate_premium → 3 / corporate → 2 / small → 1 / それ以外 → 0。P11 `20260910130000` でスタンダードを追加。SECURITY DEFINER、`is_paid_user` と同じ構造）/ `job_owner_plan_rank_of(owner_id, organization_id)` / `refresh_list_plan_rank(user_id)`（契約者本人 + 本人名義 + 所属組織の案件を再計算）
 - トリガー: ① `subscriptions` AFTER INSERT / UPDATE OF plan_type, status, user_id / DELETE → `refresh_list_plan_rank(OLD/NEW.user_id)` ② `jobs` BEFORE INSERT / UPDATE OF owner_id, organization_id → `owner_plan_rank` を設定（`ensure_organization_exists` の昇格時の organization_id 付け替えも拾う） ③ `organizations` AFTER INSERT / UPDATE OF owner_id, deleted_at → その組織の案件を再計算
-- 契約を書き換える経路（Stripe Webhook の RPC 4 系統 / 銀行振込の有効化・変更・無効化・切替（ADM-009 / ADM-004、P12） / 管理運営アカウント ADM-009 / 退会 / cron）は**すべて subscriptions への SQL 書き込み**なのでトリガーで漏れなく追従する。TS 側で都度ランクを更新するコードを書かないこと
+- 契約を書き換える経路（Stripe Webhook の RPC 4 系統 / 銀行振込の有効化・変更・無効化・切替（ADM-009、P12） / 退会 / cron）は**すべて subscriptions への SQL 書き込み**なのでトリガーで漏れなく追従する。TS 側で都度ランクを更新するコードを書かないこと
 - 索引: `jobs_recommended_order_idx (status, is_urgent DESC, owner_plan_rank DESC, created_at DESC) WHERE deleted_at IS NULL` / `users_client_list_rank_idx (list_plan_rank DESC, created_at DESC) WHERE deleted_at IS NULL AND is_hidden = false AND role = 'client'`
 - `PLAN_LIMITS.rank`（0〜4、`src/lib/constants/plans.ts`）とは別物（仕様はライト / スタンダード / 無料を同じ「その他」に置く）
 - pgTAP: `supabase/tests/list_plan_rank.test.sql`。seed: `highend-client@test.local`（`f6000000-…0001`、表示対象のハイエンド発注者、created_at 30 日前）+ 急募案件 `f6660000-…0001` / 通常案件 `…0002`（沖縄県）

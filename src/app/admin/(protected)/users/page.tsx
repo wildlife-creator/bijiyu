@@ -15,8 +15,6 @@ const VALID_OPTIONS = [
   "video",
   "video_shooting",
   "video_sns",
-  "compensation_5000",
-  "compensation_9800",
 ] as const;
 
 interface PageProps {

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -51,27 +50,33 @@ export interface BankTransferPanelSubscription {
   periodEndLabel: string | null;
 }
 
+/** 購入済みの動画プラン 1 件（表示専用。同じプランを複数回買えば複数行になる） */
+export interface BankTransferPanelVideoPurchase {
+  id: string;
+  /** 正式名（VIDEO_OPTION_UI_NAMES） */
+  planName: string;
+  /** 購入日（YYYY/MM/DD） */
+  purchasedOnLabel: string;
+  /** 「クレジットカード」/「銀行振込」 */
+  paymentMethodLabel: string;
+}
+
 interface BankTransferPanelProps {
   userId: string;
+  /**
+   * 購入済みの動画プラン（カード・銀行振込の両方、購入日の新しい順）。
+   * 二重の有効化に気づけるよう、有効化ボタンの上に一覧で出す
+   */
+  videoPurchases: BankTransferPanelVideoPurchase[];
   /** 有効な基本プラン（active / past_due）。無ければ null */
   subscription: BankTransferPanelSubscription | null;
-  /**
-   * 有効化後に「発注者詳細を開く」リンクを出す（ADM-009 で true）。
-   * 有効化すると受注者は発注者になり router.refresh() で親の role が変わるため、
-   * 親側で role を見て切り替えるとリンクが消える。画面の種類だけで決めること
-   */
-  showClientDetailLinkAfterActivate?: boolean;
-  /**
-   * 「無効にする」後の遷移先。ADM-004（発注者詳細）は無効化で会員が受注者に戻ると開けなくなる
-   * （role=client 限定）ため、ユーザー詳細（ADM-009）を渡す。省略時はその場で再描画
-   */
-  afterCancelHref?: string;
 }
 
 const VIDEO_CHOICES = BANK_TRANSFER_PLAN_CHOICES.filter((c) => c.kind === "video");
 
 /**
- * ADM-009 ユーザー詳細 / ADM-004 発注者詳細 共通の「銀行振込」枠（P12）。
+ * ADM-009 ユーザー詳細の「銀行振込」枠（P12）。契約は会員に紐づくため、ここだけに置く
+ * （2026-09-17 に ADM-004 発注者詳細からは削除）。
  * 状態で中身が切り替わる:
  * - 有料プランなし → 基本プランを「有効にする」
  * - 銀行振込で契約中 → 「変更する」「無効にする」
@@ -81,9 +86,8 @@ const VIDEO_CHOICES = BANK_TRANSFER_PLAN_CHOICES.filter((c) => c.kind === "video
  */
 export function BankTransferPanel({
   userId,
+  videoPurchases,
   subscription,
-  showClientDetailLinkAfterActivate = false,
-  afterCancelHref,
 }: BankTransferPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -94,7 +98,6 @@ export function BankTransferPanel({
   const [videoType, setVideoType] = useState<BankTransferVideoPlanKey>(
     BANK_TRANSFER_VIDEO_PLAN_KEYS[0],
   );
-  const [activated, setActivated] = useState(false);
 
   function run(key: string, fn: () => Promise<void>) {
     setPendingKey(key);
@@ -117,7 +120,6 @@ export function BankTransferPanel({
         return;
       }
       toast.success(`${PLAN_LABELS[planType]}を有効にしました`);
-      setActivated(true);
       router.refresh();
     });
   }
@@ -146,11 +148,7 @@ export function BankTransferPanel({
         return;
       }
       toast.success("無効にしました");
-      if (afterCancelHref) {
-        router.push(afterCancelHref);
-      } else {
-        router.refresh();
-      }
+      router.refresh();
     });
   }
 
@@ -317,17 +315,6 @@ export function BankTransferPanel({
           )}
         </div>
 
-        {activated && showClientDetailLinkAfterActivate && (
-          <p className="text-body-sm">
-            <Link
-              href={`/admin/clients/${userId}`}
-              className="text-primary underline underline-offset-2"
-            >
-              発注者詳細を開く
-            </Link>
-          </p>
-        )}
-
         {isBank && subscription && (
           <div className="flex justify-end">
             <AlertDialog>
@@ -367,6 +354,23 @@ export function BankTransferPanel({
       {/* ---- 動画プラン ---- */}
       <div className="space-y-3 border-t border-border/20 pt-4">
         <p className="text-body-sm font-bold text-foreground">動画プラン</p>
+        <div className="text-body-sm">
+          <p className="text-muted-foreground">購入済み:</p>
+          {videoPurchases.length === 0 ? (
+            <p className="pl-3 text-muted-foreground">なし</p>
+          ) : (
+            <ul className="space-y-1 pl-3">
+              {videoPurchases.map((v) => (
+                <li key={v.id} className="flex flex-wrap gap-x-3 text-foreground">
+                  <span>・{v.planName}</span>
+                  <span className="text-muted-foreground">
+                    {v.purchasedOnLabel}（{v.paymentMethodLabel}）
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select
             value={videoType}

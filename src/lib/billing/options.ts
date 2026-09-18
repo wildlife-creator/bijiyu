@@ -10,7 +10,7 @@
 export type OptionType =
   | "video" // プロフィール動画制作プラン（P10 で旧「自己PR動画」「職場紹介動画」を統合。新規販売はこのキーのみ）
   | "video_workplace" // 旧 職場紹介動画（P10、2026-09 で新規販売停止。既存行・Webhook・管理画面は維持）
-  | "video_shooting" // ユーザー撮影プラン（P7、2026-09。ユーザーが撮った素材を運営が編集・掲載）
+  | "video_shooting" // ユーザー撮影動画制作プラン（P7、2026-09。ユーザーが撮った素材を運営が編集・掲載）
   | "video_sns" // ビジ友公式SNS動画制作プラン（P10、2026-09。運営が撮影・編集し公式 SNS に掲載）
   | "urgent"
   | "compensation_5000"
@@ -28,7 +28,7 @@ export const OPTION_LABELS: Record<OptionType, string> = {
   urgent: "急募オプション",
   video: "プロフィール動画",
   video_workplace: "プロフィール動画（旧: 職場紹介動画）",
-  video_shooting: "ユーザー撮影プラン",
+  video_shooting: "ユーザー撮影動画制作プラン",
   video_sns: "ビジ友公式SNS動画",
 };
 
@@ -100,7 +100,7 @@ export type VideoOptionType = (typeof VIDEO_OPTION_TYPES)[number];
 export const VIDEO_OPTION_UI_NAMES: Record<VideoOptionType, string> = {
   video: "プロフィール動画制作プラン",
   video_workplace: "プロフィール動画制作プラン（旧: 職場紹介動画掲載）",
-  video_shooting: "ユーザー撮影プラン",
+  video_shooting: "ユーザー撮影動画制作プラン",
   video_sns: "ビジ友公式SNS動画制作プラン",
 };
 

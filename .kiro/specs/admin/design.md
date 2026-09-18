@@ -751,14 +751,14 @@ export async function adminCancelApplicationAction(applicationId: string): Promi
 
 | 画面 | ルート | 検索（ilike） | 行表示 | 詳細の導線 |
 |------|--------|--------------|--------|-----------|
-| ADM-016/017 contacts | `/admin/contacts`, `/[id]` | company_name, name, email | 受信日時・会社名/屋号・氏名・inquiry_type・**「登録ユーザー」バッジ（user_id あり時のみ）** | user_id → ADM-009 |
+| ADM-016/017 contacts | `/admin/contacts`, `/[id]` | company_name, name, email | 受信日時・会社名/屋号・氏名・inquiry_type・**「ログイン時に送信」バッジ（user_id あり時のみ。2026-09-18 に「登録ユーザー」から改称）** | なし（2026-09-18 に ADM-009 への直リンクを削除。詳細上部に「送信時のログインアカウント」を文字で表示） |
 | ADM-018/019 trouble_reports | `/admin/trouble-reports`, `/[id]` | reporter_name, counterparty_name, email | 受信日時・報告者氏名・相手氏名・category | user_id → ADM-009 |
 | ADM-020/021 job_inquiries | `/admin/job-inquiries`, `/[id]` | name, email | 受信日時・送信者氏名・宛先発注者表示名・topics | sender_id → ADM-009、target_client_id → ADM-004 |
 
 **Implementation Notes**:
 - ADM-020 の宛先発注者表示名は、ページ20行分の `target_client_id` をまとめて client_profiles をバッチ取得し `adminParticipantName()` で解決（N+1 禁止）
 - 添付（contacts / trouble_reports の `attachments[]`）は `getSignedDocumentUrls({ bucket: "support-attachments" })` で署名付きURL化し、**拡張子判定で画像はインライン `<img>`、PDF はリンク**（job_inquiries は添付非対応）
-- 「登録ユーザー」バッジは contacts のみ（trouble/job_inquiries は常にログインユーザー送信のため不要）
+- 「ログイン時に送信」バッジ（旧称「登録ユーザー」）は contacts のみ（trouble/job_inquiries は常にログインユーザー送信のため不要）
 
 ### 代理メッセージ閲覧（ADM-023/024）
 
