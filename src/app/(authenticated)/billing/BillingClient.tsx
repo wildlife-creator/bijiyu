@@ -37,6 +37,7 @@ import {
   BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE,
 } from "@/lib/billing/bank-transfer";
 import {
+  VIDEO_OPTION_SHORT_NAMES,
   VIDEO_OPTION_TYPES,
   VIDEO_OPTION_UI_NAMES,
   type VideoOptionType,
@@ -684,7 +685,7 @@ export function BillingClient({
                     onClick={() => handlePlanButton(plan)}
                     title={plan.disabledReason ?? undefined}
                   >
-                    {plan.buttonLabel}
+                    {formatPrice(plan.price)}円/{priceUnit(plan.billingCycle)} {plan.buttonLabel}
                   </Button>
                 </div>
               )}
@@ -1182,6 +1183,7 @@ function VideoOptionRow({
   onClick,
 }: VideoOptionRowProps) {
   const name = VIDEO_OPTION_UI_NAMES[optionType];
+  const shortName = VIDEO_OPTION_SHORT_NAMES[optionType];
   return (
     <div className="py-4 first:pt-0">
       <div className="flex items-center justify-between gap-2">
@@ -1202,9 +1204,8 @@ function VideoOptionRow({
           disabled={disabled}
           pending={pending}
           onClick={onClick}
-          aria-label={purchased ? undefined : `${name}を申し込む`}
         >
-          {purchased ? "再度購入する" : "申し込む"}
+          {purchased ? `${shortName}を再度購入する` : `${shortName}を申し込む`}
         </Button>
       </div>
     </div>

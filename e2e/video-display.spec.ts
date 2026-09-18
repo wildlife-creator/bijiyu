@@ -41,7 +41,7 @@ test.describe("CLI-026: プロフィール動画制作プラン", () => {
     await expect(
       page.getByText("プロフィール動画制作プラン", { exact: true }),
     ).toBeVisible();
-    const btn = page.getByRole("button", { name: "再度購入する", exact: true });
+    const btn = page.getByRole("button", { name: "プロフィール動画を再度購入する" });
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
   });
@@ -50,7 +50,7 @@ test.describe("CLI-026: プロフィール動画制作プラン", () => {
     await login(page, TEST_CONTRACTOR2.email, TEST_CONTRACTOR2.password);
     await page.goto("/billing");
     const btn = page.getByRole("button", {
-      name: "プロフィール動画制作プランを申し込む",
+      name: "プロフィール動画を申し込む",
     });
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();

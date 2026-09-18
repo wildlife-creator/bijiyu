@@ -113,8 +113,8 @@ test.describe.serial("銀行振込: お問い合わせ → 一覧 → ユーザ�
     await expect(page.getByRole("button", { name: "解約する" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "お支払い情報を管理する" })).toHaveCount(0);
     // カード払いへの切り替え: 全プランの行が「カード払いにする」（現在のプランも含む）
-    await expect(page.getByRole("button", { name: "カード払いにする" })).toHaveCount(4);
-    await expect(page.getByRole("button", { name: "カード払いにする" }).first()).toBeEnabled();
+    await expect(page.getByRole("button", { name: /カード払いにする$/ })).toHaveCount(4);
+    await expect(page.getByRole("button", { name: "9,800円/月 カード払いにする" })).toBeEnabled();
     // 旧 本人申込ボタンは無く、お問い合わせへの案内が出る
     await expect(page.getByRole("button", { name: "銀行振込で申し込む" })).toHaveCount(0);
     await expect(page.getByText(/銀行振込をご希望の方は/).first()).toBeVisible();

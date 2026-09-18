@@ -99,6 +99,16 @@ export const VIDEO_OPTION_UI_NAMES: Record<VideoOptionType, string> = {
   video_sns: "ビジ友公式SNS動画制作プラン",
 };
 
+/**
+ * 動画プランの短い呼び名（料金プラン画面のボタン「〜を申し込む」「〜を再度購入する」用）。
+ * 正式名（VIDEO_OPTION_UI_NAMES）だとスマホ幅でボタンが 2 行になるため、「制作プラン」を省く。
+ */
+export const VIDEO_OPTION_SHORT_NAMES: Record<VideoOptionType, string> = {
+  video: "プロフィール動画",
+  video_shooting: "ユーザー撮影動画",
+  video_sns: "公式SNS動画",
+};
+
 export function isVideoOption(optionType: string): optionType is VideoOptionType {
   return (VIDEO_OPTION_TYPES as readonly string[]).includes(optionType);
 }
