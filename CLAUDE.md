@@ -638,6 +638,10 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 支払サイクルは Stripe の Price ID から `resolvePlanPriceFromId()` で解決する。月額 4 + 年額 4 の環境変数（`STRIPE_PRICE_*` / `STRIPE_PRICE_*_YEARLY`）が揃っていないと Webhook が「unknown price id」で failed になる。Price を追加・変更したら `scripts/stripe/setup-yearly-prices.mjs` と `.env.local.example` も更新する
 - ポータル設定は 2 つ: `STRIPE_PORTAL_CONFIGURATION_ID`（お支払い情報の管理 = カード更新・請求履歴）と `STRIPE_PORTAL_UPDATE_CONFIGURATION_ID`（プラン変更確認専用、subscription_update のみ許可）。混ぜないこと
 
+### 画面遷移中の覆い（NavigationDim）の state 更新は effect 内で行う（必ず守ること）
+- `src/components/shared/navigation-dim.tsx` は、URL（pathname / searchParams）が変わった effect の中で `setVisible(false)` して覆いを消す。lint（`react-hooks/set-state-in-effect`）が勧める「描画中に state を調整する」形に書き換えると、**覆いが消えずに画面全体が操作できなくなる**（Playwright では「`<div class="fixed inset-0 …"> intercepts pointer events`」で click が 30 秒タイムアウト）。この 1 か所は `eslint-disable-next-line` で意図的に例外にしている。触らないこと
+- 2026-09-18 実例: lint エラーを消すために書き換えた直後、CLI-021 発注者情報編集の「保存する」が押せなくなり E2E で検出。元の実装に戻して解消
+
 ### Next.js Router Cache とリダイレクトキャッシュ（必ず守ること）
 - Next.js の App Router は Server Component のレスポンス（redirect 含む）をクライアント側 Router Cache に保持することがある
 - DB 状態が変化してから同一 URL に遷移する場合、古い redirect 結果が使われて**意図しないページに飛ばされる**ことがある（例: 組織名入力画面への遷移で `/mypage` に即リダイレクトされ続ける）

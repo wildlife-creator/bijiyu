@@ -1,21 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition, type ReactNode } from "react";
-import Link from "next/link";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -27,17 +16,12 @@ import {
   BILLING_CYCLE_LABELS,
   INITIAL_FEE_TAX_INCLUDED,
   planDisplayName,
-  planPriceFor,
   type BillingCycle,
   type PaidPlanType,
   type PlanType,
 } from "@/lib/constants/plans";
+import { BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE } from "@/lib/billing/bank-transfer";
 import {
-  BANK_TRANSFER_CONTACT_MESSAGE,
-  BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE,
-} from "@/lib/billing/bank-transfer";
-import {
-  VIDEO_OPTION_SHORT_NAMES,
   VIDEO_OPTION_TYPES,
   VIDEO_OPTION_UI_NAMES,
   type VideoOptionType,
@@ -51,11 +35,12 @@ import {
   cancelCompensationAction,
   openCustomerPortalAction,
 } from "./plan-actions";
+import { BankTransferContactNote, formatDate, formatPrice, VideoOptionRow } from "./billing-parts";
+import { BillingDialogs, type BillingDialogType } from "./billing-dialogs";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
 interface PlanState {
   planType: PaidPlanType;
   billingCycle: BillingCycle;
@@ -121,21 +106,6 @@ interface BillingClientProps {
   /** Stripe ホスト画面でプラン変更を確定して戻ってきた */
   planChangeConfirmed?: boolean;
   bankTransfer: BankTransferInfo;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatPrice(amount: number): string {
-  return amount.toLocaleString("ja-JP");
-}
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -205,15 +175,7 @@ export function BillingClient({
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogType, setDialogType] = useState<
-    | "upgrade"
-    | "downgrade"
-    | "cancel"
-    | "cancel_past_due"
-    | "cancel_comp"
-    | "repurchase_video"
-    | null
-  >(null);
+  const [dialogType, setDialogType] = useState<BillingDialogType | null>(null);
   const [dialogTarget, setDialogTarget] = useState<PaidPlanType | null>(null);
   const [dialogTargetCycle, setDialogTargetCycle] = useState<BillingCycle>("monthly");
   const [cancelCompId, setCancelCompId] = useState<string | null>(null);
@@ -929,230 +891,26 @@ export function BillingClient({
         </Button>
       </div>
 
-      {/* ===== Dialogs ===== */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          {dialogType === "upgrade" && dialogTarget && (
-            <>
-              <DialogHeader>
-                <DialogTitle>プラン変更の確認</DialogTitle>
-                <DialogDescription>
-                  以下の内容に変更します。このあと Stripe の確認画面に移動し、日割りの差額と次回請求額を確認してから確定できます。
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2 text-body-sm">
-                <p>現在のプラン: {planDisplayName(currentPlan, currentCycle)}</p>
-                <p>変更後のプラン: {planDisplayName(dialogTarget, dialogTargetCycle)}</p>
-                <p className="text-muted-foreground">
-                  変更後の料金: ¥{formatPrice(planPriceFor(dialogTarget, dialogTargetCycle))}/
-                  {dialogTargetCycle === "yearly" ? "年" : "月"}
-                </p>
-              </div>
-              <DialogFooter className="gap-2">
-                <DialogClose asChild>
-                  <Button variant="outline" className="rounded-full">
-                    キャンセルする
-                  </Button>
-                </DialogClose>
-                <Button
-                  variant="default"
-                  className="rounded-full text-white"
-                  disabled={pending}
-                  pending={pendingKey === "dialog"}
-                  onClick={handleDialogConfirm}
-                >
-                  プラン変更する
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {dialogType === "downgrade" && dialogTarget && (
-            <>
-              <DialogHeader>
-                <DialogTitle>ダウングレード予約の確認</DialogTitle>
-                <DialogDescription>
-                  現在の請求期間終了後にプランが変更されます。
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2 text-body-sm">
-                <p>現在のプラン: {planDisplayName(currentPlan, currentCycle)}</p>
-                <p>変更後のプラン: {planDisplayName(dialogTarget, dialogTargetCycle)}</p>
-                <p className="text-muted-foreground">
-                  {formatDate(subscription?.currentPeriodEnd)}まで現在のプランでご利用いただけます
-                </p>
-                <p className="text-muted-foreground">
-                  次回課金日と金額: ¥{formatPrice(planPriceFor(dialogTarget, dialogTargetCycle))}/
-                  {dialogTargetCycle === "yearly" ? "年" : "月"}
-                </p>
-              </div>
-              <DialogFooter className="gap-2">
-                <DialogClose asChild>
-                  <Button variant="outline" className="rounded-full">
-                    キャンセルする
-                  </Button>
-                </DialogClose>
-                <Button
-                  variant="default"
-                  className="rounded-full text-white"
-                  disabled={pending}
-                  pending={pendingKey === "dialog"}
-                  onClick={handleDialogConfirm}
-                >
-                  プラン変更を予約する
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {dialogType === "cancel" && (
-            <>
-              <DialogHeader>
-                <DialogTitle>解約の確認</DialogTitle>
-                <DialogDescription>
-                  現在の請求期間終了後に無料プランに切り替わります。
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2 text-body-sm">
-                <p>
-                  {formatDate(subscription?.currentPeriodEnd)}まで現在のプランでご利用いただけます
-                </p>
-                <p className="text-muted-foreground">
-                  解約後は発注者機能がご利用いただけなくなります。
-                </p>
-                {(hasComp5000 || hasComp9800) && (
-                  <p className="text-body-xs text-muted-foreground mt-2">
-                    ※ 加入中の補償オプションは基本プラン解約後も継続課金されます。補償も停止する場合は、別途オプションプラン欄から解約してください。
-                  </p>
-                )}
-              </div>
-              <DialogFooter className="gap-2">
-                <DialogClose asChild>
-                  <Button variant="outline" className="rounded-full">
-                    キャンセルする
-                  </Button>
-                </DialogClose>
-                <Button
-                  variant="destructive"
-                  className="rounded-full"
-                  disabled={pending}
-                  pending={pendingKey === "dialog"}
-                  onClick={handleScheduleCancelConfirm}
-                >
-                  解約する
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {dialogType === "cancel_past_due" && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-destructive">
-                  即時解約
-                </DialogTitle>
-                <DialogDescription>
-                  お支払い遅延中のため、即時解約となります。
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2 text-body-sm">
-                <p className="text-destructive font-semibold">
-                  以下の処理が直ちに実行されます:
-                </p>
-                <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                  <li>掲載中の案件がすべてクローズされます</li>
-                  <li>担当者のログインが停止されます</li>
-                </ul>
-                {(hasComp5000 || hasComp9800) && (
-                  <p className="text-body-xs text-muted-foreground mt-2">
-                    ※ 加入中の補償オプションは基本プラン解約後も継続課金されます。補償も停止する場合は、別途オプションプラン欄から解約してください。
-                  </p>
-                )}
-              </div>
-              <DialogFooter className="gap-2">
-                <Button
-                  variant="outline"
-                  className="rounded-full"
-                  disabled={pending}
-                  onClick={() => {
-                    setDialogOpen(false);
-                    handleOpenPortal();
-                  }}
-                >
-                  お支払い方法を更新する
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="rounded-full"
-                  disabled={pending}
-                  pending={pendingKey === "dialog"}
-                  onClick={handleCancelImmediatelyConfirm}
-                >
-                  解約する
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {dialogType === "repurchase_video" && (
-            <>
-              <DialogHeader>
-                <DialogTitle>再購入の確認</DialogTitle>
-                <DialogDescription>
-                  {repurchaseOption ? VIDEO_OPTION_UI_NAMES[repurchaseOption] : ""}
-                  は既にご購入済みです。改めて購入しますが、よろしいですか？
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="gap-2">
-                <DialogClose asChild>
-                  <Button variant="outline" className="rounded-full">
-                    キャンセルする
-                  </Button>
-                </DialogClose>
-                <Button
-                  variant="default"
-                  className="rounded-full text-white"
-                  disabled={pending}
-                  pending={
-                    repurchaseOption !== null &&
-                    pendingKey === `opt-${repurchaseOption}`
-                  }
-                  onClick={handleRepurchaseConfirm}
-                >
-                  購入する
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {dialogType === "cancel_comp" && (
-            <>
-              <DialogHeader>
-                <DialogTitle>補償オプション解約の確認</DialogTitle>
-                <DialogDescription>
-                  補償オプションを解約しますか？
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="gap-2">
-                <DialogClose asChild>
-                  <Button variant="outline" className="rounded-full">
-                    キャンセルする
-                  </Button>
-                </DialogClose>
-                <Button
-                  variant="destructive"
-                  className="rounded-full"
-                  disabled={pending}
-                  pending={pendingKey === "dialog"}
-                  onClick={handleCancelCompensationConfirm}
-                >
-                  解約する
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <BillingDialogs
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        dialogType={dialogType}
+        targetPlan={dialogTarget}
+        targetCycle={dialogTargetCycle}
+        repurchaseOption={repurchaseOption}
+        currentPlan={currentPlan}
+        currentCycle={currentCycle}
+        currentPeriodEnd={subscription?.currentPeriodEnd}
+        hasCompensation={hasComp5000 || hasComp9800}
+        pending={pending}
+        pendingKey={pendingKey}
+        onConfirmPlanChange={handleDialogConfirm}
+        onConfirmScheduleCancel={handleScheduleCancelConfirm}
+        onConfirmCancelImmediately={handleCancelImmediatelyConfirm}
+        onOpenPortal={handleOpenPortal}
+        onConfirmRepurchase={handleRepurchaseConfirm}
+        onConfirmCancelCompensation={handleCancelCompensationConfirm}
+      />
     </>
   );
 }
@@ -1160,74 +918,3 @@ export function BillingClient({
 // ---------------------------------------------------------------------------
 // 動画プランの 1 行（価格 + 1 行の説明 + 「詳しく見る」でたたむ注意書き + ボタン）
 // ---------------------------------------------------------------------------
-
-interface VideoOptionRowProps {
-  optionType: VideoOptionType;
-  price: string;
-  summary: string;
-  details: ReactNode;
-  purchased: boolean;
-  disabled: boolean;
-  pending: boolean;
-  onClick: () => void;
-}
-
-function VideoOptionRow({
-  optionType,
-  price,
-  summary,
-  details,
-  purchased,
-  disabled,
-  pending,
-  onClick,
-}: VideoOptionRowProps) {
-  const name = VIDEO_OPTION_UI_NAMES[optionType];
-  const shortName = VIDEO_OPTION_SHORT_NAMES[optionType];
-  return (
-    <div className="py-4 first:pt-0">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-body-md font-bold">{name}</span>
-        <span className="shrink-0 text-body-md">{price}</span>
-      </div>
-      <p className="mt-1 text-body-sm text-muted-foreground">{summary}</p>
-      <details className="mt-1 text-body-sm text-muted-foreground">
-        <summary className="cursor-pointer text-secondary underline-offset-2 hover:underline">
-          詳しく見る
-        </summary>
-        <p className="mt-1">{details}</p>
-      </details>
-      <div className="mt-3 flex flex-col items-center gap-2">
-        <Button
-          variant="default"
-          className="w-full max-w-xs rounded-full text-white"
-          disabled={disabled}
-          pending={pending}
-          onClick={onClick}
-        >
-          {purchased ? `${shortName}を再度購入する` : `${shortName}を申し込む`}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 銀行振込: 案内文（画面末尾へ表示）
-// ---------------------------------------------------------------------------
-
-/**
- * 銀行振込はお問い合わせで受け付け、運営が管理画面で有効にする。ここではリンクだけ出す。
- */
-function BankTransferContactNote() {
-  return (
-    <p className="mt-4 text-center text-body-sm text-muted-foreground">
-      {BANK_TRANSFER_CONTACT_MESSAGE.replace("お問い合わせください", "")}
-      <Link href="/contact" className="text-primary underline underline-offset-2">
-        お問い合わせ
-      </Link>
-      ください。
-    </p>
-  );
-}
-

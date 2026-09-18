@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/shared/back-button";
+import { FieldError, FieldGroup, FieldLabel, RequiredBadge } from "@/components/form/field-parts";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { RelatedSuggestions } from "@/components/master/related-suggestions";
 import { AreaListEditor } from "@/components/area/area-list-editor";
@@ -65,38 +66,6 @@ import {
  * - 資格は chips + +追加する
  * - 確認する / もどる は w-full max-w-xs rounded-pill centered
  */
-
-function RequiredBadge() {
-  return (
-    <span className="ml-2 text-body-xs font-bold text-destructive">必須</span>
-  );
-}
-
-function FieldGroup({ children }: { children: React.ReactNode }) {
-  return <div className="space-y-2">{children}</div>;
-}
-
-function FieldLabel({
-  htmlFor,
-  children,
-}: {
-  htmlFor?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className="flex items-center text-body-sm font-bold text-foreground"
-    >
-      {children}
-    </label>
-  );
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return <p className="text-body-sm text-destructive">{message}</p>;
-}
 
 interface SkillRow {
   trade_type: string;

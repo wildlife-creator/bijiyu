@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/shared/back-button";
+import { FieldError, FieldGroup, FieldLabel, RequiredBadge } from "@/components/form/field-parts";
 import { MasterCombobox } from "@/components/master/master-combobox";
 import { CategoryBulkSelector } from "@/components/master/category-bulk-selector";
 import { AreaListEditor } from "@/components/area/area-list-editor";
@@ -58,12 +59,6 @@ const SNS_FIELDS = [
   { key: "snsYoutube" as const, label: "YouTube" },
   { key: "snsFacebook" as const, label: "Facebook" },
 ];
-
-function RequiredBadge() {
-  return (
-    <span className="ml-2 text-body-xs font-bold text-destructive">必須</span>
-  );
-}
 
 export function ClientProfileEditForm({
   planType,
@@ -478,30 +473,4 @@ export function ClientProfileEditForm({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function FieldGroup({ children }: { children: React.ReactNode }) {
-  return <div className="space-y-2">{children}</div>;
-}
-
-function FieldLabel({
-  htmlFor,
-  children,
-}: {
-  htmlFor?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className="flex items-center text-body-sm font-bold text-foreground"
-    >
-      {children}
-    </label>
-  );
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return <p className="text-body-sm text-destructive">{message}</p>;
-}
 

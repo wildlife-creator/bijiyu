@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { BackButton } from "@/components/shared/back-button";
+import { RequiredBadge } from "@/components/form/field-parts";
 import {
   memberCreateSchema,
   type MemberCreateInput,
@@ -40,12 +41,6 @@ interface Props {
 
 type FormInput = z.input<typeof memberCreateSchema>;
 type FormValues = MemberCreateInput;
-
-function RequiredBadge() {
-  return (
-    <span className="ml-2 text-body-xs font-bold text-destructive">必須</span>
-  );
-}
 
 export function MemberForm({
   mode,
