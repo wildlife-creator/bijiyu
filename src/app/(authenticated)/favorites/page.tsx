@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
-import { BackButton } from "@/components/job-search/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { FavoriteTypeSelect } from "./favorite-type-select";
 import { SortSelect } from "@/components/shared/sort-select";
 import {
@@ -161,7 +161,7 @@ export default async function FavoritesPage({ searchParams }: PageProps) {
           itemsPerPage={ITEMS_PER_PAGE}
         />
 
-        <BackButton />
+        <BackButton className="mt-4" />
       </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
-import { BackButton } from "@/components/job-search/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { ContractorSearchFilter } from "./contractor-search-filter";
 import { HighRatingBadge } from "@/components/shared/high-rating-badge";
 import { fetchBulkOverallSummary } from "@/lib/rating/aggregate";
@@ -450,7 +450,7 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
           itemsPerPage={ITEMS_PER_PAGE}
         />
 
-        <BackButton />
+        <BackButton className="mt-4" />
       </div>
       </div>
     </div>

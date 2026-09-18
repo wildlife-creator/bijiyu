@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
-import { BackButton } from "@/components/job-search/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
@@ -21,7 +21,7 @@ import {
   resolveTargetOrganizationId,
   resolveViewerOrganizationId,
 } from "@/lib/job-inquiry/resolve-context";
-import { InquirySuccessToast } from "./inquiry-success-toast";
+import { SuccessToast } from "@/components/shared/success-toast";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -220,7 +220,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
   return (
     <div className="min-h-dvh bg-muted">
       <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-8">
-        <InquirySuccessToast />
+        <SuccessToast param="inquiry" messages={{ success: "問い合わせを送信しました" }} />
 
         {/* Page title */}
         <div className="px-5 pt-6 pb-2">
@@ -437,7 +437,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
 
         {/* Back link */}
         <div className="mx-5 mt-8 mb-8">
-          <BackButton />
+          <BackButton className="mt-4" />
         </div>
       </div>
     </div>

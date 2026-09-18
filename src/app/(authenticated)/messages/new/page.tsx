@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { BackButton } from "@/components/job-search/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -166,9 +166,7 @@ export default async function NewMessagePage({ searchParams }: Props) {
               >
                 <Link href="/billing">料金プランを見る</Link>
               </Button>
-              {/* 親が flex flex-col items-center のため、外側 wrapper に
-                  幅指定を渡さないと BackButton が「もどる」文字幅に縮む */}
-              <BackButton className="mt-0 w-full max-w-xs" />
+              <BackButton />
             </div>
           </div>
         </div>

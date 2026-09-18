@@ -289,7 +289,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
   - 送信用は `type="submit"` を明示
   - それ以外（ナビゲーション・キャンセル・モーダル開閉・チップ削除等）はすべて `type="button"` を明示
 - 共通コンポーネント（BackButton 等）の中の `<Button>` でも漏らさないこと。コンポーネント内側で明示していないと、使用箇所のフォーム内で同じ罠が発生する
-- 2026-05-18 に `src/components/shared/back-button.tsx` / `src/components/job-search/back-button.tsx` の両方で実例発生（COM-002 で × → もどる の操作だけで `updateProfileAction` が発火し、特級ボイラー技士 chip が削除された）
+- 2026-05-18 に `src/components/shared/back-button.tsx`（当時は案件検索用の別実装もあった）で実例発生（COM-002 で × → もどる の操作だけで `updateProfileAction` が発火し、特級ボイラー技士 chip が削除された）
 
 ### useActionState のアクションを手動で呼ぶときは `startTransition` で包む（必ず守ること）
 - `useActionState` が返す `formAction` を `<form action={formAction}>` 以外（onClick ハンドラ・確認ダイアログの確定ボタン等）から直接 `formAction(fd)` と呼んではならない。必ず `startTransition(() => formAction(fd))` で包むこと
@@ -531,7 +531,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **新しい `applications.status` 値を追加する場合**、CLI-007 / CLI-010 どちら側に含めるかを明記すること:
   - 未決状態（発注者の判断待ち）→ CLI-007 側
   - 決着後 → CLI-010 側 + CLI-007B 側（CLI-007B は全ステータスなので自動的に含まれる）
-- **StatusFilter / SortButton は共有コンポーネント**（`src/app/(authenticated)/applications/orders/`）。`basePath` と `includeApplied` props で mypage CLI-010 と CLI-007B の挙動差を吸収する。mypage CLI-010 では `includeApplied={false}`、CLI-007B では `includeApplied={true}`
+- **ステータス絞り込みは共通部品 `<StatusFilter options paramName basePath />`**（`src/components/shared/status-filter.tsx`）。選択肢は `src/lib/constants/application-status-filters.ts`（CON-011 = `HISTORY_…`、CLI-010 = `ORDERS_…`、CLI-007B = `APPLICANTS_…` = 発注履歴 + 「応募あり（未対応）」）
 - **CLI-007B の認可**は Middleware ではなくページ内 `notFound()` で実施（`/jobs/[id]` は CON-003 と共用パスのため Middleware で一律ブロックできない）。`isOwner || isOrganizationMember` でない場合は 404
 - CLI-002 の「応募者をみる」ボタンは **必ず `/jobs/[id]/applicants` に向ける**こと（過去の `/applications/manage?jobId=xxx` は壊れリンクで廃止済み）
 - 詳細仕様: `.kiro/specs/matching/requirements.md` REQ-MT-004 / REQ-MT-004B / REQ-MT-007

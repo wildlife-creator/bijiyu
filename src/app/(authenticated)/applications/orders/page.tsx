@@ -18,7 +18,8 @@ import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatDate } from "@/lib/utils/format-date";
-import { StatusFilter } from "./status-filter";
+import { StatusFilter } from "@/components/shared/status-filter";
+import { ORDERS_STATUS_FILTER_OPTIONS } from "@/lib/constants/application-status-filters";
 import { SortSelect } from "@/components/shared/sort-select";
 import {
   APPLICATION_SORT_OPTIONS,
@@ -132,7 +133,11 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
 
       {/* Status filter */}
       <Suspense fallback={null}>
-        <StatusFilter />
+        <StatusFilter
+          options={ORDERS_STATUS_FILTER_OPTIONS}
+          paramName="status"
+          basePath="/applications/orders"
+        />
       </Suspense>
 
       {/* Search result count + sort */}

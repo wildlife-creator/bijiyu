@@ -18,7 +18,7 @@ import {
 import { JobListCard } from "@/components/job-search/job-list-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
-import { BackButton } from "@/components/job-search/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { SortSelect } from "@/components/shared/sort-select";
 import { JobSearchFilter } from "./job-search-filter";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
@@ -366,7 +366,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
         {/* Pagination */}
         <PaginationControls totalCount={count ?? 0} itemsPerPage={ITEMS_PER_PAGE} />
 
-        <BackButton />
+        <BackButton className="mt-4" />
       </div>
       </div>
     </div>

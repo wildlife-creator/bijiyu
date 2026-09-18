@@ -14,8 +14,7 @@ import {
 } from "@/lib/utils/display-name";
 import { canApplyJob } from "@/lib/matching";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
-import { BackButton } from "@/components/job-search/back-button";
-import { BackButton as SharedBackButton } from "@/components/shared/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { ZoomableImage } from "@/components/job-search/zoomable-image";
 import { AreaList } from "@/components/area/area-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
@@ -162,7 +161,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
                 現在は募集していないため、詳細は表示できません。
               </p>
               <div className="mt-4">
-                <SharedBackButton />
+                <BackButton />
               </div>
             </div>
           </div>
@@ -468,7 +467,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
               コピーして新規作成する
             </Link>
           </Button>
-          <SharedBackButton href="/jobs/manage" />
+          <BackButton href="/jobs/manage" />
         </div>
         </div>
       </div>
@@ -791,7 +790,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
         </div>
       )}
 
-      <BackButton />
+      <BackButton className="mt-4" />
     </div>
     </div>
   );

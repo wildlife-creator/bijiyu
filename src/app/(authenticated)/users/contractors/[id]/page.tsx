@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
-import { BackButton } from "@/components/job-search/back-button";
+import { BackButton } from "@/components/shared/back-button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
 import { VideoList } from "@/components/video-embed/video-list";
@@ -397,7 +397,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
 
       {/* Back link */}
       <div className="mx-5 mb-8">
-        <BackButton />
+        <BackButton className="mt-4" />
       </div>
       </div>
     </div>
