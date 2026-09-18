@@ -188,7 +188,7 @@ describe("submitContactAction", () => {
     expect(adminState.deletes).toHaveLength(1);
   });
 
-  it("銀行振込（P12）: 未ログインでは種類に「お支払い方法（銀行振込）について」を選べない（サーバーで拒否）", async () => {
+  it("銀行振込: 未ログインでは種類に「お支払い方法（銀行振込）について」を選べない（サーバーで拒否）", async () => {
     const f = validForm();
     f.set("inquiryType", "お支払い方法（銀行振込）について");
     f.set("bankTransferPlan", "small");
@@ -198,7 +198,7 @@ describe("submitContactAction", () => {
     expect(adminState.inserts).toHaveLength(0);
   });
 
-  it("銀行振込（P12）: ログイン中は希望プランのキーを bank_transfer_plan に保存する", async () => {
+  it("銀行振込: ログイン中は希望プランのキーを bank_transfer_plan に保存する", async () => {
     authState.user = { id: "user-9" };
     const f = validForm();
     f.set("inquiryType", "お支払い方法（銀行振込）について");
@@ -212,7 +212,7 @@ describe("submitContactAction", () => {
     });
   });
 
-  it("銀行振込（P12）: ログイン中でも希望プランが空・不正なら拒否する", async () => {
+  it("銀行振込: ログイン中でも希望プランが空・不正なら拒否する", async () => {
     authState.user = { id: "user-9" };
     const f = validForm();
     f.set("inquiryType", "お支払い方法（銀行振込）について");

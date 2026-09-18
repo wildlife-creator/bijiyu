@@ -82,7 +82,6 @@ interface SubscriptionInfo {
 /**
  * 買い切り動画系オプションの画面上の商品名（料金プラン画面・再購入ダイアログ用）。
  * メール用の OPTION_LABELS（短縮名）とは別に、この画面の見出しに合わせる。
- * 名称は docs/requirements/video-plans-handoff-202609.md §4.1 で確定（P10、2026-09）。
  */
 interface ActiveOption {
   id: string;
@@ -96,7 +95,7 @@ interface ActiveOption {
 
 interface BankTransferInfo {
   /**
-   * 現在の有料プランが銀行振込契約か（P12）。変更・無効化は運営が管理画面で行う。
+   * 現在の有料プランが銀行振込契約か。変更・無効化は運営が管理画面で行う。
    * カード払いへの切り替えは本画面の「カード払いで申し込む」（Checkout 完了で銀行振込は自動終了）
    */
   isBankTransferPlan: boolean;
@@ -107,18 +106,18 @@ interface BillingClientProps {
   isPastDue: boolean;
   hasReservation: boolean;
   currentPlan: PlanType;
-  /** P3: 現在の支払サイクル（無料プランは monthly） */
+  /** 現在の支払サイクル（無料プランは monthly） */
   currentCycle: BillingCycle;
   subscription: SubscriptionInfo | null;
-  /** P3: 月払い / 年払い それぞれのボタン状態 */
+  /** 月払い / 年払い それぞれのボタン状態 */
   planStatesByCycle: Record<BillingCycle, PlanState[]>;
   showInitialFee: boolean;
   activeOptions: ActiveOption[];
   urgentEligibleJobs: Array<{ id: string; title: string }>;
   checkoutSuccess?: string;
-  /** P8: 補償オプションの販売フラグ（false = 販売停止。加入中の行だけ解約用に出す） */
+  /** 補償オプションの販売フラグ（false = 販売停止。加入中の行だけ解約用に出す） */
   compensationOptionEnabled: boolean;
-  /** P3: Stripe ホスト画面でプラン変更を確定して戻ってきた */
+  /** Stripe ホスト画面でプラン変更を確定して戻ってきた */
   planChangeConfirmed?: boolean;
   bankTransfer: BankTransferInfo;
 }
@@ -186,7 +185,7 @@ export function BillingClient({
 
   // 動画オプションは買い切りだが「作り直しのための再購入」が正当にありうるため、
   // 購入済みならボタンを「再度購入する」にして活性のまま、押下時に再購入確認ダイアログを挟む。
-  // 全会員（staff 以外）が購入可。発注者プランの加入は問わない（P10 で旧 職場紹介動画の制限を撤廃）。
+  // 全会員（staff 以外）が購入可。発注者プランの加入は問わない。
   // プレミアム・ハイエンドへの付属はアプリで判定せず、説明文の注意書きで案内する（運用対応）。
   const hasVideoOption: Record<VideoOptionType, boolean> = {
     video: activeOptions.some((o) => o.optionType === "video"),
@@ -196,11 +195,11 @@ export function BillingClient({
     video_sns: activeOptions.some((o) => o.optionType === "video_sns"),
   };
 
-  // P3: 月払い / 年払いの表示切替。既定は現在の契約サイクル（無料は月払い）
+  // 月払い / 年払いの表示切替。既定は現在の契約サイクル（無料は月払い）
   const [selectedCycle, setSelectedCycle] = useState<BillingCycle>(currentCycle);
   const planStates = planStatesByCycle[selectedCycle];
 
-  // 銀行振込（P12）
+  // 銀行振込
   const { isBankTransferPlan } = bankTransfer;
 
   // Dialog state
@@ -223,7 +222,7 @@ export function BillingClient({
   // Urgent option state
   const [selectedJobId, setSelectedJobId] = useState<string>("");
 
-  // P3: Stripe ホスト画面からの戻り（確定はメールと画面の再描画で確認できる）
+  // Stripe ホスト画面からの戻り（確定はメールと画面の再描画で確認できる）
   useEffect(() => {
     if (planChangeConfirmed) {
       toast.success("プラン変更を受け付けました。反映まで少しお待ちください");
@@ -294,7 +293,7 @@ export function BillingClient({
         return;
       }
       if (result.data?.performedType === "upgrade") {
-        // P3: アップグレードは Stripe のホスト画面で確定する（日割り差額・次回請求を Stripe が表示）。
+        // アップグレードは Stripe のホスト画面で確定する（日割り差額・次回請求を Stripe が表示）。
         // 確定後は /billing?plan_change=confirmed に戻り、DB 更新とメールは Webhook が行う
         window.location.href = result.data.portalUrl;
         return;
@@ -547,7 +546,7 @@ export function BillingClient({
               </div>
             )}
 
-            {/* 銀行振込（P12）: 変更・停止は運営。カードへの切り替えは基本プラン欄のボタンから */}
+            {/* 銀行振込: 変更・停止は運営。カードへの切り替えは基本プラン欄のボタンから */}
             {isBankTransferPlan && (
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-body-sm text-muted-foreground">
                 {BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE}
@@ -620,7 +619,7 @@ export function BillingClient({
           各プランでできることは<a href="/billing/plans" className="text-primary underline">プラン比較表</a>をご覧ください。
         </p>
 
-        {/* P3: 月払い / 年払い 切替 */}
+        {/* 月払い / 年払い 切替 */}
         <div
           className="mt-4 inline-flex w-full rounded-full border border-border bg-muted/40 p-1 text-body-sm"
           role="tablist"
@@ -816,7 +815,7 @@ export function BillingClient({
             )}
           </div>
           {/* 補償 ¥5,000/月（受注者向け 報酬未払い保険）
-              P8: 販売停止中は加入中の人にだけ行を出す（解約のみ。新規申込ボタンは出さない） */}
+              販売停止中は加入中の人にだけ行を出す（解約のみ。新規申込ボタンは出さない） */}
           {(compensationOptionEnabled || hasComp5000) && (
           <div className="py-4">
             <div className="flex items-center justify-between">
@@ -865,7 +864,7 @@ export function BillingClient({
           </div>
           )}
 
-          {/* 補償 ¥9,800/月（受注者向け 報酬未払い保険）P8: 同上 */}
+          {/* 補償 ¥9,800/月（受注者向け 報酬未払い保険）同上 */}
           {(compensationOptionEnabled || hasComp9800) && (
           <div className="py-4 last:pb-0">
             <div className="flex items-center justify-between">
@@ -1213,7 +1212,7 @@ function VideoOptionRow({
 }
 
 // ---------------------------------------------------------------------------
-// 銀行振込（P12）: 案内文（画面末尾へ表示）
+// 銀行振込: 案内文（画面末尾へ表示）
 // ---------------------------------------------------------------------------
 
 /**

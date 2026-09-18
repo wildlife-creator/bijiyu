@@ -48,7 +48,7 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     ).toBeVisible();
   });
 
-  test("P3: 「年払い」に切り替えると年額の申込ボタンに変わる", async ({ page }) => {
+  test("「年払い」に切り替えると年額の申込ボタンに変わる", async ({ page }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto("/billing");
     await page.getByRole("tab", { name: "年払い" }).click();
@@ -78,7 +78,7 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await expect(
       page.getByText(/※プレミアム・ハイエンドプランの方は本プランが含まれていますので/),
     ).toBeVisible();
-    // ユーザー撮影動画制作プラン（P7）: 無料の受注者でも申込ボタンが活性（発注者プラン不要）
+    // ユーザー撮影動画制作プラン: 無料の受注者でも申込ボタンが活性（発注者プラン不要）
     await expect(page.getByText("ユーザー撮影動画制作プラン", { exact: true })).toBeVisible();
     await expect(page.getByText("20,000円/動画", { exact: true })).toBeVisible();
     await expect(
@@ -87,7 +87,7 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await expect(
       page.getByRole("button", { name: "ユーザー撮影動画制作プランを申し込む" }),
     ).toBeEnabled();
-    // ビジ友公式SNS動画制作プラン（P10）: 無料の受注者でも申込ボタンが活性
+    // ビジ友公式SNS動画制作プラン: 無料の受注者でも申込ボタンが活性
     await expect(page.getByText("ビジ友公式SNS動画制作プラン", { exact: true })).toBeVisible();
     await expect(page.getByText("120,000円/動画", { exact: true })).toBeVisible();
     await expect(
@@ -96,10 +96,10 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
     await expect(
       page.getByRole("button", { name: "ビジ友公式SNS動画制作プランを申し込む" }),
     ).toBeEnabled();
-    // P8: 補償オプションは販売停止（NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED 未設定）。
+    // 補償オプションは販売停止（NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED 未設定）。
     // 未加入ユーザーには 2 行とも出ない（加入中ユーザーには解約用に自分の行だけ出る）
     await expect(page.getByText("補償（受注者向け）")).toHaveCount(0);
-    // P9: 銀行振込の本人申込ボタンは既定で非表示。案内文（お問い合わせリンク）が出る
+    // 銀行振込の本人申込ボタンは既定で非表示。案内文（お問い合わせリンク）が出る
     await expect(page.getByRole("button", { name: "銀行振込で申し込む" })).toHaveCount(0);
     await expect(page.getByText(/銀行振込をご希望の方は/).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "お問い合わせ" }).first()).toHaveAttribute("href", "/contact");
@@ -108,7 +108,7 @@ test.describe("CLI-026 表示: 未課金 contractor", () => {
   });
 });
 
-test.describe("CLI-026 プラン一覧（/billing/plans、P11 で確定した比較表）", () => {
+test.describe("CLI-026 プラン一覧（/billing/plans、比較表）", () => {
   test("料金プラン画面の「プラン比較表」から遷移し、月額・年額・確定した行・オプション価格が表示される", async ({ page }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
     await page.goto("/billing");
@@ -117,7 +117,7 @@ test.describe("CLI-026 プラン一覧（/billing/plans、P11 で確定した比
     await expect(page.getByRole("heading", { name: "プラン一覧" })).toBeVisible();
 
     const table = page.getByRole("table");
-    // 月額（P11 確定値）と年額（月額 × 10）
+    // 月額と年額（月額 × 10）
     const monthly = table.getByRole("row").filter({ hasText: "月額" }).first();
     await expect(monthly).toContainText("¥2,800");
     await expect(monthly).toContainText("¥9,800");
@@ -188,7 +188,6 @@ test.describe("CLI-026 表示: active client (corporate)", () => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/billing");
     // 初回事務手数料「必要」の注意書きは出てはいけない
-    // （P12 で「不要となります」の注意書きは廃止。手数料の要否はサーバー側が契約歴で判定する）
     await expect(
       page.getByText("初回事務手数料として12,000円が必要となります"),
     ).not.toBeVisible();
@@ -278,6 +277,3 @@ test.describe("CLI-026: checkout=success トースト", () => {
   });
 });
 
-// 旧「組織名入力暫定画面 (/mypage/organization-setup)」の describe は
-// organization spec Task 6.1 で削除された。CLI-021（/mypage/client-profile/edit?setup=true）
-// の E2E は Task 17.2 で追加予定。

@@ -19,9 +19,9 @@ import { toast } from "sonner";
 interface ScoutActionButtonsProps {
   /** viewer がこのスカウトに応答できる（受信側 かつ staff ではない） */
   showScoutActions: boolean;
-  /** このスカウトが自分側（送信側）のものか（ステージング指摘 1b: 返答待ちの表示） */
+  /** このスカウトが自分側（送信側）のものか（返答待ちの表示に使う） */
   isMine?: boolean;
-  /** viewer が担当者（staff）か（ステージング指摘 1c: 返答は管理責任者のみの案内） */
+  /** viewer が担当者（staff）か（返答は管理責任者のみ、と案内する） */
   viewerIsStaff?: boolean;
   scoutStatus: string | null;
   messageId: string;

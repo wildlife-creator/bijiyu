@@ -84,7 +84,7 @@ describe("parseVideoUrl — 非対応・不正入力は null", () => {
   });
 });
 
-describe("parseVideoUrl — Cloudflare Stream 埋込 URL（P4）", () => {
+describe("parseVideoUrl — Cloudflare Stream 埋込 URL", () => {
   it("iframe.videodelivery.net/{uid} から uid を抽出し 16:9 で返す", () => {
     const result = parseVideoUrl(
       "https://iframe.videodelivery.net/a1b2c3d4e5f60718293a4b5c6d7e8f90",

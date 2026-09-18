@@ -587,11 +587,11 @@ describe("handleCheckoutCompleted (video option)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// metadata.type === 'option' / video_shooting（ユーザー撮影動画制作プラン、P7）
+// metadata.type === 'option' / video_shooting（ユーザー撮影動画制作プラン）
 // 買い切り動画系 4 種は handleVideoOption に統合されている
 // ---------------------------------------------------------------------------
 
-describe("handleCheckoutCompleted (video_sns option, P10)", () => {
+describe("handleCheckoutCompleted (video_sns option)", () => {
   it("inserts a one_time option_subscription with end_date null and option_type video_sns", async () => {
     const { admin, calls } = makeAdmin({});
 
@@ -851,7 +851,7 @@ describe("handleCheckoutCompleted §6.5.A compensation email", () => {
     expect(args.html).toContain("ご利用開始日");
   });
 
-  it("§6.7-Ops (P11): OPS_NOTIFICATION_EMAIL が設定されていれば運営宛にも「プランの新規お申し込みがありました」を送る（クレジットカード・サイクル付きプラン名）", async () => {
+  it("§6.7-Ops: OPS_NOTIFICATION_EMAIL が設定されていれば運営宛にも「プランの新規お申し込みがありました」を送る（クレジットカード・サイクル付きプラン名）", async () => {
     const prev = process.env.OPS_NOTIFICATION_EMAIL;
     process.env.OPS_NOTIFICATION_EMAIL = "ops@test.local";
     try {
@@ -943,9 +943,9 @@ describe("handleCheckoutCompleted §6.5.A compensation email", () => {
 });
 
 // ---------------------------------------------------------------------------
-// P12 §3.2: 銀行振込 → カード決済への切り替え（RPC v3 が銀行振込行を終了して id を返す）
+// 銀行振込 → カード決済への切り替え（RPC v3 が銀行振込行を終了して id を返す）
 // ---------------------------------------------------------------------------
-describe("handleCheckoutCompleted P12 銀行振込からの切り替え", () => {
+describe("handleCheckoutCompleted 銀行振込からカード決済への切り替え", () => {
   const OPS = "ops@test.local";
   let prevOps: string | undefined;
   beforeEach(() => {

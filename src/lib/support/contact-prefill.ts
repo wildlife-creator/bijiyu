@@ -4,7 +4,7 @@ import type { Database } from "@/types/database";
 import { formatResidence } from "@/lib/utils/format-residence";
 
 /**
- * お問い合わせ（COM-008）の初期入力（P12）。
+ * お問い合わせ（COM-008）の初期入力。
  *
  * ログイン中は、お問い合わせの種類に関係なく会員情報をフォームに最初から入れておく
  * （銀行振込を選んだ後に入るのでは、入力し終えた人には意味がないため）。

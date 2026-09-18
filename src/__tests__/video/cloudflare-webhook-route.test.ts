@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildStreamWebhookSignature } from "@/lib/cloudflare/stream";
 
 /**
- * /api/webhooks/cloudflare-stream Route Handler の統合テスト（P4）。
+ * /api/webhooks/cloudflare-stream Route Handler の統合テスト。
  * 署名検証は本物（HMAC）を通し、DB 更新（markVideoReady）だけをモックする。
  */
 

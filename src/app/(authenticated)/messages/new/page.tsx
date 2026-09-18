@@ -59,7 +59,7 @@ export default async function NewMessagePage({ searchParams }: Props) {
   const { active } = await getActiveOrganizationContext(supabase);
   const myOrgId = active?.organizationId ?? null;
 
-  // 相手の存在・状態チェック（P5）。自分自身・退会済み・admin ロールは新規スレッドを作らない。
+  // 相手の存在・状態チェック。自分自身・退会済み・admin ロールは新規スレッドを作らない。
   // 管理運営アカウント（is_hidden）は他の会員から新規に始められない（運営が始めた
   // 既存スレッドは下の候補検索で見つかり、そのまま開ける）。
   if (targetUserId === user.id) notFound();

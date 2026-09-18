@@ -99,7 +99,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
   const workPeriod = (sp.workPeriod as string) ?? "";
   const experienceYears = (sp.experienceYears as string) ?? "";
   const language = (sp.language as string) ?? "";
-  // 並び順は URL を正とし、未知の値は既定（おすすめ順）に倒す（P6）
+  // 並び順は URL を正とし、未知の値は既定（おすすめ順）に倒す
   const sort = resolveSortValue(JOB_SEARCH_SORT_OPTIONS, sp.sort);
 
   // 「希望日程」プリセット → work_start_date の日付レンジに変換（累積判定）
@@ -232,7 +232,7 @@ export default async function JobSearchPage({ searchParams }: PageProps) {
     }
   }
 
-  // Apply sort（P6 一覧改修）
+  // Apply sort（一覧の並び替え）
   //   おすすめ順（既定）: 急募 → 発注者のプランランク（ハイエンド 2 → プレミアム 1 → その他 0）→ 新着
   //     ランクは jobs.owner_plan_rank（契約主体 = 組織オーナー or owner_id の契約からトリガーで自動更新。
   //     担当者が作成した案件も会社のプランで判定される）

@@ -62,7 +62,7 @@ export async function submitContactAction(
   } = await supabase.auth.getUser();
   const userId = user?.id ?? null;
 
-  // P12: 銀行振込のお問い合わせはログイン中の会員だけ（フォームは未ログインに選択肢を出さないが、
+  // 銀行振込のお問い合わせはログイン中の会員だけ（フォームは未ログインに選択肢を出さないが、
   //      直接呼ばれても弾く）。運営が会員を特定して有効化する前提のため
   if (input.inquiryType === BANK_TRANSFER_INQUIRY_TYPE && !userId) {
     return {

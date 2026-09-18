@@ -9,12 +9,12 @@ import {
 } from "./helpers";
 
 /**
- * 動画表示 + 管理（video-display spec → P4 動画基盤）の E2E。
+ * 動画表示 + 管理（video-display spec → 動画基盤）の E2E。
  *
  * seed（supabase/seed.sql「動画テストデータ」）:
  * - contractor@test.local (11111): PR動画 1 本（TikTok）+ active 'video'
  * - contractor2@test.local (cc111111): PR動画 2 本（TikTok + Cloudflare ready）、オプション未購入
- *   → P4 で購入ゲート撤廃のため表示される
+ *   → 購入の有無で出し分けないため表示される
  * - client@test.local (22222): 職場紹介動画 1 本 + active 'video'
  * - 山田 (aabbccdd): 職場紹介動画 ready 1 本 + processing 1 本、オプション未購入
  *   → ready のみ表示される
@@ -177,7 +177,7 @@ test.describe("管理者: 動画管理（ADM ログイン → 一覧 → 詳細 
       .click();
     await expect(page).toHaveURL(/\/admin\/users\//);
 
-    // P4: 購入ゲート撤廃により導線は常時表示
+    // 購入ゲート撤廃により導線は常時表示
     await page
       .getByRole("link", { name: "動画を投稿/編集する" })
       .click();

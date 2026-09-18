@@ -16,8 +16,8 @@ interface ApplicationWithdrawnControlEmailProps {
 }
 
 /**
- * §1.2.C 応募取り下げ通知（発注者組織宛 broadcast）。ステージング指摘 No.8 の付随対応
- * （2026-09-08）で、受注者が結果待ち（applied）の応募を自分で取り下げる機能とともに新設。
+ * §1.2.C 応募取り下げ通知（発注者組織宛 broadcast）。受注者が結果待ち（applied）の応募を
+ * 自分で取り下げたときに送る。
  *
  * `cancelApplicationAction` で applications.status applied → cancelled 遷移時に発火。
  * 個人プラン: 案件オーナー本人 1 通 / 法人プラン: 組織メンバー全員 (M-03)。

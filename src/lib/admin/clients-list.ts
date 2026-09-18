@@ -19,7 +19,7 @@ export type ClientCategory =
   | "individual"
   | "small";
 
-/** ADM-003 のバッジ・絞り込みは急募のみ（2026-09-18。動画の加入状況は ADM-008 ユーザー一覧で見る） */
+/** ADM-003 のバッジ・絞り込みは急募のみ（動画の加入状況は ADM-008 ユーザー一覧で見る） */
 export type ClientOptionBadge = "urgent";
 
 /** 画面表記（org_role=admin は運営のシステム管理者と区別するため「組織管理者」） */
@@ -117,7 +117,7 @@ export interface ClientListRow {
   paymentMethod: PaymentMethod | null;
   optionBadges: ClientOptionBadge[];
   isDeleted: boolean;
-  /** 管理運営アカウント（users.is_hidden、P5） */
+  /** 管理運営アカウント（is_hidden） */
   isOpsAccount: boolean;
 }
 

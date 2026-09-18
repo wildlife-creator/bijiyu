@@ -130,7 +130,7 @@ export default async function AdminClientDetailPage({
     deletedAt: null,
   });
   const planLabel = derivePlanLabel(subscription?.plan_type ?? null);
-  // 銀行振込（P12）は支払サイクルを持たないので表示を分ける。契約の操作は ADM-009 ユーザー詳細のみ
+  // 銀行振込は支払サイクルを持たないので表示を分ける。契約の操作は ADM-009 ユーザー詳細のみ
   const isBankTransfer = subscription?.payment_method === "bank_transfer";
 
   // 募集エリア
@@ -145,7 +145,7 @@ export default async function AdminClientDetailPage({
 
   // オプション加入状況: 急募は案件単位で複数同時に加入しうるため、案件名 + 期限を 1 件 1 行で出す
   // （期限の近い順。期限切れ = status が active でない行は出さない）。
-  // プロフィール動画のチェック表示は 2026-09-18 に削除（動画の加入状況は ADM-008 で見る）
+  // 動画プランの加入状況はここには出さない（ADM-008 ユーザー一覧の絞り込みで見る）
   const { data: urgentRows } = await admin
     .from("option_subscriptions")
     .select("id, end_date, jobs(title)")
@@ -159,7 +159,7 @@ export default async function AdminClientDetailPage({
     jobTitle: r.jobs?.title ?? "（案件不明）",
     endDate: r.end_date,
   }));
-  // プロフィール動画（会社ページ掲載分・公開中のみ）。P4 でオプション購入による表示ゲートは撤廃。
+  // プロフィール動画（会社ページ掲載分・公開中のみ）。オプション購入の有無では出し分けない。
   // 退会済みでも登録済みの動画は運営者が後から確認できるよう表示を維持する
   const workplaceVideos = await getReadyVideos(admin, id, "client_page");
 
@@ -363,7 +363,7 @@ export default async function AdminClientDetailPage({
               {subscription && (
                 <>
                   （{PAYMENT_METHOD_LABELS[subscription.payment_method]}
-                  {/* 銀行振込は月払い / 年払いを持たない（P12） */}
+                  {/* 銀行振込は月払い / 年払いを持たない */}
                   {!isBankTransfer && `・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}）
                 </>
               )}
@@ -383,7 +383,7 @@ export default async function AdminClientDetailPage({
           </div>
         </section>
       )}
-      {/* 動画管理画面（ADM-027）への導線。P4 で購入ゲートを撤廃し常時表示（退会済みは出さない） */}
+      {/* 動画管理画面（ADM-027）への導線。購入の有無に関係なく常時表示（退会済みは出さない） */}
       {!isDeleted && (
         <div className="mt-3 flex justify-end">
           <Button

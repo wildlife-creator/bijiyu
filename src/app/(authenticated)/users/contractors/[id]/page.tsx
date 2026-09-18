@@ -77,7 +77,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
     )
     .eq("id", id)
     .in("role", ["contractor", "client"])
-    // 管理運営アカウント（P5）は直リンクでも表示しない
+    // 管理運営アカウントは直リンクでも表示しない
     .eq("is_hidden", false)
     .single();
 
@@ -135,7 +135,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
       .maybeSingle(),
   ]);
 
-  // PR動画: videos テーブルの公開中の動画を表示順どおりに表示（P4）。
+  // PR動画: videos テーブルの公開中の動画を表示順どおりに表示。
   // オプション購入の有無ではゲートしない。公開中（ready）の行は RLS で誰でも読めるため
   // 通常クライアントでよい。退会済みユーザーの動画は出さない。
   const prVideos = isDeleted

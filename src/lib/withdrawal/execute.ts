@@ -38,7 +38,7 @@ const BAN_DURATION = "876600h"; // 約100年 = 恒久 ban
 const GUARD_TITLE_LIMIT = 2;
 
 /**
- * 退会ガードの案内文（ステージング指摘 No.8）。稼働終了日+5日を過ぎた発注済み応募は当事者が
+ * 退会ガードの案内文。稼働終了日+5日を過ぎた発注済み応募は当事者が
  * 画面から完了報告できないため、運営（ADM-014 の完了扱い／取消）に解消を依頼する導線を示す。
  */
 export const WITHDRAWAL_EXPIRED_GUIDANCE =
@@ -88,7 +88,7 @@ export async function executeWithdrawal(params: {
   const admin = createAdminClient();
 
   // --- Guard 1: 応募者としての進行中応募 ---
-  //     どの案件が原因かをメッセージに出す（ステージング指摘 No.8: 案件名も窓口も示されず
+  //     どの案件が原因かをメッセージに出す（案件名も窓口も示されず
   //     「なぜ退会できないか」が分からなかった）ため、件数ではなく案件タイトルを取得する
   const { data: activeApplications } = await admin
     .from("applications")

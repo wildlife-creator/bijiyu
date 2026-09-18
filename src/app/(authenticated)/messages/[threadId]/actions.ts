@@ -326,7 +326,7 @@ export async function respondToScoutAction(
       return { success: false, error: "このスカウトには既に応答済みです" };
     }
 
-    // スカウト受信者 = 「送信者が属する side の反対側」（ステージング指摘 No.33）。
+    // スカウト受信者 = 「送信者が属する side の反対側」。
     // 旧実装は「organization_X_id が null な side の participant = 受注者」と決め打ちしており、
     // 法人プランの会員が職人としてスカウトを受ける（両側が組織 identity）ケースで
     // 正当な受信者を「応答権限がありません」で拒否していた。

@@ -38,7 +38,7 @@ interface SubscriptionChangedEmailProps {
  *
  * - 件名 4 種類（A-1/A-2 は同一「承りました」、A-1' は「完了しました」、B / C-1+C-2 が別）
  *   ※ 予約時（A-2）と期末適用時（A-1'）の件名が同一だと受信箱で区別できないため分離
- *     （docs/requirements/spec-changes-202608.md §2.1(4)）
+ *     （docs/requirements/current-spec.md「アップグレード」）
  * - 本文 6 種類（A-1/A-1'/A-2 は表ブロック、B / C-1 / C-2 はプレーン文）
  * - M-04 / §6 全体方針: opening マーケ調・CTA を削除、事実通知のみ
  * - closing は基本なし（事実通知）

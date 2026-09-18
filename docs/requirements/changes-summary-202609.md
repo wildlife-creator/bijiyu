@@ -5,10 +5,11 @@
 
 根拠資料:
 
-- `spec-changes-202608.md`（P1〜P9 の仕様変更）
-- `video-plans-handoff-202609.md`（P10 動画プラン整理・P11 価格改定と比較表）
-- `p4`〜`p9` の各 implementation-notes
-- `staging-check-fix-plan-202609.md`（クライアント指摘 9 件＋追加の実装結果）
+- `archive/2026-08-09/spec-changes-202608.md`（P1〜P9 の仕様変更）
+- `archive/2026-08-09/video-plans-handoff-202609.md`（P10 動画プラン整理・P11 価格改定と比較表）
+- `archive/2026-08-09/p4`〜`p9` の各 implementation-notes
+- `archive/2026-08-09/staging-check-fix-plan-202609.md`（クライアント指摘 9 件＋追加の実装結果）
+- 現在の仕様は `current-spec.md`（このファイルは経緯の説明資料）
 - `staging-release-session-handoff-202609.md`（9/15 までの追加修正）
 
 ---

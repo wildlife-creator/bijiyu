@@ -144,7 +144,7 @@ export default async function AdminContactDetailPage({
             label="お問い合わせの種類"
             value={contact.inquiry_type}
           />
-          {/* 銀行振込のお問い合わせ（P12）だけ希望プランを持つ */}
+          {/* 銀行振込のお問い合わせだけ希望プランを持つ */}
           {contact.bank_transfer_plan && (
             <DetailRow
               label="希望プラン"
@@ -205,7 +205,7 @@ export default async function AdminContactDetailPage({
         </section>
       )}
 
-      {/* 導線は「もどる」のみ。送信ユーザー（ADM-009）への直リンクは 2026-09-18 に削除:
+      {/* 導線は「もどる」のみ。送信ユーザー（ADM-009）への直リンクは置かない:
           複数アカウントを持つ会員が別アカウント宛ての依頼を送ることがあり、ボタンで開いた相手を
           そのまま操作すると取り違える。運営はユーザーアカウント一覧で検索して確認する。
           判断材料として「送信時のログインアカウント」を上部に文字だけで出す */}

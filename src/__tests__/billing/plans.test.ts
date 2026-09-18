@@ -54,7 +54,7 @@ describe("PLAN_LIMITS", () => {
     expect(PLAN_LIMITS.small.monthlyPriceTaxIncluded).toBe(9800);
   });
 
-  it("corporate plan allows unlimited jobs and 5 staff with proxy (P11: 10 → 5)", () => {
+  it("corporate plan allows unlimited jobs and 5 staff with proxy (10 → 5)", () => {
     expect(PLAN_LIMITS.corporate.maxOpenJobs).toBe(Number.POSITIVE_INFINITY);
     expect(PLAN_LIMITS.corporate.maxStaff).toBe(5);
     expect(PLAN_LIMITS.corporate.hasProxy).toBe(true);
@@ -79,7 +79,7 @@ describe("PLAN_LABELS", () => {
     }
   });
 
-  it("2026-08 仕様変更のプラン名（ライト/スタンダード/プレミアム/ハイエンド）を返す", () => {
+  it("プラン名（ライト/スタンダード/プレミアム/ハイエンド）を返す", () => {
     expect(PLAN_LABELS.free).toBe("無料プラン");
     expect(PLAN_LABELS.individual).toBe("ライトプラン");
     expect(PLAN_LABELS.small).toBe("スタンダードプラン");
@@ -163,7 +163,7 @@ describe("resolvePlanTypeFromPriceId", () => {
     process.env.STRIPE_PRICE_CORPORATE_PREMIUM_YEARLY = "price_test_corporate_premium_yearly";
   });
 
-  it("P3: 年額 Price ID は (plan, yearly) に解決される。月額は monthly", () => {
+  it("年額 Price ID は (plan, yearly) に解決される。月額は monthly", () => {
     expect(resolvePlanPriceFromId("price_test_small_yearly")).toEqual({
       planType: "small",
       billingCycle: "yearly",
@@ -176,7 +176,7 @@ describe("resolvePlanTypeFromPriceId", () => {
     expect(resolvePlanPriceFromId("price_unknown")).toBeNull();
   });
 
-  it("P3: priceIdFor は (plan, cycle) → 環境変数の Price ID。未設定は null", () => {
+  it("priceIdFor は (plan, cycle) → 環境変数の Price ID。未設定は null", () => {
     expect(priceIdFor("corporate", "monthly")).toBe("price_test_corporate");
     expect(priceIdFor("corporate", "yearly")).toBe("price_test_corporate_yearly");
     delete process.env.STRIPE_PRICE_CORPORATE_YEARLY;
@@ -213,7 +213,7 @@ describe("resolvePlanTypeFromPriceId", () => {
   });
 });
 
-describe("P3: 年払いの料金・表示名・比較", () => {
+describe("年払いの料金・表示名・比較", () => {
   it("planPriceFor: 月払いは PLAN_LIMITS、年払いは YEARLY_PRICE_TAX_INCLUDED（暫定 月額×10 = YEARLY_PRICE_MONTHS）", () => {
     expect(planPriceFor("individual", "monthly")).toBe(2800);
     expect(planPriceFor("individual", "yearly")).toBe(YEARLY_PRICE_TAX_INCLUDED.individual);

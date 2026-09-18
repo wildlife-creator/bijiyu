@@ -8,7 +8,7 @@ import { ContactForm } from "./contact-form";
 
 /**
  * COM-008 お問い合わせ（Server Component）。
- * ログイン中なら会員情報をフォームの初期値にし、銀行振込の選択肢を出す（P12）。
+ * ログイン中なら会員情報をフォームの初期値にし、銀行振込の選択肢を出す。
  * 未ログインでも送信できる（銀行振込以外）。
  */
 export default async function ContactPage() {

@@ -22,10 +22,10 @@ Next.js（App Router）をフルスタックフレームワークとして採用
 |------|------|
 | **API** | Next.js API Routes（App Router: Route Handlers） |
 | **DB操作** | Supabase Client SDK（`@supabase/supabase-js`） |
-| **複雑なサーバー処理** | Supabase Edge Functions（`auto-cancel-past-due`: 未払い 7 日で Stripe 解約。pg_cron + pg_net から毎日呼出。旧 `bank-transfer-expiry-notify` は P12 で廃止） |
+| **複雑なサーバー処理** | Supabase Edge Functions（`auto-cancel-past-due`: 未払い 7 日で Stripe 解約。pg_cron + pg_net から毎日呼出。銀行振込の期限通知は持たない） |
 | **決済連携** | Stripe SDK + Webhook（API Routesで受信） |
 | **メール送信** | Resend |
-| **動画アップロード・配信** | Cloudflare Stream（P4、2026-09）。管理画面から Direct Creator Upload でブラウザ → Cloudflare へ直接 POST、処理完了は Webhook（`/api/webhooks/cloudflare-stream`、HMAC 署名検証）で受信。プレイヤーは iframe 埋込（`iframe.videodelivery.net`）。TikTok 等の URL 埋込は従来どおり `parseVideoUrl()`。REST 直叩き（SDK なし、`src/lib/cloudflare/stream.ts`）。未設定環境では URL 登録のみ動く |
+| **動画アップロード・配信** | Cloudflare Stream。管理画面から Direct Creator Upload でブラウザ → Cloudflare へ直接 POST、処理完了は Webhook（`/api/webhooks/cloudflare-stream`、HMAC 署名検証）で受信。プレイヤーは iframe 埋込（`iframe.videodelivery.net`）。TikTok 等の URL 埋込は従来どおり `parseVideoUrl()`。REST 直叩き（SDK なし、`src/lib/cloudflare/stream.ts`）。未設定環境では URL 登録のみ動く |
 | **リアルタイム通知** | Supabase Realtime（アプリ内通知）。Web Push通知は将来検討 |
 
 ## データベース・BaaS
@@ -194,7 +194,7 @@ billing 機能の実装時に使用する。Stripe の決済イベント（Webho
 | Production（Vercel） | Stripe 本番モード | 本番決済 |
 
 
-### Cloudflare Stream（動画アップロード、P4）
+### Cloudflare Stream（動画アップロード）
 
 - 環境変数: `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN`（Account > Stream > Edit）/ `CLOUDFLARE_STREAM_WEBHOOK_SECRET`
 - Webhook 登録: `node scripts/cloudflare/setup-stream-webhook.mjs https://<ホスト>/api/webhooks/cloudflare-stream` → 出力された secret を env に設定（アカウントにつき通知先 1 つ）

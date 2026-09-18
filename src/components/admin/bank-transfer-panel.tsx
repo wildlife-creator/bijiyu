@@ -75,8 +75,8 @@ interface BankTransferPanelProps {
 const VIDEO_CHOICES = BANK_TRANSFER_PLAN_CHOICES.filter((c) => c.kind === "video");
 
 /**
- * ADM-009 ユーザー詳細の「銀行振込」枠（P12）。契約は会員に紐づくため、ここだけに置く
- * （2026-09-17 に ADM-004 発注者詳細からは削除）。
+ * ADM-009 ユーザー詳細の「銀行振込」枠。契約は会員に紐づくため、ここだけに置く
+ * （ADM-004 発注者詳細には置かない）。
  * 状態で中身が切り替わる:
  * - 有料プランなし → 基本プランを「有効にする」
  * - 銀行振込で契約中 → 「変更する」「無効にする」

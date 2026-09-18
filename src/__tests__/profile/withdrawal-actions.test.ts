@@ -261,7 +261,7 @@ describe("withdrawAction: ガード拒否時", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      // 案件名を含めて「どの案件が原因か」を示す（ステージング指摘 No.8）
+      // 案件名を含めて「どの案件が原因か」を示す
       expect(result.error).toContain("応募中または進行中の案件（テスト案件）があるため退会できません");
     }
     expect(mockSignOut).not.toHaveBeenCalled();

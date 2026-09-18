@@ -8,7 +8,7 @@ import type { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * スカウト受信者判定（src/lib/messaging/scout-recipient.ts）のテスト。
- * ステージング指摘 No.33: 法人プランの会員が職人としてスカウトを受ける（両側が組織 identity）
+ * 法人プランの会員が職人としてスカウトを受ける（両側が組織 identity）
  * ケースで「受ける／断る」ボタンが出ず、応答も拒否されていた不具合の回帰防止。
  */
 

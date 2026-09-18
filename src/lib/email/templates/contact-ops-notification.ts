@@ -11,7 +11,7 @@ interface ContactOpsNotificationEmailProps {
   email: string;
   /** お問い合わせ種類（CONTACT_INQUIRY_TYPES のラベル） */
   inquiryType: string;
-  /** 銀行振込のお問い合わせで選ばれた希望プランの表示ラベル（P12。それ以外は null / 省略） */
+  /** 銀行振込のお問い合わせで選ばれた希望プランの表示ラベル（それ以外は null / 省略） */
   bankTransferPlanLabel?: string | null;
   /** YYYY/MM/DD HH:MM */
   receivedAt: string;

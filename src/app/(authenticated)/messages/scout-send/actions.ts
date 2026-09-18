@@ -209,7 +209,7 @@ export async function sendScoutAction(
         error: "一時的なエラーが発生しました。時間をおいて再度お試しください。",
       };
     }
-    // 管理運営アカウント（is_hidden、P5）は一覧に出ないため存在しない扱い
+    // 管理運営アカウント（is_hidden）は一覧に出ないため存在しない扱い
     if (!scoutTarget || scoutTarget.is_hidden) {
       return { success: false, error: "スカウト対象のユーザーが見つかりません" };
     }

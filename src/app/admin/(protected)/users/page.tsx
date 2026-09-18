@@ -8,7 +8,7 @@ import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
 import { AdminUserFilters } from "./filters";
 
 const PAGE_SIZE = 20;
-// オプションプラン加入者の絞り込み（P10、2026-09）。
+// オプションプラン加入者の絞り込み。
 // 急募は案件単位のため ADM-003 側
 const VALID_OPTIONS = [
   "video",

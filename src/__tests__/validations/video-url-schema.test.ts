@@ -7,7 +7,7 @@ import {
 } from "@/lib/validations/video";
 
 /**
- * ADM-027 動画管理の Zod スキーマ（P4）。クライアント・サーバーで共有する二重防御。
+ * ADM-027 動画管理の Zod スキーマ。クライアント・サーバーで共有する二重防御。
  * 旧 VideoUrlSchema（空文字 = 掲載停止）は廃止し、URL 追加は非空 + parseVideoUrl 通過を必須にした。
  */
 

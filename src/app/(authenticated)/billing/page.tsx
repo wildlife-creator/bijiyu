@@ -77,7 +77,7 @@ export default async function BillingPage({
   const currentCycle: BillingCycle = subscription?.billing_cycle ?? "monthly";
   const isFirstPurchase = !subscription;
 
-  // 銀行振込（P12）
+  // 銀行振込
   const isBankTransferPlan = subscription?.payment_method === "bank_transfer";
 
   // Fee=free cookie check
@@ -86,7 +86,7 @@ export default async function BillingPage({
   const hasFeeExemption = feeCookie?.feeExempt === true;
   const showInitialFee = isFirstPurchase && !hasFeeExemption;
 
-  // Determine button states for each plan × billing cycle (P3: 月払い / 年払い)
+  // Determine button states for each plan × billing cycle (月払い / 年払い)
   function buildPlanStates(cycle: BillingCycle) {
     return PAID_PLAN_TYPES.map((planType) => {
       const isCurrent = currentPlan === planType && currentCycle === cycle;
@@ -103,7 +103,7 @@ export default async function BillingPage({
       // ボタンの文言は 1 種類（「このプランにする」）。銀行振込契約中だけ「カード払いにする」。
       // 契約中のプランは画面側でバッジ表示になる（銀行振込中は同じプランをカードに切り替えられる）
       if (isBankTransferPlan) {
-        // 銀行振込契約中（P12）: 銀行振込のままのプラン変更は運営が管理画面で行う。
+        // 銀行振込契約中: 銀行振込のままのプラン変更は運営が管理画面で行う。
         // ここから押せるのはカード払いへの切り替え（Checkout。完了で銀行振込行は自動終了）
         buttonLabel = "カード払いにする";
         buttonDisabled = isStaff;

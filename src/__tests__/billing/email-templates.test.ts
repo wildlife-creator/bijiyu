@@ -553,7 +553,7 @@ describe("videoPublishedOpsEmail §6.6.C-Ops 動画掲載完了 (運営向け)",
   });
 });
 
-describe("planAppliedOpsEmail §6.7-Ops 基本プラン新規契約の運営通知 (P11)", () => {
+describe("planAppliedOpsEmail §6.7-Ops 基本プラン新規契約の運営通知 ", () => {
   it("件名は「【ビジ友 運営】プランの新規お申し込みがありました」、申込者・会社名・プラン（サイクル付き）・支払方法・開始日・ADM-004 deep link を含む", () => {
     const out = planAppliedOpsEmail({
       applicantName: "佐藤花子",
@@ -594,7 +594,7 @@ describe("planAppliedOpsEmail §6.7-Ops 基本プラン新規契約の運営通�
     expect(out.html).not.toContain("請求書は不要");
   });
 
-  it("P12: 銀行振込からカード決済に切り替わったときだけ「以後、銀行振込の請求書は不要」の一文を足す", () => {
+  it("銀行振込からカード決済に切り替わったときだけ「以後、銀行振込の請求書は不要」の一文を足す", () => {
     const out = planAppliedOpsEmail({
       applicantName: "振込一郎",
       companyName: "振込一郎建設",

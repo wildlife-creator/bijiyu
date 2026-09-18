@@ -70,7 +70,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
   const employeeScaleLabel = (sp.employeeScale as string) ?? "";
   const workingWay = (sp.workingWay as string) ?? "";
   const language = (sp.language as string) ?? "";
-  // 並び順は URL を正とし、未知の値は既定（おすすめ順）に倒す（P6）
+  // 並び順は URL を正とし、未知の値は既定（おすすめ順）に倒す
   const sort = resolveSortValue(CLIENT_LIST_SORT_OPTIONS, sp.sort);
 
   const employeeScaleRange = employeeScaleLabel
@@ -155,7 +155,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     )
     .eq("role", "client")
     .is("deleted_at", null)
-    // 管理運営アカウント（P5）は一覧・検索に出さない
+    // 管理運営アカウントは一覧・検索に出さない
     .eq("is_hidden", false);
 
   // Apply filters
@@ -192,7 +192,7 @@ export default async function ClientListPage({ searchParams }: PageProps) {
     query = query.overlaps("client_profiles.language", [language]);
   }
 
-  // P6 一覧改修: おすすめ順（既定）= プランランク（ハイエンド 2 → プレミアム 1 → その他 0）→ 新着。
+  // おすすめ順（既定）= プランランク（ハイエンド 2 → プレミアム 1 → その他 0）→ 新着。
   // ランクは users.list_plan_rank（契約の作成・変更・解約にトリガーで自動追従）。「新着順」は created_at のみ。
   if (sort === "recommended") {
     query = query.order("list_plan_rank", { ascending: false });

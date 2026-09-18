@@ -31,7 +31,7 @@ export const DOCUMENT_PATH_EXTENSIONS = [
 ] as const;
 // アバターは画面案内・direct-upload ルール（IMAGE_UPLOAD_RULE_5MB）・avatars バケット
 // （20260712100000_avatars_allow_webp.sql）と同じく WebP を許可する。
-// 2026-09 実例: ここだけ webp が漏れていて、Storage 保存は成功するのに DB 更新で
+// 実例: ここだけ webp が漏れていて、Storage 保存は成功するのに DB 更新で
 // 「ファイルを選択してください」と弾かれていた（ステージング確認-3(b)）
 export const AVATAR_PATH_EXTENSIONS = ["jpg", "jpeg", "png", "webp"] as const;
 

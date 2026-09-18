@@ -1,4 +1,4 @@
--- pgTAP tests for migration 20260916120000_bank_transfer_onoff（銀行振込 P12）
+-- pgTAP tests for migration 20260916120000_bank_transfer_onoff（銀行振込のオン／オフ）
 --
 -- 検証:
 --   1. 申込テーブル・専用 enum・期限通知 cron・期限 index が無いこと
@@ -51,7 +51,7 @@ VALUES ('bb120916-0000-4000-8000-0000000000c1', 'bb120916-0000-4000-8000-0000000
 INSERT INTO client_profiles (user_id, display_name) VALUES ('bb120916-0000-4000-8000-000000000001', '振込商店');
 
 INSERT INTO jobs (id, owner_id, title, trade_types, status)
-VALUES ('bb120916-0000-4000-8000-0000000000a1', 'bb120916-0000-4000-8000-000000000001', 'P12 掲載中案件', ARRAY['建築/躯体｜大工']::text[], 'open');
+VALUES ('bb120916-0000-4000-8000-0000000000a1', 'bb120916-0000-4000-8000-000000000001', '銀行振込テスト 掲載中案件', ARRAY['建築/躯体｜大工']::text[], 'open');
 
 -- ============================================================
 -- 3. 銀行振込 → カード（Checkout 完了）

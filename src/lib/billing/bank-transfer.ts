@@ -1,9 +1,9 @@
 /**
- * 銀行振込の共通定数・暦日ヘルパー（P12、2026-09-16 で縮小）。
- * 仕様: docs/requirements/p12-bank-transfer-onoff-implementation-notes.md
+ * 銀行振込の共通定数・暦日ヘルパー。
+ * 仕様: docs/requirements/current-spec.md「銀行振込」
  *
  * 銀行振込はアプリ上「プランのオン／オフ」だけを持つ。申込レコード・金額計算・
- * 有効期限・期限バッジ（P2 / P9 の仕組み）は廃止した。
+ * 有効期限・期限バッジは持たない。
  * 契約行は subscriptions / option_subscriptions の payment_method = 'bank_transfer'。
  */
 
@@ -18,7 +18,7 @@ export const BANK_TRANSFER_CONTACT_MESSAGE =
 // ---------------------------------------------------------------------------
 // 暦日（YYYY-MM-DD）の計算。timestamptz ではなく date 文字列で扱い、
 // 実行環境のタイムゾーンに依存しないよう UTC 基準で計算する。
-// 管理運営アカウント（P5）の契約付与で使用。
+// 管理運営アカウントの契約付与で使用。
 // ---------------------------------------------------------------------------
 
 /**

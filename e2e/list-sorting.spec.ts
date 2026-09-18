@@ -3,15 +3,15 @@ import { test, expect, type Page } from "@playwright/test";
 import { login, TEST_CLIENT, TEST_CONTRACTOR } from "./helpers";
 
 /**
- * P6 一覧改修（docs/requirements/p6-list-sorting-implementation-notes.md）
+ * 一覧の並び替え（docs/requirements/current-spec.md「一覧の並び替え」）
  *
  * A. プラン順の既定並び
- *   - CON-005 発注者一覧: ハイエンド → プレミアム → スタンダード → その他（各グループ内は新着順。P11 でスタンダードを追加）
+ *   - CON-005 発注者一覧: ハイエンド → プレミアム → スタンダード → その他（各グループ内は新着順）
  *   - CON-002 案件検索「おすすめ順」: 急募 → ハイエンド → プレミアム → スタンダード → その他（各グループ内は新着順）
  * B. 並び替えプルダウン（共通部品 SortSelect）
  *   - 選択すると URL の ?sort= が変わり即座に並び替わる / ページ番号は 1 に戻る / 検索条件は保持
  *
- * seed（supabase/seed.sql 末尾「P6 一覧改修」ブロック）:
+ * seed（supabase/seed.sql 末尾「一覧の並び替え」ブロック）:
  *   highend-client@test.local = ハイエンド建設株式会社（ハイエンド、users.created_at は 30 日前 = 新着順では先頭に来ない）
  *   案件 ①「ハイエンド急募 那覇市 外壁塗装工事」（急募、5 日前作成）②「ハイエンド 沖縄 内装塗装工事」（急募なし、10 日前作成）
  *   他の seed 発注者はプレミアム以下で created_at = seed 投入時刻（= ①② より新しい）。
@@ -34,7 +34,7 @@ async function cardTitles(page: Page): Promise<string[]> {
   return texts.map((t) => t.trim());
 }
 
-test.describe("P6-A: 発注者一覧（CON-005）のプラン順", () => {
+test.describe("発注者一覧（CON-005）のプラン順", () => {
   test.beforeEach(async ({ page }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
   });
@@ -72,7 +72,7 @@ test.describe("P6-A: 発注者一覧（CON-005）のプラン順", () => {
   });
 });
 
-test.describe("P6-A: 案件検索（CON-002）のおすすめ順", () => {
+test.describe("案件検索（CON-002）のおすすめ順", () => {
   test.beforeEach(async ({ page }) => {
     await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
   });
@@ -126,7 +126,7 @@ test.describe("P6-A: 案件検索（CON-002）のおすすめ順", () => {
   });
 });
 
-test.describe("P6-B: 職人一覧（CLI-005）の並び替え", () => {
+test.describe("職人一覧（CLI-005）の並び替え", () => {
   test("新着順（既定）/ 登録が古い順を切り替えられる", async ({ page }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/users/contractors");
@@ -142,7 +142,7 @@ test.describe("P6-B: 職人一覧（CLI-005）の並び替え", () => {
   });
 });
 
-test.describe("P6-B: 応募・発注系一覧の並び替え（新しい順 / 古い順）", () => {
+test.describe("応募・発注系一覧の並び替え（新しい順 / 古い順）", () => {
   test("CON-011 応募履歴: ステータス絞り込みを保持したまま古い順に切り替わる", async ({
     page,
   }) => {
@@ -199,7 +199,7 @@ test.describe("P6-B: 応募・発注系一覧の並び替え（新しい順 / �
   });
 });
 
-test.describe("P6-B: 募集現場一覧（CLI-001）の並び替え", () => {
+test.describe("募集現場一覧（CLI-001）の並び替え", () => {
   test("ステータス絞り込みを保持したまま 新着順 / 古い順 を切り替えられる（件数は不変）", async ({
     page,
   }) => {

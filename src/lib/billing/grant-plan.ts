@@ -17,10 +17,9 @@ export type GrantPlanResult =
  * `handle_checkout_completed_plan` と同じ副作用を再現する共通処理。
  *
  * 呼び出し元:
- * - ADM-009 の「銀行振込」枠の有効化（`activateBankTransferPlanAction`、P12）:
+ * - ADM-009 の「銀行振込」枠の有効化（`activateBankTransferPlanAction`）:
  *   有効化メールあり・期限なし（current_period_end = NULL）
- *   管理運営アカウント（P5）もこの経路でハイエンドを付ける（専用の設定画面は 2026-09-17 に廃止。
- *   その後 開発側が SQL で users.is_hidden = true にする）
+ *   管理運営アカウントもこの経路でハイエンドを付ける（その後 開発側が SQL で users.is_hidden = true にする）
  *
  * 副作用（順序どおり）:
  * 1. subscriptions INSERT（payment_method='bank_transfer'、stripe_subscription_id NULL）
@@ -129,7 +128,7 @@ export async function grantBankTransferPlan(
     },
   });
 
-  // §6.7 プラン契約完了メール（Stripe 経路と同じテンプレ）+ §6.7-Ops 運営通知（P11）
+  // §6.7 プラン契約完了メール（Stripe 経路と同じテンプレ）+ §6.7-Ops 運営通知
   await sendPlanActivatedEmail(admin, sendEmail, userId, planType, startIso, {
     billingCycle,
     paymentMethod: "bank_transfer",

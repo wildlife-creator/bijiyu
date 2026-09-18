@@ -59,7 +59,7 @@ test.describe("お問い合わせ（COM-008）", () => {
     await page.locator("#phone").fill("09033334444");
     await page.locator("#email").fill("loggedin-e2e@test.local");
 
-    // P8: 報酬未払い発生前の相談窓口
+    // 報酬未払い発生前の相談窓口
     await pickSelect(page, "inquiryType", "報酬未払いについて");
     await pickSelect(page, "purpose", "協力会社を探したい");
     await pickSelect(page, "industry", "電気");
@@ -86,7 +86,7 @@ test.describe("トラブル報告（COM-012）", () => {
     await expect(page.locator("#email")).toHaveValue("contractor@test.local");
 
     await page.locator("#counterpartyName").fill("鈴木次郎");
-    // P8: 報酬未払い（発生後）のカテゴリ
+    // 報酬未払い（発生後）のカテゴリ
     await pickSelect(page, "category", "報酬未払い");
     await page
       .locator("#content")

@@ -48,7 +48,7 @@ interface SubscriptionSnapshot {
   id: string;
   user_id: string;
   plan_type: string;
-  /** P3: 支払サイクル。旧行は monthly */
+  /** 支払サイクル。旧行は monthly */
   billing_cycle?: BillingCycle | null;
   schedule_id: string | null;
   cancel_at_period_end: boolean;
@@ -600,7 +600,7 @@ async function maybeSendChangedEmail(
   // 予約あり状態では他プランへの即時アップグレードは UI で非活性のため、
   // schedule_id の有無で A-1 / A-1' を一意に切り分けられる。
   //
-  // P3: アップグレード（上位プラン / 月払い→年払い）は Stripe ホスト画面
+  // アップグレード（上位プラン / 月払い→年払い）は Stripe ホスト画面
   // （subscription_update_confirm）で確定するため Server Action の先行 UPDATE は無く、
   // この Webhook 分岐が「【ビジ友】プラン変更を承りました」の本経路になる。
   // 支払サイクルだけが変わった場合（同一プランで月→年）もここで通知する。

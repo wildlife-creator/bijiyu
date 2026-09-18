@@ -8,9 +8,9 @@
 
 /** 正準 option_type union（要件 8.1）。 */
 export type OptionType =
-  | "video" // プロフィール動画制作プラン（P10 で旧「自己PR動画」「職場紹介動画」を統合。旧キー video_workplace は 2026-09-18 に廃止し既存行も video に書き換え済み）
-  | "video_shooting" // ユーザー撮影動画制作プラン（P7、2026-09。ユーザーが撮った素材を運営が編集・掲載）
-  | "video_sns" // ビジ友公式SNS動画制作プラン（P10、2026-09。運営が撮影・編集し公式 SNS に掲載）
+  | "video" // プロフィール動画制作プラン
+  | "video_shooting" // ユーザー撮影動画制作プラン（ユーザーが撮った素材を運営が編集・掲載）
+  | "video_sns" // ビジ友公式SNS動画制作プラン（運営が撮影・編集し公式 SNS に掲載）
   | "urgent"
   | "compensation_5000"
   | "compensation_9800";
@@ -19,7 +19,7 @@ export type OptionType =
  * オプション表示ラベル（メール本文・UI 共用、§6.5 / §6.6 の【お申し込みオプション】行で使用）。
  *
  * 補償系は「金額 + 補償上限」を一括で表す慣用表現に合わせる。動画系は料金プラン画面の商品名から
- * 「〜制作プラン」を除いた短縮名（P10 で統一）、急募は「急募オプション」。
+ * 「〜制作プラン」を除いた短縮名、急募は「急募オプション」。
  */
 export const OPTION_LABELS: Record<OptionType, string> = {
   compensation_5000: "補償（5,000円/月、最大200万円）",
@@ -34,7 +34,7 @@ export const OPTION_LABELS: Record<OptionType, string> = {
  * オプション価格（税込 JPY）。Stripe の Price と一致させること
  * （STRIPE_PRICE_VIDEO / STRIPE_PRICE_VIDEO_SHOOTING / STRIPE_PRICE_VIDEO_SNS /
  *   STRIPE_PRICE_URGENT / STRIPE_PRICE_COMPENSATION_5000 / STRIPE_PRICE_COMPENSATION_9800）。
- * 銀行振込（P2）の申込金額と、料金プラン画面の表示に使う。補償は月額。
+ * 銀行振込の申込金額と、料金プラン画面の表示に使う。補償は月額。
  */
 export const OPTION_PRICES_TAX_INCLUDED: Record<OptionType, number> = {
   video: 100000,
@@ -56,7 +56,7 @@ export function isSubscriptionOption(optionType: OptionType): boolean {
 }
 
 /**
- * 補償オプション（compensation_5000 / 9800）の販売フラグ（P8、spec-changes-202608 §2.6）。
+ * 補償オプション（compensation_5000 / 9800）の販売フラグ。
  *
  * 補償は保険会社との別契約に切り出す方針となり、アプリ上での販売を取り下げた。
  * コードは削除せず、環境変数 NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED が "true" のときだけ
@@ -79,7 +79,7 @@ export function isCompensationOption(
 /**
  * 買い切り・期限なしの動画系オプション（購入後は運営が動画を制作 / 編集して掲載する 2 ステップ）。
  * Checkout / Webhook / 銀行振込の有効化 / メールはこの 3 種を同じ経路で扱う。
- * 表示側の出し分けには使わない（P4 で表示ゲートは撤廃済み）。
+ * 表示側の出し分けには使わない。
  */
 export const VIDEO_OPTION_TYPES = [
   "video",

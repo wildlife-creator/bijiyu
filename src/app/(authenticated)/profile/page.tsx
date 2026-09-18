@@ -190,7 +190,7 @@ export default async function ProfilePage() {
       : null;
   const skillTags = (profile.skill_tags ?? []) as string[];
 
-  // PR動画: videos テーブルの公開中の動画を表示順どおりに表示（P4）。
+  // PR動画: videos テーブルの公開中の動画を表示順どおりに表示。
   // オプション購入の有無ではゲートしない（全ユーザーのページに掲載可能）。
   const prVideos = await getReadyVideos(supabase, user.id, "contractor_page");
 

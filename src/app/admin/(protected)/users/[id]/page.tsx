@@ -99,7 +99,7 @@ export default async function AdminUserDetailPage({
 
   if (!u) notFound();
 
-  // 銀行振込（P12）の枠で使う現在の契約
+  // 銀行振込の枠で使う現在の契約
   const { data: activeSubscription } = await admin
     .from("subscriptions")
     .select("id, plan_type, status, payment_method, current_period_end")
@@ -142,7 +142,7 @@ export default async function AdminUserDetailPage({
     hasOrganization = !!org;
   }
 
-  // PR動画（公開中のみ）。P4 でオプション購入によるゲートは撤廃。
+  // PR動画（公開中のみ）。オプション購入の有無では出し分けない。
   // 退会済みでも登録済みの動画は運営者が後から確認できるよう表示を維持する
   const prVideos = await getReadyVideos(admin, id, "contractor_page");
 
@@ -262,7 +262,7 @@ export default async function AdminUserDetailPage({
         </section>
       )}
 
-      {/* 動画管理画面（ADM-027）への導線。P4 で購入ゲートを撤廃し常時表示
+      {/* 動画管理画面（ADM-027）への導線。購入の有無に関係なく常時表示
           （退会済みは出さない）。発注者詳細 ADM-004 の動画ボタンと色・配置をそろえる */}
       {!isDeleted && (
         <div className="mt-3 flex justify-end">
@@ -380,7 +380,7 @@ export default async function AdminUserDetailPage({
         />
       </section>
 
-      {/* 銀行振込（P12）: 契約は会員に紐づくため、枠はこの画面だけ（ADM-004 には置かない）。契約主体になれる contractor / client のみ。
+      {/* 銀行振込: 契約は会員に紐づくため、枠はこの画面だけ（ADM-004 には置かない）。契約主体になれる contractor / client のみ。
           退会済み・担当者（staff）・管理者には出さない */}
       {!isDeleted && (u.role === "contractor" || u.role === "client") && (
         <section className="mt-6">

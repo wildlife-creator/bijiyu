@@ -27,7 +27,7 @@ import { cookies } from "next/headers";
 const planInputSchema = z.object({
   type: z.literal("plan"),
   planType: z.enum(PAID_PLAN_TYPES),
-  /** P3: 月払い / 年払い。省略時は月払い（既存呼出との互換） */
+  /** 月払い / 年払い。省略時は月払い（既存呼出との互換） */
   billingCycle: z.enum(["monthly", "yearly"]).default("monthly"),
 });
 
@@ -47,13 +47,13 @@ const videoOptionInputSchema = z.object({
   optionType: z.literal("video"),
 });
 
-// ユーザー撮影動画制作プラン（P7）。全会員（staff / admin 以外）が購入可。発注者プランの加入は問わない
+// ユーザー撮影動画制作プラン。全会員（staff / admin 以外）が購入可。発注者プランの加入は問わない
 const videoShootingOptionInputSchema = z.object({
   type: z.literal("option"),
   optionType: z.literal("video_shooting"),
 });
 
-// ビジ友公式SNS動画制作プラン（P10）。全会員（staff / admin 以外）が購入可・再購入可
+// ビジ友公式SNS動画制作プラン。全会員（staff / admin 以外）が購入可・再購入可
 const videoSnsOptionInputSchema = z.object({
   type: z.literal("option"),
   optionType: z.literal("video_sns"),
@@ -173,7 +173,7 @@ export async function startCheckoutAction(
   // 5. Pre-flight checks per type
   if (input.type === "plan") {
     // 二重課金防止: Stripe の active or past_due があれば拒否。
-    // 銀行振込行（payment_method = bank_transfer）は対象外 = カード払いへの切り替え経路（P12 §3.2）。
+    // 銀行振込行（payment_method = bank_transfer）は対象外 = カード払いへの切り替え経路。
     // Checkout 完了時に handle_checkout_completed_plan v3 が銀行振込行を後処理なしで終了させる
     const existingActive = await admin
       .from("subscriptions")
@@ -190,7 +190,7 @@ export async function startCheckoutAction(
       };
     }
   } else {
-    // P8: 補償オプションは販売停止中（フラグで復活可）。画面から消しても直接呼べるためここでも拒否
+    // 補償オプションは販売停止中（フラグで復活可）。画面から消しても直接呼べるためここでも拒否
     if (isCompensationOption(input.optionType) && !isCompensationOptionEnabled()) {
       return { success: false, error: COMPENSATION_OPTION_DISABLED_MESSAGE };
     }

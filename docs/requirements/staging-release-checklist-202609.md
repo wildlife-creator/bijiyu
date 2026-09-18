@@ -3,7 +3,7 @@
 作成: 2026-09-09。更新: 2026-09-10（P10 動画プラン整理・P11 価格改定と比較表・運営宛メールを反映）。対象コード: `feature/spec-changes-202608`（origin に push 済。先端は `git log origin/feature/spec-changes-202608 -1` で確認。2026-09-10 時点で 4d1f979 以降）。
 このファイルは **Claude（Cowork）に引き継いで設定作業を進めるための手順書**。根拠は 8 月末の分岐点（`client/staging` = 583711d）から現在までのコード差分。
 
-**2026-09-10 の追加分の要点**（詳細: `docs/requirements/video-plans-handoff-202609.md`）:
+**2026-09-10 の追加分の要点**（詳細: `docs/requirements/archive/2026-08-09/video-plans-handoff-202609.md`。現在の仕様は `docs/requirements/current-spec.md`）:
 - 動画プランを「プロフィール動画制作プラン（10 万）/ ユーザー撮影動画制作プラン（2 万）/ ビジ友公式SNS動画制作プラン（12 万・新設）」に整理。旧「職場紹介動画掲載」は新規販売停止 → Stripe Price の追加 1 本（A2）
 - 月額を 2,800 / 9,800 / 28,000 / 168,000 円、初回事務手数料を 12,000 円に改定 → **Stripe の月額 Price 4 本 + 事務手数料 Price を作り直し、環境変数 5 本を差し替え**（A0・B4）
 - 上位表示にスタンダードを追加、プレミアムの担当者上限 10 → 5 人 → マイグレーション 2 本追加（B1、計 8 本）
@@ -160,7 +160,7 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
    ```
    git push client feature/spec-changes-202608
    ```
-2. GitHub `bijiyu-app/bijiyu` で Pull Request: base `staging` ← compare `feature/spec-changes-202608`。内容は P1〜P11 と ステージング指摘修正 A〜D（本文に `docs/requirements/spec-changes-202608.md`、`staging-check-fix-plan-202609.md`、`video-plans-handoff-202609.md` を参照）
+2. GitHub `bijiyu-app/bijiyu` で Pull Request: base `staging` ← compare `feature/spec-changes-202608`。内容は P1〜P11 と ステージング指摘修正 A〜D（本文に `docs/requirements/archive/2026-08-09/` の `spec-changes-202608.md`、`staging-check-fix-plan-202609.md`、`video-plans-handoff-202609.md` を参照）
 3. マージ → Vercel が自動デプロイ。完了を待つ
 4. マージ前に B1〜B4 が済んでいること（コードが新しい DB 列・環境変数を前提にしている）
 
@@ -191,6 +191,6 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
 
 ## 参照
 
-- 変更内容: `docs/requirements/spec-changes-202608.md`（P1〜P9）、`docs/requirements/staging-check-fix-plan-202609.md`（指摘修正 A〜D と実装結果）、`docs/requirements/video-plans-handoff-202609.md`（P10 動画プラン整理・P11 価格改定と比較表・メール整理）
+- 変更内容: `docs/requirements/archive/2026-08-09/spec-changes-202608.md`（P1〜P9）、同 `staging-check-fix-plan-202609.md`（指摘修正 A〜D と実装結果）、同 `video-plans-handoff-202609.md`（P10 動画プラン整理・P11 価格改定と比較表・メール整理）。現在の仕様は `docs/requirements/current-spec.md`
 - 環境変数の見本: `.env.local.example`
-- ブランチ運用: `spec-changes-202608.md` §5
+- ブランチ運用: `docs/requirements/archive/2026-08-09/spec-changes-202608.md` §5

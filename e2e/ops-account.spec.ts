@@ -10,7 +10,7 @@ import {
 } from "./helpers";
 
 /**
- * 管理運営アカウント（P5 / spec-changes-202608 §2.4）の E2E。
+ * 管理運営アカウント（docs/requirements/current-spec.md「管理運営アカウント」）の E2E。
  *
  * seed（supabase/seed.sql「管理運営アカウント」）:
  * - ops-account@test.local (0b50…0001): is_hidden=true、ハイエンドの銀行振込行（期限なし）、
@@ -124,8 +124,8 @@ test.describe("A. 一般会員からは運営アカウントが見えない", ()
 test.describe("B. 運営 → 発注者（法人）へメッセージ", () => {
   // 送信は 1 回目のテストで行い、後続テストは固定の書き出しで照合する
   // （テストごとにファイルが再評価されると Date.now() が変わるため、共有はしない）
-  const text = "運営から発注者へ提案（P5 E2E）";
-  const textPattern = /運営から発注者へ提案（P5 E2E）/;
+  const text = "運営から発注者へ提案（E2E）";
+  const textPattern = /運営から発注者へ提案（E2E）/;
 
   test("運営が発注者詳細の「メッセージを送る」からスレッドを作って送信できる", async ({
     page,
@@ -171,8 +171,8 @@ test.describe("B. 運営 → 発注者（法人）へメッセージ", () => {
 });
 
 test.describe("C. 運営 → 職人へメッセージ", () => {
-  const text = "運営から職人へ案件のご紹介（P5 E2E）";
-  const textPattern = /運営から職人へ案件のご紹介（P5 E2E）/;
+  const text = "運営から職人へ案件のご紹介（E2E）";
+  const textPattern = /運営から職人へ案件のご紹介（E2E）/;
 
   test("運営が職人詳細の「メッセージを送る」から送信できる", async ({ page }) => {
     await login(page, OPS.email, OPS.password);

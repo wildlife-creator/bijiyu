@@ -15,7 +15,7 @@ import { resolveSortValue, type SortOption } from "@/lib/constants/sort-options"
 import { buildSortSearch } from "@/lib/utils/sort-search-params";
 
 /**
- * 一覧画面共通の並び替えプルダウン（P6 一覧改修）。
+ * 一覧画面共通の並び替えプルダウン（一覧の並び替え）。
  *
  * - 並び順は URL（`?sort=`）を Single Source of Truth とし、useState は持たない
  * - 選択すると即座に router.push で並び替わり、ページ番号は 1 に戻る（検索条件は保持）

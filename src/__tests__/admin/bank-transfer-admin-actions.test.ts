@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * ADM-009 / ADM-004 の「銀行振込」枠の Server Action（P12）。
+ * ADM-009 の「銀行振込」枠の Server Action。
  * - activateBankTransferPlanAction: 有効プランなし → 銀行振込行（期限なし）+ role 昇格 +
  *   client_profiles + 法人なら組織作成 + 有効化メール + 監査
  * - changeBankSubscriptionPlanAction: 即時変更（ダウングレードは前提条件チェック）

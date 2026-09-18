@@ -7,7 +7,7 @@ import {
 } from "@/lib/videos/display";
 
 /**
- * videos 行 → 埋込メタ情報の純粋関数（P4）。表示 6 画面と管理画面が共有する。
+ * videos 行 → 埋込メタ情報の純粋関数。表示 6 画面と管理画面が共有する。
  */
 
 const UID = "a1b2c3d4e5f60718293a4b5c6d7e8f90";

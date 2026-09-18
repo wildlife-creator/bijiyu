@@ -1123,7 +1123,7 @@ const fixtures: Fixture[] = [
       trigger:
         "ダウングレード予約が期末に適用され、webhook で plan_type 変化 + 直前 schedule_id あり を検知",
       actionFile: "src/lib/billing/webhook/handle-subscription-lifecycle.ts",
-      specRef: "§6.1-A-1' (docs/requirements/spec-changes-202608.md §2.1(4))",
+      specRef: "§6.1-A-1' (docs/requirements/current-spec.md「アップグレード」)",
       classification: "新規",
     },
   },
@@ -1485,7 +1485,7 @@ const fixtures: Fixture[] = [
       }),
     meta: {
       recipient: "運営 (OPS_NOTIFICATION_EMAIL)",
-      trigger: "§6.7 と同時（新規契約のみ。Stripe checkout.session.completed / 銀行振込の管理画面での有効化（ADM-009 / ADM-004、P12） / 運営付与）。プラン変更・解約では送らない",
+      trigger: "§6.7 と同時（新規契約のみ。Stripe checkout.session.completed / 銀行振込の管理画面での有効化（ADM-009））。プラン変更・解約では送らない",
       actionFile: "src/lib/billing/activation-emails.ts",
       specRef: "§6.7-Ops",
       classification: "新規",

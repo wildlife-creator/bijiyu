@@ -22,7 +22,7 @@ interface AdminUserFiltersProps {
 }
 
 // 動画 3 プランのみ（名称は料金プラン画面と同じ正式名 = VIDEO_OPTION_UI_NAMES）。
-// 補償は販売停止中で加入者もいないため 2026-09-18 に選択肢から外した。急募は案件単位のため ADM-003 側に置く。
+// 補償は販売停止中で加入者もいないため選択肢に含めない。急募は案件単位のため ADM-003 側に置く。
 const OPTION_ITEMS: { value: string; label: string }[] = [
   { value: "all", label: "すべて" },
   { value: "video", label: VIDEO_OPTION_UI_NAMES.video },
@@ -35,7 +35,7 @@ const OPTION_ITEMS: { value: string; label: string }[] = [
  * フィルタ状態は URL searchParams を SSOT とし、検索ボタンで router.push する。
  *
  * ブラウザの戻る/進むで URL（= initial*）が変わったときに入力欄の表示も追従させるため、
- * URL 由来の初期値を key にして内部 state を作り直す（ステージング指摘 No.40）。
+ * URL 由来の初期値を key にして内部 state を作り直す。
  * 検索ボタンを押すまでの入力途中の値は、URL が変わらない限り保持される。
  */
 export function AdminUserFilters(props: AdminUserFiltersProps) {

@@ -14,7 +14,7 @@ interface MessageThreadViewProps {
   /** 自分側（組織 identity なら組織メンバー全員 + participant、個人なら本人）の user id。
    *  代理メッセージは法人スタッフの id で送信されるため、isMine を
    *  「currentUserId と一致するか」だけで判定すると自社スタッフの発言を
-   *  相手側と誤認する。side 単位の集合で判定する（P5 で両側組織にも対応）。 */
+   *  相手側と誤認する。side 単位の集合で判定する。 */
   ownSideUserIds: string[];
   /** 相手側の user id 集合（同上） */
   counterpartSideUserIds: string[];
@@ -25,7 +25,7 @@ interface MessageThreadViewProps {
   participantName?: string;
   showScoutActions: boolean;
   /** viewer が担当者（staff）。受注者アクション不可のため、スカウトのボタンの代わりに
-   *  「返答は管理責任者のみ」の案内を出す（ステージング指摘 No.33 / 1c） */
+   *  「返答は管理責任者のみ」の案内を出す */
   viewerIsStaff?: boolean;
   isProxyAccount: boolean;
   /** A7: 相手が退会済みの場合の入力欄無効化メッセージ */
@@ -44,7 +44,7 @@ interface MessageThreadViewProps {
  * 4. どちらにも無い（組織から外れた元スタッフ等）: 組織側の viewer は自分側として
  *    吸収（旧 shim と同じ）、個人側の viewer は相手側とみなす
  *
- * 個人⇔個人・個人⇔組織・組織⇔組織のいずれでも対称に動く（P5）。
+ * 個人⇔個人・個人⇔組織・組織⇔組織のいずれでも対称に動く。
  */
 function computeIsMine(
   senderId: string,

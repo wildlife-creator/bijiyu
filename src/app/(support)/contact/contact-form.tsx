@@ -50,7 +50,7 @@ const ACCEPT_ATTR =
   "image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.heic,.heif";
 
 interface ContactFormProps {
-  /** ログイン中か。銀行振込の選択肢はログイン中だけ出す（P12） */
+  /** ログイン中か。銀行振込の選択肢はログイン中だけ出す */
   isLoggedIn: boolean;
   /** ログイン中の会員情報から作った初期値（未ログインは空。上書き可） */
   prefill: ContactPrefill;
@@ -308,7 +308,7 @@ export function ContactForm({ isLoggedIn, prefill }: ContactFormProps) {
             error={errors.inquiryType?.message}
           />
 
-          {/* 銀行振込（P12）: 希望プラン（銀行振込を選んだときだけ・必須） */}
+          {/* 銀行振込: 希望プラン（銀行振込を選んだときだけ・必須） */}
           {watch("inquiryType") === BANK_TRANSFER_INQUIRY_TYPE && (
             <div className="space-y-1">
               <Label htmlFor="bankTransferPlan">希望プラン{REQUIRED_BADGE}</Label>

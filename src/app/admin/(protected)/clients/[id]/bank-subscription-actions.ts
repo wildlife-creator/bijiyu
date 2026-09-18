@@ -27,7 +27,7 @@ import type { ActionResult } from "@/lib/types/action-result";
 
 /**
  * ADM-009 ユーザー詳細 の「銀行振込」枠（`<BankTransferPanel>`）の
- * Server Action（P12 / docs/requirements/p12-bank-transfer-onoff-implementation-notes.md §2.3, §3）。
+ * Server Action（仕様: docs/requirements/current-spec.md「銀行振込」）。
  *
  * 銀行振込はアプリ上「プランのオン／オフ」だけ。請求書・入金確認・更新時期はアプリ外。
  * - 有効化: 有効プランなし → 銀行振込行を作る（期限なし。role 昇格・client_profiles・組織・有効化メール）

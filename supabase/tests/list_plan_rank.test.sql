@@ -1,4 +1,4 @@
--- pgTAP tests for 一覧のプラン順ランク列（P6）
+-- pgTAP tests for 一覧のプラン順ランク列
 --   users.list_plan_rank / jobs.owner_plan_rank が契約（subscriptions）の変化に
 --   トリガーで自動追従すること（手動更新・cron に頼らない）。
 --   - 契約作成で 0 → 2（ハイエンド）/ プラン変更で 2 → 1（プレミアム）/ 解約で → 0
@@ -153,14 +153,14 @@ SELECT is(
 );
 
 -- ============================================================
--- 7. スタンダードは 1（P11 で上位表示に追加）、ライトは「その他」= 0
+-- 7. スタンダードは 1、ライトは「その他」= 0
 -- ============================================================
 INSERT INTO subscriptions (id, user_id, plan_type, status, stripe_subscription_id)
 VALUES ('f6a00000-0000-0000-0000-00000000cc03', 'f6a00000-0000-0000-0000-0000000000b1', 'small', 'active', 'sub_rank_test_3');
 SELECT is(
   (SELECT list_plan_rank FROM users WHERE id = 'f6a00000-0000-0000-0000-0000000000b1'),
   1::smallint,
-  'small (スタンダード) plan -> list_plan_rank = 1 (P11)'
+  'small (スタンダード) plan -> list_plan_rank = 1 '
 );
 UPDATE subscriptions SET plan_type = 'individual' WHERE id = 'f6a00000-0000-0000-0000-00000000cc03';
 SELECT is(

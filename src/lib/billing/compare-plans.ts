@@ -21,13 +21,13 @@ export function comparePlans(
 }
 
 /**
- * プランと支払サイクルの両方を見た変更の向き（P3 年払い）。
+ * プランと支払サイクルの両方を見た変更の向き。
  *
  * 1. プランのランクが違えばそれが優先（上位へ = upgrade、下位へ = downgrade）
  * 2. 同じプランなら 月払い → 年払い = upgrade（即時切替）、年払い → 月払い = downgrade（期末切替）
  * 3. どちらも同じなら same
  *
- * 仕様: docs/requirements/spec-changes-202608.md §2.1(2) サイクル切替ルール
+ * 仕様: docs/requirements/current-spec.md「サイクル切替ルール」
  */
 export function comparePlanChange(
   current: { planType: PlanType; billingCycle: BillingCycle },

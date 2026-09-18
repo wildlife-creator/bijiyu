@@ -3,7 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { TEST_ADMIN, login } from "./helpers";
 
 /**
- * 銀行振込（P12 / docs/requirements/p12-bank-transfer-onoff-implementation-notes.md）の E2E。
+ * 銀行振込（docs/requirements/current-spec.md「銀行振込」）の E2E。
  *
  * ユーザーストーリー:
  *  1. 会員がログインしてお問い合わせを開くと会員情報が入っている → 「お支払い方法（銀行振込）について」
@@ -39,7 +39,7 @@ async function pickSelect(page: Page, triggerId: string, optionName: string) {
   await page.getByRole("option", { name: optionName, exact: true }).click();
 }
 
-test.describe.serial("銀行振込: お問い合わせ → 一覧 → ユーザー詳細で有効化 → 会員側（P12）", () => {
+test.describe.serial("銀行振込: お問い合わせ → 一覧 → ユーザー詳細で有効化 → 会員側", () => {
   test("1. 会員がログインしてお問い合わせ（銀行振込・希望プラン）を送る。会員情報が最初から入っている", async ({ page }) => {
     await login(page, TEST_BANK_E2E.email, TEST_BANK_E2E.password);
     await page.goto("/contact");

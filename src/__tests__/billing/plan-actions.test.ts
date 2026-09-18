@@ -241,7 +241,7 @@ afterEach(() => {
 // ---- changePlanAction ----
 
 describe("changePlanAction", () => {
-  // ---- P3: アップグレードは Stripe ホスト画面（subscription_update_confirm）へ遷移 ----
+  // ---- アップグレードは Stripe ホスト画面（subscription_update_confirm）へ遷移 ----
   it("上位プランへの変更は Stripe ポータルの確認画面 URL を返し、DB 更新・Stripe 更新・メールは行わない", async () => {
     const result = await changePlanAction({ targetPlan: "small" });
     expect(result.success).toBe(true);
@@ -373,7 +373,7 @@ describe("changePlanAction", () => {
     }
   });
 
-  it("P2: 銀行振込契約中は Stripe 前提のプラン変更に流入させず運営連絡を案内する", async () => {
+  it("銀行振込契約中は Stripe 前提のプラン変更に流入させず運営連絡を案内する", async () => {
     subState.row!.payment_method = "bank_transfer";
     const result = await changePlanAction({ targetPlan: "small" });
     expect(result).toEqual({
@@ -397,13 +397,13 @@ describe("changePlanAction", () => {
     }
   });
 
-  // ---- P3: アップグレード完了メールは Webhook に一本化（A5 の先行送信は廃止） ----
+  // ---- アップグレード完了メールは Webhook に一本化（A5 の先行送信は廃止） ----
   //
   // Stripe ホスト画面で確定するため、Server Action の時点では変更が成立していない。
   // 「【ビジ友】プラン変更を承りました」は customer.subscription.updated Webhook の
   // (a) 分岐（plan_type / billing_cycle の差分検知）が送る。
   // 受信者名の解決ルール（display_name 優先 → 姓名 → お客様）は解約予約メールで検証する。
-  it("P3: アップグレード時に Server Action からメールを送らない（Webhook に一本化）", async () => {
+  it("アップグレード時に Server Action からメールを送らない（Webhook に一本化）", async () => {
     const result = await changePlanAction({ targetPlan: "corporate" });
     expect(result.success).toBe(true);
     expect(sendEmailMock).not.toHaveBeenCalled();

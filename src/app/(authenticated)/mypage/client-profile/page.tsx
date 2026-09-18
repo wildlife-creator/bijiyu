@@ -141,7 +141,7 @@ export default async function ClientProfilePage() {
   const canEdit = orgRole === "owner" || orgRole === "admin" || orgRole === null;
   const isCorporate = organizationId !== null;
 
-  // 職場紹介動画: videos テーブルの公開中の動画を表示順どおりに表示（P4）。
+  // 職場紹介動画: videos テーブルの公開中の動画を表示順どおりに表示。
   // オプション購入の有無ではゲートしない。Owner の動画を Admin/Staff が見る場合も
   // 公開中（ready）の行は RLS で読めるため通常クライアントでよい。
   const workplaceVideos = await getReadyVideos(

@@ -35,7 +35,7 @@ interface ActiveSubscription {
   id: string;
   user_id: string;
   plan_type: string;
-  /** P3: 月払い / 年払い */
+  /** 月払い / 年払い */
   billing_cycle: BillingCycle;
   status: string;
   stripe_subscription_id: string;
@@ -45,7 +45,7 @@ interface ActiveSubscription {
 }
 
 /**
- * P3: アップグレード（上位プラン / 月払い→年払い）は Stripe ホスト画面で確定するため、
+ * アップグレード（上位プラン / 月払い→年払い）は Stripe ホスト画面で確定するため、
  * Server Action は遷移先 URL を返すだけ（DB 更新・メールは Webhook が担う）。
  * ダウングレードは従来どおり期末切替の予約。
  */
@@ -101,7 +101,7 @@ async function getAuthenticatedClientSubscription(): Promise<
     .limit(1)
     .maybeSingle();
 
-  // 銀行振込契約（P2）は Stripe にサブスクが無く、変更・解約・期限延長は運営が
+  // 銀行振込契約は Stripe にサブスクが無く、変更・解約・期限延長は運営が
   // 管理画面で行う（D3 / D6）。この画面の Stripe 前提の操作には流入させない
   if (sub && sub.payment_method === "bank_transfer") {
     return {
@@ -172,12 +172,12 @@ export async function changePlanAction(
 }
 
 // ---------------------------------------------------------------------------
-// 6.2 createUpgradePortalSession (internal) — P3: Stripe ホスト画面でのアップグレード
+// 6.2 createUpgradePortalSession (internal) — Stripe ホスト画面でのアップグレード
 // ---------------------------------------------------------------------------
 
 /**
  * アップグレード（上位プラン / 月払い→年払い）は Stripe Customer Portal の
- * `subscription_update_confirm` フローに委ねる（spec-changes-202608 §2.1(3) / D5）。
+ * `subscription_update_confirm` フローに委ねる（docs/requirements/current-spec.md「アップグレード」）。
  * 変更後プラン・日割り差額・次回請求の表示、決済失敗・3D セキュアは Stripe 側で処理。
  *
  * 確定後は `customer.subscription.updated` Webhook が plan_type / billing_cycle の変化を
@@ -293,7 +293,7 @@ async function createUpgradePortalSession(
  * A5-follow-up: subscriptionChangedEmail の 3 バリアント
  * （cancel-reserved / reservation-removed-downgrade / reservation-removed-cancel）を
  * Server Action から同期送信するための共通ヘルパー。
- * ※ upgrade-immediate は P3 で Stripe ホスト画面化に伴い Webhook 側の送信に一本化した。
+ * ※ upgrade-immediate は Stripe ホスト画面で確定するため Webhook 側の送信に一本化している。
  *
  * 背景: Webhook (handle_subscription_lifecycle_updated) の (a)/(c)/(d-1)/(d-2)
  * 分岐は「snapshot と after の差分」でメール送信を判定するが、対応する
@@ -747,7 +747,7 @@ export async function cancelCompensationAction(input: {
     };
   }
 
-  // 銀行振込で契約した補償（P2）は Stripe に無い。解約は運営に連絡（手動運用）
+  // 銀行振込で契約した補償は Stripe に無い。解約は運営に連絡（手動運用）
   if (opt.payment_method === "bank_transfer") {
     return {
       success: false,

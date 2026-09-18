@@ -123,7 +123,7 @@ test.describe("受注者: ステータスフィルター（CON-011）", () => {
     await expect(page.getByRole("heading", { name: "応募履歴" })).toBeVisible();
 
     // フィルターのプルダウンを選択（onValueChange で即時遷移）
-    await // P6: 並び替えプルダウンも combobox なので、DOM 上先にあるステータス絞り込みを first() で特定
+    await // 並び替えプルダウンも combobox なので、DOM 上先にあるステータス絞り込みを first() で特定
     page.getByRole("combobox").first().click();
     await page.getByRole("option", { name: "稼働予定" }).click();
 
@@ -330,7 +330,7 @@ test.describe("発注者: CLI-007/CLI-010 の役割分離", () => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/applications/orders");
     await expect(page.getByRole("heading", { name: "発注履歴一覧" })).toBeVisible();
-    await // P6: 並び替えプルダウンも combobox なので、DOM 上先にあるステータス絞り込みを first() で特定
+    await // 並び替えプルダウンも combobox なので、DOM 上先にあるステータス絞り込みを first() で特定
     page.getByRole("combobox").first().click();
     // 「応募あり（未対応）」は CLI-010 のフィルタから削除済み
     await expect(
@@ -385,7 +385,7 @@ test.describe("発注者: 案件応募者一覧（CLI-007B）", () => {
   }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto(`/jobs/${JOB_WITH_APPLICATIONS}/applicants`);
-    await // P6: 並び替えプルダウンも combobox なので、DOM 上先にあるステータス絞り込みを first() で特定
+    await // 並び替えプルダウンも combobox なので、DOM 上先にあるステータス絞り込みを first() で特定
     page.getByRole("combobox").first().click();
     await expect(
       page.getByRole("option", { name: "応募あり（未対応）" }),
@@ -470,7 +470,7 @@ test.describe("発注者評価表示（CLI-028, 7項目集計）", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ステージング指摘 No.8 付随（2026-09）: 結果待ち（applied）応募の受注者による取り下げ
+// 結果待ち（applied）応募の受注者による取り下げ
 //   seed 14d: contractor3 (cc222222) の applied 応募 dddddddd-...-dd08（使い捨て）
 // ---------------------------------------------------------------------------
 test.describe("受注者: 結果待ち応募の取り下げ（CON-012）", () => {

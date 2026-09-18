@@ -33,7 +33,7 @@ interface AdminApplicationFiltersProps {
   clientId?: string;
   /**
    * 「もどる」の戻り先（`resolveBackTo` 済みの値）。検索で URL を組み直しても
-   * 落とさずに維持する（ステージング指摘 No.35: ADM-004 →「応募◯件」→ 検索 → もどる
+   * 落とさずに維持する（ADM-004 →「応募◯件」→ 検索 → もどる
    * がダッシュボードに飛んでいた）
    */
   backTo?: string | null;
@@ -46,7 +46,7 @@ interface AdminApplicationFiltersProps {
  * 引き継いで検索時に維持するだけ。ドリルダウン（jobId / clientId）と backTo も維持する。
  *
  * ブラウザの戻る/進むで URL（= initial*）が変わったときに入力欄の表示も追従させるため、
- * URL 由来の初期値を key にして内部 state を作り直す（ステージング指摘 No.40）。
+ * URL 由来の初期値を key にして内部 state を作り直す。
  * 検索ボタンを押すまでの入力途中の値は、URL が変わらない限り保持される。
  */
 export function AdminApplicationFilters(props: AdminApplicationFiltersProps) {

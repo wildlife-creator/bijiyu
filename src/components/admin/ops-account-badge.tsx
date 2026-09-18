@@ -1,5 +1,5 @@
 /**
- * 管理運営アカウント（users.is_hidden、P5）を運営が見分けるためのバッジ。
+ * 管理運営アカウント（is_hidden）を運営が見分けるためのバッジ。
  * 管理画面（ADM-003 / ADM-004 / ADM-008 / ADM-009）でのみ使う。
  */
 export function OpsAccountBadge({ className = "" }: { className?: string }) {

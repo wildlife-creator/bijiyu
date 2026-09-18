@@ -12,7 +12,7 @@ import {
 } from "@/lib/cloudflare/stream";
 
 /**
- * Cloudflare Stream 連携（P4）。実通信はせず fetch をモックする。
+ * Cloudflare Stream 連携。実通信はせず fetch をモックする。
  */
 
 const CONFIG = { accountId: "acc_123", apiToken: "tok_secret" };

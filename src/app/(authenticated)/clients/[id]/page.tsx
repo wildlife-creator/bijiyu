@@ -81,7 +81,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
     )
     .eq("id", id)
     .eq("role", "client")
-    // 管理運営アカウント（P5）は直リンクでも表示しない
+    // 管理運営アカウントは直リンクでも表示しない
     .eq("is_hidden", false)
     .single();
 
@@ -118,7 +118,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
   // 個人発注者は null（従来どおり owner_id 軸）。
   const targetOrgId = await resolveTargetOrganizationId(adminClient, id);
 
-  // 職場紹介動画: videos テーブルの公開中の動画を表示順どおりに表示（P4）。
+  // 職場紹介動画: videos テーブルの公開中の動画を表示順どおりに表示。
   // オプション購入の有無ではゲートしない。公開中（ready）の行は RLS で誰でも読める。
   const workplaceVideos = isDeleted
     ? []

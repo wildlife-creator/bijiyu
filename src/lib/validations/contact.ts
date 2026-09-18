@@ -51,7 +51,7 @@ export const contactSchema = z
     inquiryType: requiredChoice(CONTACT_INQUIRY_TYPES, "お問い合わせ内容"),
     purpose: requiredChoice(CONTACT_PURPOSES, "ビジ友の利用目的"),
     industry: requiredChoice(CONTACT_INDUSTRIES, "業種・職種"),
-    // 銀行振込の希望プラン（P12。種類が銀行振込のときだけ必須、それ以外は空）
+    // 銀行振込の希望プラン（種類が銀行振込のときだけ必須、それ以外は空）
     bankTransferPlan: z.string().optional(),
     // 案件情報
     projectDescription: z.string().optional(),

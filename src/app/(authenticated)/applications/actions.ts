@@ -100,8 +100,8 @@ export async function cancelApplicationAction(
     }
 
     // Status check:
-    //   - applied（応募結果待ち）: 受注者が自分で取り下げできる（2026-09-08 ステージング指摘 No.8 の
-    //     付随対応。FAQ「マッチング成立前であれば応募の取り下げは可能」と整合させ、発注者が放置した
+    //   - applied（応募結果待ち）: 受注者が自分で取り下げできる（FAQ「マッチング成立前であれば
+    //     応募の取り下げは可能」と整合させ、発注者が放置した
     //     applied が退会ガードに残り続けるのを防ぐ）。日付制限なし
     //   - accepted（発注済み）: 初回稼働日の 5 日前までキャンセル可（従来どおり）
     if (application.status !== "applied" && application.status !== "accepted") {

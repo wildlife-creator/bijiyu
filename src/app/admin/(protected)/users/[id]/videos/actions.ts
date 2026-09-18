@@ -33,7 +33,7 @@ import {
 } from "@/lib/videos/published-emails";
 
 /**
- * ADM-027 動画管理 の Server Action（P4 動画基盤）。
+ * ADM-027 動画管理 の Server Action。
  *
  * - 認可: middleware の /admin/* ガード + `requireAdmin()`（三重防御の 2 層目）。
  *   videos の書き込みは service_role（admin client）専用で RLS ポリシーを置いていない

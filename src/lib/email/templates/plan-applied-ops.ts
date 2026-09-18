@@ -16,17 +16,17 @@ interface PlanAppliedOpsEmailProps {
   /** deep link 用 site URL。 */
   siteUrl: string;
   /**
-   * 銀行振込で契約中の会員がカード決済に切り替えた（P12 §3.2。Checkout 完了で銀行振込行が自動終了）。
+   * 銀行振込で契約中の会員がカード決済に切り替えた（Checkout 完了で銀行振込行が自動終了）。
    * true のとき「以後、銀行振込の請求書は不要」の一文を足し、運営が二重に請求しないようにする
    */
   endedBankTransfer?: boolean;
 }
 
 /**
- * §6.7-Ops 基本プラン新規契約の運営通知（運営宛、P11 で新設・2026-09-10）。M-07 準拠。
+ * §6.7-Ops 基本プラン新規契約の運営通知（運営宛）。M-07 準拠。
  *
  * 配信先: `process.env.OPS_NOTIFICATION_EMAIL`。発火は §6.7（会員宛「プランのお申し込みを承りました」）
- * と同時 = 新規契約のみ（Stripe checkout.session.completed / 銀行振込の管理画面での有効化（ADM-009 / ADM-004、P12））。
+ * と同時 = 新規契約のみ（Stripe checkout.session.completed / 銀行振込の管理画面での有効化（ADM-009））。
  * プラン変更・解約・支払い失敗では送らない（通知過多を避ける）。
  *
  * 目的: 運営が有料会員の増加（特にプレミアム・ハイエンド = プロフィール動画付属 / サポート担当の

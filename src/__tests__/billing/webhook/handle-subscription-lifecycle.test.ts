@@ -352,7 +352,7 @@ describe("customer.subscription.updated", () => {
     expect(args.html).toContain("ただ今");
   });
 
-  it("P3: 同一プランで 月払い → 年払い（Stripe ホスト画面で確定）も (a) 分岐で「承りました」を送り、RPC に billing_cycle を渡す", async () => {
+  it("同一プランで 月払い → 年払い（Stripe ホスト画面で確定）も (a) 分岐で「承りました」を送り、RPC に billing_cycle を渡す", async () => {
     const sub = buildSubscription({ priceId: "price_individual_yearly" });
     const { admin, calls } = makeAdmin({
       results: {

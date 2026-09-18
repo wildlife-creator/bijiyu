@@ -131,7 +131,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
         <p className="text-body-sm text-muted-foreground">
           全{totalCount ?? 0}件
         </p>
-        {/* P6: 並び替えプルダウン（jobId 等の検索条件は SortSelect が URL ごと引き継ぐ） */}
+        {/* 並び替えプルダウン（jobId 等の検索条件は SortSelect が URL ごと引き継ぐ） */}
         <Suspense fallback={null}>
           <SortSelect options={APPLICATION_SORT_OPTIONS} />
         </Suspense>

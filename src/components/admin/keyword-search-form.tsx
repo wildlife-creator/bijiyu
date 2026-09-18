@@ -19,7 +19,7 @@ interface KeywordSearchFormProps {
  * フィルタ状態は URL searchParams を SSOT とし、検索ボタンで router.push する。
  *
  * ブラウザの戻る/進むで URL（= initialKeyword）が変わったときに入力欄の表示も追従させるため、
- * URL 由来の初期値を key にして内部 state を作り直す（ステージング指摘 No.40）。
+ * URL 由来の初期値を key にして内部 state を作り直す。
  * 検索ボタンを押すまでの入力途中の値は、URL が変わらない限り保持される。
  */
 export function KeywordSearchForm(props: KeywordSearchFormProps) {

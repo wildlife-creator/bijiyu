@@ -60,7 +60,7 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
     ];
 
     for (const [label, urlPattern, heading] of menus) {
-      // exact: 「お問い合わせ一覧」が「銀行振込お問い合わせ一覧」（P12）にも部分一致するため
+      // exact: 「お問い合わせ一覧」が「銀行振込お問い合わせ一覧」にも部分一致するため
       await page.getByRole("link", { name: label, exact: true }).click();
       await page.waitForURL(urlPattern);
       await expect(
@@ -496,10 +496,10 @@ test.describe("ADM-023/024: 代理メッセージ閲覧", () => {
 });
 
 // ============================================================
-// ステージング指摘（2026-09）: 管理画面の「もどる」導線と検索欄のブラウザ戻り
+// 管理画面の「もどる」導線と検索欄のブラウザ戻り
 // ============================================================
 
-test.describe("ステージング指摘 No.35 / No.37 / No.40: admin の戻り導線", () => {
+test.describe("admin の戻り導線", () => {
   test.beforeEach(async ({ page }) => {
     await adminLogin(page);
   });
@@ -576,10 +576,10 @@ test.describe("ステージング指摘 No.35 / No.37 / No.40: admin の戻り�
 });
 
 // ============================================================
-// ステージング指摘 No.8（2026-09）: 期限切れの発注済み応募を運営が解消できる（ADM-014）
+// 期限切れの発注済み応募を運営が解消できる（ADM-014）
 // ============================================================
 
-test.describe("ステージング指摘 No.8: ADM-014 期限切れ accepted の完了扱い", () => {
+test.describe("ADM-014 期限切れ accepted の完了扱い", () => {
   test.beforeEach(async ({ page }) => {
     await adminLogin(page);
   });

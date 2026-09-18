@@ -162,7 +162,7 @@ async function handlePlanCheckout(
     );
   }
 
-  // P3: 支払サイクル。Checkout metadata を優先し、無ければ Stripe の Price ID から解決
+  // 支払サイクル。Checkout metadata を優先し、無ければ Stripe の Price ID から解決
   // （旧セッション / metadata 欠落時の保険）。どちらも取れなければ monthly。
   let billingCycle: BillingCycle = metadata.billing_cycle === "yearly" ? "yearly" : "monthly";
   if (!metadata.billing_cycle && fetchedPriceId) {
@@ -190,7 +190,7 @@ async function handlePlanCheckout(
     );
   }
 
-  // P12 §3.2: 銀行振込で契約中の会員がカード決済に切り替えた場合、RPC v3 が銀行振込行を
+  // 銀行振込で契約中の会員がカード決済に切り替えた場合、RPC v3 が銀行振込行を
   // 後処理なしで終了させ、その id を返す。運営宛通知に「以後の請求書は不要」の一文を足す
   const endedBankTransfer =
     typeof (rpcData as { ended_bank_transfer_subscription_id?: string | null } | null)
@@ -201,7 +201,7 @@ async function handlePlanCheckout(
   // 削除モデルに移行したため、checkout.session.completed では何も追加処理しない。
 
   // §6.7 基本プラン契約完了メール (初回契約 / 解約後の再契約両方をカバー、Owner 1 名のみ)
-  // + §6.7-Ops 運営通知（P11）。失敗はサイレント (DB 整合は RPC で完了済み)。
+  // + §6.7-Ops 運営通知。失敗はサイレント (DB 整合は RPC で完了済み)。
   await sendPlanActivatedEmail(admin, send, userId, planType as PlanType, undefined, {
     billingCycle,
     paymentMethod: "stripe",

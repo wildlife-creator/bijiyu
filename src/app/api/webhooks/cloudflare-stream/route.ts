@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { markVideoReady } from "@/lib/videos/mark-ready";
 
 /**
- * Cloudflare Stream Webhook endpoint（P4 動画基盤）。
+ * Cloudflare Stream Webhook endpoint。
  *
  * - 署名検証（`Webhook-Signature: time=...,sig1=...`、HMAC-SHA256）に失敗したら 400
  * - 検証後は常に 200 を返す（Stripe Webhook と同じ流儀）。処理は `markVideoReady` が
