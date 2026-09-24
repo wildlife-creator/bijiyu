@@ -151,7 +151,7 @@ describe("addExternalVideoAction（URL で追加）", () => {
     });
   });
 
-  it("2 本目は末尾の表示順で追加し、掲載メールは送らない", async () => {
+  it("2 本目は末尾の表示順で追加し、掲載メールも送る（2026-09-24 変更: 公開のたびに通知）", async () => {
     db.tables.videos = [video({ sort_order: 3 })];
     const result = await addExternalVideoAction({
       userId: USER_ID,
@@ -162,7 +162,7 @@ describe("addExternalVideoAction（URL で追加）", () => {
     expect(result.success).toBe(true);
     expect(videos()).toHaveLength(2);
     expect(videos()[1]).toMatchObject({ sort_order: 4, admin_label: null });
-    expect(sendVideoPublishedEmailsMock).not.toHaveBeenCalled();
+    expect(sendVideoPublishedEmailsMock).toHaveBeenCalledOnce();
   });
 
   it("別の掲載場所に公開中があっても、この掲載場所の 1 本目ならメールを送る", async () => {
