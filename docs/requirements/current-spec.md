@@ -18,6 +18,8 @@
 | 現場掲載 | - | 同時 1 件まで | 無制限 | 無制限 | 無制限 |
 | 上位表示 | - | - | ○ | ○ | ○ |
 | 複数人利用（担当者） | - | - | - | 5 人まで | 30 人まで |
+
+（担当者一覧 CLI-022 の「担当者新規登録」ボタンはプレミアム・ハイエンドのときだけ表示。下位プランでは出さない。2026-09-24）
 | 代理アカウント | - | - | - | ○ | ○ |
 
 - 定数: `src/lib/constants/plans.ts`（`PLAN_LIMITS` / `PLAN_LABELS` / `INITIAL_FEE_TAX_INCLUDED` / `YEARLY_PRICE_TAX_INCLUDED`）。表示名はここに一元化し、UI・メールは必ず参照する。
@@ -32,7 +34,7 @@
 ### 2.1 クレジットカード（Stripe）
 
 - 申込: Stripe Checkout → `checkout.session.completed` Webhook → RPC `handle_checkout_completed_plan` で契約行作成・role 昇格・有効化メール。
-- **アップグレード（上位プラン / 月払い → 年払い）は Stripe のホスト画面で確定する**。`changePlanAction` が Customer Portal の `subscription_update_confirm` セッション URL を返し、会員が Stripe 側で日割り差額・次回請求を確認して確定。**差額（年払い切替なら年額 − 月払いの未使用分）は確定した当日に請求書化して決済する**（ポータル設定 `proration_behavior=always_invoice`。2026-09-24 に `create_prorations` から変更。それ以前は差額が次回更新日にまとめて請求されていた）。DB 更新と「プラン変更を承りました」メールは `customer.subscription.updated` Webhook が行う（Server Action は先行 UPDATE もメール送信もしない）。
+- **アップグレード（上位プラン / 月払い → 年払い）は Stripe のホスト画面で確定する**。`changePlanAction` が Customer Portal の `subscription_update_confirm` セッション URL を返し、会員が Stripe 側で日割り差額・次回請求を確認して確定。**差額（年払い切替なら年額 − 月払いの未使用分）は確定した当日に請求書化して決済する**（ポータル設定 `proration_behavior=always_invoice`。2026-09-24 に `create_prorations` から変更。それ以前は差額が次回更新日にまとめて請求されていた）。DB 更新と「プラン変更を承りました」メールは `customer.subscription.updated` Webhook が行う（Server Action は先行 UPDATE もメール送信もしない）。**確定時に差額の決済が失敗した場合はプラン変更は適用されない**（Stripe が変更を保留にして「支払い方法を更新してください」を表示。23 時間以内に支払われなければ Stripe が請求書ごと取り消す。アプリはこの失敗を「支払い遅延」扱いにしない = `handleInvoicePaymentFailed` が `billing_reason=subscription_update` かつ Stripe の契約が active なら何もしない。会員が有効なカードで支払えばその時点で変更が適用される。2026-09-24 確定）。Stripe の商品名は会員に見える表示名（「プレミアムプラン」等。`scripts/stripe/rename-products.mjs`）。
 - **ダウングレード（下位プラン / 年払い → 月払い）はアプリ内ダイアログで期末切替を予約**（Stripe の subscription schedule）。予約中は他のプランを選べない。予約の取消はアプリ内。予約内容は Server Action が DB に先行書き込みし、予約メールも同期送信する（Webhook の到着順に依存しない）。期末に適用されたら Webhook が予約カラムを消し、Stripe のスケジュールも終了する（適用後に「変更予定」が残らない）。
 - **解約**はアプリ内（期末解約の予約）。支払い遅延（`past_due`）中は即時解約のみ。未払い 7 日で Edge Function `auto-cancel-past-due` が自動解約。
 - **サイクル切替ルール**: プランのランク差があればランクが優先。同じプランなら 月払い → 年払い = 即時（アップグレード扱い）、年払い → 月払い = 次回更新日（ダウングレード扱い）。判定は `comparePlanChange()`（`src/lib/billing/compare-plans.ts`）。
@@ -61,6 +63,10 @@
 - 会員向け案内: 料金プラン画面末尾と FAQ Q17 に「銀行振込をご希望の方はログインのうえお問い合わせください」。
 - 管理画面の Server Action は `src/app/admin/(protected)/clients/[id]/bank-subscription-actions.ts` に集約。E2E は `e2e/bank-transfer.spec.ts`。
 
+### 2.3 法人向けメールの宛先
+
+- 組織全員に送るメール（動画の申込・掲載、応募・発注可否など）の宛先は、退会済み・凍結中に加えて**招待中（登録未完了、`password_set_at IS NULL`）の担当者を除く**。Owner は対象。`getOrganizationMemberRecipients`（2026-09-24 変更）。
+
 ## 3. オプションプラン
 
 | オプション | 内部キー | 価格（税込） | 課金 | 内容 |
@@ -72,7 +78,7 @@
 | 補償（¥5,000 / ¥9,800）| `compensation_5000` / `compensation_9800` | 月額 | Stripe subscription | **販売停止中**（保険業法上のリスクにより保険会社との別契約に切り出す方針）。`NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED=true` のときだけ料金画面と Checkout で受け付ける。加入中の契約の表示・解約・Webhook・メールはフラグに関係なく動く。コードは削除しない |
 
 - 定義は `src/lib/billing/options.ts`（`OptionType` / `OPTION_LABELS` / `OPTION_PRICES_TAX_INCLUDED` / `VIDEO_OPTION_TYPES` / `VIDEO_OPTION_UI_NAMES`）。動画 3 種は同じ経路（Checkout・Webhook `handleVideoOption`・銀行振込の有効化・メール）で扱う。
-- 動画プランは全会員（staff / admin 以外）が購入でき、**再購入できる**（作り直しのため。画面は「再度購入する」+ 確認ダイアログ）。
+- 動画プランは全会員（staff / admin 以外）が購入でき、**再購入できる**（作り直し・2 本目のため。画面は「再度購入する」+ 確認ダイアログ。銀行振込で運営が同じプランを 2 回有効にするのも同じ扱い）。買い切りで返金の概念は無い。基本プランを解約しても購入記録は残り「購入済み」に表示される。退会すると購入記録は cancelled になる（2026-09-24 確定）。メールの商品名は画面と同じ正式名（`OPTION_LABELS` = `VIDEO_OPTION_UI_NAMES`）。
 - 旧「自己PR動画掲載」「職場紹介動画掲載」（`video_workplace`）はプロフィール動画制作プランに統合し、キーごと削除済み。既存行は migration で `video` に書き換えた。復活させない。
 - 報酬未払いの窓口: お問い合わせ（COM-008）「報酬未払いについて」= 発生前の相談、トラブル報告（COM-012）「報酬未払い」= 発生後。選択肢は `src/lib/constants/contact-options.ts` / `trouble-options.ts`。
 

@@ -24,16 +24,29 @@ interface UserRow {
   first_name: string | null;
   deleted_at?: string | null;
   is_active?: boolean;
+  /** 招待中（登録未完了）は null。テストの既定は登録済み扱い（helper 側で補う） */
+  password_set_at?: string | null;
 }
 
 function makeAdminMock(opts: {
   members?: OrgMemberRow[];
   users?: UserRow[];
   ownerLookup?: UserRow | null;
+  /** organizations.owner_id（招待中除外の判定で Owner を特定するため） */
+  ownerId?: string | null;
 }): AnyAdmin {
-  const { members = [], users = [], ownerLookup = null } = opts;
+  const { members = [], ownerLookup = null, ownerId = null } = opts;
+  // password_set_at 未指定の行は「登録済み」として扱う（2026-09-24 の招待中除外に伴う既定）
+  const users = (opts.users ?? []).map((u) => ({ password_set_at: "2026-01-01T00:00:00Z", ...u }));
   return {
     from: vi.fn((table: string) => {
+      if (table === "organizations") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: ownerId ? { owner_id: ownerId } : null, error: null }),
+        };
+      }
       if (table === "organization_members") {
         return {
           select: vi.fn().mockReturnThis(),
@@ -155,6 +168,22 @@ describe("getOrganizationMemberRecipients", () => {
     });
     const result = await getOrganizationMemberRecipients(admin, "org-1");
     expect(result[0].displayName).toBe("ご担当者");
+  });
+});
+
+describe("getOrganizationMemberRecipients — 招待中の除外（2026-09-24）", () => {
+  it("password_set_at が null の admin / staff は除外し、Owner は password_set_at が null でも含める", async () => {
+    const admin = makeAdminMock({
+      members: [{ user_id: "owner" }, { user_id: "invited" }, { user_id: "staff" }],
+      ownerId: "owner",
+      users: [
+        { id: "owner", email: "owner@test.local", last_name: "山田", first_name: "太郎", password_set_at: null },
+        { id: "invited", email: "invited@test.local", last_name: "招待", first_name: "中", password_set_at: null },
+        { id: "staff", email: "staff@test.local", last_name: "佐藤", first_name: "花子" },
+      ],
+    });
+    const result = await getOrganizationMemberRecipients(admin, "org-1");
+    expect(result.map((r) => r.email).sort()).toEqual(["owner@test.local", "staff@test.local"]);
   });
 });
 

@@ -201,7 +201,7 @@ function makeAdmin(config: FakeConfig) {
   return { admin: admin as never, calls };
 }
 
-function makeStripe(scheduleOverride?: unknown): Stripe & { _calls: string[] } {
+function makeStripe(scheduleOverride?: unknown, liveSubscriptionStatus: string = "past_due"): Stripe & { _calls: string[] } {
   const calls: string[] = [];
   const stripe = {
     _calls: calls,
@@ -226,6 +226,10 @@ function makeStripe(scheduleOverride?: unknown): Stripe & { _calls: string[] } {
       cancel: vi.fn(async (id: string) => {
         calls.push(`subscriptions.cancel:${id}`);
         return {};
+      }),
+      retrieve: vi.fn(async (id: string) => {
+        calls.push(`subscriptions.retrieve:${id}`);
+        return { id, status: liveSubscriptionStatus };
       }),
     },
   } as unknown as Stripe & { _calls: string[] };
@@ -276,11 +280,13 @@ function buildInvoice(
   overrides: Partial<{
     subscriptionId: string;
     nextRetry: number | null;
+    billingReason: string;
   }> = {},
 ): Stripe.Invoice {
-  const { subscriptionId = "sub_test_001", nextRetry = 1_700_000_500 } = overrides;
+  const { subscriptionId = "sub_test_001", nextRetry = 1_700_000_500, billingReason = "subscription_cycle" } = overrides;
   return {
     next_payment_attempt: nextRetry,
+    billing_reason: billingReason,
     parent: {
       type: "subscription_details",
       subscription_details: { subscription: subscriptionId },
@@ -1427,6 +1433,28 @@ describe("customer.subscription.deleted", () => {
 // ===========================================================================
 
 describe("invoice.payment_failed", () => {
+  it("アップグレードの差額請求（subscription_update）の失敗で Stripe の契約が active のままなら、past_due にせずメールも送らない（Stripe が保留 → 23 時間で取り消す）", async () => {
+    const invoice = buildInvoice({ billingReason: "subscription_update" });
+    const { admin, calls } = makeAdmin({
+      results: { "select:subscriptions": { data: { id: "sub-row-1", user_id: "user-pf", plan_type: "individual", past_due_since: null } } },
+    });
+    await handleSubscriptionLifecycle(admin, makeStripe(undefined, "active"), { type: "invoice.payment_failed", data: invoice }, { sendEmail: SEND as never });
+    expect(calls.find((c) => c.op === "update" && c.table === "subscriptions")).toBeUndefined();
+    expect(SEND).not.toHaveBeenCalled();
+  });
+
+  it("subscription_update の失敗でも Stripe の契約が past_due なら従来どおり遅延扱いにする", async () => {
+    const invoice = buildInvoice({ billingReason: "subscription_update" });
+    const { admin, calls } = makeAdmin({
+      results: {
+        "select:subscriptions": { data: { id: "sub-row-1", user_id: "user-pf", plan_type: "individual", past_due_since: null } },
+        "select:users": { data: { email: "userpf@test.local", last_name: "田中", first_name: "太郎", company_name: null } },
+      },
+    });
+    await handleSubscriptionLifecycle(admin, makeStripe(undefined, "past_due"), { type: "invoice.payment_failed", data: invoice }, { sendEmail: SEND as never });
+    expect(calls.find((c) => c.op === "update" && c.table === "subscriptions")?.payload).toMatchObject({ status: "past_due" });
+  });
+
   it("marks past_due and sends paymentFailedEmail", async () => {
     const invoice = buildInvoice();
     const { admin, calls } = makeAdmin({

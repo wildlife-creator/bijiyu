@@ -25,9 +25,9 @@ export const OPTION_LABELS: Record<OptionType, string> = {
   compensation_5000: "補償（5,000円/月、最大200万円）",
   compensation_9800: "補償（9,800円/月、最大500万円）",
   urgent: "急募オプション",
-  video: "プロフィール動画",
+  video: "プロフィール動画制作プラン",
   video_shooting: "ユーザー撮影動画制作プラン",
-  video_sns: "ビジ友公式SNS動画",
+  video_sns: "ビジ友公式SNS動画制作プラン",
 };
 
 /**
@@ -81,7 +81,7 @@ export type VideoOptionType = (typeof VIDEO_OPTION_TYPES)[number];
 
 /**
  * 動画系オプションの商品名（料金プラン画面・お問い合わせの希望プラン・管理画面の有効化で共用）。
- * `OPTION_LABELS` はメール向けの短縮名、こちらは「〜制作プラン」まで含む正式名。
+ * `OPTION_LABELS`（メール用）と同じ正式名。2026-09-24 に表記ゆれを解消して揃えた。
  */
 export const VIDEO_OPTION_UI_NAMES: Record<VideoOptionType, string> = {
   video: "プロフィール動画制作プラン",

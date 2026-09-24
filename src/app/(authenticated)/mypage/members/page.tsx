@@ -8,6 +8,7 @@ import { PaginationControls } from "@/components/job-search/pagination-controls"
 import { BackButton } from "@/components/shared/back-button";
 import { MembersSearchForm } from "./members-search-form";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ChevronRight } from "lucide-react";
 
@@ -61,8 +62,21 @@ export default async function MembersListPage({ searchParams }: PageProps) {
 
   if (!active) redirect("/mypage");
 
+  // 担当者の追加はプレミアム・ハイエンドのみ（/mypage/members/new と同じ判定）。
+  // 下位プランでは「担当者新規登録」ボタン自体を出さない（2026-09-24。押しても
+  // 説明なく一覧へ戻されるだけだった）
+  const adminForPlan = createAdminClient();
+  const { data: ownerSubscription } = await adminForPlan
+    .from("subscriptions")
+    .select("plan_type")
+    .eq("user_id", active.orgOwnerId ?? "")
+    .in("status", ["active", "past_due"])
+    .maybeSingle();
+  const isCorporatePlan =
+    ownerSubscription?.plan_type === "corporate" ||
+    ownerSubscription?.plan_type === "corporate_premium";
   const canCreate =
-    active.orgRole === "owner" || active.orgRole === "admin";
+    (active.orgRole === "owner" || active.orgRole === "admin") && isCorporatePlan;
 
   const page = Math.max(1, Number(sp.page) || 1);
   const offset = (page - 1) * ITEMS_PER_PAGE;

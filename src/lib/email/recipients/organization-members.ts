@@ -26,10 +26,24 @@ export interface OrgMemberRecipient {
  *
  * 含める方針:
  *   - 操作者本人も対象 (操作のメール記録として保持)
- *   - 招待中 (`password_set_at IS NULL`) の admin / staff も対象
+ *   - 招待中 (`password_set_at IS NULL` の admin / staff) は **除外**
+ *     （2026-09-24 変更。登録を終えていない人に購入・掲載のお知らせが届いていた。
+ *     Owner は通常サインアップで password_set_at が空でも「招待中」ではないので除外しない）
  *
  * 0 名のケースは空配列を返す (best-effort、Server Action 側で成功扱い継続)。
  */
+async function getOrganizationOwnerId(
+  admin: SupabaseClient<Database>,
+  organizationId: string,
+): Promise<string | null> {
+  const { data } = await admin
+    .from("organizations")
+    .select("owner_id")
+    .eq("id", organizationId)
+    .maybeSingle();
+  return data?.owner_id ?? null;
+}
+
 export async function getOrganizationMemberRecipients(
   admin: SupabaseClient<Database>,
   organizationId: string,
@@ -51,9 +65,11 @@ export async function getOrganizationMemberRecipients(
 
   if (candidateIds.length === 0) return [];
 
+  const ownerId = await getOrganizationOwnerId(admin, organizationId);
+
   const { data: users, error: usrErr } = await admin
     .from("users")
-    .select("id, email, last_name, first_name")
+    .select("id, email, last_name, first_name, password_set_at")
     .in("id", candidateIds)
     .is("deleted_at", null)
     .eq("is_active", true);
@@ -62,6 +78,8 @@ export async function getOrganizationMemberRecipients(
 
   return users
     .filter((u) => typeof u.email === "string" && u.email.trim() !== "")
+    // 招待中（登録未完了）の担当者には送らない。Owner は対象のまま
+    .filter((u) => u.id === ownerId || u.password_set_at != null)
     .map((u) => ({
       userId: u.id,
       email: u.email as string,

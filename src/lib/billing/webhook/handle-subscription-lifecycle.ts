@@ -91,7 +91,7 @@ export async function handleSubscriptionLifecycle(
       await handleSubscriptionDeleted(admin, event.data, send);
       return;
     case "invoice.payment_failed":
-      await handleInvoicePaymentFailed(admin, event.data, send);
+      await handleInvoicePaymentFailed(admin, stripe, event.data, send);
       return;
     case "invoice.payment_succeeded":
       await handleInvoicePaymentSucceeded(admin, event.data);
@@ -386,6 +386,7 @@ async function handleSubscriptionDeleted(
 
 async function handleInvoicePaymentFailed(
   admin: SupabaseClient<Database>,
+  stripe: Stripe,
   invoice: Stripe.Invoice,
   send: typeof sendEmail,
 ): Promise<void> {
@@ -402,6 +403,18 @@ async function handleInvoicePaymentFailed(
     .maybeSingle();
 
   if (existing.data) {
+    // アップグレード確定時の差額請求（billing_reason=subscription_update）が失敗した場合、
+    // Stripe はプラン変更を「保留（pending_update）」にして契約自体は active のまま保ち、
+    // 23 時間以内に支払われなければ請求書ごと取り消す（変更は適用されない）。
+    // これを「支払い遅延」にすると、プランは元のままなのに 7 日後の自動解約が走る
+    // （2026-09-24 支払い E2E で実例）。契約が Stripe 上で active のままなら遅延扱いにしない。
+    if (invoice.billing_reason === "subscription_update") {
+      const live = await stripe.subscriptions.retrieve(subscriptionId);
+      if (live.status === "active") {
+        return;
+      }
+    }
+
     const update = await admin
       .from("subscriptions")
       .update({
