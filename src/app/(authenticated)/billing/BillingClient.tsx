@@ -479,6 +479,8 @@ export function BillingClient({
             {isPastDue && !isStaff && (
               <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-body-sm text-destructive">
                 お支払いが完了していません。お支払い方法を更新するか、解約をお選びください。
+                <br />
+                お支払い方法を更新すると未払い分が自動で再請求され、お支払いが完了すると通常どおりご利用いただけます。
               </div>
             )}
 

@@ -48,7 +48,7 @@ export function PastDueBanner({ daysRemaining, severity }: PastDueBannerProps) {
 
   const message =
     daysRemaining > 0
-      ? `お支払いが確認できません。あと${daysRemaining}日以内にお支払い方法を更新してください。`
+      ? `お支払いが確認できません。あと${daysRemaining}日以内にお支払い方法を更新してください。更新後は未払い分が自動で再請求されます。`
       : "まもなく自動解約されます。お支払い方法をただちに更新してください。";
 
   return (
