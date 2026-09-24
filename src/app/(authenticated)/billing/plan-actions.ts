@@ -179,17 +179,14 @@ async function scheduleDowngradeAction(
       );
     }
 
-    // 先行 UPDATE で Webhook (b) 分岐（schedule_id null → non-null）の diff が消えるため、
-    // 「【ビジ友】プラン変更を承りました」（予約）メールは Server Action 側で同期送信する。
-    // 先行 UPDATE が失敗した場合だけ Webhook 側がフォールバックで送る。
-    if (!preUpdateError) {
-      await sendSubscriptionChangedEmail(admin, subscription.user_id, {
-        eventType: "downgrade-reserved",
-        oldPlanName: planDisplayName(currentPlan, subscription.billing_cycle),
-        newPlanName: planDisplayName(targetPlan, targetCycle),
-        scheduledDate: formatDateJst(scheduledAtIso),
-      });
-    }
+    // 「【ビジ友】プラン変更を承りました」（予約）メールは Server Action 側だけが送る
+    // （Webhook (b) 分岐は送らない。両方で送ると処理順によって 2 通届くため。2026-09-24）。
+    await sendSubscriptionChangedEmail(admin, subscription.user_id, {
+      eventType: "downgrade-reserved",
+      oldPlanName: planDisplayName(currentPlan, subscription.billing_cycle),
+      newPlanName: planDisplayName(targetPlan, targetCycle),
+      scheduledDate: formatDateJst(scheduledAtIso),
+    });
 
     return {
       success: true,

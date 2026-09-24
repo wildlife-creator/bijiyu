@@ -533,7 +533,7 @@ describe("customer.subscription.updated", () => {
     expect(args.subject).toBe("【ビジ友】プラン変更を承りました");
   });
 
-  it("downgrade reservation appears: sends reservation email", async () => {
+  it("downgrade reservation appears: Webhook 側では予約メールを送らない（Server Action が同期送信。2026-09-24 に二重送信を解消）", async () => {
     const sub = buildSubscription({ schedule: "sub_sched_1" });
     const { admin } = makeAdmin({
       results: {
@@ -567,12 +567,7 @@ describe("customer.subscription.updated", () => {
       { sendEmail: SEND as never },
     );
 
-    expect(SEND).toHaveBeenCalledOnce();
-    const args = SEND.mock.calls[0]![0]! as { html: string };
-    // Default fake schedule.next_phase price is 'price_individual' (=individual),
-    // and the user already has individual; downgrade case 'b' uses scheduled_plan_type
-    // which here resolves back to individual, so the html still mentions ライトプラン.
-    expect(args.html).toContain("佐藤花子 様");
+    expect(SEND).not.toHaveBeenCalled();
   });
 
   it("cancel reservation appears (§6.1-B): subject「解約をご予約いただきました」, body has endDate + 有料プラン明記, 無料プラン表現なし", async () => {

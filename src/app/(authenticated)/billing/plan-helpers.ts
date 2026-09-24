@@ -157,13 +157,18 @@ export async function createUpgradePortalSession(
     };
   }
 
-  const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000"}/billing?plan_change=confirmed`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
+  // 確定後（after_completion）だけ ?plan_change=confirmed を付けて「受け付けました」を出す。
+  // 画面左上の「…に戻る」（return_url）は確定していないので付けない
+  // （2026-09-24。カード失敗後に戻っても「受け付けました」と出ないようにする）
+  const returnUrl = `${appUrl}/billing?plan_change=confirmed`;
+  const backUrl = `${appUrl}/billing`;
 
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       configuration: updateConfigId,
-      return_url: returnUrl,
+      return_url: backUrl,
       flow_data: {
         type: "subscription_update_confirm",
         subscription_update_confirm: {

@@ -89,15 +89,12 @@ export async function maybeSendChangedEmail(
     return;
   }
 
-  // (b) Downgrade reservation appeared
+  // (b) Downgrade reservation appeared.
+  // 2026-09-24: 予約メールは scheduleDowngradeAction が同期送信する（先行 UPDATE の
+  // 成否に関わらず）。ここで送ると、Webhook が先行 UPDATE より先に処理されたときに
+  // 同じメールが 2 通届く（再確認 E2E で実例）ため、Webhook 側では送らない。
+  // 予約 ID だけ入って変更先が未確定（pending）の通知も同じ理由でここで止める。
   if (before.schedule_id == null && after.scheduleId != null) {
-    const newPlan = (after.scheduledPlanType as PlanType) ?? after.planType;
-    await sendChangedEmail(admin, send, before.user_id, {
-      eventType: "downgrade-reserved",
-      oldPlanName: planDisplayName(before.plan_type as PlanType, beforeCycle),
-      newPlanName: planDisplayName(newPlan, after.scheduledBillingCycle ?? after.billingCycle),
-      scheduledDate: formatDate(after.scheduledAt),
-    });
     return;
   }
 

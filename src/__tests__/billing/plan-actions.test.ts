@@ -265,11 +265,14 @@ describe("changePlanAction", () => {
       flow_data: {
         type: string;
         subscription_update_confirm: { subscription: string; items: Array<{ id: string; price: string }> };
+        after_completion: { type: string; redirect: { return_url: string } };
       };
     };
     expect(createCall.customer).toBe("cus_test_1");
     expect(createCall.configuration).toBe("bpc_update_test");
-    expect(createCall.return_url).toContain("/billing?plan_change=confirmed");
+    // 「…に戻る」リンクは確定していないので ?plan_change=confirmed を付けない。確定後の戻り先だけ付ける
+    expect(createCall.return_url).toMatch(/\/billing$/);
+    expect(createCall.flow_data.after_completion.redirect.return_url).toContain("/billing?plan_change=confirmed");
     expect(createCall.flow_data.type).toBe("subscription_update_confirm");
     expect(createCall.flow_data.subscription_update_confirm.subscription).toBe("sub_1");
     expect(createCall.flow_data.subscription_update_confirm.items).toEqual([
