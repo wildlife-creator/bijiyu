@@ -156,8 +156,40 @@ async function scheduleDowngradeAction(
       ],
     });
 
-    // Webhook will pick up the subscription.updated event and sync schedule_id
-    // + scheduled_plan_type + scheduled_at to local DB
+    // 予約内容を DB に先行 UPDATE する。Webhook（customer.subscription.updated）は
+    // 上の create の時点で発生し、update（第 2 フェーズの書き込み）より先に処理されると
+    // 変更先が空のまま確定して料金画面が行き止まりになる（2026-09 支払い E2E で 28 回中
+    // 10 回再現）。Webhook 側も「次フェーズ未確定」なら既存値を維持する（両面対策）。
+    const scheduledAtIso = currentPhase.end_date
+      ? new Date(currentPhase.end_date * 1000).toISOString()
+      : subscription.current_period_end;
+    const { error: preUpdateError } = await admin
+      .from("subscriptions")
+      .update({
+        schedule_id: schedule.id,
+        scheduled_plan_type: targetPlan,
+        scheduled_billing_cycle: targetCycle,
+        scheduled_at: scheduledAtIso,
+      })
+      .eq("id", subscription.id);
+    if (preUpdateError) {
+      console.error(
+        "[scheduleDowngradeAction] pre-update schedule fields failed",
+        preUpdateError,
+      );
+    }
+
+    // 先行 UPDATE で Webhook (b) 分岐（schedule_id null → non-null）の diff が消えるため、
+    // 「【ビジ友】プラン変更を承りました」（予約）メールは Server Action 側で同期送信する。
+    // 先行 UPDATE が失敗した場合だけ Webhook 側がフォールバックで送る。
+    if (!preUpdateError) {
+      await sendSubscriptionChangedEmail(admin, subscription.user_id, {
+        eventType: "downgrade-reserved",
+        oldPlanName: planDisplayName(currentPlan, subscription.billing_cycle),
+        newPlanName: planDisplayName(targetPlan, targetCycle),
+        scheduledDate: formatDateJst(scheduledAtIso),
+      });
+    }
 
     return {
       success: true,

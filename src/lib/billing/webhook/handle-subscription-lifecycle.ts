@@ -16,7 +16,6 @@ import {
 import {
   resolveOptionCancellationReason,
   extractPlanPrice,
-  extractScheduleId,
   extractInvoiceSubscriptionId,
   resolveScheduleNextPhase,
 } from "./lifecycle-stripe";
@@ -42,7 +41,12 @@ export interface SubscriptionSnapshot {
   plan_type: string;
   /** 支払サイクル。旧行は monthly */
   billing_cycle?: BillingCycle | null;
+  /** cancelled の行は Stripe からの遅延通知で巻き戻さない（下記ガード参照） */
+  status?: string | null;
   schedule_id: string | null;
+  scheduled_plan_type?: string | null;
+  scheduled_billing_cycle?: BillingCycle | null;
+  scheduled_at?: string | null;
   cancel_at_period_end: boolean;
 }
 
@@ -108,12 +112,24 @@ async function handleSubscriptionUpdated(
   // 1. SELECT existing subscription row (capture pre-update snapshot for email diff)
   const existingSubscription = await admin
     .from("subscriptions")
-    .select("id, user_id, plan_type, billing_cycle, schedule_id, cancel_at_period_end")
+    .select(
+      "id, user_id, plan_type, billing_cycle, status, schedule_id, scheduled_plan_type, scheduled_billing_cycle, scheduled_at, cancel_at_period_end",
+    )
     .eq("stripe_subscription_id", sub.id)
     .maybeSingle();
 
   if (existingSubscription.data) {
     const snapshot: SubscriptionSnapshot = existingSubscription.data;
+
+    // 解約済みの行は巻き戻さない。cancelImmediatelyAction は cancel の直前に
+    // metadata を書くため customer.subscription.updated(status=past_due) が
+    // 発生し、それが customer.subscription.deleted より後に処理されると
+    // cancelled → past_due に戻って「Stripe は解約済みなのに有料扱い」になる
+    // （2026-09 支払い E2E TC-172 で実例）。Stripe の契約は解約後に復活しないので
+    // cancelled の行への updated は常に無視してよい。
+    if (snapshot.status === "cancelled") {
+      return;
+    }
 
     // 2. Build event_data from the live Stripe Subscription
     const newPlanPrice = extractPlanPrice(sub);
@@ -124,8 +140,24 @@ async function handleSubscriptionUpdated(
     }
     const newPlanType = newPlanPrice.planType;
 
-    const { scheduledPlanType, scheduledBillingCycle, scheduledAt } =
-      await resolveScheduleNextPhase(stripe, sub);
+    const next = await resolveScheduleNextPhase(stripe, sub);
+    // 予約（scheduled_*）の扱い。resolveScheduleNextPhase の kind 参照:
+    // - next:    Stripe の次フェーズをそのまま採用
+    // - pending: 予約作成の 2 回目の API 呼び出し前に届いた通知。scheduleDowngradeAction
+    //            の先行 UPDATE を NULL で上書きしないよう既存の DB 値を維持
+    // - applied: 期末に適用済み。予約を消し、Stripe 側のスケジュールも終了して
+    //            料金画面の「変更予定」が残り続けないようにする（TC-167/168 の不具合）
+    let scheduleId: string | null = next.scheduleId;
+    let scheduledPlanType = next.scheduledPlanType;
+    let scheduledBillingCycle = next.scheduledBillingCycle;
+    let scheduledAt = next.scheduledAt;
+    if (next.kind === "pending") {
+      scheduledPlanType = snapshot.scheduled_plan_type ?? null;
+      scheduledBillingCycle = snapshot.scheduled_billing_cycle ?? null;
+      scheduledAt = snapshot.scheduled_at ?? null;
+    } else if (next.kind === "applied") {
+      scheduleId = null;
+    }
 
     const eventData = {
       stripe_subscription_id: sub.id,
@@ -134,7 +166,7 @@ async function handleSubscriptionUpdated(
       status: sub.status,
       current_period_start: extractPeriodStart(sub),
       current_period_end: extractPeriodEnd(sub),
-      schedule_id: extractScheduleId(sub),
+      schedule_id: scheduleId,
       scheduled_plan_type: scheduledPlanType,
       scheduled_billing_cycle: scheduledBillingCycle,
       scheduled_at: scheduledAt,
@@ -151,6 +183,19 @@ async function handleSubscriptionUpdated(
       throw new Error(
         `handle_subscription_lifecycle_updated RPC failed: ${rpcError.message ?? String(rpcError)}`,
       );
+    }
+
+    // 3b. 適用済みのスケジュールは Stripe 側でも終了する（失敗しても DB は更新済み。
+    //     release で届く次の updated は schedule なし・差分なしで何もしない）
+    if (next.kind === "applied" && next.scheduleId) {
+      try {
+        await stripe.subscriptionSchedules.release(next.scheduleId);
+      } catch (err) {
+        console.error(
+          "[handleSubscriptionUpdated] release applied schedule failed",
+          { scheduleId: next.scheduleId, err },
+        );
+      }
     }
 
     // 4. Diff snapshot vs new state to decide which email to send

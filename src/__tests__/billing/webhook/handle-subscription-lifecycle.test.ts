@@ -201,19 +201,25 @@ function makeAdmin(config: FakeConfig) {
   return { admin: admin as never, calls };
 }
 
-function makeStripe(): Stripe & { _calls: string[] } {
+function makeStripe(scheduleOverride?: unknown): Stripe & { _calls: string[] } {
   const calls: string[] = [];
   const stripe = {
     _calls: calls,
     subscriptionSchedules: {
       retrieve: vi.fn(async (id: string) => {
         calls.push(`schedules.retrieve:${id}`);
-        return {
-          phases: [
-            { items: [{ price: "price_corporate" }], start_date: 100 },
-            { items: [{ price: "price_individual" }], start_date: 200 },
-          ],
-        };
+        return (
+          scheduleOverride ?? {
+            phases: [
+              { items: [{ price: "price_corporate" }], start_date: 100 },
+              { items: [{ price: "price_individual" }], start_date: 200 },
+            ],
+          }
+        );
+      }),
+      release: vi.fn(async (id: string) => {
+        calls.push(`schedules.release:${id}`);
+        return {};
       }),
     },
     subscriptions: {
@@ -761,6 +767,139 @@ describe("customer.subscription.updated", () => {
 // ===========================================================================
 // customer.subscription.deleted
 // ===========================================================================
+
+describe("customer.subscription.updated — 2026-09 支払い E2E で見つかった不具合の回帰", () => {
+  it("不具合④: DB が cancelled の行には updated（past_due 等）を適用しない（RPC もメールも呼ばない）", async () => {
+    const sub = buildSubscription({ status: "past_due" });
+    const { admin, calls } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-1",
+            user_id: "user-1",
+            plan_type: "individual",
+            status: "cancelled",
+            schedule_id: null,
+            cancel_at_period_end: false,
+          },
+        },
+      },
+      rpcResults: { handle_subscription_lifecycle_updated: { data: {}, error: null } },
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      makeStripe(),
+      { type: "customer.subscription.updated", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(calls.find((c) => c.op === "rpc")).toBeUndefined();
+    expect(SEND).not.toHaveBeenCalled();
+  });
+
+  it("不具合①: スケジュールの次フェーズがまだ無い（pending）なら、先行 UPDATE 済みの予約内容を NULL で上書きしない", async () => {
+    const sub = buildSubscription({ schedule: "sub_sched_1" });
+    const { admin, calls } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-1",
+            user_id: "user-1",
+            plan_type: "corporate",
+            status: "active",
+            schedule_id: "sub_sched_1",
+            scheduled_plan_type: "individual",
+            scheduled_billing_cycle: "monthly",
+            scheduled_at: "2026-10-18T00:00:00.000Z",
+            cancel_at_period_end: false,
+          },
+        },
+      },
+      rpcResults: { handle_subscription_lifecycle_updated: { data: {}, error: null } },
+    });
+    // create 直後: フェーズは 1 つだけ
+    const stripe = makeStripe({
+      current_phase: { start_date: 100, end_date: 200 },
+      phases: [{ items: [{ price: "price_corporate" }], start_date: 100, end_date: 200 }],
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      stripe,
+      { type: "customer.subscription.updated", data: { ...sub, items: { data: [{ price: { id: "price_corporate" } }] } } as never },
+      { sendEmail: SEND as never },
+    );
+
+    const rpcCall = calls.find((c) => c.op === "rpc");
+    expect(rpcCall?.payload).toMatchObject({
+      event_data: {
+        schedule_id: "sub_sched_1",
+        scheduled_plan_type: "individual",
+        scheduled_billing_cycle: "monthly",
+        scheduled_at: "2026-10-18T00:00:00.000Z",
+      },
+    });
+    // 予約は既に DB にあるので (b) の予約メールは出ない（Server Action が同期送信済み）
+    expect(SEND).not.toHaveBeenCalled();
+    expect(stripe._calls).not.toContain("schedules.release:sub_sched_1");
+  });
+
+  it("不具合③: 現在のフェーズが最後（適用済み）なら予約を消し、スケジュールを release し、「プラン変更が完了しました」を送る", async () => {
+    const sub = buildSubscription({ schedule: "sub_sched_1", priceId: "price_individual" });
+    const { admin, calls } = makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-1",
+            user_id: "user-1",
+            plan_type: "corporate",
+            status: "active",
+            schedule_id: "sub_sched_1",
+            scheduled_plan_type: "individual",
+            scheduled_billing_cycle: "monthly",
+            scheduled_at: "2026-10-18T00:00:00.000Z",
+            cancel_at_period_end: false,
+          },
+        },
+        "select:users": {
+          data: { email: "user1@test.local", last_name: "山田", first_name: "太郎", company_name: null },
+        },
+      },
+      rpcResults: { handle_subscription_lifecycle_updated: { data: {}, error: null } },
+    });
+    // 期末を過ぎ、第 2 フェーズ（= 現在の価格）が current_phase
+    const stripe = makeStripe({
+      current_phase: { start_date: 200, end_date: 300 },
+      phases: [
+        { items: [{ price: "price_corporate" }], start_date: 100, end_date: 200 },
+        { items: [{ price: "price_individual" }], start_date: 200, end_date: 300 },
+      ],
+    });
+
+    await handleSubscriptionLifecycle(
+      admin,
+      stripe,
+      { type: "customer.subscription.updated", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    const rpcCall = calls.find((c) => c.op === "rpc");
+    expect(rpcCall?.payload).toMatchObject({
+      event_data: {
+        plan_type: "individual",
+        schedule_id: null,
+        scheduled_plan_type: null,
+        scheduled_billing_cycle: null,
+        scheduled_at: null,
+      },
+    });
+    expect(stripe._calls).toContain("schedules.release:sub_sched_1");
+    expect(SEND).toHaveBeenCalledOnce();
+    const args = SEND.mock.calls[0]![0]! as { subject: string };
+    expect(args.subject).toBe("【ビジ友】プラン変更が完了しました");
+  });
+});
 
 describe("customer.subscription.deleted", () => {
   it("hits subscriptions: RPC + cancelled email, **no chained option cancel**", async () => {

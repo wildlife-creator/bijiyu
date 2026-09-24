@@ -1,6 +1,6 @@
 # 現行仕様まとめ（料金・オプション・動画・銀行振込・運営アカウント・一覧）
 
-最終更新: 2026-09-18
+最終更新: 2026-09-24
 対象: 2026-08〜09 の改修（旧 P1〜P12・ステージング指摘対応）で決まった仕様の「今の姿」。経緯・議論・当時の設計は `docs/requirements/archive/2026-08-09/` に残している（`README.md` に索引）。
 
 このファイルは「仕様の正」で、コード内コメント・ステアリング（`.kiro/steering/`）・CLAUDE.md の各ルールはここを参照する。数字（金額・上限）はコードの定数が実値で、ここに書いた値と一致させること。
@@ -32,8 +32,8 @@
 ### 2.1 クレジットカード（Stripe）
 
 - 申込: Stripe Checkout → `checkout.session.completed` Webhook → RPC `handle_checkout_completed_plan` で契約行作成・role 昇格・有効化メール。
-- **アップグレード（上位プラン / 月払い → 年払い）は Stripe のホスト画面で確定する**。`changePlanAction` が Customer Portal の `subscription_update_confirm` セッション URL を返し、会員が Stripe 側で日割り差額・次回請求を確認して確定。DB 更新と「プラン変更を承りました」メールは `customer.subscription.updated` Webhook が行う（Server Action は先行 UPDATE もメール送信もしない）。
-- **ダウングレード（下位プラン / 年払い → 月払い）はアプリ内ダイアログで期末切替を予約**（Stripe の subscription schedule）。予約中は他のプランを選べない。予約の取消はアプリ内。
+- **アップグレード（上位プラン / 月払い → 年払い）は Stripe のホスト画面で確定する**。`changePlanAction` が Customer Portal の `subscription_update_confirm` セッション URL を返し、会員が Stripe 側で日割り差額・次回請求を確認して確定。**差額（年払い切替なら年額 − 月払いの未使用分）は確定した当日に請求書化して決済する**（ポータル設定 `proration_behavior=always_invoice`。2026-09-24 に `create_prorations` から変更。それ以前は差額が次回更新日にまとめて請求されていた）。DB 更新と「プラン変更を承りました」メールは `customer.subscription.updated` Webhook が行う（Server Action は先行 UPDATE もメール送信もしない）。
+- **ダウングレード（下位プラン / 年払い → 月払い）はアプリ内ダイアログで期末切替を予約**（Stripe の subscription schedule）。予約中は他のプランを選べない。予約の取消はアプリ内。予約内容は Server Action が DB に先行書き込みし、予約メールも同期送信する（Webhook の到着順に依存しない）。期末に適用されたら Webhook が予約カラムを消し、Stripe のスケジュールも終了する（適用後に「変更予定」が残らない）。
 - **解約**はアプリ内（期末解約の予約）。支払い遅延（`past_due`）中は即時解約のみ。未払い 7 日で Edge Function `auto-cancel-past-due` が自動解約。
 - **サイクル切替ルール**: プランのランク差があればランクが優先。同じプランなら 月払い → 年払い = 即時（アップグレード扱い）、年払い → 月払い = 次回更新日（ダウングレード扱い）。判定は `comparePlanChange()`（`src/lib/billing/compare-plans.ts`）。
 - Stripe の Price は 月額 4 + 年額 4 + 初回事務手数料 1 + オプション（急募 1・動画 3・補償 2）。環境変数名は `.env.local.example` を正とする。Webhook は Price ID から `resolvePlanPriceFromId()` でプランとサイクルを解決する。

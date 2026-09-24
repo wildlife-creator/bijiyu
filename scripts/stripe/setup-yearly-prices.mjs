@@ -129,7 +129,11 @@ const portalParams = {
     subscription_update: {
       enabled: true,
       default_allowed_updates: ["price"],
-      proration_behavior: "create_prorations",
+      // always_invoice: アップグレードの差額・年払い切替の年額を「確定した当日」に
+      // 請求書化して決済する。create_prorations だと日割りの明細を作るだけで請求は
+      // 次回更新日（年払いなら 1 年後）にまとめられ、確認画面の「本日のご請求」と
+      // 実際の請求が食い違う（2026-09 支払い E2E で実時間追跡して確認）。
+      proration_behavior: "always_invoice",
       products,
     },
     // このポータル設定はプラン変更確認専用。他の操作は許可しない

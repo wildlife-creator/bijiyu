@@ -448,10 +448,22 @@ describe("changePlanAction", () => {
     expect(call.html).toContain("配列プロフィール株式会社 様");
   });
 
-  it("ダウングレード予約では完了メールを送らない（Webhook (b) 分岐が担当）", async () => {
+  it("ダウングレード予約: 予約内容を DB に先行 UPDATE し、「プラン変更を承りました」（予約）メールを同期送信する（不具合① 同期漏れ対策）", async () => {
     subState.row!.plan_type = "corporate";
-    await changePlanAction({ targetPlan: "individual" });
-    expect(sendEmailMock).not.toHaveBeenCalled();
+    const result = await changePlanAction({ targetPlan: "individual" });
+    expect(result.success).toBe(true);
+    const preUpdate = adminUpdates.find((u) => u.table === "subscriptions");
+    expect(preUpdate?.payload).toMatchObject({
+      schedule_id: "sub_sched_1",
+      scheduled_plan_type: "individual",
+      scheduled_billing_cycle: "monthly",
+      scheduled_at: new Date(2000 * 1000).toISOString(),
+    });
+    expect(sendEmailMock).toHaveBeenCalledOnce();
+    const call = sendEmailMock.mock.calls[0]![0] as { subject: string; html: string };
+    expect(call.subject).toBe("【ビジ友】プラン変更を承りました");
+    expect(call.html).toContain("プレミアムプラン");
+    expect(call.html).toContain("ライトプラン");
   });
 
   it("予約あり等のエラー系ではメール送信されない", async () => {
