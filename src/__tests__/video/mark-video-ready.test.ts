@@ -81,7 +81,7 @@ describe("markVideoReady", () => {
     });
   });
 
-  it("同じ掲載場所に公開中が既にあればメールを送らない", async () => {
+  it("同じ掲載場所に公開中が既にあってもメールを送る（2026-09-24 変更: 公開のたびに通知）", async () => {
     db.tables.videos = [
       row({ id: "v-0", cloudflare_uid: null, provider: "external", embed_source_url: "https://www.tiktok.com/@u/video/1", status: "ready" }),
       row({}),
@@ -91,8 +91,8 @@ describe("markVideoReady", () => {
       cloudflareUid: "uid_1",
       siteUrl: SITE,
     });
-    expect(result).toEqual({ outcome: "marked_ready", videoId: "v-1", emailSent: false });
-    expect(sendVideoPublishedEmailsMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ outcome: "marked_ready", videoId: "v-1", emailSent: true });
+    expect(sendVideoPublishedEmailsMock).toHaveBeenCalledOnce();
   });
 
   it("既に ready なら何もしない（Webhook 再送・二重確認に対して冪等）", async () => {

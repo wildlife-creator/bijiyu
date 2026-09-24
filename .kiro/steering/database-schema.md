@@ -772,7 +772,7 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 - CHECK `videos_provider_consistency`: provider と cloudflare_uid / embed_source_url の整合
 - RLS: SELECT は authenticated に `status = 'ready'` の行を全員に開放（表示 6 画面は通常クライアントで cross-user 参照可）+ 管理者は全行。INSERT / UPDATE / DELETE はポリシー無し（service_role 専用）
 - 既存データ: migration `20260902120000_videos.sql` で `users.video_url` / `client_profiles.workplace_video_url` を external 行としてコピー移行済み。旧カラムは【廃止予定】として残置（staging マージ時に DROP）
-- 掲載お知らせメール（§6.6.C）: その掲載場所で公開中が 0 → 1 本になったときのみ（`src/lib/videos/published-emails.ts`）
+- 掲載お知らせメール（§6.6.C）: 動画が公開中になるたび（2026-09-24 変更。以前は 0 → 1 本のときのみ）（`src/lib/videos/published-emails.ts`）
 - 監査: `video_create` / `video_update` / `video_reorder` / `video_delete`（旧 `video_url_update` は過去ログの値として残す）
 - 表示部品: `getReadyVideos()`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />`（`src/components/video-embed/video-list.tsx`）。Cloudflare 連携は `src/lib/cloudflare/stream.ts`（env: `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` / `CLOUDFLARE_STREAM_WEBHOOK_SECRET`。未設定なら URL 登録のみ動く）
 - pgTAP: `supabase/tests/videos_rls.test.sql`

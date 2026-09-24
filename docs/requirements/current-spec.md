@@ -55,6 +55,7 @@
 ルール:
 
 - 対象は基本プラン 4 種と動画プラン 3 種。急募と補償は対象外。
+- **支払い方法の切り替えで事務手数料は取らない**（初回事務手数料は「初めて有料プランに入ったとき」だけ。銀行振込 → カードの Checkout でも契約歴があるため付かない。2026-09-24 確定）。カード → 銀行振込は Stripe を即時解約し日割り返金は無いため、運営は会員がカードで支払い済みの期間（ADM-009 の「次回更新日」）を見て、銀行振込の請求開始をその翌月からにする（運営の手動調整。アプリは制御しない）。
 - 銀行振込行は `billing_cycle='monthly'` 固定・`current_period_end=NULL`（期限なし。運営が「無効にする」まで有効）。**`current_period_end` を表示・判定に使わない。**
 - 有料判定（`is_paid_user()` / `resolveEffectiveSubscription`）は支払い方法を問わない。Stripe を呼ぶ処理（プラン変更・解約・ポータル・未払い自動解約）は `payment_method='stripe'` に絞り、銀行振込行には `BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE` を案内する。
 - **支払い方法の切り替えは同じ契約行の書き換え**で行う（有効な契約は常に 1 行）。
@@ -98,7 +99,7 @@
 - `videos` テーブル（1 行 = 1 本。`placement` = `contractor_page`（ユーザー詳細） / `client_page`（発注者詳細）、`sort_order`、`provider` = `cloudflare` / `external`、`status` = `processing` / `ready`）。旧 `users.video_url` / `client_profiles.workplace_video_url` は参照しない（DROP 予定）。
 - **表示はオプション購入の有無で出し分けない**。`getReadyVideos()` → `<VideoList>` の 1 パターン。会員が見る見出しは掲載先に関係なく「プロフィール動画」（`VIDEO_SECTION_LABEL`）。
 - 登録・並び替え・削除は管理者専有（ADM-027 `/admin/users/[id]/videos`。タブ名は画面名 `VIDEO_PLACEMENT_LABELS`）。MP4 は Cloudflare Stream に**ブラウザから直接**アップロード（`createVideoUploadAction` で一時 URL 発行）。処理完了は Webhook `/api/webhooks/cloudflare-stream` か「状態を確認」で `ready` に。削除は Cloudflare 側も消す。
-- 掲載お知らせメールは「その掲載場所で公開中が 0 → 1 本になったとき」だけ。本文は【掲載先】（`VIDEO_PLACEMENT_MEMBER_LABELS`）。
+- 掲載お知らせメールは動画が公開中になるたびに本人（法人は全員）と運営へ送る（2026-09-24 変更。以前は「0 → 1 本」のときだけで 2 本目の掲載が伝わらなかった）。本文は【掲載先】（`VIDEO_PLACEMENT_MEMBER_LABELS`）。
 - 環境変数 `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` / `CLOUDFLARE_STREAM_WEBHOOK_SECRET` が無い環境では URL 登録だけ動く。
 - 会員向けの表示枠は縦長 9:16 で統一（`src/components/video-embed/video-frame.ts`）。
 

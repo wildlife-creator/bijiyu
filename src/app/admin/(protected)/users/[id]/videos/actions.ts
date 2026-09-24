@@ -28,7 +28,6 @@ import {
 } from "@/lib/videos/constants";
 import { markVideoReady } from "@/lib/videos/mark-ready";
 import {
-  countReadyVideos,
   sendVideoPublishedEmails,
 } from "@/lib/videos/published-emails";
 
@@ -38,7 +37,7 @@ import {
  * - 認可: middleware の /admin/* ガード + `requireAdmin()`（三重防御の 2 層目）。
  *   videos の書き込みは service_role（admin client）専用で RLS ポリシーを置いていない
  * - 全操作を audit_logs に記録（video_create / video_update / video_reorder / video_delete）
- * - 掲載お知らせメールは「その掲載場所で公開中が 0 → 1 本になったとき」だけ送る
+ * - 掲載お知らせメールは動画が公開中になるたびに送る（2026-09-24 変更。以前は 0 → 1 本のときだけ）
  * - Cloudflare との通信は `src/lib/cloudflare/stream.ts` に閉じる（テストでは擬似化）
  */
 
@@ -256,7 +255,6 @@ export async function addExternalVideoAction(input: {
   const target = await loadTargetUser(admin, userId);
   if (!target.ok) return { success: false, error: target.error };
 
-  const readyBefore = await countReadyVideos(admin, userId, placement);
   const sortOrder = await nextSortOrder(admin, userId, placement);
 
   const { data: inserted, error } = await admin
@@ -291,8 +289,9 @@ export async function addExternalVideoAction(input: {
     },
   });
 
-  // §6.6.C: その掲載場所で公開中が 0 → 1 本になったときだけ送信。await で完了を待つ
-  if (readyBefore === 0) {
+  // §6.6.C: 動画が公開中になるたびに本人（法人は全員）と運営へ送信。await で完了を待つ
+  // （2026-09-24 変更。以前は「0 → 1 本」のときだけで、2 本目の掲載が伝わらなかった）
+  {
     const siteUrl = await resolveSiteUrl();
     await sendVideoPublishedEmails(admin, { userId, placement, siteUrl }).catch(
       (err) => {

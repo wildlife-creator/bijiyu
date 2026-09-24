@@ -1,7 +1,6 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { isVideoPlacement } from "@/lib/videos/constants";
 import {
-  countReadyVideos,
   sendVideoPublishedEmails,
 } from "@/lib/videos/published-emails";
 
@@ -35,8 +34,6 @@ export async function markVideoReady(
   if (row.status === "ready") return { outcome: "already_ready" };
   if (!isVideoPlacement(row.placement)) return { outcome: "not_found" };
 
-  const readyBefore = await countReadyVideos(admin, row.user_id, row.placement);
-
   // status が processing のままの行だけを更新する（並行実行時の二重メール防止）
   const { data: updated, error: updateError } = await admin
     .from("videos")
@@ -47,8 +44,9 @@ export async function markVideoReady(
   if (updateError) throw updateError;
   if (!updated || updated.length === 0) return { outcome: "already_ready" };
 
+  // 公開中になるたびに送る（2026-09-24 変更。以前は 0 → 1 本のときだけ）
   let emailSent = false;
-  if (readyBefore === 0) {
+  {
     await sendVideoPublishedEmails(admin, {
       userId: row.user_id,
       placement: row.placement,

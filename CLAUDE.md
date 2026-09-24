@@ -369,7 +369,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **表示はオプション購入の有無でゲートしない**（承認済み D4）。`option_subscriptions` を見て動画を出し分けるコードを書かないこと。表示は `getReadyVideos(client, userId, placement)`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />` の 1 パターンに統一。公開中（ready）の行は RLS で全 authenticated が読めるため cross-user 参照でも admin client 不要
 - 登録・削除は管理者専有（ADM-027 `/admin/users/[id]/videos`）。videos の書き込みは service_role のみ（RLS にポリシー無し）。Server Action は `requireAdmin()` + `writeAuditLog`（`video_create` / `video_update` / `video_reorder` / `video_delete`）必須
 - **ファイル本体は Server Action に通さない**（Vercel 4.5MB 上限）。`createVideoUploadAction` で Cloudflare の一時 URL を発行し、ブラウザから `uploadVideoToCloudflare()`（`src/lib/videos/upload-client.ts`）で直接 POST する。API トークンは `src/lib/cloudflare/stream.ts` の中だけで使い、ブラウザに出さない
-- Cloudflare 動画は `processing` で作成し、Webhook（`/api/webhooks/cloudflare-stream`）か ADM-027「状態を確認」→ `markVideoReady()`（冪等）で `ready` にする。**掲載お知らせメール（§6.6.C）は「その掲載場所で公開中が 0 → 1 本になったとき」だけ**。この判定は `countReadyVideos()` を UPDATE / INSERT の前に取ること
+- Cloudflare 動画は `processing` で作成し、Webhook（`/api/webhooks/cloudflare-stream`）か ADM-027「状態を確認」→ `markVideoReady()`（冪等）で `ready` にする。**掲載お知らせメール（§6.6.C）は動画が公開中になるたびに送る**（2026-09-24 変更。以前は「0 → 1 本」のときだけだったが、2 本目の掲載が会員・運営に伝わらないため変更）
 - 削除は Cloudflare 側のファイルも消す（`deleteStreamVideo`）。失敗しても DB 行は消し、エラーを監査 metadata（`cloudflareDeleteError`）に残す
 - 新しい埋込プラットフォーム・掲載場所を足すとき: `PATTERNS`（`src/lib/video-embed.ts`）に 1 件追加 + `frame-src`（`src/middleware.ts`）にドメイン追記 / `ALTER TYPE video_placement ADD VALUE` + `src/lib/videos/constants.ts` のラベル・対応オプション追記
 - 環境変数（`CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` / `CLOUDFLARE_STREAM_WEBHOOK_SECRET`）が無い環境では URL 登録だけ動く graceful degradation を壊さないこと（`isCloudflareStreamConfigured()` で分岐）
