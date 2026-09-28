@@ -376,7 +376,6 @@ export type Database = {
         Row: {
           address: string | null
           attachments: string[] | null
-          bank_transfer_plan: string | null
           company_name: string
           created_at: string
           detail: string
@@ -395,7 +394,6 @@ export type Database = {
         Insert: {
           address?: string | null
           attachments?: string[] | null
-          bank_transfer_plan?: string | null
           company_name: string
           created_at?: string
           detail: string
@@ -414,7 +412,6 @@ export type Database = {
         Update: {
           address?: string | null
           attachments?: string[] | null
-          bank_transfer_plan?: string | null
           company_name?: string
           created_at?: string
           detail?: string

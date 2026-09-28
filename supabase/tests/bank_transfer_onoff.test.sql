@@ -2,7 +2,8 @@
 --
 -- 検証:
 --   1. 申込テーブル・専用 enum・期限通知 cron・期限 index が無いこと
---   2. contacts.bank_transfer_plan 列があること
+--   2. 希望プランの列（bank_transfer_plan / bank_transfer_plans）は無く、旧種類名「お支払い方法（銀行振込）について」の行も無いこと
+--      （20260928120000: 希望は問い合わせ詳細に書く・種類名は「銀行振込について」）
 --   3. handle_checkout_completed_plan v3: 有効な銀行振込行があれば後処理なしで cancelled にしてから
 --      Stripe 行を INSERT する（role・案件は触らない。監査 bank_transfer_ended_by_stripe_checkout）
 --   4. 銀行振込行が無い会員は従来どおり（二重 active は例外）
@@ -10,7 +11,7 @@
 -- Run with: supabase test db
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(16);
 
 -- ============================================================
 -- 1. 廃止されたもの
@@ -29,9 +30,15 @@ SELECT has_column('public', 'subscriptions', 'payment_method', 'subscriptions.pa
 SELECT has_column('public', 'option_subscriptions', 'payment_method', 'option_subscriptions.payment_method は残る');
 
 -- ============================================================
--- 2. contacts.bank_transfer_plan
+-- 2. contacts の希望プラン列は無い・旧種類名は書き換え済み
 -- ============================================================
-SELECT has_column('public', 'contacts', 'bank_transfer_plan', 'contacts.bank_transfer_plan が存在する');
+SELECT hasnt_column('public', 'contacts', 'bank_transfer_plan', 'contacts.bank_transfer_plan は無い（希望は問い合わせ詳細に書く）');
+SELECT hasnt_column('public', 'contacts', 'bank_transfer_plans', 'contacts.bank_transfer_plans も無い');
+SELECT is(
+  (SELECT count(*)::int FROM contacts WHERE inquiry_type = 'お支払い方法（銀行振込）について'),
+  0,
+  '旧種類名「お支払い方法（銀行振込）について」の行は残っていない'
+);
 
 -- ============================================================
 -- Setup（seed と重複しない UUID）

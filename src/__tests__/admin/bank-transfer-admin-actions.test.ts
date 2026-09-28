@@ -7,7 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * - changeBankSubscriptionPlanAction: 即時変更（ダウングレードは前提条件チェック）
  * - cancelBankSubscriptionAction: 無効化（RPC で Stripe 解約と同じ後処理 + 解約完了メール）
  * - switchStripeToBankTransferAction: Stripe 即時解約 → 同じ行を銀行振込に書き換え
- * - activateBankTransferVideoOptionAction: 動画プランの買い切り行 + 購入完了メール
+ * - activateBankTransferVideoOptionAction: 動画プランの買い切り行 + 申込受付メール（「購入済みにする」）
+ * - activateBankTransferUrgentOptionAction: 急募（案件を選ぶ。option_subscriptions 行 + jobs.is_urgent + お知らせメール）
  *
  * Supabase / Stripe 境界のみモック。Action 本体のロジックは実コードを動かす。
  */
@@ -43,6 +44,7 @@ interface QueryResult {
 const adminResults: Record<string, QueryResult> = {};
 const sequenceByKey: Record<string, number> = {};
 const adminInserts: Array<{ table: string; payload: Record<string, unknown> }> = [];
+const adminDeletes: Array<{ table: string; filters: Record<string, unknown> }> = [];
 const adminUpdates: Array<{ table: string; payload: Record<string, unknown>; filters: Record<string, unknown> }> = [];
 const adminUpserts: Array<{ table: string; payload: Record<string, unknown> }> = [];
 const rpcCalls: Array<{ fn: string; args: unknown }> = [];
@@ -67,6 +69,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         if (op === "insert" && payload) adminInserts.push({ table, payload });
         if (op === "update" && payload) adminUpdates.push({ table, payload, filters: { ...filters } });
         if (op === "upsert" && payload) adminUpserts.push({ table, payload });
+        if (op === "delete") adminDeletes.push({ table, filters: { ...filters } });
         if (op === "insert") {
           return { data: r?.data ?? { id: `${table}-new` }, error: r?.error ?? null };
         }
@@ -83,7 +86,9 @@ vi.mock("@/lib/supabase/admin", () => ({
         select() { return chain; },
         eq(col: string, val: unknown) { filters[col] = val; return chain; },
         in(col: string, vals: unknown[]) { filters[col] = vals; return chain; },
+        or(expr: string) { filters.or = expr; return chain; },
         order() { return chain; },
+        delete() { op = "delete"; return chain; },
         insert(p: Record<string, unknown>) { op = "insert"; payload = p; return chain; },
         update(p: Record<string, unknown>) { op = "update"; payload = p; return chain; },
         upsert(p: Record<string, unknown>) { op = "upsert"; payload = p; return chain; },
@@ -110,6 +115,7 @@ const sentEmails: Array<{ fn: string; args: unknown[] }> = [];
 vi.mock("@/lib/billing/activation-emails", () => ({
   sendPlanActivatedEmail: async (...args: unknown[]) => { sentEmails.push({ fn: "plan", args }); },
   sendVideoActivatedEmails: async (...args: unknown[]) => { sentEmails.push({ fn: "video", args }); },
+  sendUrgentActivatedEmails: async (...args: unknown[]) => { sentEmails.push({ fn: "urgent", args }); },
 }));
 
 const plainEmails: Array<{ to: string; subject: string }> = [];
@@ -161,6 +167,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
 import {
   activateBankTransferPlanAction,
+  activateBankTransferUrgentOptionAction,
   activateBankTransferVideoOptionAction,
   cancelBankSubscriptionAction,
   changeBankSubscriptionPlanAction,
@@ -169,6 +176,8 @@ import {
 
 const USER_ID = "aa000000-0000-4000-8000-000000000001";
 const SUB_ID = "cc000000-0000-4000-8000-000000000001";
+const JOB_ID = "dd000000-0000-4000-8000-000000000001";
+const OTHER_JOB_ID = "dd000000-0000-4000-8000-000000000002";
 
 function fd(entries: Record<string, string>) {
   const f = new FormData();
@@ -181,6 +190,7 @@ function reset() {
   for (const k of Object.keys(sequenceByKey)) delete sequenceByKey[k];
   for (const k of Object.keys(rpcResults)) delete rpcResults[k];
   adminInserts.length = 0;
+  adminDeletes.length = 0;
   adminUpdates.length = 0;
   adminUpserts.length = 0;
   rpcCalls.length = 0;
@@ -211,6 +221,8 @@ describe("認可", () => {
     const r3 = await cancelBankSubscriptionAction(SUB_ID);
     const r4 = await switchStripeToBankTransferAction(SUB_ID, fd({ planType: "small" }));
     const r5 = await activateBankTransferVideoOptionAction(USER_ID, fd({ optionType: "video" }));
+    const r6 = await activateBankTransferUrgentOptionAction(USER_ID, fd({ jobId: JOB_ID }));
+    expect(r6.success).toBe(false);
     for (const r of [r1, r2, r3, r4, r5]) {
       expect(r).toEqual({ success: false, error: "この操作を行う権限がありません" });
     }
@@ -262,7 +274,7 @@ describe("activateBankTransferPlanAction（有効にする）", () => {
     adminResults["select:subscriptions"] = { data: { id: SUB_ID, payment_method: "stripe" } };
     const r1 = await activateBankTransferPlanAction(USER_ID, fd({ planType: "small" }));
     expect(r1.success).toBe(false);
-    if (!r1.success) expect(r1.error).toContain("銀行振込に切り替える");
+    if (!r1.success) expect(r1.error).toContain("手動設定に切り替える");
 
     adminResults["select:subscriptions"] = { data: { id: SUB_ID, payment_method: "bank_transfer" } };
     const r2 = await activateBankTransferPlanAction(USER_ID, fd({ planType: "small" }));
@@ -458,8 +470,8 @@ describe("switchStripeToBankTransferAction（カード払い → 銀行振込）
   });
 });
 
-describe("activateBankTransferVideoOptionAction（動画プランを有効にする）", () => {
-  it("買い切り（期限なし）の銀行振込行を作り、購入完了メールと監査を残す", async () => {
+describe("activateBankTransferVideoOptionAction（動画プランを購入済みにする）", () => {
+  it("買い切り（期限なし）の銀行振込行を作り、申込受付メールと監査を残す", async () => {
     adminResults["insert:option_subscriptions"] = { data: { id: "opt-1" } };
     const r = await activateBankTransferVideoOptionAction(USER_ID, fd({ optionType: "video_sns" }));
     expect(r).toEqual({ success: true });
@@ -491,6 +503,122 @@ describe("activateBankTransferVideoOptionAction（動画プランを有効にす
     adminResults["select:users"] = { data: { id: USER_ID, role: "contractor", deleted_at: "2026-01-01" } };
     const r = await activateBankTransferVideoOptionAction(USER_ID, fd({ optionType: "video" }));
     expect(r.success).toBe(false);
+    expect(adminInserts).toHaveLength(0);
+  });
+});
+
+describe("activateBankTransferUrgentOptionAction（急募オプションを有効にする）", () => {
+  /** 会員は個人（組織なし）、掲載中の案件 2 件、うち OTHER_JOB_ID は既に急募 */
+  function setupEligibleJobs() {
+    adminResults["select:organization_members"] = { data: [] };
+    adminResults["select:jobs"] = {
+      data: [
+        { id: JOB_ID, title: "外壁塗装の職人募集", is_urgent: false },
+        { id: OTHER_JOB_ID, title: "既に急募の案件", is_urgent: true },
+      ],
+    };
+    adminResults["select:option_subscriptions"] = { data: [] };
+    adminResults["insert:option_subscriptions"] = { data: { id: "opt-urgent-1" } };
+  }
+
+  it("案件を選んで有効化: 7 日間の銀行振込行・案件の急募タグ・発注者の急募フラグ・お知らせメール・監査", async () => {
+    setupEligibleJobs();
+    const before = Date.now();
+    const r = await activateBankTransferUrgentOptionAction(USER_ID, fd({ jobId: JOB_ID }));
+    expect(r).toEqual({ success: true });
+
+    const ins = adminInserts.find((i) => i.table === "option_subscriptions");
+    expect(ins?.payload).toMatchObject({
+      user_id: USER_ID,
+      job_id: JOB_ID,
+      payment_type: "one_time",
+      payment_method: "bank_transfer",
+      option_type: "urgent",
+      status: "active",
+    });
+    const start = new Date(String(ins?.payload.start_date)).getTime();
+    const end = new Date(String(ins?.payload.end_date)).getTime();
+    expect(start).toBeGreaterThanOrEqual(before);
+    expect(end - start).toBe(7 * 24 * 60 * 60 * 1000);
+
+    expect(adminUpdates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ table: "jobs", payload: { is_urgent: true }, filters: { id: JOB_ID } }),
+        expect.objectContaining({
+          table: "client_profiles",
+          payload: { is_urgent_option: true },
+          filters: { user_id: USER_ID },
+        }),
+      ]),
+    );
+    expect(sentEmails.map((e) => e.fn)).toEqual(["urgent"]);
+    expect(sentEmails[0].args[2]).toBe(JOB_ID);
+    expect(auditLogs.find((a) => a.action === "bank_transfer_urgent_activate")).toMatchObject({
+      targetId: "opt-urgent-1",
+      metadata: expect.objectContaining({ user_id: USER_ID, job_id: JOB_ID }),
+    });
+  });
+
+  it("法人（組織あり）は 本人 または 同じ組織 の案件を対象にする（担当者が作った案件も選べる）", async () => {
+    setupEligibleJobs();
+    adminResults["select:organization_members"] = {
+      data: [{ organization_id: "org-1", organizations: { deleted_at: null } }],
+    };
+    adminResults["select:jobs"] = {
+      data: [{ id: JOB_ID, title: "担当者が作った案件", is_urgent: false }],
+    };
+    const r = await activateBankTransferUrgentOptionAction(USER_ID, fd({ jobId: JOB_ID }));
+    expect(r).toEqual({ success: true });
+    expect(adminInserts.find((i) => i.table === "option_subscriptions")?.payload.job_id).toBe(JOB_ID);
+  });
+
+  it("既に急募の案件・一覧に無い案件・不正な ID は拒否（何も書かない）", async () => {
+    setupEligibleJobs();
+    const r1 = await activateBankTransferUrgentOptionAction(USER_ID, fd({ jobId: OTHER_JOB_ID }));
+    expect(r1.success).toBe(false);
+    if (!r1.success) expect(r1.error).toContain("既に急募");
+
+    setupEligibleJobs();
+    const r2 = await activateBankTransferUrgentOptionAction(
+      USER_ID,
+      fd({ jobId: "dd000000-0000-4000-8000-000000000099" }),
+    );
+    expect(r2.success).toBe(false);
+
+    const r3 = await activateBankTransferUrgentOptionAction(USER_ID, fd({ jobId: "not-a-uuid" }));
+    expect(r3).toEqual({ success: false, error: "急募にする案件を選択してください" });
+    expect(adminInserts).toHaveLength(0);
+    expect(adminUpdates).toHaveLength(0);
+    expect(sentEmails).toHaveLength(0);
+  });
+
+  it("is_urgent が false でも active な急募行が残っている案件は対象外（二重防御）", async () => {
+    setupEligibleJobs();
+    adminResults["select:option_subscriptions"] = { data: [{ job_id: JOB_ID }] };
+    const r = await activateBankTransferUrgentOptionAction(USER_ID, fd({ jobId: JOB_ID }));
+    expect(r.success).toBe(false);
+    expect(adminInserts).toHaveLength(0);
+  });
+
+  it("案件の急募タグ更新に失敗したら、作った購入記録を消してエラー（メールは送らない）", async () => {
+    setupEligibleJobs();
+    adminResults["update:jobs"] = { error: { message: "boom" } };
+    const r = await activateBankTransferUrgentOptionAction(USER_ID, fd({ jobId: JOB_ID }));
+    expect(r.success).toBe(false);
+    expect(adminDeletes).toEqual([
+      expect.objectContaining({ table: "option_subscriptions", filters: { id: "opt-urgent-1" } }),
+    ]);
+    expect(sentEmails).toHaveLength(0);
+    expect(auditLogs.find((a) => a.action === "bank_transfer_urgent_activate")).toBeUndefined();
+  });
+
+  it("退会済み / 担当者 の会員には付けない", async () => {
+    setupEligibleJobs();
+    adminResults["select:users"] = { data: { id: USER_ID, role: "contractor", deleted_at: "2026-01-01" } };
+    expect((await activateBankTransferUrgentOptionAction(USER_ID, fd({ jobId: JOB_ID }))).success).toBe(false);
+    setupEligibleJobs();
+    adminResults["select:users"] = { data: { id: USER_ID, role: "staff", deleted_at: null } };
+    expect((await activateBankTransferUrgentOptionAction(USER_ID, fd({ jobId: JOB_ID }))).success).toBe(false);
     expect(adminInserts).toHaveLength(0);
   });
 });

@@ -130,7 +130,7 @@ export default async function AdminClientsPage({ searchParams }: PageProps) {
                   {row.planLabel && (
                     <p className="text-body-xs text-muted-foreground">
                       プラン: {row.planLabel}
-                      {row.paymentMethod === "bank_transfer" && "（銀行振込）"}
+                      {row.paymentMethod === "bank_transfer" && "（手動設定）"}
                     </p>
                   )}
                 </div>

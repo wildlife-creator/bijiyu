@@ -5,11 +5,15 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { writeAuditLog } from "@/lib/audit/log";
-import { sendVideoActivatedEmails } from "@/lib/billing/activation-emails";
+import {
+  sendUrgentActivatedEmails,
+  sendVideoActivatedEmails,
+} from "@/lib/billing/activation-emails";
 import { todayJstDateString } from "@/lib/billing/bank-transfer";
 import { comparePlans } from "@/lib/billing/compare-plans";
 import { grantBankTransferPlan } from "@/lib/billing/grant-plan";
 import { getStripeClient } from "@/lib/billing/stripe";
+import { fetchUrgentEligibleJobs } from "@/lib/billing/urgent-option-admin";
 import { validateDowngradePrerequisites } from "@/lib/billing/validate-downgrade";
 import {
   BANK_TRANSFER_VIDEO_PLAN_KEYS,
@@ -35,7 +39,10 @@ import type { ActionResult } from "@/lib/types/action-result";
  * - 無効化: Stripe 解約と同じ後処理（role 降格・配下メンバー削除・案件クローズ）を
  *   `handle_subscription_lifecycle_deleted`（v4: subscription_id 指定）で実行
  * - カード → 銀行振込: Stripe を即時解約し、同じ契約行の支払方法を書き換える（§3.1。有料が途切れない）
- * - 動画プラン: option_subscriptions に買い切りの銀行振込行を作り、購入完了メールを送る
+ * - 動画プラン（「購入済みにする」）: option_subscriptions に買い切りの銀行振込行を作り、申込受付メールを送る
+ * - 急募オプション: 運営が案件を選び、Stripe 経路（handleUrgentOption）と同じ副作用
+ *   （option_subscriptions の bank_transfer 行・jobs.is_urgent・client_profiles.is_urgent_option・お知らせメール）
+ *   を実行する。7 日後の解除は既存の pg_cron `expire-options` が支払い方法を問わず行う
  *
  * 銀行振込 → カードは会員が料金プラン画面で Checkout する（§3.2。運営操作なし）。
  */
@@ -46,6 +53,10 @@ const GENERIC_ERROR = "処理に失敗しました。しばらくしてから再
 
 const planSchema = z.enum(PAID_PLAN_TYPES);
 const videoPlanSchema = z.enum(BANK_TRANSFER_VIDEO_PLAN_KEYS);
+const urgentJobIdSchema = z.string().uuid();
+
+/** 急募の掲載期間（日）。Stripe 経路（handleUrgentOption）と同じ */
+const URGENT_OPTION_DAYS = 7;
 
 /** 対象会員の検査: 退会済み・担当者（staff）・管理者には契約を付けない（契約主体になれない） */
 async function loadTargetUser(admin: AdminClient, userId: string) {
@@ -98,6 +109,13 @@ function revalidateUserPages(userId: string) {
   revalidatePath("/billing");
 }
 
+function revalidateJobPages(jobId: string) {
+  // 急募タグは案件一覧・案件詳細・案件管理に出る
+  revalidatePath("/jobs");
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath("/jobs/manage");
+}
+
 // ---------------------------------------------------------------------------
 // 有効化（有効プランなし → 銀行振込行を作成）
 // ---------------------------------------------------------------------------
@@ -132,8 +150,8 @@ export async function activateBankTransferPlanAction(
       success: false,
       error:
         existing.payment_method === "stripe"
-          ? "この方はクレジットカードでご契約中です。「銀行振込に切り替える」を使ってください"
-          : "この方には有効な銀行振込プランが既にあります。「変更する」を使ってください",
+          ? "この方はクレジットカードでご契約中です。「手動設定に切り替える」を使ってください"
+          : "この方には手動設定のプランが既にあります。「変更する」を使ってください",
     };
   }
 
@@ -402,7 +420,7 @@ export async function switchStripeToBankTransferAction(
     return {
       success: false,
       error:
-        "カード払いは停止しましたが、切り替えの記録に失敗しました。画面を更新し、「有効にする」で銀行振込を設定してください",
+        "カード払いは停止しましたが、切り替えの記録に失敗しました。画面を更新し、「有効にする」で手動設定してください",
     };
   }
 
@@ -481,5 +499,92 @@ export async function activateBankTransferVideoOptionAction(
     metadata: { user_id: userId, option_type: optionType },
   });
   revalidateUserPages(userId);
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// 急募オプション（運営が案件を選んで有効化。Stripe 経路 handleUrgentOption と同じ副作用）
+// ---------------------------------------------------------------------------
+
+export async function activateBankTransferUrgentOptionAction(
+  userId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const parsed = urgentJobIdSchema.safeParse(String(formData.get("jobId") ?? ""));
+  if (!parsed.success) {
+    return { success: false, error: "急募にする案件を選択してください" };
+  }
+  const jobId = parsed.data;
+
+  const admin = createAdminClient();
+  const target = await loadTargetUser(admin, userId);
+  if (!target.ok) return { success: false, error: target.error };
+
+  // 画面のプルダウンと同じ絞り込みで検証する（本人または同じ組織の掲載中で、急募になっていない案件）
+  const eligible = await fetchUrgentEligibleJobs(admin, userId);
+  if (!eligible.some((j) => j.id === jobId)) {
+    return {
+      success: false,
+      error: "対象の案件が見つからないか、既に急募になっています。画面を更新して選び直してください",
+    };
+  }
+
+  const now = new Date();
+  const endDate = new Date(now.getTime() + URGENT_OPTION_DAYS * 24 * 60 * 60 * 1000);
+
+  const insert = await admin
+    .from("option_subscriptions")
+    .insert({
+      user_id: userId,
+      job_id: jobId,
+      payment_type: "one_time",
+      payment_method: "bank_transfer",
+      option_type: "urgent",
+      status: "active",
+      start_date: now.toISOString(),
+      end_date: endDate.toISOString(),
+    })
+    .select("id")
+    .single();
+  if (insert.error || !insert.data) {
+    console.error("[activateBankTransferUrgentOptionAction] insert failed", insert.error);
+    return { success: false, error: GENERIC_ERROR };
+  }
+
+  // 案件に急募タグ。失敗したら購入記録を取り消して中断（半端な状態を残さない）
+  const updateJob = await admin.from("jobs").update({ is_urgent: true }).eq("id", jobId);
+  if (updateJob.error) {
+    console.error("[activateBankTransferUrgentOptionAction] jobs update failed", updateJob.error);
+    await admin.from("option_subscriptions").delete().eq("id", insert.data.id);
+    return { success: false, error: GENERIC_ERROR };
+  }
+
+  // 発注者プロフィールの急募フラグ（ADM-003 の絞り込み用）。失敗しても掲載は成立しているので続行
+  const updateProfile = await admin
+    .from("client_profiles")
+    .update({ is_urgent_option: true })
+    .eq("user_id", userId);
+  if (updateProfile.error) {
+    console.error(
+      "[activateBankTransferUrgentOptionAction] client_profiles update failed",
+      updateProfile.error,
+    );
+  }
+
+  // §6.6.A 急募オプション有効化のお知らせ（案件の組織メンバー全員。運営宛は無い = 運営自身の操作のため）
+  await sendUrgentActivatedEmails(admin, sendEmail, jobId, endDate);
+
+  await writeAuditLog({
+    actorId: auth.adminId,
+    action: "bank_transfer_urgent_activate",
+    targetType: "option_subscription",
+    targetId: insert.data.id,
+    metadata: { user_id: userId, job_id: jobId, end_date: endDate.toISOString() },
+  });
+  revalidateUserPages(userId);
+  revalidateJobPages(jobId);
   return { success: true };
 }

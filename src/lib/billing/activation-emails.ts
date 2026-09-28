@@ -97,9 +97,12 @@ export async function sendPlanActivatedEmail(
       applicantName,
       companyName,
       planName: planDisplayName(planType, context.billingCycle ?? null),
-      paymentMethodLabel: context.paymentMethod
-        ? PAYMENT_METHOD_LABELS[context.paymentMethod]
-        : "不明",
+      // 運営宛メールでは手動設定を「運営が設定」と書く（管理画面の表示は PAYMENT_METHOD_LABELS の「手動設定」）
+      paymentMethodLabel: !context.paymentMethod
+        ? "不明"
+        : context.paymentMethod === "bank_transfer"
+          ? "運営が設定"
+          : PAYMENT_METHOD_LABELS[context.paymentMethod],
       activatedAt: formatBillingDate(activatedAtIso),
       userId,
       siteUrl,

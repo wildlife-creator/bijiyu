@@ -84,9 +84,15 @@ export const PLAN_LABELS: Record<PlanType, string> = {
 export type PaymentMethod = "stripe" | "bank_transfer";
 export type BillingCycle = "monthly" | "yearly";
 
+/**
+ * 管理画面の支払い方法の表示。bank_transfer は「運営が管理画面でオンにした契約」なので
+ * 入金の有無に関係なく「手動設定」と出す（無料で提供する会社にも使うため）。
+ * 本人が払ったことが分かるよう、カード払いだけは「クレジットカード」と出す。
+ * 会員向けの料金プラン画面では手動設定の支払い方法の行自体を出さない。
+ */
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   stripe: "クレジットカード",
-  bank_transfer: "銀行振込",
+  bank_transfer: "手動設定",
 };
 
 export const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {

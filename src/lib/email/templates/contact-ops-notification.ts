@@ -11,8 +11,6 @@ interface ContactOpsNotificationEmailProps {
   email: string;
   /** お問い合わせ種類（CONTACT_INQUIRY_TYPES のラベル） */
   inquiryType: string;
-  /** 銀行振込のお問い合わせで選ばれた希望プランの表示ラベル（それ以外は null / 省略） */
-  bankTransferPlanLabel?: string | null;
   /** YYYY/MM/DD HH:MM */
   receivedAt: string;
   /**
@@ -49,7 +47,6 @@ export function contactOpsNotificationEmail({
   phone,
   email,
   inquiryType,
-  bankTransferPlanLabel = null,
   receivedAt,
   loginStatus,
   siteUrl,
@@ -76,9 +73,8 @@ export function contactOpsNotificationEmail({
         listItem("電話番号", phone),
         listItem("ログイン状態", loginStatusValue, { blockEnd: true }),
 
-        // 内容情報ブロック（2〜3 行。希望プランは銀行振込のときだけ）
+        // 内容情報ブロック（2 行）
         listItem("お問い合わせの種類", inquiryType),
-        ...(bankTransferPlanLabel ? [listItem("希望プラン", bankTransferPlanLabel)] : []),
         listItem("受信日時", receivedAt, { blockEnd: true }),
 
         // deep link + ログイン警告文

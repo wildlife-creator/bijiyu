@@ -15,10 +15,7 @@ import {
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { formatDateTime } from "@/lib/utils/format-date";
 import { contactSchema } from "@/lib/validations/contact";
-import {
-  BANK_TRANSFER_INQUIRY_TYPE,
-  bankTransferPlanLabel,
-} from "@/lib/constants/contact-options";
+import { BANK_TRANSFER_INQUIRY_TYPE } from "@/lib/constants/contact-options";
 import type { ActionResult } from "@/lib/types/action-result";
 
 const MAX_SUBMISSIONS_PER_HOUR = 5;
@@ -39,7 +36,6 @@ export async function submitContactAction(
     inquiryType: str("inquiryType"),
     purpose: str("purpose"),
     industry: str("industry"),
-    bankTransferPlan: str("bankTransferPlan"),
     projectDescription: str("projectDescription"),
     projectArea: str("projectArea"),
     videoConsultation: str("videoConsultation"),
@@ -70,8 +66,6 @@ export async function submitContactAction(
       error: "銀行振込についてのお問い合わせは、ログインのうえお送りください。",
     };
   }
-  const bankTransferPlan =
-    input.inquiryType === BANK_TRANSFER_INQUIRY_TYPE ? input.bankTransferPlan || null : null;
 
   const admin = createAdminClient();
 
@@ -108,7 +102,6 @@ export async function submitContactAction(
       inquiry_type: input.inquiryType,
       purpose: input.purpose,
       industry: input.industry,
-      bank_transfer_plan: bankTransferPlan,
       project_description: input.projectDescription || null,
       project_area: input.projectArea || null,
       video_consultation: input.videoConsultation || null,
@@ -218,7 +211,6 @@ export async function submitContactAction(
       phone: input.phone,
       email: input.email,
       inquiryType: input.inquiryType,
-      bankTransferPlanLabel: bankTransferPlanLabel(bankTransferPlan),
       receivedAt,
       loginStatus,
       siteUrl,

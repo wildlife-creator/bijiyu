@@ -7,7 +7,7 @@ interface PlanAppliedOpsEmailProps {
   companyName: string | null;
   /** `planDisplayName(planType, billingCycle)`。例:「プレミアムプラン（年払い）」 */
   planName: string;
-  /** `PAYMENT_METHOD_LABELS[paymentMethod]`。例:「カード決済」「銀行振込」 */
+  /** 例:「クレジットカード」「運営が設定」（手動設定の契約） */
   paymentMethodLabel: string;
   /** YYYY/MM/DD */
   activatedAt: string;
@@ -59,7 +59,7 @@ export function planAppliedOpsEmail({
   if (endedBankTransfer) {
     bodyParts.push(
       paragraph(
-        "この会員は銀行振込でご契約中でしたが、クレジットカード決済に切り替わりました。銀行振込の契約は自動的に終了しています。以後、銀行振込の請求書は不要です。",
+        "この会員は手動設定でご契約中でしたが、クレジットカード決済に切り替わりました。手動設定の契約は自動的に終了しています。請求書を送っていた場合、以後は不要です。",
       ),
     );
   }

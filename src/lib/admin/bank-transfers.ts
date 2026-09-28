@@ -1,14 +1,12 @@
-import {
-  BANK_TRANSFER_INQUIRY_TYPE,
-  bankTransferPlanLabel,
-} from "@/lib/constants/contact-options";
+import { BANK_TRANSFER_INQUIRY_TYPE } from "@/lib/constants/contact-options";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * ADM-025 銀行振込お問い合わせ一覧 のクエリロジック。
  *
- * - contacts のうち種類が「お支払い方法（銀行振込）について」のものを新着順で 20 件ページング
- * - ステータスは持たない（対応状況は ADM-009 ユーザー詳細の「銀行振込」枠で分かる）
+ * - contacts のうち種類が「銀行振込について」のものを新着順で 20 件ページング
+ * - ステータスは持たない（対応状況は ADM-009 ユーザー詳細の「契約内容」枠で分かる）
+ * - 希望のプラン・オプションは「問い合わせ詳細」に書かれている（一覧には出さない。ADM-017 で読む）
  * - 各行のリンクは「お問い合わせ詳細」（ADM-017）のみ。契約の操作は ADM-009 ユーザー詳細で行う
  */
 
@@ -20,8 +18,6 @@ export interface BankTransferContactRow {
   companyName: string;
   name: string;
   email: string;
-  /** 希望プランの表示ラベル（未選択の旧データは null） */
-  planLabel: string | null;
   createdAt: string;
 }
 
@@ -35,7 +31,7 @@ export async function fetchBankTransferContactList(filter: {
 
   let query = admin
     .from("contacts")
-    .select("id, user_id, company_name, name, email, bank_transfer_plan, created_at", {
+    .select("id, user_id, company_name, name, email, created_at", {
       count: "exact",
     })
     .eq("inquiry_type", BANK_TRANSFER_INQUIRY_TYPE);
@@ -57,7 +53,6 @@ export async function fetchBankTransferContactList(filter: {
     companyName: r.company_name,
     name: r.name,
     email: r.email,
-    planLabel: bankTransferPlanLabel(r.bank_transfer_plan),
     createdAt: r.created_at,
   }));
 

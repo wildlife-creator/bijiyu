@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BANK_TRANSFER_DETAIL_GUIDE,
   BANK_TRANSFER_INQUIRY_TYPE,
-  BANK_TRANSFER_PLAN_CHOICES,
-  BANK_TRANSFER_PLAN_KEYS,
+  BANK_TRANSFER_VIDEO_CHOICES,
   CONTACT_INQUIRY_TYPES,
-  bankTransferPlanLabel,
-  isBankTransferPlanKey,
 } from "@/lib/constants/contact-options";
 import { TROUBLE_CATEGORIES } from "@/lib/constants/trouble-options";
 import { contactSchema } from "@/lib/validations/contact";
@@ -134,9 +132,9 @@ describe("troubleReportSchema", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 銀行振込のお問い合わせ（希望プラン）
+// 銀行振込のお問い合わせ（希望は問い合わせ詳細に書く）
 // ---------------------------------------------------------------------------
-describe("銀行振込の希望プラン", () => {
+describe("銀行振込のお問い合わせ", () => {
   const base = {
     companyName: "山田工務店",
     name: "山田太郎",
@@ -145,46 +143,39 @@ describe("銀行振込の希望プラン", () => {
     inquiryType: BANK_TRANSFER_INQUIRY_TYPE,
     purpose: "仕事を依頼したい",
     industry: "大工",
-    detail: "銀行振込で契約したいです",
+    detail: "スタンダードプラン 月払いを銀行振込で契約したいです",
   };
 
-  it("選択肢は基本プラン 4 種 + 動画プラン 3 種。補償・急募は含まない", () => {
-    expect(BANK_TRANSFER_PLAN_KEYS).toEqual([
-      "individual",
-      "small",
-      "corporate",
-      "corporate_premium",
-      "video",
-      "video_shooting",
-      "video_sns",
-    ]);
-    expect(BANK_TRANSFER_PLAN_CHOICES.map((c) => c.kind)).toEqual([
-      "plan", "plan", "plan", "plan", "video", "video", "video",
-    ]);
-    expect(isBankTransferPlanKey("urgent")).toBe(false);
-    expect(isBankTransferPlanKey("compensation_5000")).toBe(false);
-    expect(bankTransferPlanLabel("small")).toBe("スタンダードプラン");
-    expect(bankTransferPlanLabel("video")).toBe("プロフィール動画制作プラン");
-    expect(bankTransferPlanLabel(null)).toBeNull();
-    // 未知のキー（将来の廃止等）は壊さずそのまま返す
-    expect(bankTransferPlanLabel("legacy_key")).toBe("legacy_key");
+  it("種類名は「銀行振込について」（旧名「お支払い方法（銀行振込）について」は選択肢に無い）", () => {
+    expect(BANK_TRANSFER_INQUIRY_TYPE).toBe("銀行振込について");
+    expect([...CONTACT_INQUIRY_TYPES]).toContain("銀行振込について");
+    expect([...CONTACT_INQUIRY_TYPES]).not.toContain("お支払い方法（銀行振込）について");
   });
 
-  it("銀行振込を選んだら希望プランが必須（キーで検証）", () => {
-    expect(contactSchema.safeParse({ ...base, bankTransferPlan: "" }).success).toBe(false);
-    expect(contactSchema.safeParse({ ...base }).success).toBe(false);
-    expect(contactSchema.safeParse({ ...base, bankTransferPlan: "スタンダードプラン" }).success).toBe(false);
-    expect(contactSchema.safeParse({ ...base, bankTransferPlan: "small" }).success).toBe(true);
-    const r = contactSchema.safeParse({ ...base, bankTransferPlan: "" });
-    expect(r.success ? [] : r.error.issues.map((i) => i.path.join("."))).toContain("bankTransferPlan");
+  it("希望プランの入力欄は無く、問い合わせ詳細だけで受理する", () => {
+    const r = contactSchema.safeParse({ ...base });
+    expect(r.success).toBe(true);
+    // 旧フィールドを送ってきても保存対象にならない（スキーマに無いので落ちる）
+    const legacy = contactSchema.safeParse({ ...base, bankTransferPlan: "small" });
+    expect(legacy.success && "bankTransferPlan" in legacy.data).toBe(false);
   });
 
-  it("銀行振込以外では希望プランは空でなければならない", () => {
-    expect(
-      contactSchema.safeParse({ ...base, inquiryType: "料金について", bankTransferPlan: "small" }).success,
-    ).toBe(false);
-    expect(
-      contactSchema.safeParse({ ...base, inquiryType: "料金について", bankTransferPlan: "" }).success,
-    ).toBe(true);
+  it("問い合わせ詳細が空なら拒否する（希望はここに書いてもらうため）", () => {
+    expect(contactSchema.safeParse({ ...base, detail: "" }).success).toBe(false);
+  });
+
+  it("問い合わせ詳細の案内は、プラン・オプション名／急募の案件名／未定なら相談、を伝える", () => {
+    expect(BANK_TRANSFER_DETAIL_GUIDE).toContain("基本プラン・オプションの名前");
+    expect(BANK_TRANSFER_DETAIL_GUIDE).toContain("対象の案件名");
+    expect(BANK_TRANSFER_DETAIL_GUIDE).toContain("ご相談ください");
+  });
+
+  it("管理画面で手動設定できる動画プランは 3 種（補償は含まない）", () => {
+    expect(BANK_TRANSFER_VIDEO_CHOICES.map((c) => c.key)).toEqual(["video", "video_shooting", "video_sns"]);
+    expect(BANK_TRANSFER_VIDEO_CHOICES.map((c) => c.label)).toEqual([
+      "プロフィール動画制作プラン",
+      "ユーザー撮影動画制作プラン",
+      "ビジ友公式SNS動画制作プラン",
+    ]);
   });
 });

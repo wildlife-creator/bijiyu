@@ -26,6 +26,10 @@ import {
   VIDEO_OPTION_TYPES,
   VIDEO_OPTION_UI_NAMES,
 } from "@/lib/billing/options";
+import {
+  fetchActiveUrgentOptions,
+  fetchUrgentEligibleJobs,
+} from "@/lib/billing/urgent-option-admin";
 import { PAYMENT_METHOD_LABELS, type PaidPlanType } from "@/lib/constants/plans";
 import { DeleteAccountButton } from "@/app/admin/(protected)/clients/[id]/delete-account-button";
 import { DeleteUserButton } from "./delete-user-button";
@@ -130,6 +134,18 @@ export default async function AdminUserDetailPage({
         ]
       : [],
   );
+
+  // 銀行振込枠の「急募オプション」: 適用中の一覧（表示専用）+ 急募にできる案件（/billing と同じ絞り込み）
+  const [activeUrgentRows, urgentEligibleJobs] = await Promise.all([
+    fetchActiveUrgentOptions(admin, id),
+    fetchUrgentEligibleJobs(admin, id),
+  ]);
+  const urgentOptions = activeUrgentRows.map((r) => ({
+    id: r.id,
+    jobTitle: r.jobTitle,
+    endDateLabel: formatDateJst(r.endDate),
+    paymentMethodLabel: PAYMENT_METHOD_LABELS[r.paymentMethod],
+  }));
 
   // 発注者でもある会員の削除確認で「配下の担当者も削除される」警告を出すか（ADM-004 と同じ判定）
   let hasOrganization = false;
@@ -384,10 +400,12 @@ export default async function AdminUserDetailPage({
           退会済み・担当者（staff）・管理者には出さない */}
       {!isDeleted && (u.role === "contractor" || u.role === "client") && (
         <section className="mt-6">
-          <h2 className="text-body-lg font-bold text-foreground">銀行振込</h2>
+          <h2 className="text-body-lg font-bold text-foreground">契約内容</h2>
           <BankTransferPanel
             userId={id}
             videoPurchases={videoPurchases}
+            urgentOptions={urgentOptions}
+            urgentEligibleJobs={urgentEligibleJobs}
             subscription={
               activeSubscription
                 ? {

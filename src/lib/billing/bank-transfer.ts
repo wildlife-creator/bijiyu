@@ -7,9 +7,12 @@
  * 契約行は subscriptions / option_subscriptions の payment_method = 'bank_transfer'。
  */
 
-/** 銀行振込契約者が Stripe 前提の操作（変更・解約・支払情報）に触れたときの案内文 */
+/**
+ * 手動設定（payment_method = bank_transfer）の契約者が Stripe 前提の操作（変更・解約・支払情報）に
+ * 触れたときの案内文。運営が無料で提供している場合もあるため「銀行振込」とは書かない。
+ */
 export const BANK_TRANSFER_MANAGED_BY_OPS_MESSAGE =
-  "銀行振込でご契約中のプラン・オプションの変更や解約は、運営までご連絡ください";
+  "クレジットカード以外でご契約中の場合、プラン・オプションの変更や解約は運営までご連絡ください";
 
 /** 料金プラン画面の案内文（お問い合わせへのリンクを添えて表示する） */
 export const BANK_TRANSFER_CONTACT_MESSAGE =

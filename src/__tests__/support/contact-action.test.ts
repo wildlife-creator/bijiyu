@@ -188,49 +188,41 @@ describe("submitContactAction", () => {
     expect(adminState.deletes).toHaveLength(1);
   });
 
-  it("銀行振込: 未ログインでは種類に「お支払い方法（銀行振込）について」を選べない（サーバーで拒否）", async () => {
+  it("銀行振込: 未ログインでは種類に「銀行振込について」を選べない（サーバーで拒否）", async () => {
     const f = validForm();
-    f.set("inquiryType", "お支払い方法（銀行振込）について");
-    f.set("bankTransferPlan", "small");
+    f.set("inquiryType", "銀行振込について");
     const result = await submitContactAction(f);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toContain("ログイン");
     expect(adminState.inserts).toHaveLength(0);
   });
 
-  it("銀行振込: ログイン中は希望プランのキーを bank_transfer_plan に保存する", async () => {
+  it("銀行振込: ログイン中は種類と問い合わせ詳細だけで保存する（希望プランの列は持たない）", async () => {
     authState.user = { id: "user-9" };
     const f = validForm();
-    f.set("inquiryType", "お支払い方法（銀行振込）について");
-    f.set("bankTransferPlan", "video_sns");
+    f.set("inquiryType", "銀行振込について");
+    f.set("detail", "スタンダードプラン 月払いと急募オプションを希望します。");
+    // 旧フォームの値が送られてきても保存しない
+    f.set("bankTransferPlan", "small");
+    f.append("bankTransferOptions", "urgent");
     const result = await submitContactAction(f);
     expect(result.success).toBe(true);
-    expect(adminState.inserts[0].payload).toMatchObject({
+    const payload = adminState.inserts[0].payload;
+    expect(payload).toMatchObject({
       user_id: "user-9",
-      inquiry_type: "お支払い方法（銀行振込）について",
-      bank_transfer_plan: "video_sns",
+      inquiry_type: "銀行振込について",
+      detail: "スタンダードプラン 月払いと急募オプションを希望します。",
     });
+    expect(payload).not.toHaveProperty("bank_transfer_plan");
+    expect(payload).not.toHaveProperty("bank_transfer_plans");
   });
 
-  it("銀行振込: ログイン中でも希望プランが空・不正なら拒否する", async () => {
+  it("旧種類名「お支払い方法（銀行振込）について」は選択肢に無いので拒否する", async () => {
     authState.user = { id: "user-9" };
     const f = validForm();
     f.set("inquiryType", "お支払い方法（銀行振込）について");
-    expect((await submitContactAction(f)).success).toBe(false);
-    f.set("bankTransferPlan", "compensation_5000"); // 対象外のキーは選べない
     expect((await submitContactAction(f)).success).toBe(false);
     expect(adminState.inserts).toHaveLength(0);
-  });
-
-  it("銀行振込以外の種類では bank_transfer_plan を null で保存する（値が送られても弾く）", async () => {
-    authState.user = { id: "user-9" };
-    const f = validForm();
-    f.set("bankTransferPlan", "small");
-    expect((await submitContactAction(f)).success).toBe(false);
-    f.set("bankTransferPlan", "");
-    const result = await submitContactAction(f);
-    expect(result.success).toBe(true);
-    expect(adminState.inserts[0].payload.bank_transfer_plan).toBeNull();
   });
 
   it("添付ありで成功時は attachments を更新する", async () => {

@@ -461,12 +461,15 @@ export function BillingClient({
                   </Badge>
                 )}
               </dd>
-              <dt className="text-muted-foreground">お支払い方法</dt>
-              <dd className="font-medium">
-                {isBankTransferPlan
-                  ? "銀行振込"
-                  : `クレジットカード・${BILLING_CYCLE_LABELS[currentCycle]}`}
-              </dd>
+              {/* 手動設定（運営がオンにした契約）は支払い方法を出さない。カード払いだけ明示する */}
+              {!isBankTransferPlan && (
+                <>
+                  <dt className="text-muted-foreground">お支払い方法</dt>
+                  <dd className="font-medium">
+                    {`クレジットカード・${BILLING_CYCLE_LABELS[currentCycle]}`}
+                  </dd>
+                </>
+              )}
               {!isBankTransferPlan && subscription?.currentPeriodEnd && (
                 <>
                   <dt className="text-muted-foreground">次回更新日</dt>

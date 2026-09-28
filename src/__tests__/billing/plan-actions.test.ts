@@ -382,7 +382,7 @@ describe("changePlanAction", () => {
     expect(result).toEqual({
       success: false,
       error:
-        "銀行振込でご契約中のプラン・オプションの変更や解約は、運営までご連絡ください",
+        "クレジットカード以外でご契約中の場合、プラン・オプションの変更や解約は運営までご連絡ください",
     });
     expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
   });

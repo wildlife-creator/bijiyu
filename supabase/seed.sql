@@ -2443,10 +2443,32 @@ VALUES ('ba100000-0000-4000-8000-00000000cc02', 'ba100000-0000-4000-8000-0000000
 INSERT INTO client_profiles (user_id, display_name) VALUES
   ('ba100000-0000-4000-8000-000000000002', '振込商店');
 
--- ③ 銀行振込のお問い合わせ（ログイン中に送信。希望プラン = ライト）→ ADM-025 銀行振込お問い合わせ一覧に出る
-INSERT INTO contacts (user_id, company_name, name, phone, email, address, inquiry_type, purpose, industry, detail, bank_transfer_plan, created_at)
+-- ③ 銀行振込のお問い合わせ（ログイン中に送信。希望は問い合わせ詳細に書く）→ ADM-025 銀行振込お問い合わせ一覧に出る
+INSERT INTO contacts (user_id, company_name, name, phone, email, address, inquiry_type, purpose, industry, detail, created_at)
 VALUES ('ba100000-0000-4000-8000-000000000003', '振込工務店', '振込次郎', '045-000-1111', 'bank-requested@test.local', '神奈川県',
-        'お支払い方法（銀行振込）について', '仕事を依頼したい', '大工', 'ライトプランを銀行振込で契約したいです。', 'individual', now() - interval '1 day');
+        '銀行振込について', '仕事を依頼したい', '大工', 'ライトプランを銀行振込で契約したいです。', now() - interval '1 day');
+
+-- ④ bank-client（振込商店）の掲載中の案件。ADM-009 の銀行振込枠「急募オプション」で案件を選んで有効にする E2E 用
+--    （急募になっていない open の案件だけがプルダウンに並ぶ）
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, reward_upper, reward_lower, work_start_date, work_end_date, recruit_start_date, recruit_end_date, status) VALUES
+  (
+    'ba100000-0000-4000-8000-00000000ee01',
+    'ba100000-0000-4000-8000-000000000002',
+    NULL,
+    '【振込商店】外壁塗装の職人募集（銀行振込 急募E2E）',
+    '銀行振込で急募オプションを付ける E2E 用の案件です。',
+    ARRAY['建築/仕上げ｜塗装工']::text[],
+    1,
+    22000,
+    18000,
+    CURRENT_DATE + interval '10 days',
+    CURRENT_DATE + interval '20 days',
+    CURRENT_DATE - interval '1 days',
+    CURRENT_DATE + interval '30 days',
+    'open'
+  );
+INSERT INTO job_areas (job_id, prefecture, municipality) VALUES
+  ('ba100000-0000-4000-8000-00000000ee01', '東京都', NULL);
 
 -- ============================================================
 -- 一覧の並び替え（プラン順の既定並び + 並び替えプルダウン）E2E 用 seed

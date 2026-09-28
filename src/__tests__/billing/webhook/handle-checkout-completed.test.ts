@@ -973,7 +973,7 @@ describe("handleCheckoutCompleted 銀行振込からカード決済への切り�
     }).admin;
   }
 
-  it("RPC が ended_bank_transfer_subscription_id を返したら、運営宛通知に「以後、銀行振込の請求書は不要」の一文が入る", async () => {
+  it("RPC が ended_bank_transfer_subscription_id を返したら、運営宛通知に「請求書を送っていた場合、以後は不要」の一文が入る", async () => {
     const admin = adminWith({
       subscription_id: "sub-new",
       ended_bank_transfer_subscription_id: "sub-bank-1",
@@ -985,7 +985,7 @@ describe("handleCheckoutCompleted 銀行振込からカード決済への切り�
     );
     const ops = SEND.mock.calls.map((c) => c[0] as SendArgs).find((m) => m.to === OPS);
     expect(ops?.subject).toBe("【ビジ友 運営】プランの新規お申し込みがありました");
-    expect(ops?.html).toContain("以後、銀行振込の請求書は不要です");
+    expect(ops?.html).toContain("請求書を送っていた場合、以後は不要です");
   });
 
   it("銀行振込行が無かった（null）通常の新規契約では、その一文は入らない", async () => {

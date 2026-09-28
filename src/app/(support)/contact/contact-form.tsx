@@ -19,8 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  BANK_TRANSFER_DETAIL_GUIDE,
   BANK_TRANSFER_INQUIRY_TYPE,
-  BANK_TRANSFER_PLAN_CHOICES,
   CONTACT_INDUSTRIES,
   CONTACT_INQUIRY_TYPES,
   CONTACT_PURPOSES,
@@ -59,7 +59,8 @@ interface ContactFormProps {
 /**
  * お問い合わせフォーム（COM-008）。データ取得は page.tsx（Server Component）が行う。
  * - ログイン中は会社名／屋号・氏名・メール・所在地を会員情報から最初から入れておく
- * - 「お支払い方法（銀行振込）について」はログイン中だけ選べ、選ぶと希望プランが必須になる
+ * - 「銀行振込について」はログイン中だけ選べ、選ぶと「問い合わせ詳細」の下に
+ *   希望のプラン・オプション（急募は案件名も）を書いてもらう案内が出る（専用の入力欄は持たない）
  */
 export function ContactForm({ isLoggedIn, prefill }: ContactFormProps) {
   const [submitted, setSubmitted] = useState(false);
@@ -83,13 +84,14 @@ export function ContactForm({ isLoggedIn, prefill }: ContactFormProps) {
       inquiryType: "",
       purpose: "",
       industry: "",
-      bankTransferPlan: "",
       projectDescription: "",
       projectArea: "",
       videoConsultation: "",
       detail: "",
     },
   });
+
+  const inquiryType = watch("inquiryType");
 
   // 未ログインには銀行振込の選択肢を出さない（運営が会員を特定して有効化するため）
   const inquiryTypeOptions = isLoggedIn
@@ -164,7 +166,6 @@ export function ContactForm({ isLoggedIn, prefill }: ContactFormProps) {
     formData.set("inquiryType", data.inquiryType);
     formData.set("purpose", data.purpose);
     formData.set("industry", data.industry);
-    formData.set("bankTransferPlan", data.bankTransferPlan ?? "");
     formData.set("projectDescription", data.projectDescription ?? "");
     formData.set("projectArea", data.projectArea ?? "");
     formData.set("videoConsultation", data.videoConsultation ?? "");
@@ -298,47 +299,9 @@ export function ContactForm({ isLoggedIn, prefill }: ContactFormProps) {
             required
             options={inquiryTypeOptions}
             value={watch("inquiryType")}
-            onChange={(v) => {
-              setValue("inquiryType", v, { shouldValidate: true });
-              // 銀行振込以外に変えたら希望プランは空に戻す（サーバー側で「銀行振込以外は空」を検証）
-              if (v !== BANK_TRANSFER_INQUIRY_TYPE) {
-                setValue("bankTransferPlan", "", { shouldValidate: true });
-              }
-            }}
+            onChange={(v) => setValue("inquiryType", v, { shouldValidate: true })}
             error={errors.inquiryType?.message}
           />
-
-          {/* 銀行振込: 希望プラン（銀行振込を選んだときだけ・必須） */}
-          {watch("inquiryType") === BANK_TRANSFER_INQUIRY_TYPE && (
-            <div className="space-y-1">
-              <Label htmlFor="bankTransferPlan">希望プラン{REQUIRED_BADGE}</Label>
-              <Select
-                value={watch("bankTransferPlan") ?? ""}
-                onValueChange={(v) =>
-                  setValue("bankTransferPlan", v, { shouldValidate: true })
-                }
-              >
-                <SelectTrigger id="bankTransferPlan" className="bg-background">
-                  <SelectValue placeholder="選択してください" />
-                </SelectTrigger>
-                <SelectContent>
-                  {BANK_TRANSFER_PLAN_CHOICES.map((c) => (
-                    <SelectItem key={c.key} value={c.key}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.bankTransferPlan && (
-                <p className="text-body-sm text-destructive">
-                  {errors.bankTransferPlan.message}
-                </p>
-              )}
-              <p className="text-body-sm text-muted-foreground">
-                月払い／年払いのご希望や、複数プランをご検討の場合は「問い合わせ詳細」にご記入ください。
-              </p>
-            </div>
-          )}
 
           <div className="space-y-1">
             <Label htmlFor="detail">問い合わせ詳細{REQUIRED_BADGE}</Label>
@@ -347,6 +310,10 @@ export function ContactForm({ isLoggedIn, prefill }: ContactFormProps) {
               <p className="text-body-sm text-destructive">
                 {errors.detail.message}
               </p>
+            )}
+            {/* 銀行振込: 希望のプラン・オプションはここに書いてもらう */}
+            {inquiryType === BANK_TRANSFER_INQUIRY_TYPE && (
+              <p className="text-body-sm text-muted-foreground">{BANK_TRANSFER_DETAIL_GUIDE}</p>
             )}
           </div>
         </section>

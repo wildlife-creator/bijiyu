@@ -51,7 +51,7 @@ export default async function AdminBankTransfersPage({ searchParams }: PageProps
         銀行振込お問い合わせ一覧
       </h1>
       <p className="mt-3 text-center text-body-sm text-muted-foreground">
-        銀行振込を希望するお問い合わせです。入金を確認したら、ユーザー詳細の「銀行振込」でプランを有効にしてください。
+        銀行振込を希望するお問い合わせです。入金を確認したら、ユーザー詳細の「契約内容」でプランを有効にしてください。
       </p>
 
       <KeywordSearchForm
@@ -81,9 +81,6 @@ export default async function AdminBankTransfersPage({ searchParams }: PageProps
                 <span className="ml-2 font-normal">{row.name}</span>
               </p>
               <p className="truncate text-body-sm text-muted-foreground">{row.email}</p>
-              <p className="text-body-sm text-foreground">
-                希望：{row.planLabel ?? "—"}
-              </p>
               <div className="mt-2 flex flex-wrap justify-end gap-2">
                 <Button
                   asChild

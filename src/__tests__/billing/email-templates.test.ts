@@ -559,7 +559,7 @@ describe("planAppliedOpsEmail §6.7-Ops 基本プラン新規契約の運営通�
       applicantName: "佐藤花子",
       companyName: "テスト建設株式会社",
       planName: "プレミアムプラン（年払い）",
-      paymentMethodLabel: "銀行振込",
+      paymentMethodLabel: "運営が設定",
       activatedAt: "2026/09/10",
       userId: "user-001",
       siteUrl: "https://bijiyu.example.com",
@@ -571,7 +571,7 @@ describe("planAppliedOpsEmail §6.7-Ops 基本プラン新規契約の運営通�
     expect(out.html).toContain("お申し込みプラン");
     expect(out.html).toContain("プレミアムプラン（年払い）");
     expect(out.html).toContain("お支払い方法");
-    expect(out.html).toContain("銀行振込");
+    expect(out.html).toContain("運営が設定");
     expect(out.html).toContain("ご利用開始日");
     expect(out.html).toContain("2026/09/10");
     expect(out.html).toContain("https://bijiyu.example.com/admin/clients/user-001");
@@ -594,7 +594,7 @@ describe("planAppliedOpsEmail §6.7-Ops 基本プラン新規契約の運営通�
     expect(out.html).not.toContain("請求書は不要");
   });
 
-  it("銀行振込からカード決済に切り替わったときだけ「以後、銀行振込の請求書は不要」の一文を足す", () => {
+  it("手動設定からカード決済に切り替わったときだけ「請求書を送っていた場合、以後は不要」の一文を足す", () => {
     const out = planAppliedOpsEmail({
       applicantName: "振込一郎",
       companyName: "振込一郎建設",
@@ -606,7 +606,7 @@ describe("planAppliedOpsEmail §6.7-Ops 基本プラン新規契約の運営通�
       endedBankTransfer: true,
     });
     expect(out.html).toContain(
-      "この会員は銀行振込でご契約中でしたが、クレジットカード決済に切り替わりました。銀行振込の契約は自動的に終了しています。以後、銀行振込の請求書は不要です。",
+      "この会員は手動設定でご契約中でしたが、クレジットカード決済に切り替わりました。手動設定の契約は自動的に終了しています。請求書を送っていた場合、以後は不要です。",
     );
   });
 });

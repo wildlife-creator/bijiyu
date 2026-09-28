@@ -37,6 +37,7 @@ export type AuditAction =
   | "bank_transfer_cancel_subscription" // 無効化（解約と同じ後処理）
   | "bank_transfer_switch_from_stripe" // カード払い → 銀行振込（同じ契約行を書き換え）
   | "bank_transfer_option_activate" // 動画プランの有効化（option_subscriptions に bank_transfer 行）
+  | "bank_transfer_urgent_activate" // 急募オプションの有効化（案件を選んで option_subscriptions に bank_transfer 行 + jobs.is_urgent）
   // 管理運営アカウント（廃止済みの旧設定画面の値。過去ログの値としてのみ残す。現在は SQL で設定）
   | "ops_account_set"
   | "ops_account_unset";
