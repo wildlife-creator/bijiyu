@@ -1,4 +1,4 @@
-# ステージング反映 設定チェックリスト（2026-09 改修 P1〜P11 + ステージング指摘修正）
+# ステージング反映 設定チェックリスト（2026-09 改修 P1〜P12 + 料金整理・支払い修正 + ステージング指摘修正）
 
 作成: 2026-09-09。更新: 2026-09-10（P10 動画プラン整理・P11 価格改定と比較表・運営宛メールを反映）。対象コード: `feature/spec-changes-202608`（origin に push 済。先端は `git log origin/feature/spec-changes-202608 -1` で確認。2026-09-10 時点で 4d1f979 以降）。
 このファイルは **Claude（Cowork）に引き継いで設定作業を進めるための手順書**。根拠は 8 月末の分岐点（`client/staging` = 583711d）から現在までのコード差分。
@@ -8,6 +8,13 @@
 - 月額を 2,800 / 9,800 / 28,000 / 168,000 円、初回事務手数料を 12,000 円に改定 → **Stripe の月額 Price 4 本 + 事務手数料 Price を作り直し、環境変数 5 本を差し替え**（A0・B4）
 - 上位表示にスタンダードを追加、プレミアムの担当者上限 10 → 5 人 → マイグレーション 2 本追加（B1、計 8 本）
 - 運営宛メールを 1 通新設（プランの新規申込）。宛先は既存の `OPS_NOTIFICATION_EMAIL` で設定作業の追加なし
+
+**2026-09-28 の追加分の要点**（仕様の正は `docs/requirements/current-spec.md`）:
+- P12 銀行振込を「お問い合わせ → 運営がオン／オフ」だけに作り替え（申込テーブル・期限 cron・本人申込ボタンを廃止）。管理画面では「銀行振込」と書かず「手動設定」と表示（ADM-009 の枠は「契約内容」）。お問い合わせの種類は「銀行振込について」で、希望は問い合わせ詳細に書く
+- 急募オプションを運営が ADM-009 でオンにできるように。動画プランのボタンは「購入済みにする」
+- 料金プラン画面（CLI-026）の組み替え、管理画面・料金まわりの整理、旧「職場紹介動画」（video_workplace）をコードごと削除
+- 支払い E2E で見つかった不具合の修正（予約の同期漏れ・差額の請求時期 = A1 の always_invoice・適用後の「変更予定」残り・即時解約後の復活・予約メールの二重送信 ほか）
+- マイグレーションは計 11 本（B1）、Edge Function は `auto-cancel-past-due` の 1 本（B3）
 
 ## 0. 大前提（作業する Claude と人間の役割分担）
 
@@ -81,7 +88,7 @@
 - Stripe ダッシュボード → 商品 → 新規作成（名称例「ユーザー撮影動画制作プラン」、一回限り、¥20,000 税込）
 - 作成された `price_…` を控える → `STRIPE_PRICE_VIDEO_SHOOTING`
 - 同様に「ビジ友公式SNS動画制作プラン」（一回限り、¥120,000 税込）を作成 → `STRIPE_PRICE_VIDEO_SNS`（P10、2026-09-10 追加）
-- 既存の「自己PR動画掲載」商品（`STRIPE_PRICE_VIDEO`）は名称を「プロフィール動画制作プラン」に変更しておく（Price ID はそのまま）。「職場紹介動画掲載」（`STRIPE_PRICE_VIDEO_WORKPLACE`）は新規販売停止だが、環境変数は残す（既存契約の Webhook 用。staging では未購入のため実害なし）
+- 既存の「自己PR動画掲載」商品（`STRIPE_PRICE_VIDEO`）は名称を「プロフィール動画制作プラン」に変更しておく（Price ID はそのまま）。旧「職場紹介動画掲載」はコードごと削除済み（migration 10. が既存行を `video` に書き換え）。`STRIPE_PRICE_VIDEO_WORKPLACE` はアプリが読まなくなったので、Vercel に残っていても害はない（消してもよい）
 
 ### A3. Cloudflare: アカウント + Stream 有効化（開発側が作成）
 
@@ -103,7 +110,7 @@
 
 ## B. 反映当日（この順番で）
 
-### B1. ステージング DB にマイグレーション 8 本を適用
+### B1. ステージング DB にマイグレーション 11 本を適用
 
 - 事前に **人間のターミナルで** `supabase login`（前回の CLI 更新で未ログイン化しているため）
 - 適用（Claude 実行可。秘密は表示されない）:
@@ -167,12 +174,12 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
 | `STRIPE_PRICE_CORPORATE_PREMIUM` | A0（差し替え） | 必須 | いいえ |
 | `STRIPE_PRICE_INITIAL_FEE` | A0（差し替え） | 必須 | いいえ |
 | `NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED` | 設定しない（未設定 = 補償オプション非表示・販売停止） | 任意 | — |
-| `NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED` | 設定しない（未設定 = 本人申込ボタン非表示、運営が代理登録） | 任意 | — |
 | `CLOUDFLARE_ACCOUNT_ID` | A3 | A3 完了後 | いいえ |
 | `CLOUDFLARE_STREAM_API_TOKEN` | A3 | A3 完了後 | **秘密** |
 | `CLOUDFLARE_STREAM_WEBHOOK_SECRET` | A4 の出力 | A4 完了後 | **秘密** |
 
-- 既存の変数（`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PRICE_VIDEO` / `STRIPE_PRICE_VIDEO_WORKPLACE` / `STRIPE_PRICE_URGENT` / 補償 2 本 / `STRIPE_PORTAL_CONFIGURATION_ID` / `NEXT_PUBLIC_APP_URL` / `OPS_NOTIFICATION_EMAIL` / Supabase 3 種 / Resend 系）はそのまま。**月額 4 本と初回事務手数料の 5 本だけは A0 の新 Price ID に差し替える**（上の表）
+- 既存の変数（`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PRICE_VIDEO` / `STRIPE_PRICE_URGENT` / 補償 2 本 / `STRIPE_PORTAL_CONFIGURATION_ID` / `NEXT_PUBLIC_APP_URL` / `OPS_NOTIFICATION_EMAIL` / Supabase 3 種 / Resend 系）はそのまま。**月額 4 本と初回事務手数料の 5 本だけは A0 の新 Price ID に差し替える**（上の表）
+- アプリが読まなくなった変数（Vercel に残っていても害はない。消してもよい）: `STRIPE_PRICE_VIDEO_WORKPLACE`（旧 職場紹介動画）/ `NEXT_PUBLIC_BANK_TRANSFER_SELF_SERVICE_ENABLED`（P12 で本人申込ボタンを廃止）
 - 環境変数を追加・変更したら **再デプロイが必要**（B5 のデプロイで反映される）
 
 ### B5. コードの反映（feature → クライアント側 staging）
@@ -181,7 +188,7 @@ Vercel → プロジェクト → Settings → Environment Variables。対象環
    ```
    git push client feature/spec-changes-202608
    ```
-2. GitHub `bijiyu-app/bijiyu` で Pull Request: base `staging` ← compare `feature/spec-changes-202608`。内容は P1〜P11 と ステージング指摘修正 A〜D（本文に `docs/requirements/archive/2026-08-09/` の `spec-changes-202608.md`、`staging-check-fix-plan-202609.md`、`video-plans-handoff-202609.md` を参照）
+2. GitHub `bijiyu-app/bijiyu` で Pull Request: base `staging` ← compare `feature/spec-changes-202608`。内容は P1〜P12・料金整理・支払い E2E の修正・急募の手動設定・「手動設定」表記と、ステージング指摘修正 A〜D（本文は冒頭の「追加分の要点」をまとめ、現在の仕様として `docs/requirements/current-spec.md`、経緯として `docs/requirements/archive/2026-08-09/` の `spec-changes-202608.md`・`staging-check-fix-plan-202609.md`・`video-plans-handoff-202609.md` を参照）
 3. マージ → Vercel が自動デプロイ。完了を待つ
 4. マージ前に B1〜B4 が済んでいること（コードが新しい DB 列・環境変数を前提にしている）
 
