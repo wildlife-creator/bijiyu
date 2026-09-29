@@ -19,6 +19,8 @@ export type ParticipantForDisplay = {
   company_name?: string | null;
   avatar_url?: string | null;
   deleted_at: string | null;
+  /** 管理運営アカウント（運営が SQL でだけ付けられる印）。「ビジ友公式」バッジの判定に使う */
+  is_hidden?: boolean | null;
   client_profiles:
     | Array<{ display_name: string | null; image_url: string | null }>
     | { display_name: string | null; image_url: string | null }
@@ -29,6 +31,7 @@ export type OrgOwnerForDisplay = {
   last_name: string | null;
   first_name: string | null;
   deleted_at: string | null;
+  is_hidden?: boolean | null;
   client_profiles:
     | Array<{ display_name: string | null; image_url: string | null }>
     | { display_name: string | null; image_url: string | null }
@@ -62,6 +65,11 @@ export type CounterpartyResolution = {
   viewerOnSide2: boolean;
   /** viewer が組織側にいるか (組織 identity を持つ席) */
   viewerIsOrgSide: boolean;
+  /**
+   * 相手が管理運営アカウント（users.is_hidden）か。表示名は誰でも自由に名乗れるため、
+   * 会員が本物の運営を見分けられるよう「ビジ友公式」バッジを出す判定に使う
+   */
+  isOfficial: boolean;
 };
 
 function firstOrNull<T>(v: T | T[] | null | undefined): T | null {
@@ -165,6 +173,7 @@ export function resolveCounterpartyDisplay(
   let name: string;
   let avatarUrl: string | null;
   let deletedAt: string | null;
+  let isOfficial: boolean;
 
   if (counterOrgId && counterOrgOwner) {
     const ownerProfile = firstClientProfile(counterOrgOwner.client_profiles);
@@ -179,6 +188,7 @@ export function resolveCounterpartyDisplay(
     });
     name = appendWithdrawnSuffix(baseName, deletedAt);
     avatarUrl = ownerProfile?.image_url ?? null;
+    isOfficial = counterOrgOwner.is_hidden === true;
   } else {
     const participantProfile = firstClientProfile(
       counterParticipant?.client_profiles,
@@ -195,6 +205,7 @@ export function resolveCounterpartyDisplay(
     name = appendWithdrawnSuffix(baseName, deletedAt);
     avatarUrl =
       participantProfile?.image_url ?? counterParticipant?.avatar_url ?? null;
+    isOfficial = counterParticipant?.is_hidden === true;
   }
 
   // viewer 自身が org side (organization_X_id 非 null) にいるか
@@ -208,5 +219,6 @@ export function resolveCounterpartyDisplay(
     deletedAt,
     viewerOnSide2,
     viewerIsOrgSide,
+    isOfficial,
   };
 }

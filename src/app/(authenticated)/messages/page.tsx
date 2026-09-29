@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ThreadListItem } from "@/components/messaging/thread-list-item";
 import { BackButton } from "@/components/shared/back-button";
 import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display";
+import { counterpartyAvatarUrl } from "@/lib/messaging/official-account";
 
 interface Props {
   searchParams: Promise<{ type?: string }>;
@@ -51,22 +52,22 @@ export default async function MessagesPage({ searchParams }: Props) {
        participant_1_id, participant_2_id,
        organization_1_id, organization_2_id,
        participant_1:users!message_threads_participant_1_id_fkey(
-         id, last_name, first_name, company_name, avatar_url, deleted_at,
+         id, last_name, first_name, company_name, avatar_url, deleted_at, is_hidden,
          client_profiles(display_name, image_url)
        ),
        participant_2:users!message_threads_participant_2_id_fkey(
-         id, last_name, first_name, company_name, avatar_url, deleted_at,
+         id, last_name, first_name, company_name, avatar_url, deleted_at, is_hidden,
          client_profiles(display_name, image_url)
        ),
        organization_1:organizations!organization_1_id(
          owner_user:users!owner_id(
-           last_name, first_name, deleted_at,
+           last_name, first_name, deleted_at, is_hidden,
            client_profiles(display_name, image_url)
          )
        ),
        organization_2:organizations!organization_2_id(
          owner_user:users!owner_id(
-           last_name, first_name, deleted_at,
+           last_name, first_name, deleted_at, is_hidden,
            client_profiles(display_name, image_url)
          )
        ),
@@ -110,7 +111,7 @@ export default async function MessagesPage({ searchParams }: Props) {
       viewerOrgId,
     );
     const participantName = counterparty.name;
-    const participantAvatarUrl = counterparty.avatarUrl;
+    const participantAvatarUrl = counterpartyAvatarUrl(counterparty);
 
     const messages = (thread.messages ?? []) as Array<{
       id: string; body: string; image_url: string | null; sender_id: string; read_at: string | null; created_at: string;
@@ -134,6 +135,7 @@ export default async function MessagesPage({ searchParams }: Props) {
       lastMessageAt: latestMessage?.created_at ?? thread.updated_at,
       threadType: thread.thread_type,
       unreadCount,
+      isOfficial: counterparty.isOfficial,
     };
   });
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { OfficialBadge } from "@/components/messaging/official-badge";
 import { formatMessageTime } from "@/lib/utils/format-message-time";
 
 // サービス開始時のアプリ内通知は使わずメール通知のみ。
@@ -16,6 +17,8 @@ interface ThreadListItemProps {
   lastMessageAt: string | null;
   threadType: string;
   unreadCount: number;
+  /** 相手が管理運営アカウントなら「ビジ友公式」バッジを出す */
+  isOfficial?: boolean;
 }
 
 export function ThreadListItem({
@@ -27,6 +30,7 @@ export function ThreadListItem({
   lastMessageAt,
   threadType,
   unreadCount,
+  isOfficial = false,
 }: ThreadListItemProps) {
   // 本文があればそれを、無ければ添付有無で「画像を送信しました」を表示する。
   // メッセージ添付は画像限定（JPEG/PNG バケット）のため「画像を送信しました」で確定。
@@ -63,6 +67,7 @@ export function ThreadListItem({
           <span className="truncate text-sm font-medium">
             {participantName}
           </span>
+          {isOfficial && <OfficialBadge />}
           {threadType === "scout" && (
             <Badge
               variant="secondary"

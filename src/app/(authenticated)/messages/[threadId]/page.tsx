@@ -7,6 +7,7 @@ import { MessageThreadView } from "@/components/messaging/message-thread-view";
 import type { Message, ScoutJobInfo } from "@/components/messaging/types";
 import { MessageHeader } from "@/components/messaging/message-header";
 import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display";
+import { counterpartyAvatarUrl } from "@/lib/messaging/official-account";
 import { fetchScoutJobInfo } from "@/lib/messaging/fetch-scout-job";
 import { resolveSideUserIds } from "@/lib/messaging/scout-recipient";
 
@@ -35,22 +36,22 @@ export default async function ThreadDetailPage({ params }: Props) {
        participant_1_id, participant_2_id,
        organization_1_id, organization_2_id,
        participant_1:users!message_threads_participant_1_id_fkey(
-         id, last_name, first_name, company_name, avatar_url, deleted_at,
+         id, last_name, first_name, company_name, avatar_url, deleted_at, is_hidden,
          client_profiles(display_name, image_url)
        ),
        participant_2:users!message_threads_participant_2_id_fkey(
-         id, last_name, first_name, company_name, avatar_url, deleted_at,
+         id, last_name, first_name, company_name, avatar_url, deleted_at, is_hidden,
          client_profiles(display_name, image_url)
        ),
        organization_1:organizations!organization_1_id(
          owner_user:users!owner_id(
-           last_name, first_name, deleted_at,
+           last_name, first_name, deleted_at, is_hidden,
            client_profiles(display_name, image_url)
          )
        ),
        organization_2:organizations!organization_2_id(
          owner_user:users!owner_id(
-           last_name, first_name, deleted_at,
+           last_name, first_name, deleted_at, is_hidden,
            client_profiles(display_name, image_url)
          )
        )`,
@@ -161,7 +162,7 @@ export default async function ThreadDetailPage({ params }: Props) {
   return (
     <div className="flex min-h-screen flex-col bg-[#F0F0F0]">
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-6 md:px-8 md:py-8">
-        <MessageHeader name={counterparty.name} />
+        <MessageHeader name={counterparty.name} isOfficial={counterparty.isOfficial} />
 
         <MessageThreadView
           threadId={threadId}
@@ -170,7 +171,7 @@ export default async function ThreadDetailPage({ params }: Props) {
           counterpartSideUserIds={counterpartSideUserIds}
           viewerIsOrgSide={counterparty.viewerIsOrgSide}
           initialMessages={messages}
-          participantAvatarUrl={counterparty.avatarUrl}
+          participantAvatarUrl={counterpartyAvatarUrl(counterparty)}
           participantName={counterparty.name}
           showScoutActions={showScoutActions}
           viewerIsStaff={viewerIsStaff}

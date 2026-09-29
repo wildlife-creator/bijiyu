@@ -19,7 +19,7 @@ import {
  * ユーザーストーリー:
  *  A. 一般会員からは運営アカウントが見えない（一覧・直リンク・新規スレッド）
  *  B. 運営 → 発注者（法人）へメッセージ → 発注者本人と担当者が読めて返信できる（messages RLS の identity 対応）
- *  C. 運営 → 職人へメッセージ → 職人が読める
+ *  C. 運営 → 職人へメッセージ → 職人が読める。職人の画面では運営にだけ「ビジ友公式」バッジとロゴのアイコンが出る
  *  D. 管理画面（ADM-009）で設定 / 解除できる
  */
 
@@ -188,6 +188,24 @@ test.describe("C. 運営 → 職人へメッセージ", () => {
     await page.getByRole("link", { name: new RegExp(OPS_DISPLAY_NAME) }).first().click();
     await expect(page.getByText(textPattern).first()).toBeVisible({ timeout: 10000 });
     await sendMessage(page, `職人からの返信 ${Date.now()}`);
+  });
+
+  test("職人の画面では運営に「ビジ友公式」バッジとロゴのアイコンが出て、他の相手には出ない", async ({
+    page,
+  }) => {
+    await login(page, TEST_CONTRACTOR.email, TEST_CONTRACTOR.password);
+    await page.goto("/messages");
+    // メッセージ一覧: 運営の行だけにバッジとロゴ
+    const opsRow = page.getByRole("link", { name: new RegExp(OPS_DISPLAY_NAME) }).first();
+    await expect(opsRow.getByText("ビジ友公式", { exact: true })).toBeVisible();
+    await expect(opsRow.locator('img[src="/images/logo-avatar.png"]')).toBeVisible();
+    await expect(page.getByText("ビジ友公式", { exact: true })).toHaveCount(1);
+    await expect(page.locator('img[src="/images/logo-avatar.png"]')).toHaveCount(1);
+    // メッセージ画面: 上部の名前の横にバッジ、運営の吹き出しのアイコンがロゴ
+    await opsRow.click();
+    await expect(page).toHaveURL(/\/messages\/[0-9a-f-]+$/);
+    await expect(page.getByText("ビジ友公式", { exact: true })).toBeVisible();
+    await expect(page.locator('img[src="/images/logo-avatar.png"]').first()).toBeVisible();
   });
 });
 
