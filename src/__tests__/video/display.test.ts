@@ -20,7 +20,6 @@ function row(overrides: Partial<VideoDisplayRow>): VideoDisplayRow {
     embed_source_url: null,
     status: "ready",
     sort_order: 0,
-    admin_label: null,
     ...overrides,
   };
 }

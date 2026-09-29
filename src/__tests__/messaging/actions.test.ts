@@ -892,9 +892,10 @@ describe("sendScoutAction", () => {
     mockFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
     );
-    // 8. users.select(email).eq.single (target user) → email なしで email ブロックをスキップ
+    // 8. admin.users.select(email).eq.single (target user) → email なしで email ブロックをスキップ
     //    (案件タイトルは上部の所有権チェックで取得済み。旧 jobs.select(title) は廃止)
-    mockFrom.mockReturnValueOnce(
+    //    相手のメールは会員セッションから読めない列のため admin client で読む
+    mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         single: { data: { email: null }, error: null },
       }),
@@ -1190,8 +1191,8 @@ describe("sendScoutAction", () => {
         single: { data: { title: "テスト案件" }, error: null },
       }),
     );
-    // 9. users.select(email) → email なしでスキップ
-    mockFrom.mockReturnValueOnce(
+    // 9. admin.users.select(email) → email なしでスキップ（相手のメールは admin client で読む）
+    mockAdminFrom.mockReturnValueOnce(
       createQueryMock({
         single: { data: { email: null }, error: null },
       }),

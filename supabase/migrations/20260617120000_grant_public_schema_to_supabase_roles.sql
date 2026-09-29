@@ -27,3 +27,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authen
 -- admin_proxy_threads は service_role（admin client）専用ビュー。
 -- 上の GRANT ALL ON ALL TABLES で復活してしまうため、ここで再 REVOKE する。
 REVOKE ALL ON admin_proxy_threads FROM PUBLIC, anon, authenticated;
+
+-- users / videos の列単位の SELECT 制限（メールアドレス・生年月日・運営メモ等を会員から隠す）は
+-- 20260929140000_member_read_guards.sql の 3・4 で行っている。この GRANT ALL を手動で再実行すると
+-- 表単位の SELECT が戻って制限が黙って外れるため、再実行したら同 migration の 3・4 も再実行すること
+-- （ここに書かないのは、この時点ではまだ存在しない列があり GRANT SELECT(列) が失敗するため）。

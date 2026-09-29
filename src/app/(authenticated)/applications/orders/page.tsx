@@ -16,7 +16,7 @@ import { BackButton } from "@/components/shared/back-button";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import { getUserDisplayName } from "@/lib/utils/display-name";
-import { calculateAge } from "@/lib/utils/calculate-age";
+import { fetchUserAges } from "@/lib/users/private-fields";
 import { formatDate } from "@/lib/utils/format-date";
 import { StatusFilter } from "@/components/shared/status-filter";
 import { ORDERS_STATUS_FILTER_OPTIONS } from "@/lib/constants/application-status-filters";
@@ -61,7 +61,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
     .select(
       `id, status, created_at, updated_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(
-         id, last_name, first_name, avatar_url, birth_date,
+         id, last_name, first_name, avatar_url,
          identity_verified, ccus_verified, deleted_at,
          user_skills(trade_type, experience_years),
          user_available_areas(prefecture, municipality)
@@ -124,6 +124,13 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
 
   // Manual pagination
   const paginatedApplications = filteredApplications.slice(from, to + 1);
+  const ageMap = await fetchUserAges(
+    supabase,
+    paginatedApplications.flatMap((app) => {
+      const applicant = app.applicant as { id: string } | null;
+      return applicant ? [applicant.id] : [];
+    }),
+  );
 
   return (
     <div className="min-h-dvh bg-muted">
@@ -162,7 +169,6 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
             last_name: string | null;
             first_name: string | null;
             avatar_url: string | null;
-            birth_date: string | null;
             identity_verified: boolean | null;
             ccus_verified: boolean | null;
             deleted_at: string | null;
@@ -199,9 +205,7 @@ export default async function OrderHistoryPage({ searchParams }: Props) {
               )
             : "不明";
 
-          const age = applicant?.birth_date
-            ? calculateAge(applicant.birth_date)
-            : null;
+          const age = applicant ? (ageMap.get(applicant.id) ?? null) : null;
 
           const skills = applicant?.user_skills?.map((s) => s.trade_type) ?? [];
           const maxExperience = applicant?.user_skills?.reduce(

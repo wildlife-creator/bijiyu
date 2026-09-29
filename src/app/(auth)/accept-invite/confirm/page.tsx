@@ -14,6 +14,8 @@ import {
   updatePasswordSchema,
   type UpdatePasswordInput,
 } from "@/lib/validations/auth";
+import { fetchMyPrivateProfile } from "@/lib/users/private-fields";
+import type { Database } from "@/types/database";
 import { acceptInviteAction } from "./actions";
 
 /**
@@ -44,7 +46,7 @@ export default function AcceptInviteConfirmPage() {
   // これを待ってから isReady=true にすることで、Server Action の getUser() が
   // Cookie 未書き込みのまま呼ばれて「有効期限切れ」扱いになるのを防ぐ。
   useEffect(() => {
-    const supabase = createBrowserClient(
+    const supabase = createBrowserClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     );
@@ -80,12 +82,9 @@ export default function AcceptInviteConfirmPage() {
         setIsReady(true);
         return;
       }
-      const { data: publicUser } = await supabase
-        .from("users")
-        .select("password_set_at")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (publicUser?.password_set_at) {
+      // password_set_at は会員セッションから直接読めない列のため、本人用の関数で読む
+      const privateProfile = await fetchMyPrivateProfile(supabase);
+      if (privateProfile?.passwordSetAt) {
         router.replace("/mypage");
         return;
       }

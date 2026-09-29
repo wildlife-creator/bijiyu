@@ -59,6 +59,7 @@
 | identity-documents | 本人確認書類 | 非公開（本人 + システム管理者のみ） |
 | ccus-documents | CCUS書類 | 非公開（本人 + システム管理者のみ） |
 | message-attachments | メッセージ添付ファイル（画像・PDF） | 非公開（スレッド参加者 or 同一組織メンバー） |
+| application-documents | 発注可否で発注者が応募者に渡す書類 | 非公開（その応募の当事者のみ） |
 
 ### Storage RLS ポリシー（= 誰がどのファイルを読み書きできるかのルール）
 
@@ -71,7 +72,14 @@ Supabase Storage にもテーブルと同様に RLS を設定できる。
 | job-attachments | 誰でも可 | 案件の作成者または同一組織メンバー | 案件の作成者または同一組織メンバー |
 | identity-documents | 本人 + システム管理者のみ | 本人のみ | 本人のみ |
 | ccus-documents | 本人 + システム管理者のみ | 本人のみ | 本人のみ |
-| message-attachments | スレッド参加者 or 同一組織メンバー | スレッド参加者 or 同一組織メンバー | 不可（送信済みメッセージの添付は消せない） |
+| message-attachments | 送信者本人 + その添付を参照するメッセージが見える人（= そのスレッドの参加者・同一組織メンバー） | 本人のフォルダのみ | 不可（送信済みメッセージの添付は消せない） |
+| application-documents | アップロードした本人 + その書類を参照する応募が見える人（応募者・案件の発注者・同一組織メンバー） | 本人のフォルダのみ | 不可 |
+
+※ 2026-09-30 まで message-attachments は「どこかのスレッドの参加者なら全添付」、application-documents は「ログイン会員なら全件」読めていた（`20260929140000_member_read_guards.sql` で修正）。非公開バケットの SELECT ポリシーは「本人のフォルダ」か「そのファイルを参照している行が自分に見えるか」で書く。
+
+### users / videos の列単位の読み取り制限
+
+`users` の email / birth_date / stripe_customer_id / ccus_worker_id / password_set_at / video_url と `videos.admin_label` は会員セッションから SELECT できない（列権限。本人の行も同じ）。本人の値は RPC `get_my_private_profile()`、他の会員の年齢は `get_user_ages()`（生年月日は返さない）、通知メールの宛先は admin client で読む。詳細は CLAUDE.md「読む側は列権限で守っている」。
 
 ### Storage のファイル保存先パス（フォルダ構造のルール）
 

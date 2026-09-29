@@ -42,7 +42,7 @@ async function getApplicationWithDetails(
   supabase: Awaited<ReturnType<typeof createClient>>,
   applicationId: string,
 ) {
-  return supabase
+  const { data, error } = await supabase
     .from("applications")
     .select(
       `*, jobs(
@@ -59,11 +59,32 @@ async function getApplicationWithDetails(
         )
       ),
       applicant:users!applications_applicant_id_fkey(
-        id, email, last_name, first_name, company_name, deleted_at
+        id, last_name, first_name, company_name, deleted_at
       )`,
     )
     .eq("id", applicationId)
     .single();
+  if (error || !data) return { data: null, error };
+
+  // 応募者のメールアドレス（通知の宛先）は会員セッションから読めない列のため、
+  // 応募の行が RLS で読めた（= 当事者である）ことを確認した後に admin client で読む
+  let applicantEmail: string | null = null;
+  if (data.applicant) {
+    const { data: emailRow } = await createAdminClient()
+      .from("users")
+      .select("email")
+      .eq("id", data.applicant.id)
+      .maybeSingle();
+    applicantEmail = emailRow?.email ?? null;
+  }
+
+  return {
+    data: {
+      ...data,
+      applicant: data.applicant ? { ...data.applicant, email: applicantEmail } : null,
+    },
+    error: null,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import { AreaList } from "@/components/area/area-list";
 import { VideoList } from "@/components/video-embed/video-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
+import { fetchMyPrivateProfile } from "@/lib/users/private-fields";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatGender } from "@/lib/utils/format-gender";
 import { formatResidence } from "@/lib/utils/format-residence";
@@ -98,7 +99,7 @@ export default async function ProfilePage() {
   const { data: profile } = await supabase
     .from("users")
     .select(
-      "*, user_skills(*), user_qualifications(*), user_available_areas(*)",
+      "id, last_name, first_name, gender, prefecture, municipality, company_name, bio, avatar_url, skill_tags, identity_verified, ccus_verified, user_skills(*), user_qualifications(*), user_available_areas(*)",
     )
     .eq("id", user.id)
     .single();
@@ -106,6 +107,9 @@ export default async function ProfilePage() {
   if (!profile) {
     redirect("/register/profile");
   }
+
+  // メールアドレス・生年月日は他の会員に見せない列のため、本人用の関数で読む
+  const privateProfile = await fetchMyPrivateProfile(supabase);
 
   // Identity / CCUS verification states
   const { data: identityVerification } = await supabase
@@ -145,7 +149,7 @@ export default async function ProfilePage() {
       ? `${profile.last_name}${profile.first_name}`
       : "未設定";
 
-  const age = profile.birth_date ? calculateAge(profile.birth_date) : null;
+  const age = privateProfile?.birthDate ? calculateAge(privateProfile.birthDate) : null;
   const avatarUrl = profile.avatar_url;
 
   // 能力の表示用整形
@@ -248,7 +252,7 @@ export default async function ProfilePage() {
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">基本情報</h2>
         <div className="mt-2 overflow-hidden rounded-[8px] border border-border/10 bg-background">
-          <DetailRow label="メールアドレス" value={profile.email} />
+          <DetailRow label="メールアドレス" value={privateProfile?.email ?? null} />
           <DetailRow label="会社名/屋号" value={profile.company_name} />
           <DetailRow
             label="お住まい"

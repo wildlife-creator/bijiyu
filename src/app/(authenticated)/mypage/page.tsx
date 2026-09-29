@@ -11,7 +11,7 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatRewardRange } from "@/lib/utils/format-reward";
-import { calculateAge } from "@/lib/utils/calculate-age";
+import { fetchUserAges } from "@/lib/users/private-fields";
 import {
   resolveClientProfileForRow,
   resolveParticipantName,
@@ -147,7 +147,7 @@ export default async function MyPage() {
   // Fetch user data including profile fields
   const { data: userData } = await supabase
     .from("users")
-    .select("role, last_name, first_name, birth_date, bio, avatar_url, identity_verified, ccus_verified")
+    .select("role, last_name, first_name, bio, avatar_url, identity_verified, ccus_verified")
     .eq("id", user.id)
     .single();
 
@@ -293,7 +293,7 @@ export default async function MyPage() {
       ? `${userData.last_name}${userData.first_name}`
       : "ユーザー";
 
-  const age = userData.birth_date ? calculateAge(userData.birth_date) : null;
+  const age = (await fetchUserAges(supabase, [user.id])).get(user.id) ?? null;
 
   // Determine verification states
   const identityState: VerificationState =

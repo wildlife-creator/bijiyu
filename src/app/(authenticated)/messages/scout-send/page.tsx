@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { calculateAge } from "@/lib/utils/calculate-age";
+import { fetchUserAges } from "@/lib/users/private-fields";
 import { ScoutSendForm } from "./scout-send-form";
 
 // スカウト送信の控えメールは自組織のメンバー全員宛に直列送信する
@@ -29,7 +29,7 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
   const { data: targetUser } = await supabase
     .from("users")
     .select(
-      "id, last_name, first_name, avatar_url, birth_date, identity_verified, ccus_verified, deleted_at, is_hidden",
+      "id, last_name, first_name, avatar_url, identity_verified, ccus_verified, deleted_at, is_hidden",
     )
     .eq("id", targetUserId)
     .single();
@@ -45,7 +45,7 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
     .select("trade_type, experience_years")
     .eq("user_id", targetUserId);
 
-  const age = targetUser.birth_date ? calculateAge(targetUser.birth_date) : null;
+  const age = (await fetchUserAges(supabase, [targetUser.id])).get(targetUser.id) ?? null;
 
   const userProfile = {
     id: targetUser.id,

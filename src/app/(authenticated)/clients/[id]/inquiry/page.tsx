@@ -7,6 +7,7 @@ import {
   resolveTargetOrganizationId,
   resolveViewerOrganizationId,
 } from "@/lib/job-inquiry/resolve-context";
+import { fetchMyPrivateProfile } from "@/lib/users/private-fields";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { InquiryForm } from "./inquiry-form";
 
@@ -49,11 +50,15 @@ export default async function JobInquiryPage({ params }: PageProps) {
 
   // viewer / target の所属組織を解決し、UI と同じ純粋関数でガード判定する
   const admin = createAdminClient();
-  const { data: viewerData } = await supabase
-    .from("users")
-    .select("role, last_name, first_name, email")
-    .eq("id", user.id)
-    .maybeSingle();
+  const [{ data: viewerData }, viewerPrivate] = await Promise.all([
+    supabase
+      .from("users")
+      .select("role, last_name, first_name")
+      .eq("id", user.id)
+      .maybeSingle(),
+    // メールアドレスは会員セッションから直接読めない列のため、本人用の関数で読む
+    fetchMyPrivateProfile(supabase),
+  ]);
 
   const [viewerOrgId, targetOrgId] = await Promise.all([
     resolveViewerOrganizationId(admin, user.id, supabase),
@@ -91,7 +96,7 @@ export default async function JobInquiryPage({ params }: PageProps) {
     viewerData?.last_name && viewerData?.first_name
       ? `${viewerData.last_name}${viewerData.first_name}`
       : "";
-  const defaultEmail = viewerData?.email ?? user.email ?? "";
+  const defaultEmail = viewerPrivate?.email ?? user.email ?? "";
 
   return (
     <div className="min-h-dvh">

@@ -12,7 +12,7 @@ import { StarRatingDisplay } from "@/components/shared/star-rating-display";
 import { fetchOverallSummary } from "@/lib/rating/aggregate";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
-import { calculateAge } from "@/lib/utils/calculate-age";
+import { fetchUserAges } from "@/lib/users/private-fields";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatResidence } from "@/lib/utils/format-residence";
@@ -62,7 +62,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
     .from("users")
     .select(
       `
-      id, avatar_url, last_name, first_name, birth_date,
+      id, avatar_url, last_name, first_name,
       deleted_at, role, identity_verified, ccus_verified, bio,
       prefecture, municipality, gender, skill_tags
     `,
@@ -84,9 +84,7 @@ export default async function ContractorDetailPage({ params }: PageProps) {
     firstName: contractor.first_name,
     deletedAt: contractor.deleted_at,
   });
-  const age = contractor.birth_date
-    ? calculateAge(contractor.birth_date)
-    : null;
+  const age = (await fetchUserAges(supabase, [contractor.id])).get(contractor.id) ?? null;
 
   // Fetch related data
   const [

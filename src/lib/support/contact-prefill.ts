@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
+import { fetchMyPrivateProfile } from "@/lib/users/private-fields";
 import { formatResidence } from "@/lib/utils/format-residence";
 
 /**
@@ -34,10 +35,10 @@ export async function resolveContactPrefill(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<ContactPrefill> {
-  const [{ data: user }, { data: profile }] = await Promise.all([
+  const [{ data: user }, { data: profile }, privateProfile] = await Promise.all([
     supabase
       .from("users")
-      .select("email, last_name, first_name, company_name, prefecture, municipality, role")
+      .select("last_name, first_name, company_name, prefecture, municipality, role")
       .eq("id", userId)
       .maybeSingle(),
     supabase
@@ -45,6 +46,8 @@ export async function resolveContactPrefill(
       .select("display_name, address")
       .eq("user_id", userId)
       .maybeSingle(),
+    // メールアドレスは会員セッションから直接読めない列のため、本人用の関数で読む
+    fetchMyPrivateProfile(supabase),
   ]);
   if (!user) return EMPTY_CONTACT_PREFILL;
 
@@ -59,7 +62,7 @@ export async function resolveContactPrefill(
   return {
     companyName,
     name: `${user.last_name ?? ""}${user.first_name ?? ""}`.trim(),
-    email: user.email ?? "",
+    email: privateProfile?.email ?? "",
     address,
   };
 }

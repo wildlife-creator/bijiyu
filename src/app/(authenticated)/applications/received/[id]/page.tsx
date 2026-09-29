@@ -12,6 +12,7 @@ import { AreaList } from "@/components/area/area-list";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
+import { fetchUserAges } from "@/lib/users/private-fields";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
@@ -37,7 +38,7 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     .from("applications")
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, first_work_date, message, created_at, scout_message_id,
-       applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified, birth_date, skill_tags),
+       applicant:users!applications_applicant_id_fkey(id, last_name, first_name, avatar_url, deleted_at, identity_verified, ccus_verified, skill_tags),
        jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date, work_hours, schedule_detail, owner_id)`,
     )
     .eq("id", id)
@@ -90,7 +91,6 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
     deleted_at: string | null;
     identity_verified: boolean | null;
     ccus_verified: boolean | null;
-    birth_date: string | null;
     skill_tags: string[] | null;
   } | null;
 
@@ -106,17 +106,9 @@ export default async function ReceivedApplicationDetailPage({ params }: Props) {
       )
     : "不明";
 
-  // Calculate age
-  let age: number | null = null;
-  if (applicant?.birth_date) {
-    const birth = new Date(applicant.birth_date);
-    const today = new Date();
-    age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-  }
+  const age = applicant
+    ? ((await fetchUserAges(supabase, [applicant.id])).get(applicant.id) ?? null)
+    : null;
 
   // Fetch applicant skills, areas (with municipality), qualifications + job_areas in parallel
   const [

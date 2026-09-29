@@ -18,7 +18,7 @@ import {
 } from "@/lib/master/fetch";
 import { buildAreaFilterIds } from "@/lib/utils/area-search-clauses";
 import { experienceYearsBounds } from "@/lib/utils/experience-years-filter";
-import { calculateAge } from "@/lib/utils/calculate-age";
+import { fetchUserAges } from "@/lib/users/private-fields";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
@@ -217,7 +217,7 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
     .from("users")
     .select(
       `
-      id, avatar_url, last_name, first_name, birth_date, deleted_at,
+      id, avatar_url, last_name, first_name, deleted_at,
       identity_verified, ccus_verified, skill_tags,
       user_skills(trade_type, experience_years)
     `,
@@ -276,7 +276,10 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
   const favoritedIds = new Set((favorites ?? []).map((f) => f.target_id));
 
   // 高評価バッジ用: 総合評価サマリーを1クエリで bulk 取得（N+1 回避）
-  const summaryMap = await fetchBulkOverallSummary(supabase, contractorIds);
+  const [summaryMap, ageMap] = await Promise.all([
+    fetchBulkOverallSummary(supabase, contractorIds),
+    fetchUserAges(supabase, contractorIds),
+  ]);
 
   return (
     <div className="min-h-dvh bg-muted">
@@ -315,9 +318,7 @@ export default async function ContractorListPage({ searchParams }: PageProps) {
               experience_years: number | null;
             }>) ?? [];
             const areas = userAreasMap.get(contractor.id) ?? [];
-            const age = contractor.birth_date
-              ? calculateAge(contractor.birth_date)
-              : null;
+            const age = ageMap.get(contractor.id) ?? null;
 
             return (
               <Card

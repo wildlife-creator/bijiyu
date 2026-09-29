@@ -1364,5 +1364,5 @@ messages テーブルの RLS ポリシーでは、「自分がアクセス可能
 | avatars | public | プロフィール画像 | 認証ユーザーが自分のフォルダ（`{user_id}/`）に INSERT |
 | job-attachments | private | 案件添付画像 | 認証ユーザーが自分のフォルダに INSERT |
 | identity-documents | private | 本人確認書類 | 認証ユーザーが自分のフォルダに INSERT |
-| application-documents | private | 発注者が応募レベルで添付する書類（CLI-009-B）。`applications.document_urls` にファイルパスを保存。表示時は `createSignedUrl()` で Signed URL を生成 | 認証ユーザーが自分のフォルダ（`{user_id}/`）に INSERT。全認証ユーザーが SELECT 可 |
-| message-attachments | private | メッセージ添付画像（CON-010 で送信）。`messages.image_url` にファイルパスを保存。表示時は `createSignedUrl()` で Signed URL を生成 | 認証ユーザーが自分のフォルダ（`{user_id}/`）に INSERT。スレッド参加者（participant_1 または participant_2）が SELECT 可 |
+| application-documents | private | 発注者が応募レベルで添付する書類（CLI-009-B）。`applications.document_urls` にファイルパスを保存。表示時は `createSignedUrl()` で Signed URL を生成 | 認証ユーザーが自分のフォルダ（`{user_id}/`）に INSERT。SELECT は本人のフォルダ + `document_urls` でそのファイルを参照する応募が見える人（応募者・発注者・同一組織）のみ |
+| message-attachments | private | メッセージ添付画像（CON-010 で送信）。`messages.image_url` にファイルパスを保存。表示時は `createSignedUrl()` で Signed URL を生成 | 認証ユーザーが自分のフォルダ（`{user_id}/`）に INSERT。SELECT は本人のフォルダ + `messages.image_url` でそのファイルを参照するメッセージが見える人（スレッド参加者・同一組織）のみ |

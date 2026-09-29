@@ -20,7 +20,7 @@ import { AreaSummary } from "@/components/area/area-summary";
 import { HighRatingBadge } from "@/components/shared/high-rating-badge";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
-import { calculateAge } from "@/lib/utils/calculate-age";
+import { fetchUserAges } from "@/lib/users/private-fields";
 import { fetchBulkOverallSummary } from "@/lib/rating/aggregate";
 import {
   getUserDisplayName,
@@ -445,7 +445,7 @@ async function UserFavorites({
     .from("users")
     .select(
       `
-      id, avatar_url, last_name, first_name, deleted_at, birth_date,
+      id, avatar_url, last_name, first_name, deleted_at,
       identity_verified, ccus_verified,
       user_skills(trade_type, experience_years),
       user_available_areas(prefecture, municipality)
@@ -457,7 +457,10 @@ async function UserFavorites({
 
   // CLI-005 と同じ高評価バッジ用に、評価サマリを一括取得
   const userIds = (users ?? []).map((u) => u.id);
-  const summaryMap = await fetchBulkOverallSummary(supabase, userIds);
+  const [summaryMap, ageMap] = await Promise.all([
+    fetchBulkOverallSummary(supabase, userIds),
+    fetchUserAges(supabase, userIds),
+  ]);
 
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 pb-8">
@@ -479,7 +482,7 @@ async function UserFavorites({
           prefecture: a.prefecture,
           municipality: a.municipality,
         }));
-        const age = u.birth_date ? calculateAge(u.birth_date) : null;
+        const age = ageMap.get(u.id) ?? null;
 
         return (
           <Card key={u.id} className="overflow-hidden rounded-[8px]">

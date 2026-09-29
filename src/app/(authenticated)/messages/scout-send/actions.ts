@@ -299,7 +299,8 @@ export async function sendScoutAction(
     const jobTitle = scoutJob.title ?? parsed.data.title;
 
     // Email notification (don't rollback on failure)
-    const { data: targetUser } = await supabase
+    // 相手のメールアドレスは会員セッションから読めない列のため admin client で読む
+    const { data: targetUser } = await admin
       .from("users")
       .select("email, last_name, first_name")
       .eq("id", parsed.data.userId)

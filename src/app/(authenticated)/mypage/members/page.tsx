@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
 import { MembersSearchForm } from "./members-search-form";
+import { fetchMemberPrivateFields } from "./member-private-fields";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -88,11 +89,28 @@ export default async function MembersListPage({ searchParams }: PageProps) {
     .from("organization_members")
     .select(
       `org_role, is_proxy_account, created_at,
-       user:users!user_id(id, last_name, first_name, email, deleted_at, password_set_at)`,
+       user:users!user_id(id, last_name, first_name, deleted_at)`,
     )
     .eq("organization_id", active.organizationId);
 
   const { data: membersRaw } = await query;
+
+  // メール・招待完了日時は会員セッションから読めない列のため、上の RLS で
+  // 自組織のメンバーと確認できた人の分だけ admin client で読む
+  const membersBase = (membersRaw ?? []) as unknown as Array<{
+    org_role: "owner" | "admin" | "staff";
+    is_proxy_account: boolean;
+    created_at: string;
+    user: {
+      id: string;
+      last_name: string | null;
+      first_name: string | null;
+      deleted_at: string | null;
+    } | null;
+  }>;
+  const privateFields = await fetchMemberPrivateFields(
+    membersBase.flatMap((m) => (m.user ? [m.user.id] : [])),
+  );
 
   type MemberRow = {
     org_role: "owner" | "admin" | "staff";
@@ -108,9 +126,21 @@ export default async function MembersListPage({ searchParams }: PageProps) {
     } | null;
   };
 
-  const all = ((membersRaw ?? []) as unknown as MemberRow[]).filter(
-    (m) => m.user !== null,
-  );
+  const all: MemberRow[] = membersBase
+    .filter((m) => m.user !== null)
+    .map((m) => {
+      const fields = m.user ? privateFields.get(m.user.id) : undefined;
+      return {
+        ...m,
+        user: m.user
+          ? {
+              ...m.user,
+              email: fields?.email ?? "",
+              password_set_at: fields?.passwordSetAt ?? null,
+            }
+          : null,
+      };
+    });
 
   // キーワード検索（氏名・メール部分一致）
   const lowered = q.toLowerCase();

@@ -1801,7 +1801,22 @@ export type Database = {
         Returns: boolean
       }
       ensure_organization_exists: { Args: { uid: string }; Returns: Json }
+      get_my_private_profile: {
+        Args: never
+        Returns: {
+          birth_date: string
+          email: string
+          password_set_at: string
+        }[]
+      }
       get_or_lock_stripe_customer: { Args: { uid: string }; Returns: Json }
+      get_user_ages: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          age: number
+          user_id: string
+        }[]
+      }
       handle_checkout_completed_plan: {
         Args: { event_data: Json }
         Returns: Json

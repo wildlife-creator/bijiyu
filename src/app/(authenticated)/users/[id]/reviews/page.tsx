@@ -7,7 +7,7 @@ import { RatingSummaryCard } from "@/components/reviews/rating-summary-card";
 import { CommentListCard } from "@/components/reviews/comment-list-card";
 import { CommentsPagination } from "@/components/reviews/comments-pagination";
 import { getUserDisplayName } from "@/lib/utils/display-name";
-import { calculateAge } from "@/lib/utils/calculate-age";
+import { fetchUserAges } from "@/lib/users/private-fields";
 import { fetchPerItemSummary } from "@/lib/rating/aggregate";
 
 const COMMENTS_PER_PAGE = 20;
@@ -40,7 +40,7 @@ export default async function ContractorReviewsPage({
   const { data: contractorUser } = await supabase
     .from("users")
     .select(
-      "id, avatar_url, last_name, first_name, birth_date, deleted_at, identity_verified, ccus_verified",
+      "id, avatar_url, last_name, first_name, deleted_at, identity_verified, ccus_verified",
     )
     .eq("id", id)
     // 管理運営アカウントは直リンクでも表示しない
@@ -57,9 +57,8 @@ export default async function ContractorReviewsPage({
     firstName: contractorUser.first_name,
     deletedAt: contractorUser.deleted_at,
   });
-  const age = contractorUser.birth_date
-    ? calculateAge(contractorUser.birth_date)
-    : null;
+  const age =
+    (await fetchUserAges(supabase, [contractorUser.id])).get(contractorUser.id) ?? null;
 
   // Fetch favorite status
   const { data: favorite } = await supabase

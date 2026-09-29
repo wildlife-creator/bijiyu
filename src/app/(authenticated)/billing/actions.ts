@@ -143,10 +143,10 @@ export async function startCheckoutAction(
     return { success: false, error: "ログインしてください" };
   }
 
-  // 3. Load user record (role + email)
+  // 3. Load user record (role)
   const { data: userRow, error: userError } = await supabase
     .from("users")
-    .select("id, role, email")
+    .select("id, role")
     .eq("id", user.id)
     .single();
   if (userError || !userRow) {

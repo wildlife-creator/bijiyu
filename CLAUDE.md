@@ -211,6 +211,11 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **会員セッションの書き込みを増やすとき**: 送る列が guard に引っかからないか確認する。引っかかる列は admin client（サーバー側で権限確認済み）で書く。guard が拒否すると Server Action 側では `42501` の error が返る
 - 列権限（`REVOKE UPDATE(col)`）は使わない: `20260617120000_grant_public_schema_to_supabase_roles.sql` の `GRANT ALL ON ALL TABLES` を再実行すると黙って戻るため
 - **全会員が SELECT できる表に運営用の列を置かない**（`client_profiles.admin_memo` が全会員に読めていた → 運営専用テーブル `client_admin_memos`（RLS 有効・ポリシーなし = service_role のみ）へ移動）
+- **読む側は列権限で守っている（`20260929140000_member_read_guards.sql`）**: `users` の `email` / `birth_date` / `stripe_customer_id` / `ccus_worker_id` / `password_set_at` / `video_url` と `videos.admin_label` は会員セッション（anon / authenticated）から **本人の行でも SELECT できない**。PostgREST は許可の無い列を 1 つでも含む問い合わせ全体を 42501 で拒否し、埋め込み（`applicant:users!fk(...)`）でも親ごと失敗する。`data` が null になるだけなので「見つからない」「0 件」「/register/profile へリダイレクト」等に化けて気づきにくい（2026-09-30 の監査で 22 か所が該当し、Stripe 決済・応募の承認/辞退・職人一覧・担当者一覧が全滅する状態だった）
+  - 本人の非公開列 → `fetchMyPrivateProfile()`、他の会員の年齢 → `fetchUserAges()`（`src/lib/users/private-fields.ts`。生年月日そのものは他の会員に渡さない）。他の会員のメールアドレス（通知の宛先）は **会員セッションで行の RLS を確認した後に admin client で読む**（例: `applications/actions.ts` の `getApplicationWithDetails`、`mypage/members/member-private-fields.ts`）
+  - 会員セッションで `users` を `select("*")` / `users(*)` しない（列を列挙する）
+  - **`users` / `videos` に列を足したら、会員に見せてよいか決める**。見せてよいなら新しい migration で `GRANT SELECT (col) ON ... TO anon, authenticated` し、`supabase/tests/member_read_guards.test.sql` に追記する。何もしなければ会員からは読めない（安全側）
+  - Storage の非公開バケットの SELECT ポリシーは「本人のフォルダ」か「そのファイルを参照している行が自分に見えるか」（例: `EXISTS (SELECT 1 FROM messages m WHERE m.image_url = objects.name)`。行の RLS に判定を任せる）で書く。`bucket_id` だけのポリシーや、オブジェクトと無関係な EXISTS を書かない
 - **SECURITY DEFINER 関数で引数の user_id を信じない**: `complete_registration` が `p_user_id` を検査せず PUBLIC 実行可で、誰でも他人のプロフィールを上書きできた。会員から呼ぶ DEFINER 関数は `auth.uid()` と照合し、`REVOKE ... FROM PUBLIC, anon` する
 
 ### pg_cron から Edge Function を呼ぶ定期実行（必ず守ること）

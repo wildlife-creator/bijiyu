@@ -15,7 +15,7 @@ import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
-import { calculateAge } from "@/lib/utils/calculate-age";
+import { fetchUserAges } from "@/lib/users/private-fields";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -38,7 +38,7 @@ export default async function OrderDetailPage({ params }: Props) {
     .select(
       `id, status, headcount, working_type, preferred_first_work_date, first_work_date, work_location, message, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(
-         id, last_name, first_name, avatar_url, birth_date, deleted_at,
+         id, last_name, first_name, avatar_url, deleted_at,
          identity_verified, ccus_verified, skill_tags
        ),
        jobs!inner(id, title, trade_types, headcount, reward_lower, reward_upper,
@@ -88,7 +88,6 @@ export default async function OrderDetailPage({ params }: Props) {
     last_name: string | null;
     first_name: string | null;
     avatar_url: string | null;
-    birth_date: string | null;
     deleted_at: string | null;
     identity_verified: boolean;
     ccus_verified: boolean;
@@ -107,8 +106,8 @@ export default async function OrderDetailPage({ params }: Props) {
       )
     : "不明";
 
-  const contractorAge = applicant?.birth_date
-    ? calculateAge(applicant.birth_date)
+  const contractorAge = applicant
+    ? ((await fetchUserAges(supabase, [applicant.id])).get(applicant.id) ?? null)
     : null;
 
   // Fetch applicant's skills, areas, qualifications

@@ -41,6 +41,7 @@ import {
   type ProfileEditInput,
 } from "@/lib/validations/profile";
 import { createClient } from "@/lib/supabase/client";
+import { fetchMyPrivateProfile } from "@/lib/users/private-fields";
 import {
   uploadFilesDirect,
   IMAGE_UPLOAD_RULE_5MB,
@@ -189,10 +190,13 @@ export function ProfileEditForm({
       const { data: profile } = await supabase
         .from("users")
         .select(
-          "last_name, first_name, gender, birth_date, prefecture, municipality, company_name, bio, avatar_url, skill_tags",
+          "last_name, first_name, gender, prefecture, municipality, company_name, bio, avatar_url, skill_tags",
         )
         .eq("id", user.id)
         .single();
+
+      // 生年月日は他の会員に見せない列のため、本人用の関数で読む
+      const privateProfile = await fetchMyPrivateProfile(supabase);
 
       const { data: userSkills } = await supabase
         .from("user_skills")
@@ -240,7 +244,7 @@ export function ProfileEditForm({
           gender: profile.gender ?? "",
           // DB はハイフン(YYYY-MM-DD)だが、入力 UI は半角スラッシュ表示で統一する
           // （登録時のスラッシュ入力と見た目を合わせる。保存時に再度ハイフンへ正規化）
-          birthDate: (profile.birth_date ?? "").replaceAll("-", "/"),
+          birthDate: (privateProfile?.birthDate ?? "").replaceAll("-", "/"),
           email: user.email ?? "",
           prefecture: profile.prefecture ?? "",
           municipality: profile.municipality ?? "",

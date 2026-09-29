@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchMyPrivateProfile } from "@/lib/users/private-fields";
 import { TroubleReportForm } from "./trouble-report-form";
 
 // COM-012 トラブル報告（ログイン必須）
@@ -16,17 +17,21 @@ export default async function TroubleReportPage() {
   }
 
   // 氏名・メールのプリフィル値をサーバーで取得（編集可）
-  const { data: profile } = await supabase
-    .from("users")
-    .select("last_name, first_name, email")
-    .eq("id", user.id)
-    .maybeSingle();
+  // （メールアドレスは会員セッションから直接読めない列のため、本人用の関数で読む）
+  const [{ data: profile }, privateProfile] = await Promise.all([
+    supabase
+      .from("users")
+      .select("last_name, first_name")
+      .eq("id", user.id)
+      .maybeSingle(),
+    fetchMyPrivateProfile(supabase),
+  ]);
 
   const defaultName =
     profile?.last_name && profile?.first_name
       ? `${profile.last_name}${profile.first_name}`
       : "";
-  const defaultEmail = profile?.email ?? user.email ?? "";
+  const defaultEmail = privateProfile?.email ?? user.email ?? "";
 
   return (
     <div className="min-h-dvh">

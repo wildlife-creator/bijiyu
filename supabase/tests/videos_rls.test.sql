@@ -117,12 +117,14 @@ SELECT throws_ok(
 -- Test 10: 本人の UPDATE はデータを変えない（サイレントブロック）
 SET LOCAL request.jwt.claims TO '{"sub":"7d4e0000-0000-0000-0000-0000000000a1","role":"authenticated"}';
 UPDATE videos SET admin_label = 'hacked' WHERE id = '7d4e0000-0000-0000-0000-0000000000b1';
-SET LOCAL request.jwt.claims TO '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated"}';
+-- admin_label は会員セッション（管理者の会員セッション含む）から読めない列権限のため、確認は postgres で行う
+SET LOCAL role TO postgres;
 SELECT is(
   (SELECT admin_label FROM videos WHERE id = '7d4e0000-0000-0000-0000-0000000000b1'),
   NULL,
   'authenticated UPDATE does not change videos (no update policy)'
 );
+SET LOCAL role TO authenticated;
 
 -- Test 11: 本人の DELETE はレコードを消さない
 SET LOCAL request.jwt.claims TO '{"sub":"7d4e0000-0000-0000-0000-0000000000a1","role":"authenticated"}';

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { DeleteMemberButton } from "./delete-member-button";
 import { ResendInviteButton } from "./resend-invite-button";
+import { fetchMemberPrivateFields } from "../member-private-fields";
 
 type OrgRole = "owner" | "admin" | "staff";
 
@@ -99,7 +100,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
     .from("organization_members")
     .select(
       `org_role, is_proxy_account, user_id,
-       user:users!user_id(id, last_name, first_name, email, deleted_at, password_set_at)`,
+       user:users!user_id(id, last_name, first_name, deleted_at)`,
     )
     .eq("organization_id", active.organizationId)
     .eq("user_id", id)
@@ -119,8 +120,26 @@ export default async function MemberDetailPage({ params }: PageProps) {
     } | null;
   };
 
-  const target = targetRow as unknown as TargetRow | null;
-  if (!target || !target.user) notFound();
+  const targetBase = targetRow as unknown as
+    | (Omit<TargetRow, "user"> & {
+        user: Omit<NonNullable<TargetRow["user"]>, "email" | "password_set_at"> | null;
+      })
+    | null;
+  if (!targetBase || !targetBase.user) notFound();
+
+  // メール・招待完了日時は会員セッションから読めない列のため、上の RLS で
+  // 自組織のメンバーと確認できた後に admin client で読む
+  const targetFields = (await fetchMemberPrivateFields([targetBase.user.id])).get(
+    targetBase.user.id,
+  );
+  const target = {
+    ...targetBase,
+    user: {
+      ...targetBase.user,
+      email: targetFields?.email ?? "",
+      password_set_at: targetFields?.passwordSetAt ?? null,
+    },
+  };
 
   const actorRole = active.orgRole;
   const targetRole = target.org_role;

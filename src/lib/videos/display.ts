@@ -15,12 +15,14 @@ export type VideoDisplayRow = Pick<
   | "embed_source_url"
   | "status"
   | "sort_order"
-  | "admin_label"
 >;
 
-/** `VideoDisplayRow` を取得するときの SELECT 句。 */
+/**
+ * `VideoDisplayRow` を取得するときの SELECT 句。
+ * admin_label（運営用のメモ）は会員セッションから読めない（列権限）ので含めない。
+ */
 export const VIDEO_DISPLAY_COLUMNS =
-  "id, provider, cloudflare_uid, embed_source_url, status, sort_order, admin_label";
+  "id, provider, cloudflare_uid, embed_source_url, status, sort_order";
 
 /**
  * videos 行から埋込再生用のメタ情報を組む純粋関数。
