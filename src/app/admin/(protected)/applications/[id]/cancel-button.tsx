@@ -19,13 +19,15 @@ import { adminCancelApplicationAction } from "./actions";
 
 interface CancelButtonProps {
   applicationId: string;
+  /** "link" = 見出し横の文字リンク（既定）/ "button" = 期限切れ解消の枠で使う赤枠線のピル型ボタン */
+  variant?: "link" | "button";
 }
 
 /**
  * ADM-014: 発注取消ボタン（確認ダイアログ付き）。
  * 表示条件（canAdminCancel）は親 RSC 側で判定済み。Server Action 内でも再評価される。
  */
-export function CancelButton({ applicationId }: CancelButtonProps) {
+export function CancelButton({ applicationId, variant = "link" }: CancelButtonProps) {
   const [isPending, startTransition] = useTransition();
 
   function handleCancel() {
@@ -42,13 +44,23 @@ export function CancelButton({ applicationId }: CancelButtonProps) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          className="h-auto p-0 text-body-sm font-medium text-destructive hover:bg-transparent hover:text-destructive/80 hover:underline"
-        >
-          発注を取り消す
-        </Button>
+        {variant === "button" ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full max-w-xs rounded-full border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive"
+          >
+            発注を取り消す
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-auto p-0 text-body-sm font-medium text-destructive hover:bg-transparent hover:text-destructive/80 hover:underline"
+          >
+            発注を取り消す
+          </Button>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

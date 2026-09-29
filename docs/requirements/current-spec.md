@@ -83,7 +83,7 @@
 | 補償（¥5,000 / ¥9,800）| `compensation_5000` / `compensation_9800` | 月額 | Stripe subscription | **販売停止中**（保険業法上のリスクにより保険会社との別契約に切り出す方針）。`NEXT_PUBLIC_COMPENSATION_OPTION_ENABLED=true` のときだけ料金画面と Checkout で受け付ける。加入中の契約の表示・解約・Webhook・メールはフラグに関係なく動く。コードは削除しない |
 
 - 定義は `src/lib/billing/options.ts`（`OptionType` / `OPTION_LABELS` / `OPTION_PRICES_TAX_INCLUDED` / `VIDEO_OPTION_TYPES` / `VIDEO_OPTION_UI_NAMES`）。動画 3 種は同じ経路（Checkout・Webhook `handleVideoOption`・銀行振込の有効化・メール）で扱う。
-- 動画プランは全会員（staff / admin 以外）が購入でき、**再購入できる**（作り直し・2 本目のため。画面は「再度購入する」+ 確認ダイアログ。銀行振込で運営が同じプランを 2 回有効にするのも同じ扱い）。買い切りで返金の概念は無い。基本プランを解約しても購入記録は残り「購入済み」に表示される。退会すると購入記録は cancelled になる（2026-09-24 確定）。メールの商品名は画面と同じ正式名（`OPTION_LABELS` = `VIDEO_OPTION_UI_NAMES`）。
+- 動画プランは全会員（staff / admin 以外）が購入でき、**再購入できる**（2 本目以降のため。画面は「再度購入する」+ 確認ダイアログ。銀行振込で運営が同じプランを 2 回有効にするのも同じ扱い）。買い切りで返金の概念は無い。基本プランを解約しても購入記録は残り「購入済み」に表示される。退会すると購入記録は cancelled になる（2026-09-24 確定）。メールの商品名は画面と同じ正式名（`OPTION_LABELS` = `VIDEO_OPTION_UI_NAMES`）。
 - 旧「自己PR動画掲載」「職場紹介動画掲載」（`video_workplace`）はプロフィール動画制作プランに統合し、キーごと削除済み。既存行は migration で `video` に書き換えた。復活させない。
 - 報酬未払いの窓口: お問い合わせ（COM-008）「報酬未払いについて」= 発生前の相談、トラブル報告（COM-012）「報酬未払い」= 発生後。選択肢は `src/lib/constants/contact-options.ts` / `trouble-options.ts`。
 

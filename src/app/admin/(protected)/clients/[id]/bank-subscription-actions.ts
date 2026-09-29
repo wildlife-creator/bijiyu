@@ -450,7 +450,7 @@ export async function switchStripeToBankTransferAction(
 }
 
 // ---------------------------------------------------------------------------
-// 動画プランの有効化（買い切り・期限なし。作り直しの再購入は許容）
+// 動画プランの有効化（買い切り・期限なし。2 本目以降の再購入は許容）
 // ---------------------------------------------------------------------------
 
 export async function activateBankTransferVideoOptionAction(

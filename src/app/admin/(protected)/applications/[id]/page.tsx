@@ -209,23 +209,31 @@ export default async function AdminApplicationDetailPage({
         応募履歴詳細
       </h1>
 
-      {/* ステータスバッジ（8分類表記・ADM-013 の行バッジと同スタイル）＋発注取消／期限切れ解消 */}
+      {/* ステータスバッジ（8分類表記・ADM-013 の行バッジと同スタイル）＋発注取消 */}
       <div className="mt-4 flex items-center justify-between gap-3">
         <span className="rounded-full bg-primary/10 px-3 py-1 text-body-sm font-medium text-primary">
           {ADMIN_APPLICATION_CATEGORY_LABELS[category]}
         </span>
         {showCancelButton && <CancelButton applicationId={id} />}
-        {showExpiredResolution && (
-          <div className="flex items-center gap-4">
-            <CompleteButton applicationId={id} />
-            <CancelButton applicationId={id} />
-          </div>
-        )}
       </div>
+      {/* 期限切れ（当事者が操作できない発注済み）は、説明と 2 つの操作を 1 つの枠にまとめて目立たせる */}
       {showExpiredResolution && (
-        <p className="mt-2 text-body-sm text-muted-foreground">
-          評価・完了報告の入力期間（稼働終了日から5日後まで）を過ぎているため、当事者はこの応募を完了・キャンセルできません。稼働が終わった場合は「完了扱いにする」、稼働しなかった場合は「発注を取り消す」で解消してください（解消しないと当事者が退会できません）。
-        </p>
+        <section className="mt-4 rounded-[8px] border border-primary/30 bg-primary/5 p-4">
+          <h2 className="text-body-md font-bold text-foreground">この応募は対応が必要です</h2>
+          <p className="mt-1 text-body-sm text-muted-foreground">
+            完了報告の期限（稼働終了日から5日後）を過ぎたため、当事者はこの応募を完了・キャンセルできません。解消しないと当事者が退会できません。
+          </p>
+          <div className="mt-4 flex flex-col items-center gap-4">
+            <div className="flex w-full flex-col items-center gap-1">
+              <CompleteButton applicationId={id} variant="button" />
+              <p className="text-body-xs text-muted-foreground">稼働が終わった場合</p>
+            </div>
+            <div className="flex w-full flex-col items-center gap-1">
+              <CancelButton applicationId={id} variant="button" />
+              <p className="text-body-xs text-muted-foreground">稼働しなかった場合</p>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* 案件情報 → ADM-022 */}

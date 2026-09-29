@@ -453,7 +453,7 @@ export function BankTransferPanel({
                 <AlertDialogTitle>動画プランを購入済みにしますか？</AlertDialogTitle>
                 <AlertDialogDescription>
                   購入記録を作り、本人と運営にお申し込み受付のメールを送ります。動画の掲載は別途
-                  ADM-027（動画管理）で行います。既に購入済みでも作り直し（再購入）として記録できます。
+                  ADM-027（動画管理）で行います。既に購入済みでも、2本目以降（再購入）として記録できます。
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

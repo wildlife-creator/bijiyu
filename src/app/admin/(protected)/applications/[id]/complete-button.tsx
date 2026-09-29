@@ -19,13 +19,15 @@ import { adminCompleteApplicationAction } from "./actions";
 
 interface CompleteButtonProps {
   applicationId: string;
+  /** "link" = 見出し横の文字リンク（既定）/ "button" = 期限切れ解消の枠で使う塗りのピル型ボタン */
+  variant?: "link" | "button";
 }
 
 /**
  * ADM-014: 期限切れの発注済み応募を「完了扱い」にするボタン（確認ダイアログ付き）。
  * 表示条件（canAdminResolveExpired）は親 RSC 側で判定済み。Server Action 内でも再評価される。
  */
-export function CompleteButton({ applicationId }: CompleteButtonProps) {
+export function CompleteButton({ applicationId, variant = "link" }: CompleteButtonProps) {
   const [isPending, startTransition] = useTransition();
 
   function handleComplete() {
@@ -42,13 +44,19 @@ export function CompleteButton({ applicationId }: CompleteButtonProps) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          className="h-auto p-0 text-body-sm font-medium text-primary hover:bg-transparent hover:text-primary/80 hover:underline"
-        >
-          完了扱いにする
-        </Button>
+        {variant === "button" ? (
+          <Button type="button" className="w-full max-w-xs rounded-full text-white">
+            完了扱いにする
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-auto p-0 text-body-sm font-medium text-primary hover:bg-transparent hover:text-primary/80 hover:underline"
+          >
+            完了扱いにする
+          </Button>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

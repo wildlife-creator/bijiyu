@@ -18,6 +18,7 @@ import { calculateAge } from "@/lib/utils/calculate-age";
 import { StatusFilter } from "@/components/shared/status-filter";
 import { APPLICANTS_STATUS_FILTER_OPTIONS } from "@/lib/constants/application-status-filters";
 import { SortSelect } from "@/components/shared/sort-select";
+import { AreaSummary } from "@/components/area/area-summary";
 import {
   APPLICATION_SORT_OPTIONS,
   resolveSortValue,
@@ -86,7 +87,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
          id, last_name, first_name, avatar_url, birth_date,
          identity_verified, ccus_verified, deleted_at,
          user_skills(trade_type, experience_years),
-         user_available_areas(prefecture)
+         user_available_areas(prefecture, municipality)
        ),
        user_reviews(id),
        client_reviews(id)`,
@@ -205,7 +206,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
             ccus_verified: boolean | null;
             deleted_at: string | null;
             user_skills: { trade_type: string; experience_years: number | null }[] | null;
-            user_available_areas: { prefecture: string }[] | null;
+            user_available_areas: { prefecture: string; municipality: string | null }[] | null;
           } | null;
 
           const hasUserReview =
@@ -237,7 +238,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
               (max, s) => Math.max(max, s.experience_years ?? 0),
               0,
             ) ?? 0;
-          const areas = applicant?.user_available_areas?.map((a) => a.prefecture) ?? [];
+          const areas = applicant?.user_available_areas ?? [];
 
           const isApplied = app.status === "applied";
           const detailHref = isApplied
@@ -331,7 +332,7 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
                         className="size-4 shrink-0"
                       />
                       <span className="ml-1.5 w-[6.5rem] shrink-0">対応可能エリア</span>
-                      <span>{areas.join("、")}</span>
+                      <AreaSummary areas={areas} />
                     </div>
                   )}
                   {maxExperience > 0 && (

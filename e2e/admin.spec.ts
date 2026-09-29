@@ -594,7 +594,10 @@ test.describe("ADM-014 期限切れ accepted の完了扱い", () => {
     ).toBeVisible();
     // 8 分類上は「評価未入力」だが、当事者はもう入力できない期限切れ
     await expect(page.getByText("評価未入力", { exact: true })).toBeVisible();
-    await expect(page.getByText(/入力期間（稼働終了日から5日後まで）を過ぎている/)).toBeVisible();
+    await expect(page.getByText(/完了報告の期限（稼働終了日から5日後）を過ぎたため/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "この応募は対応が必要です" })).toBeVisible();
+    await expect(page.getByText("稼働が終わった場合", { exact: true })).toBeVisible();
+    await expect(page.getByText("稼働しなかった場合", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "完了扱いにする" })).toBeVisible();
     await expect(page.getByRole("button", { name: "発注を取り消す" })).toBeVisible();
 
@@ -607,6 +610,7 @@ test.describe("ADM-014 期限切れ accepted の完了扱い", () => {
     await expect(page.getByText("取引完了", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "完了扱いにする" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "発注を取り消す" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "この応募は対応が必要です" })).toHaveCount(0);
   });
 
   test("期限内の accepted（稼働日前）には「完了扱いにする」は出ない（従来の発注取消のみ）", async ({
@@ -619,5 +623,6 @@ test.describe("ADM-014 期限切れ accepted の完了扱い", () => {
       page.getByRole("heading", { name: "応募履歴詳細" }),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "完了扱いにする" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "この応募は対応が必要です" })).toHaveCount(0);
   });
 });

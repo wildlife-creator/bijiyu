@@ -14,7 +14,9 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
+import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { SortSelect } from "@/components/shared/sort-select";
+import { AreaSummary } from "@/components/area/area-summary";
 import {
   APPLICATION_SORT_OPTIONS,
   resolveSortValue,
@@ -103,7 +105,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
           .in("user_id", applicantIds),
         supabase
           .from("user_available_areas")
-          .select("user_id, prefecture")
+          .select("user_id, prefecture, municipality")
           .in("user_id", applicantIds),
       ])
     : [{ data: [] }, { data: [] }];
@@ -115,10 +117,10 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
     skillsByUser.set(s.user_id, existing);
   });
 
-  const areasByUser = new Map<string, string[]>();
+  const areasByUser = new Map<string, AreaForDisplay[]>();
   allAreas?.forEach((a) => {
     const existing = areasByUser.get(a.user_id) ?? [];
-    existing.push(a.prefecture);
+    existing.push({ prefecture: a.prefecture, municipality: a.municipality });
     areasByUser.set(a.user_id, existing);
   });
 
@@ -239,7 +241,7 @@ export default async function ReceivedApplicationsPage({ searchParams }: Props) 
                     <div className="flex items-start gap-2">
                       <img src="/images/icons/icon-globe.png" alt="" className="size-4 mt-0.5 shrink-0" />
                       <span className="min-w-[7rem] shrink-0">対応可能エリア</span>
-                      <span>{areas.join("、")}</span>
+                      <AreaSummary areas={areas} />
                     </div>
                   )}
                   {maxExp > 0 && (
