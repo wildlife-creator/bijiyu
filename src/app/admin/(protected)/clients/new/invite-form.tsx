@@ -82,7 +82,7 @@ export function ClientInviteForm() {
         </h2>
         <div className="mt-4 overflow-hidden rounded-[8px] border border-border/20 bg-background">
           <ConfirmRow label="発注者名" value={draft.companyName} />
-          <ConfirmRow label="担当者名" value={`${draft.lastName}　${draft.firstName}`} />
+          <ConfirmRow label="管理責任者の氏名" value={`${draft.lastName}　${draft.firstName}`} />
           <ConfirmRow label="メールアドレス" value={draft.email} />
         </div>
         <p className="mt-4 text-body-sm text-muted-foreground">
@@ -132,7 +132,7 @@ export function ClientInviteForm() {
 
       <div className="space-y-2">
         <Label>
-          担当者名
+          管理責任者の氏名
           <span className="ml-1 text-body-sm text-destructive">必須</span>
         </Label>
         <div className="flex gap-3">

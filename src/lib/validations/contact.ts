@@ -34,7 +34,9 @@ function optionalChoice(options: readonly string[], label: string) {
 
 export const contactSchema = z.object({
   // 基本情報
-  companyName: z.string().min(1, "会社名／屋号を入力してください"),
+  // 会社名／屋号は任意（会員登録と同じ扱い。個人の職人は無いことがある）。
+  // contacts.company_name は NOT NULL のため、未入力は空文字で保存する。
+  companyName: z.string(),
   name: z.string().min(1, "氏名を入力してください"),
   phone: z.string().min(1, "電話番号を入力してください"),
   email: z
@@ -43,7 +45,7 @@ export const contactSchema = z.object({
     .email("正しいメールアドレスを入力してください"),
   address: z.string().optional(),
   // お問い合わせについて
-  inquiryType: requiredChoice(CONTACT_INQUIRY_TYPES, "お問い合わせ内容"),
+  inquiryType: requiredChoice(CONTACT_INQUIRY_TYPES, "お問い合わせの種類"),
   purpose: requiredChoice(CONTACT_PURPOSES, "ビジ友の利用目的"),
   industry: requiredChoice(CONTACT_INDUSTRIES, "業種・職種"),
   // 案件情報

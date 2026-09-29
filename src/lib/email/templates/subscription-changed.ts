@@ -74,7 +74,7 @@ function renderUpgradeImmediate(
         paragraph("以下の内容でプラン変更を承りました。"),
         listItem("変更前のプラン", props.oldPlanName ?? ""),
         listItem("変更後のプラン", props.newPlanName ?? ""),
-        listItem("適用開始日", "ただ今より適用", { last: true }),
+        listItem("適用開始", "本日から", { last: true }),
       ].join(""),
     }),
   };
@@ -93,7 +93,7 @@ function renderDowngradeApplied(
         paragraph("ご予約いただいていたプラン変更が適用され、以下の内容に切り替わりました。"),
         listItem("変更前のプラン", props.oldPlanName ?? ""),
         listItem("変更後のプラン", props.newPlanName ?? ""),
-        listItem("適用開始日", "ただ今より適用", { last: true }),
+        listItem("適用開始", "本日から", { last: true }),
       ].join(""),
     }),
   };
@@ -121,12 +121,12 @@ function renderCancelReserved(
   props: SubscriptionChangedEmailProps,
 ): { subject: string; html: string } {
   return {
-    subject: `【ビジ友】解約をご予約いただきました`,
+    subject: `【ビジ友】有料プランの解約予約を承りました`,
     html: renderLayout({
-      title: "解約をご予約いただきました",
+      title: "有料プランの解約予約を承りました",
       bodyContent: [
         paragraph(`${props.recipientName} 様`),
-        paragraph("ビジ友の解約をご予約いただきました。"),
+        paragraph("有料プランの解約をご予約いただきました。"),
         paragraph(
           `${props.endDate ?? ""} をもって、有料プランでのご利用が終了します。`,
           { last: true },

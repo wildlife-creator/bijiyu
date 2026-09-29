@@ -222,7 +222,7 @@ export async function createJobAction(
         return {
           success: false,
           error:
-            "掲載上限（1件）に達しています。既存の募集中案件を締切にしてから再度お試しください",
+            "掲載上限（1件）に達しています。掲載中の案件の掲載を終了してから、再度お試しください",
         };
       }
     }
@@ -420,7 +420,7 @@ export async function updateJobAction(
             return {
               success: false,
               error:
-                "掲載上限（1件）に達しています。既存の募集中案件を締切にしてから再度お試しください",
+                "掲載上限（1件）に達しています。掲載中の案件の掲載を終了してから、再度お試しください",
             };
           }
         }

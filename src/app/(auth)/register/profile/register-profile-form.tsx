@@ -418,7 +418,7 @@ export function RegisterProfileForm({
           </Label>
           <PasswordInput id="password" {...register("password")} />
           <p className="text-muted-foreground text-body-sm">
-            ※ 半角英数字の組み合わせ、8〜16文字
+            ※ 8〜16文字
           </p>
           {errors.password && (
             <p className="text-destructive text-body-sm">
@@ -437,9 +437,6 @@ export function RegisterProfileForm({
             id="confirmPassword"
             {...register("confirmPassword")}
           />
-          <p className="text-muted-foreground text-body-sm">
-            ※ 半角英数字の組み合わせ、8〜16文字
-          </p>
           {errors.confirmPassword && (
             <p className="text-destructive text-body-sm">
               {errors.confirmPassword.message}

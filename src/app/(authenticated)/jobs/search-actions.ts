@@ -501,7 +501,7 @@ export async function toggleFavoriteAction(
       if (error) {
         return {
           success: false,
-          error: "お気に入りの更新に失敗しました。",
+          error: "マイリストの更新に失敗しました。",
         };
       }
       // マイリスト画面のキャッシュを無効化（将来 Router Cache を強化した場合の保険）
@@ -518,7 +518,7 @@ export async function toggleFavoriteAction(
     if (error) {
       return {
         success: false,
-        error: "お気に入りの更新に失敗しました。",
+        error: "マイリストの更新に失敗しました。",
       };
     }
     revalidatePath("/favorites");
@@ -526,7 +526,7 @@ export async function toggleFavoriteAction(
   } catch {
     return {
       success: false,
-      error: "お気に入りの更新に失敗しました。",
+      error: "マイリストの更新に失敗しました。",
     };
   }
 }

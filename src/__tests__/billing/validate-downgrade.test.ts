@@ -104,8 +104,9 @@ describe("validateDowngradePrerequisites", () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0]).toContain("1件以下にして");
-      expect(result.errors[0]).toContain("現在3件");
+      expect(result.errors[0]).toBe(
+        "掲載中の案件を1件までにしてから、プランを変更してください（現在3件）",
+      );
     }
   });
 
@@ -123,7 +124,9 @@ describe("validateDowngradePrerequisites", () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0]).toContain("未対応の応募");
+      expect(result.errors[0]).toBe(
+        "未対応の応募があります。すべて対応してからプラン変更してください",
+      );
     }
   });
 
@@ -143,8 +146,9 @@ describe("validateDowngradePrerequisites", () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0]).toContain("担当者を0人以下");
-      expect(result.errors[0]).toContain("現在5人");
+      expect(result.errors[0]).toBe(
+        "担当者をすべて削除してから、プランを変更してください（現在5人）",
+      );
     }
   });
 
@@ -164,8 +168,53 @@ describe("validateDowngradePrerequisites", () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      // Should have two errors: open jobs + staff
-      expect(result.errors.length).toBeGreaterThanOrEqual(2);
+      // Should have two errors: open jobs + staff (cancellation wording)
+      expect(result.errors).toEqual([
+        "掲載中の案件をすべて掲載終了にしてから解約してください（現在1件）",
+        "担当者をすべて削除してから解約してください（現在1人）",
+      ]);
+    }
+  });
+
+  it("cancellation (free) uses cancellation wording for pending applications", async () => {
+    const admin = makeAdmin({
+      openJobsCount: 0,
+      jobIds: ["j1"],
+      pendingAppsCount: 1,
+    });
+    const result = await validateDowngradePrerequisites(
+      admin,
+      USER,
+      "individual",
+      "free",
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toEqual([
+        "未対応の応募があります。すべて対応してから解約してください",
+      ]);
+    }
+  });
+
+  it("downgrade to a plan with staff limit uses 「N人まで」 wording", async () => {
+    const admin = makeAdmin({
+      openJobsCount: 0,
+      jobIds: [],
+      pendingAppsCount: 0,
+      orgId: "org-1",
+      staffCount: 8,
+    });
+    const result = await validateDowngradePrerequisites(
+      admin,
+      USER,
+      "corporate_premium", // maxStaff=30
+      "corporate", // maxStaff=5
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toEqual([
+        "担当者を5人までにしてから、プランを変更してください（現在8人）",
+      ]);
     }
   });
 

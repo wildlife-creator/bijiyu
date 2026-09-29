@@ -361,7 +361,7 @@ describe("customer.subscription.updated", () => {
     expect(args.html).toContain("山田太郎 様");
     expect(args.html).toContain("ライトプラン");
     expect(args.html).toContain("スタンダードプラン");
-    expect(args.html).toContain("ただ今");
+    expect(args.html).toContain("本日から");
   });
 
   it("同一プランで 月払い → 年払い（Stripe ホスト画面で確定）も (a) 分岐で「承りました」を送り、RPC に billing_cycle を渡す", async () => {
@@ -570,7 +570,7 @@ describe("customer.subscription.updated", () => {
     expect(SEND).not.toHaveBeenCalled();
   });
 
-  it("cancel reservation appears (§6.1-B): subject「解約をご予約いただきました」, body has endDate + 有料プラン明記, 無料プラン表現なし", async () => {
+  it("cancel reservation appears (§6.1-B): subject「有料プランの解約予約を承りました」, body has endDate + 有料プラン明記, 無料プラン表現なし", async () => {
     const sub = buildSubscription({ cancel_at_period_end: true });
     const { admin } = makeAdmin({
       results: {
@@ -605,9 +605,9 @@ describe("customer.subscription.updated", () => {
     );
     expect(SEND).toHaveBeenCalledOnce();
     const args = SEND.mock.calls[0]![0]! as { subject: string; html: string };
-    expect(args.subject).toBe("【ビジ友】解約をご予約いただきました");
+    expect(args.subject).toBe("【ビジ友】有料プランの解約予約を承りました");
     expect(args.html).toContain("鈴木次郎 様");
-    expect(args.html).toContain("ビジ友の解約をご予約いただきました");
+    expect(args.html).toContain("有料プランの解約をご予約いただきました");
     expect(args.html).toContain("有料プランでのご利用が終了します");
     expect(args.html).not.toContain("無料プラン");
   });

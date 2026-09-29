@@ -48,8 +48,9 @@ describe("supabase/templates/invite.html", () => {
     expect(INVITE_HTML).toContain("【設定操作者】");
     expect(INVITE_HTML).toContain("【設定日時】");
     expect(INVITE_HTML).toContain("「代理」マーク");
-    // Staff と分けて 招待元の管理責任者「のみ」を案内（admin は出さない）
-    expect(INVITE_HTML).toContain("招待元の管理責任者へ再送をご依頼ください");
+    // 代理アカウントを招待したのは運営のため、期限切れの連絡先は運営を案内する
+    expect(INVITE_HTML).toContain("リンクの有効期限が切れた場合は、ビジ友運営までご連絡ください。");
+    expect(INVITE_HTML).not.toContain("招待元の管理責任者へ再送をご依頼ください");
   });
 
   it("§5.1-Client: 「『…』の発注者アカウントへのご招待」「ビジ友運営までお問い合わせ」", () => {

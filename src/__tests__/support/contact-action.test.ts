@@ -135,10 +135,19 @@ describe("submitContactAction", () => {
 
   it("必須項目が欠けると Zod 検証で拒否する（insert しない）", async () => {
     const f = validForm();
-    f.set("companyName", "");
+    f.set("name", "");
     const result = await submitContactAction(f);
     expect(result.success).toBe(false);
     expect(adminState.inserts).toHaveLength(0);
+  });
+
+  it("会社名／屋号は任意: 空欄でも送信でき、空文字で保存する（company_name は NOT NULL）", async () => {
+    const f = validForm();
+    f.set("companyName", "");
+    const result = await submitContactAction(f);
+    expect(result.success).toBe(true);
+    expect(adminState.inserts).toHaveLength(1);
+    expect(adminState.inserts[0].payload.company_name).toBe("");
   });
 
   it("選択肢が許可リスト外なら拒否する", async () => {

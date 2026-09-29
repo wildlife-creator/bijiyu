@@ -80,7 +80,7 @@ export async function getAuthenticatedClientSubscription(): Promise<
   }
 
   if (!sub || !sub.stripe_subscription_id) {
-    return { success: false, error: "有効なサブスクリプションが見つかりません" };
+    return { success: false, error: "ご契約中のプランが見つかりません" };
   }
 
   return {
@@ -120,7 +120,7 @@ export async function createUpgradePortalSession(
   if (!newPriceId) {
     return {
       success: false,
-      error: "プランの価格設定が見つかりません",
+      error: "現在お手続きできません。お手数ですがお問い合わせください",
     };
   }
 
@@ -142,7 +142,7 @@ export async function createUpgradePortalSession(
   if (!itemId || !customerId) {
     return {
       success: false,
-      error: "サブスクリプション情報の取得に失敗しました",
+      error: "ご契約情報の取得に失敗しました",
     };
   }
 

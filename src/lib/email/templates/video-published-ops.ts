@@ -35,9 +35,7 @@ export function videoPublishedOpsEmail({
 }: VideoPublishedOpsEmailProps): { subject: string; html: string } {
   const deepLink = `${siteUrl}/admin/users/${userId}`;
   const bodyParts: string[] = [
-    paragraph(
-      "動画オプションの掲載が完了し、申込者へ通知メールを送信しました。",
-    ),
+    paragraph("動画の掲載が完了し、会員へ通知メールを送信しました。"),
     listItem("申込者", applicantName),
   ];
   if (companyName !== null && companyName.trim() !== "") {
@@ -53,9 +51,9 @@ export function videoPublishedOpsEmail({
   );
 
   return {
-    subject: `【ビジ友 運営】動画オプションの掲載完了を申込者へ通知しました`,
+    subject: `【ビジ友 運営】動画の掲載完了を会員へ通知しました`,
     html: renderLayout({
-      title: "動画オプションの掲載完了を申込者へ通知しました",
+      title: "動画の掲載完了を会員へ通知しました",
       bodyContent: bodyParts.join(""),
     }),
   };

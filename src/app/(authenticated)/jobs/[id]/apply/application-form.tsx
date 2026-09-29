@@ -44,11 +44,11 @@ export function ApplicationForm({ jobId, scoutMessageId }: ApplicationFormProps)
     // Client-side validation
     const newErrors: Record<string, string> = {};
     if (!headcount || Number(headcount) < 1)
-      newErrors.headcount = "1名以上を入力してください";
+      newErrors.headcount = "1人以上を入力してください";
     if (!workingType) newErrors.workingType = "日程/働き方を入力してください";
     if (!preferredDate)
       newErrors.preferredDate = "初回稼働希望日を選択してください";
-    if (!agreed) newErrors.agreed = "確認してください";
+    if (!agreed) newErrors.agreed = "内容を確認のうえ、チェックを入れてください";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -185,7 +185,7 @@ export function ApplicationForm({ jobId, scoutMessageId }: ApplicationFormProps)
           <dl className="space-y-2 rounded-[8px] bg-muted/40 px-4 py-3 text-body-sm">
             <div className="flex gap-3">
               <dt className="w-24 flex-shrink-0 text-muted-foreground">応募人数</dt>
-              <dd className="flex-1 break-words">{headcount}名</dd>
+              <dd className="flex-1 break-words">{headcount}人</dd>
             </div>
             <div className="flex gap-3">
               <dt className="w-24 flex-shrink-0 text-muted-foreground">日程/働き方</dt>

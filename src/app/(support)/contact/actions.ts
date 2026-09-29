@@ -94,7 +94,7 @@ export async function submitContactAction(
     .from("contacts")
     .insert({
       user_id: userId,
-      company_name: input.companyName,
+      company_name: input.companyName.trim(),
       name: input.name,
       phone: input.phone,
       email: input.email,

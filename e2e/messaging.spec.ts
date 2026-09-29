@@ -236,7 +236,7 @@ test.describe("発注者: 一斉送信（CLI-014）", () => {
 
     // 本文を入力
     await page
-      .getByPlaceholder("ここに本文が入ります。")
+      .getByPlaceholder("本文を入力")
       .fill("一斉送信テストメッセージです。");
 
     // 送信
@@ -301,10 +301,10 @@ test.describe("発注者: スカウト送信（CLI-015）", () => {
 
     // タイトルと本文を入力
     await page
-      .getByPlaceholder("ここにタイトルが入ります。")
+      .getByPlaceholder("タイトルを入力")
       .fill("スカウトテスト");
     await page
-      .getByPlaceholder("ここに本文が入ります。")
+      .getByPlaceholder("本文を入力")
       .fill("E2Eテストからのスカウトメッセージです。");
 
     // 送信（router.back() で前の画面に遷移する）
@@ -372,18 +372,18 @@ test.describe("個人発注者: メッセージ", () => {
     await expect(page.getByText("田中建設")).toBeVisible({ timeout: 10000 });
   });
 
-  test("画像のみメッセージのスレッドは一覧で「画像を送信しました」と表示される", async ({
+  test("画像のみメッセージのスレッドは一覧で「ファイルが送信されました」と表示される", async ({
     page,
   }) => {
     // 修正4: 最新メッセージが本文空 + 画像添付ありのスレッド (seed ee07) は
-    // 「メッセージはありません」ではなく「画像を送信しました」を表示する。
+    // 「メッセージはありません」ではなく「ファイルが送信されました」を表示する。
     await login(
       page,
       TEST_INDIVIDUAL_CLIENT.email,
       TEST_INDIVIDUAL_CLIENT.password,
     );
     await page.goto("/messages");
-    await expect(page.getByText("画像を送信しました")).toBeVisible({
+    await expect(page.getByText("ファイルが送信されました")).toBeVisible({
       timeout: 10000,
     });
   });

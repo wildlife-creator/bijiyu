@@ -59,10 +59,10 @@ describe("contactSchema", () => {
     ).toBe(true);
   });
 
-  it("会社名／屋号が空なら拒否する", () => {
+  it("会社名／屋号は任意（空文字を許容する）", () => {
     expect(
       contactSchema.safeParse({ ...valid, companyName: "" }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("メール形式が不正なら拒否する", () => {

@@ -120,7 +120,7 @@ export default async function BillingPage({
         buttonLabel = "このプランにする";
         buttonDisabled = true;
         buttonAction = "none";
-        disabledReason = "お支払い確認中のため変更できません";
+        disabledReason = "お支払いが完了していないため変更できません";
       } else if (hasReservation) {
         buttonLabel = "このプランにする";
         buttonDisabled = true;

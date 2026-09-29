@@ -231,10 +231,10 @@ test.describe("お気に入り機能", () => {
     await expect(page.getByText("大阪市北区")).toBeVisible();
   });
 
-  test("マイリストの見込みユーザー（職人）カードは職人一覧（CLI-005）と同じ項目を表示する", async ({
+  test("マイリストの職人カードは職人一覧（CLI-005）と同じ項目を表示する", async ({
     page,
   }) => {
-    // 見込みユーザータブは発注者(client)のみ。他テストと干渉しない client2 でログインし、
+    // 職人タブは発注者(client)のみ。他テストと干渉しない client2 でログインし、
     // データが揃った特定の職人（contractor@test.local=11111111、職種+経験年数あり）を
     // CLI-006 詳細から確定的にマイリスト登録する（"先頭の職人"は seed の created_at が
     // 同時刻で並び順が不定のため避ける）。
@@ -247,7 +247,7 @@ test.describe("お気に入り機能", () => {
     await expect(unfavBtn).toBeEnabled();
     await page.waitForLoadState("networkidle");
 
-    // マイリストの「見込みユーザー」タブで CLI-005 と同じラベルが表示される
+    // マイリストの「職人」タブで CLI-005 と同じラベルが表示される
     await page.goto("/favorites?type=user");
     await expect(page.getByText("対応エリア").first()).toBeVisible();
     await expect(page.getByText("経験年数").first()).toBeVisible();
@@ -495,7 +495,7 @@ test.describe("検索パネルの自動フォーカス抑止 / マイリスト�
 
   /**
    * /favorites の件数表示「全N件」をカード数として使う
-   * （案件・発注者・見込みユーザーの 3 タブでカードの DOM 構造が違うため）。
+   * （案件・発注者・職人の 3 タブでカードの DOM 構造が違うため）。
    *
    * 注意: 「マイリスト解除」ボタンの個数を数えてはならない。ハートボタンは押した瞬間に
    * 楽観的にラベルが「マイリスト登録」へ切り替わるため、カードが消える前（Server Action
@@ -562,10 +562,10 @@ test.describe("検索パネルの自動フォーカス抑止 / マイリスト�
     await expectUnfavoriteRemovesCard(page);
   });
 
-  test("マイリスト（見込みユーザータブ）で解除するとカードがその場で消える（No.22）", async ({
+  test("マイリスト（職人タブ）で解除するとカードがその場で消える（No.22）", async ({
     page,
   }) => {
-    // 見込みユーザータブは発注者のみ。client@test.local で contractor3 を登録 → 解除
+    // 職人タブは発注者のみ。client@test.local で contractor3 を登録 → 解除
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
     await page.goto("/users/contractors/cc222222-2222-2222-2222-222222222222");
     await registerAndWaitCommitted(page);

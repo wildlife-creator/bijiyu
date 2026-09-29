@@ -52,7 +52,7 @@ interface JobListClientProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "下書き保存",
+  draft: "下書き",
   open: "掲載中",
   closed: "掲載終了",
 };

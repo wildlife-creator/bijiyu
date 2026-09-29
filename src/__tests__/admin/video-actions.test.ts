@@ -508,7 +508,11 @@ describe("refreshVideoStatusAction（状態確認）", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data?.status).toBe("processing");
-      expect(result.data?.detail).toContain("処理中");
+      expect(result.data?.detail).toBe(
+        "処理中です。しばらくしてから再度「状態を確認」を押してください",
+      );
+      // Cloudflare の英語の状態名（inprogress 等）は画面に出さない
+      expect(result.data?.detail).not.toContain("inprogress");
     }
     expect(videos()[0]?.status).toBe("processing");
   });

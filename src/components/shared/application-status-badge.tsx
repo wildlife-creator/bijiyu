@@ -22,11 +22,11 @@ const DISPLAY_CATEGORY_MAP: Record<
     className: "bg-[rgba(146,7,131,0.05)] text-primary/60 border-[rgba(146,7,131,0.1)]",
   },
   評価登録未入力: {
-    label: "評価登録未入力",
+    label: "評価未入力（要対応）",
     className: "bg-yellow-50 text-yellow-500 border-yellow-100",
   },
   評価登録済み: {
-    label: "評価登録済み",
+    label: "評価済み（相手の評価待ち）",
     className: "bg-orange-50 text-orange-400 border-orange-100",
   },
   "落選・キャンセル": {

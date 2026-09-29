@@ -62,7 +62,7 @@ export function FavoriteButton({
 
       if (!result.success) {
         setIsFavorited(prev);
-        toast.error(result.error ?? "お気に入りの更新に失敗しました。");
+        toast.error(result.error ?? "マイリストの更新に失敗しました。");
         return;
       }
       if (refreshOnToggle) {

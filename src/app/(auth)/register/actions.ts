@@ -76,7 +76,7 @@ export async function signupAction(formData: FormData): Promise<ActionResult> {
     return {
       success: false,
       error:
-        "確認メールの送信間隔が空いていません。しばらく時間をおいてから、もう一度お試しください。",
+        "短時間に続けて送信されたため、送信できませんでした。しばらく時間をおいて、もう一度お試しください。",
     };
   }
 

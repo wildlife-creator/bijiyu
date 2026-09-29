@@ -114,7 +114,7 @@ export async function executeWithdrawal(params: {
     return {
       success: false,
       error:
-        "プレミアム・ハイエンドプランの管理責任者のみ退会手続きが可能です。管理責任者にお問い合わせください。",
+        "担当者アカウントはご自身で退会できません。管理責任者にアカウントの削除をご依頼ください。",
     };
   }
 

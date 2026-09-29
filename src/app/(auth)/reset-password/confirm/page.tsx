@@ -157,7 +157,7 @@ export default function ResetPasswordConfirmPage() {
             {...register("password")}
           />
           <p className="text-body-xs text-muted-foreground">
-            ※ 半角英数字の組み合わせ、8〜16文字
+            ※ 8〜16文字
           </p>
           {errors.password && (
             <p className="text-body-sm text-destructive">
@@ -173,9 +173,6 @@ export default function ResetPasswordConfirmPage() {
             aria-invalid={!!errors.confirmPassword}
             {...register("confirmPassword")}
           />
-          <p className="text-body-xs text-muted-foreground">
-            ※ 半角英数字の組み合わせ、8〜16文字
-          </p>
           {errors.confirmPassword && (
             <p className="text-body-sm text-destructive">
               {errors.confirmPassword.message}
@@ -188,7 +185,7 @@ export default function ResetPasswordConfirmPage() {
           disabled={isSubmitting}
           className="rounded-[47px] bg-primary text-primary-foreground h-12 w-full font-bold"
         >
-          {isSubmitting ? "更新中..." : "ログイン"}
+          {isSubmitting ? "更新中..." : "パスワードを再設定する"}
         </Button>
       </form>
     </EmailLandingCard>

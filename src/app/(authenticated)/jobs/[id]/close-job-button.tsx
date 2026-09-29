@@ -18,7 +18,7 @@ export function CloseJobButton({ jobId, acceptedCount = 0 }: CloseJobButtonProps
   async function handleClose() {
     const message =
       acceptedCount > 0
-        ? "掲載を終了します。\n案件自体がなくなった場合は、発注済みの受注者に通知されないため、必ずメッセージ等でご連絡ください。\n\nよろしいですか？"
+        ? "掲載を終了しても、発注済みの受注者には自動で通知されません。案件自体が中止になった場合は、必ずメッセージ等でご連絡ください。"
         : "掲載を終了してもよろしいですか？";
     if (!confirm(message)) return;
 

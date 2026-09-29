@@ -150,7 +150,7 @@ export default function AcceptInviteConfirmPage() {
             {...register("password")}
           />
           <p className="text-body-xs text-muted-foreground">
-            ※ 半角英数字の組み合わせ、8〜16文字
+            ※ 8〜16文字
           </p>
           {errors.password && (
             <p className="text-body-sm text-destructive">
@@ -166,9 +166,6 @@ export default function AcceptInviteConfirmPage() {
             aria-invalid={!!errors.confirmPassword}
             {...register("confirmPassword")}
           />
-          <p className="text-body-xs text-muted-foreground">
-            ※ 半角英数字の組み合わせ、8〜16文字
-          </p>
           {errors.confirmPassword && (
             <p className="text-body-sm text-destructive">
               {errors.confirmPassword.message}

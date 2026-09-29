@@ -438,7 +438,7 @@ export async function adminLoginAction(formData: FormData): Promise<ActionResult
 **Responsibilities & Constraints**
 - ルート: `/admin/clients`。並び順は登録日時の新しい順（requirements 未指定のための設計判断）。20件ページング・count exact
 - **契約主体の解決**（`resolveContractHolder`）: `role='client'` → 本人。`role='staff'` → `organization_members` → `organizations.owner_id`。行クリックは常に `/admin/clients/{契約主体userId}` へ
-- **区分の導出**: staff → org_role（admin=組織管理者 / staff=担当者）。client → org owner なら管理責任者、それ以外は active/past_due subscription の plan_type（individual=個人発注者 / small=小規模発注者）。判定不能（有効サブスクなし等）は「—」
+- **区分の導出**: staff → org_role（admin=組織管理者 / staff=担当者）。client → org owner なら管理責任者、それ以外は active/past_due subscription の plan_type（individual=ライトプラン発注者 / small=スタンダードプラン発注者）。判定不能（有効サブスクなし等）は「—」
 - **プラン列**: 契約主体の subscription（active/past_due）の plan_type を 個人/小規模/法人/法人・高サポート 表記。なければ「—」
 - **オプションバッジ**: 契約主体の active な `urgent` / `video_workplace`（行・フィルタとも契約主体基準。staff 行にも所属会社のバッジを出す）
 - 退会済み（deleted_at）は行に「退会済み」表示で含める。代理アカウント（is_proxy_account=true のメンバー）も role=staff の行として含める（区分=担当者）
@@ -727,7 +727,7 @@ UPDATE applications SET cancelled_by = 'contractor' WHERE status = 'cancelled';
 
 **Responsibilities & Constraints**
 - ステータスバッジ（8分類表記）。直下に発注取消ボタン（`canAdminCancel` が true の場合のみ表示）
-- 案件情報（タイトル・募集職種/人数・締切・募集期間・勤務地・工事代金）→ クリックで ADM-022 へ。ユーザー情報（氏名・年齢・メール）→ ADM-009 へ。初回勤務日
+- 案件情報（タイトル・募集職種/人数・締切・募集期間・勤務地・工事代金）→ クリックで ADM-022 へ。ユーザー情報（氏名・年齢・メール）→ ADM-009 へ。初回稼働日
 - **勤務地のデータソース**: 案件のエリアは `job_areas`（`<AreaList>` 表示）。加えて発注確定後（accepted 以降）に発注者が入力する番地詳細 `applications.work_location` がある場合は併記する（旧 `jobs.address` は廃止済みのため使わない）
 - **個別評価（集計ではない）**: `client_reviews` / `user_reviews` を `application_id` で1件ずつ取得
   - ユーザー評価（受注者→発注者）: 稼働状況・補足・「また仕事を受けたい」（はい/いいえ）・評価の補足

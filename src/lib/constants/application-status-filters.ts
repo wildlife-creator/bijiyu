@@ -5,8 +5,8 @@ export const HISTORY_STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
   { value: "all", label: "すべて" },
   { value: "応募結果待ち", label: "応募結果待ち" },
   { value: "稼働予定", label: "稼働予定" },
-  { value: "評価登録未入力", label: "評価登録未入力" },
-  { value: "評価登録済み", label: "評価登録済み" },
+  { value: "評価登録未入力", label: "評価未入力（要対応）" },
+  { value: "評価登録済み", label: "評価済み（相手の評価待ち）" },
   { value: "落選・キャンセル", label: "落選・キャンセル" },
   { value: "取引完了", label: "取引完了" },
 ];
@@ -15,8 +15,8 @@ export const HISTORY_STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
 export const ORDERS_STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
   { value: "all", label: "すべて" },
   { value: "発注済み", label: "発注済み" },
-  { value: "評価登録未入力", label: "評価登録未入力" },
-  { value: "評価登録済み", label: "評価登録済み" },
+  { value: "評価登録未入力", label: "評価未入力（要対応）" },
+  { value: "評価登録済み", label: "評価済み（相手の評価待ち）" },
   { value: "キャンセル・お断り", label: "キャンセル・お断り" },
   { value: "取引完了", label: "取引完了" },
 ];

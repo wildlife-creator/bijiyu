@@ -554,7 +554,7 @@ export function ProfileEditForm({
                 </p>
               )}
               <p className="text-body-xs text-muted-foreground">
-                ※ 変更時は新しいメールアドレス宛に認証用メールが送られるため認証の対応をお願いします
+                ※ 変更すると、現在と新しいメールアドレスの両方に確認メールが届きます。両方のリンクを開くと変更が完了します。
               </p>
               <FieldError message={validationErrors["email"]} />
             </FieldGroup>

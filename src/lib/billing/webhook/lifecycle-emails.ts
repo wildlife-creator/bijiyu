@@ -100,7 +100,7 @@ export async function maybeSendChangedEmail(
 
   // (c) Cancel reservation appeared.
   // A5-follow-up: 通常はここで送らない。scheduleCancelAction が cancel_at_period_end
-  // を先行 UPDATE してから「【ビジ友】解約をご予約いただきました」を同期送信するため、
+  // を先行 UPDATE してから「【ビジ友】有料プランの解約予約を承りました」を同期送信するため、
   // Webhook 到着時には before.cancel_at_period_end === after.cancelAtPeriodEnd === true
   // になっていてここに入らない。先行 UPDATE 失敗時のフォールバックとしてのみ発火する。
   if (!before.cancel_at_period_end && after.cancelAtPeriodEnd) {

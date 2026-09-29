@@ -23,14 +23,14 @@ export function videoOptionActivatedEmail({
   activatedAt,
 }: VideoOptionActivatedEmailProps): { subject: string; html: string } {
   return {
-    subject: `【ビジ友】動画オプションのお申し込みを承りました`,
+    subject: `【ビジ友】動画制作プランのお申し込みを承りました`,
     html: renderLayout({
-      title: "動画オプションのお申し込みを承りました",
+      title: "動画制作プランのお申し込みを承りました",
       bodyContent: [
         paragraph(`${recipientName} 様`),
-        paragraph("以下の内容で動画オプションのお申し込みを承りました。"),
-        listItem("お申し込みオプション", optionLabel),
-        listItem("ご利用開始日", activatedAt, { blockEnd: true }),
+        paragraph("以下の内容で動画制作プランのお申し込みを承りました。"),
+        listItem("お申し込みプラン", optionLabel),
+        listItem("お申し込み日", activatedAt, { blockEnd: true }),
         paragraph(
           "今後の進め方については、運営よりご連絡いたします。",
           { last: true },

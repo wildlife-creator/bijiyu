@@ -32,7 +32,7 @@ export function optionPaymentFailedEmail({
           "ご登録のお支払い方法で、補償オプションの決済が確認できませんでした。",
         ),
         listItem("ご利用中のオプション", optionLabel),
-        listItem("次回お支払い予定日", nextRetryDate, { blockEnd: true }),
+        listItem("次回の再請求予定日", nextRetryDate, { blockEnd: true }),
         paragraph(
           "お支払いの確認が取れないまま日数が経過すると、補償オプションが自動的に解約されます。",
         ),

@@ -24,6 +24,7 @@ export async function validateDowngradePrerequisites(
   targetPlan: PlanType,
 ): Promise<DowngradeValidationResult> {
   const targetLimits = PLAN_LIMITS[targetPlan];
+  const isCancellation = targetPlan === "free";
   const errors: string[] = [];
 
   // 1. Open jobs count
@@ -36,7 +37,9 @@ export async function validateDowngradePrerequisites(
   const currentOpenJobs = openJobsCount ?? 0;
   if (targetLimits.maxOpenJobs !== Number.POSITIVE_INFINITY && currentOpenJobs > targetLimits.maxOpenJobs) {
     errors.push(
-      `掲載中の案件を${targetLimits.maxOpenJobs}件以下にしてからプラン変更してください（現在${currentOpenJobs}件）`,
+      isCancellation
+        ? `掲載中の案件をすべて掲載終了にしてから解約してください（現在${currentOpenJobs}件）`
+        : `掲載中の案件を${targetLimits.maxOpenJobs}件までにしてから、プランを変更してください（現在${currentOpenJobs}件）`,
     );
   }
 
@@ -58,7 +61,9 @@ export async function validateDowngradePrerequisites(
 
   if ((pendingAppsCount ?? 0) > 0) {
     errors.push(
-      "未対応の応募があります。すべて対応してからプラン変更してください",
+      isCancellation
+        ? "未対応の応募があります。すべて対応してから解約してください"
+        : "未対応の応募があります。すべて対応してからプラン変更してください",
     );
   }
 
@@ -80,7 +85,11 @@ export async function validateDowngradePrerequisites(
     const currentStaff = staffCount ?? 0;
     if (currentStaff > targetLimits.maxStaff) {
       errors.push(
-        `担当者を${targetLimits.maxStaff}人以下にしてからプラン変更してください（現在${currentStaff}人）`,
+        isCancellation
+          ? `担当者をすべて削除してから解約してください（現在${currentStaff}人）`
+          : targetLimits.maxStaff === 0
+            ? `担当者をすべて削除してから、プランを変更してください（現在${currentStaff}人）`
+            : `担当者を${targetLimits.maxStaff}人までにしてから、プランを変更してください（現在${currentStaff}人）`,
       );
     }
   }

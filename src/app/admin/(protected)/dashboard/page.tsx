@@ -38,7 +38,7 @@ export default function AdminDashboardPage() {
           href="/admin/password"
           className="block text-body-sm text-foreground underline-offset-2 hover:underline"
         >
-          パスワード再設定
+          パスワード変更
         </Link>
         <form action={adminLogoutAction}>
           <button

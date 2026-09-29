@@ -4,7 +4,7 @@ interface UrgentOptionActivatedEmailProps {
   recipientName: string;
   /** 案件名 (jobs.title)。件名と本文に動的差し込み。 */
   jobTitle: string;
-  /** YYYY/MM/DD 形式の掲載期限 (start_date + 7 日)。 */
+  /** YYYY/MM/DD 形式の急募の終了日 (start_date + 7 日)。 */
   endDate: string;
 }
 
@@ -14,7 +14,7 @@ interface UrgentOptionActivatedEmailProps {
  * 発火: `checkout.session.completed` → `handleUrgentOption` 末尾。
  * 配信: 申込者 = 案件オーナー (`jobs.owner_id`)、法人プランなら組織メンバー全員 (M-03 broadcast)。
  * 件名は §1.1.A 発注者宛と同パターンで案件名を動的に含める。
- * closing「掲載は即時開始されています。」は forward fact で次の確認アクションを画面に委ねる。
+ * closing「急募の表示はすでに始まっています。」は forward fact で次の確認アクションを画面に委ねる。
  */
 export function urgentOptionActivatedEmail({
   recipientName,
@@ -32,8 +32,8 @@ export function urgentOptionActivatedEmail({
         ),
         listItem("案件名", jobTitle),
         listItem("急募期間", "7 日間"),
-        listItem("掲載期限", endDate, { blockEnd: true }),
-        paragraph("掲載は即時開始されています。", { last: true }),
+        listItem("急募の終了日", endDate, { blockEnd: true }),
+        paragraph("急募の表示はすでに始まっています。", { last: true }),
       ].join(""),
     }),
   };

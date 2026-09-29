@@ -24,7 +24,7 @@ describe("paymentFailedEmail", () => {
     expect(out.subject).toBe("【ビジ友】有料プランのお支払いが確認できませんでした");
   });
 
-  it("html に宛名・プラン名・次回お支払い予定日・forward fact 警告・closing を含む", () => {
+  it("html に宛名・プラン名・次回の再請求予定日・forward fact 警告・closing を含む", () => {
     const out = paymentFailedEmail({
       recipientName: "山田太郎",
       planName: "ライトプラン",
@@ -34,7 +34,7 @@ describe("paymentFailedEmail", () => {
     expect(out.html).toContain("ライトプラン");
     expect(out.html).toContain("2026/04/15");
     expect(out.html).toContain("ご利用中のプラン");
-    expect(out.html).toContain("次回お支払い予定日");
+    expect(out.html).toContain("次回の再請求予定日");
     expect(out.html).toContain("無料プランに切り替わります");
     expect(out.html).toContain("お支払い方法のご確認をお願いします");
   });
@@ -53,7 +53,7 @@ describe("paymentFailedEmail", () => {
 });
 
 describe("subscriptionChangedEmail §6.1-A-1 即時アップグレード", () => {
-  it("件名は「プラン変更を承りました」、本文に「ただ今より適用」を含む", () => {
+  it("件名は「プラン変更を承りました」、本文に「本日から」を含む", () => {
     const out = subscriptionChangedEmail({
       recipientName: "山田太郎",
       eventType: "upgrade-immediate",
@@ -66,8 +66,8 @@ describe("subscriptionChangedEmail §6.1-A-1 即時アップグレード", () =>
     expect(out.html).toContain("変更後のプラン");
     expect(out.html).toContain("ライトプラン");
     expect(out.html).toContain("スタンダードプラン");
-    expect(out.html).toContain("適用開始日");
-    expect(out.html).toContain("ただ今より適用");
+    expect(out.html).toContain("適用開始");
+    expect(out.html).toContain("本日から");
   });
 
   it("マーケ調 opening・CTA を含まない（§6 全体方針）", () => {
@@ -98,7 +98,7 @@ describe("subscriptionChangedEmail §6.1-A-1' ダウングレード期末適用"
     expect(out.html).toContain("プレミアムプラン");
     expect(out.html).toContain("変更後のプラン");
     expect(out.html).toContain("ライトプラン");
-    expect(out.html).toContain("ただ今より適用");
+    expect(out.html).toContain("本日から");
     // 「承りました」は予約時（A-2）/ 即時アップグレード（A-1）専用
     expect(out.html).not.toContain("承りました");
   });
@@ -118,21 +118,21 @@ describe("subscriptionChangedEmail §6.1-A-2 ダウングレード予約", () =>
     expect(out.html).toContain("プレミアムプラン");
     expect(out.html).toContain("ライトプラン");
     expect(out.html).toContain("2026/07/15");
-    // 「ただ今より適用」は A-1 専用、A-2 では含めない
-    expect(out.html).not.toContain("ただ今より適用");
+    // 「本日から」は A-1 専用、A-2 では含めない
+    expect(out.html).not.toContain("本日から");
   });
 });
 
 describe("subscriptionChangedEmail §6.1-B 解約予約", () => {
-  it("件名は「解約をご予約いただきました」、本文に endDate を含む", () => {
+  it("件名は「有料プランの解約予約を承りました」、本文に endDate を含む", () => {
     const out = subscriptionChangedEmail({
       recipientName: "山田太郎",
       eventType: "cancel-reserved",
       endDate: "2026/08/31",
     });
-    expect(out.subject).toBe("【ビジ友】解約をご予約いただきました");
+    expect(out.subject).toBe("【ビジ友】有料プランの解約予約を承りました");
     expect(out.html).toContain("山田太郎 様");
-    expect(out.html).toContain("ビジ友の解約をご予約いただきました");
+    expect(out.html).toContain("有料プランの解約をご予約いただきました");
     expect(out.html).toContain("2026/08/31");
     expect(out.html).toContain("有料プランでのご利用が終了します");
   });
@@ -147,7 +147,7 @@ describe("subscriptionChangedEmail §6.1-B 解約予約", () => {
     expect(out.html).not.toContain("無料プラン");
     expect(out.html).not.toContain("変更前のプラン");
     expect(out.html).not.toContain("変更後のプラン");
-    expect(out.html).not.toContain("適用開始日");
+    expect(out.html).not.toContain("適用開始");
   });
 });
 
@@ -307,7 +307,7 @@ describe("optionPaymentFailedEmail §6.5.B 補償オプション支払い失敗"
     );
     expect(out.html).toContain("ご利用中のオプション");
     expect(out.html).toContain("補償（5,000円/月、最大200万円）");
-    expect(out.html).toContain("次回お支払い予定日");
+    expect(out.html).toContain("次回の再請求予定日");
     expect(out.html).toContain("2026/06/07");
     expect(out.html).toContain(
       "お支払いの確認が取れないまま日数が経過すると、補償オプションが自動的に解約されます",
@@ -398,26 +398,26 @@ describe("urgentOptionActivatedEmail §6.6.A 急募オプション申込完了",
     expect(out.html).toContain("渋谷区マンション新築 鉄筋工");
     expect(out.html).toContain("急募期間");
     expect(out.html).toContain("7 日間");
-    expect(out.html).toContain("掲載期限");
+    expect(out.html).toContain("急募の終了日");
     expect(out.html).toContain("2026/07/05");
-    expect(out.html).toContain("掲載は即時開始されています");
+    expect(out.html).toContain("急募の表示はすでに始まっています");
   });
 });
 
 describe("videoOptionActivatedEmail §6.6.B-User 動画オプション申込完了 (申込者向け)", () => {
-  it("件名は「動画オプションのお申し込みを承りました」、本文に optionLabel と activatedAt", () => {
+  it("件名は「動画制作プランのお申し込みを承りました」、本文に optionLabel と activatedAt", () => {
     const out = videoOptionActivatedEmail({
       recipientName: "山田太郎",
       optionLabel: "受注者PR動画",
       activatedAt: "2026/07/01",
     });
     expect(out.subject).toBe(
-      "【ビジ友】動画オプションのお申し込みを承りました",
+      "【ビジ友】動画制作プランのお申し込みを承りました",
     );
     expect(out.html).toContain("山田太郎 様");
-    expect(out.html).toContain("お申し込みオプション");
+    expect(out.html).toContain("お申し込みプラン");
     expect(out.html).toContain("受注者PR動画");
-    expect(out.html).toContain("ご利用開始日");
+    expect(out.html).toContain("お申し込み日");
     expect(out.html).toContain("2026/07/01");
     expect(out.html).toContain(
       "今後の進め方については、運営よりご連絡いたします",
@@ -431,14 +431,14 @@ describe("videoOptionActivatedEmail §6.6.B-User 動画オプション申込完�
       activatedAt: "2026/07/01",
     });
     expect(out.subject).toBe(
-      "【ビジ友】動画オプションのお申し込みを承りました",
+      "【ビジ友】動画制作プランのお申し込みを承りました",
     );
     expect(out.html).toContain("職場紹介動画");
   });
 });
 
 describe("videoOptionAppliedOpsEmail §6.6.B-Ops 動画オプション新規申込 (運営向け)", () => {
-  it("件名は「【ビジ友 運営】動画オプションの新規お申し込みがありました」、deep link + 警告文 + 動画種別を含む", () => {
+  it("件名は「【ビジ友 運営】動画プランの新規お申し込みがありました」、deep link + 警告文 + お申し込みプランを含む", () => {
     const out = videoOptionAppliedOpsEmail({
       applicantName: "佐藤花子",
       companyName: "テスト建設株式会社",
@@ -448,9 +448,9 @@ describe("videoOptionAppliedOpsEmail §6.6.B-Ops 動画オプション新規申�
       siteUrl: "https://bijiyu.example.com",
     });
     expect(out.subject).toBe(
-      "【ビジ友 運営】動画オプションの新規お申し込みがありました",
+      "【ビジ友 運営】動画プランの新規お申し込みがありました",
     );
-    expect(out.html).toContain("動画オプションのお申し込みが新規にありました");
+    expect(out.html).toContain("動画プランの新規お申し込みがありました");
     expect(out.html).toContain("動画制作・撮影手配を進めてください");
     expect(out.html).toContain("申込者");
     expect(out.html).toContain("佐藤花子");
@@ -458,7 +458,8 @@ describe("videoOptionAppliedOpsEmail §6.6.B-Ops 動画オプション新規申�
     expect(out.html).toContain("テスト建設株式会社");
     expect(out.html).toContain("申込日時");
     expect(out.html).toContain("2026/07/01 14:30");
-    expect(out.html).toContain("動画種別");
+    expect(out.html).toContain("お申し込みプラン");
+    expect(out.html).not.toContain("動画種別");
     expect(out.html).toContain("職場紹介動画");
     expect(out.html).toContain(
       "https://bijiyu.example.com/admin/users/user-applicant-001",
@@ -513,7 +514,7 @@ describe("videoPublishedEmail §6.6.C-User 動画掲載完了 (申込者向け)"
 });
 
 describe("videoPublishedOpsEmail §6.6.C-Ops 動画掲載完了 (運営向け)", () => {
-  it("件名は「【ビジ友 運営】動画オプションの掲載完了を申込者へ通知しました」、deep link + 警告文を含む", () => {
+  it("件名は「【ビジ友 運営】動画の掲載完了を会員へ通知しました」、deep link + 警告文を含む", () => {
     const out = videoPublishedOpsEmail({
       applicantName: "佐藤花子",
       companyName: "テスト建設株式会社",
@@ -523,10 +524,10 @@ describe("videoPublishedOpsEmail §6.6.C-Ops 動画掲載完了 (運営向け)",
       siteUrl: "https://bijiyu.example.com",
     });
     expect(out.subject).toBe(
-      "【ビジ友 運営】動画オプションの掲載完了を申込者へ通知しました",
+      "【ビジ友 運営】動画の掲載完了を会員へ通知しました",
     );
     expect(out.html).toContain(
-      "動画オプションの掲載が完了し、申込者へ通知メールを送信しました",
+      "動画の掲載が完了し、会員へ通知メールを送信しました",
     );
     expect(out.html).toContain("佐藤花子");
     expect(out.html).toContain("テスト建設株式会社");

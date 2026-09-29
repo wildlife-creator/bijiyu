@@ -39,7 +39,7 @@ export function completionReportToClientEmail({
     listItem("案件名", jobTitle),
     listItem("受注者", contractorName),
     tradeType ? listItem("職種", tradeType) : "",
-    workEndDate ? listItem("稼働期間の終了日(応募確定時)", workEndDate) : "",
+    workEndDate ? listItem("稼働期間の終了日（発注確定時点）", workEndDate) : "",
     listItem("報告日時", reportedAt, { last: true }),
   ].filter(Boolean);
 
@@ -50,7 +50,7 @@ export function completionReportToClientEmail({
       bodyContent: [
         paragraph(`${recipientName} 様`),
         paragraph(
-          `下記の案件について、${contractorName}さんから完了評価が届きました。`,
+          `下記の案件について、${contractorName}さんから完了報告が届きました。`,
           { tight: true },
         ),
         paragraph("作業報告と評価の入力をお願いします。"),

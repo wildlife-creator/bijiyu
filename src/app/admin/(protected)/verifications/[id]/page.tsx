@@ -214,6 +214,11 @@ export default async function AdminVerificationDetailPage({
               </p>
             </div>
             {/* CCUS の承認は identity_verified=true の場合のみ活性（要件どおり実装） */}
+            {!target?.identity_verified && (
+              <p className="mt-4 text-body-sm text-muted-foreground">
+                本人確認が承認されるまで CCUS は審査できません
+              </p>
+            )}
             <ReviewForm
               verificationId={verification.id}
               enabled={!!target?.identity_verified}
@@ -221,36 +226,45 @@ export default async function AdminVerificationDetailPage({
           </>
         ) : (
           // identity 審査中: CCUS 側は「未申請」グレーアウト（ボタン非活性）
-          <div className="mt-3 opacity-50">
-            <div className="flex aspect-video w-full items-center justify-center rounded-[8px] border border-border bg-muted/30">
-              <span className="text-body-sm text-muted-foreground">未申請</span>
+          <>
+            <p className="mt-3 text-body-sm text-muted-foreground">
+              本人確認が承認されるまで CCUS は審査できません
+            </p>
+            <div className="mt-3 opacity-50">
+              <div className="flex aspect-video w-full items-center justify-center rounded-[8px] border border-border bg-muted/30">
+                <span className="text-body-sm text-muted-foreground">
+                  未申請
+                </span>
+              </div>
+              <div className="mt-4">
+                <p className="text-body-sm font-bold text-foreground">
+                  否認理由
+                </p>
+                <Textarea
+                  disabled
+                  placeholder="否認理由を入力（本人にメールで通知されます）"
+                  className="mt-1 min-h-24 bg-muted"
+                />
+              </div>
+              <div className="mt-4 flex justify-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled
+                  className="w-36 rounded-full"
+                >
+                  否認
+                </Button>
+                <Button
+                  type="button"
+                  disabled
+                  className="w-36 rounded-full bg-primary text-white"
+                >
+                  承認
+                </Button>
+              </div>
             </div>
-            <div className="mt-4">
-              <p className="text-body-sm font-bold text-foreground">否認理由</p>
-              <Textarea
-                disabled
-                placeholder="テキスト"
-                className="mt-1 min-h-24 bg-muted"
-              />
-            </div>
-            <div className="mt-4 flex justify-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                disabled
-                className="w-36 rounded-full"
-              >
-                否認
-              </Button>
-              <Button
-                type="button"
-                disabled
-                className="w-36 rounded-full bg-primary text-white"
-              >
-                承認
-              </Button>
-            </div>
-          </div>
+          </>
         )}
       </section>
 

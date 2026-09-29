@@ -164,7 +164,7 @@ export default async function NewMessagePage({ searchParams }: Props) {
                 asChild
                 className="w-full max-w-xs rounded-full bg-primary text-white hover:bg-primary/90"
               >
-                <Link href="/billing">料金プランを見る</Link>
+                <Link href="/billing">料金プランをみる</Link>
               </Button>
               <BackButton />
             </div>

@@ -32,7 +32,7 @@ describe("deriveClientCategory（区分の導出）", () => {
     ).toBe("owner");
   });
 
-  it("client + individual プラン → 個人発注者", () => {
+  it("client + individual プラン → ライトプラン発注者", () => {
     expect(
       deriveClientCategory({
         role: "client",
@@ -42,7 +42,7 @@ describe("deriveClientCategory（区分の導出）", () => {
     ).toBe("individual");
   });
 
-  it("client + small プラン → 小規模発注者", () => {
+  it("client + small プラン → スタンダードプラン発注者", () => {
     expect(
       deriveClientCategory({ role: "client", orgRole: null, planType: "small" }),
     ).toBe("small");
@@ -136,8 +136,8 @@ describe("ラベル定義の網羅", () => {
       owner: "管理責任者",
       org_admin: "組織管理者",
       org_staff: "担当者",
-      individual: "個人発注者",
-      small: "小規模発注者",
+      individual: "ライトプラン発注者",
+      small: "スタンダードプラン発注者",
     };
     expect(CLIENT_CATEGORY_LABELS).toEqual(expected);
   });

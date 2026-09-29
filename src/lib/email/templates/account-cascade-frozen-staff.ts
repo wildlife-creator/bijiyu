@@ -35,13 +35,13 @@ export function accountCascadeFrozenStaffEmail({
 }: AccountCascadeFrozenStaffEmailProps): { subject: string; html: string } {
   const contactUrl = `${APP_URL}/contact`;
   return {
-    subject: `【ビジ友】「${organizationName}」の管理責任者の退会により、ご利用を終了しました`,
+    subject: `【ビジ友】「${organizationName}」の管理責任者の退会により、アカウントのご利用が停止されました`,
     html: renderLayout({
-      title: `${organizationName} の管理責任者の退会により、ご利用を終了しました`,
+      title: `${organizationName} の管理責任者の退会により、アカウントのご利用が停止されました`,
       bodyContent: [
         paragraph(`${recipientName} 様`),
         paragraph(
-          `ご所属の「${organizationName}」の管理責任者が退会されたため、ビジ友のご利用は終了いたしました。`,
+          `ご所属の「${organizationName}」の管理責任者が退会されたため、ビジ友のアカウントのご利用が停止されました。`,
         ),
         listItem("法人名", organizationName),
         listItem("退会した管理責任者", ownerName),

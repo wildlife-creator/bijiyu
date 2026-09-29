@@ -29,7 +29,7 @@ test.describe("プロフィール編集画面（COM-001〜002）", () => {
 
     await page.getByRole("button", { name: "保存する" }).click();
     await page.waitForURL(/\/profile$/, { timeout: 10000 });
-    await expect(page.getByText("テスト姓 テスト名")).toBeVisible();
+    await expect(page.getByText("テスト姓テスト名")).toBeVisible();
   });
 
   test("お住まい（都道府県＋市区町村）を変更して保存できる", async ({ page }) => {

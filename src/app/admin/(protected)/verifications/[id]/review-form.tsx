@@ -64,7 +64,7 @@ export function ReviewForm({ verificationId, enabled }: ReviewFormProps) {
           id={`rejection-reason-${verificationId}`}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="テキスト"
+          placeholder="否認理由を入力（本人にメールで通知されます）"
           maxLength={1000}
           disabled={!enabled}
           className="mt-1 min-h-24 bg-background"

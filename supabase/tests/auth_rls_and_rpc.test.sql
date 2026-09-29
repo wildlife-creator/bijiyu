@@ -85,6 +85,10 @@ SELECT isnt(
 -- Test 5: complete_registration RPC creates skills and areas
 -- ============================================================
 RESET role;
+-- 以降の RPC は運営側（postgres）からの呼び出しとして実行する。
+-- 20260929130000 で complete_registration は「会員として呼ばれたら本人の行だけ」になったため、
+-- 直前の会員の JWT クレームを残したまま他人の行を渡すと拒否される
+RESET request.jwt.claims;
 
 SELECT public.complete_registration(
   'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1',
@@ -135,7 +139,8 @@ SELECT is(
 );
 
 -- ============================================================
--- Test 8: Skills limited to 3 max
+-- Test 8: Skills are not limited to 3（master-skills 仕様で件数制限は撤廃。
+--         20260929130000 で complete_registration の LIMIT 3 を削除）
 -- ============================================================
 -- Clean up previous skills
 DELETE FROM public.user_skills WHERE user_id = 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2';
@@ -157,8 +162,8 @@ SELECT public.complete_registration(
 
 SELECT is(
   (SELECT count(*)::int FROM public.user_skills WHERE user_id = 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2'),
-  3,
-  'complete_registration limits skills to 3 max'
+  4,
+  'complete_registration saves all skills (no 3-item limit)'
 );
 
 -- ============================================================

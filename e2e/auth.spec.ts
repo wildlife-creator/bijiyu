@@ -66,7 +66,7 @@ test.describe("パスワードリセット（AUTH-004〜005）", () => {
     await page.getByLabel("メールアドレス").fill(TEST_CONTRACTOR.email);
     await page.getByRole("button", { name: /送信/ }).click();
     await expect(
-      page.getByText("リセットメールを送信しました"),
+      page.getByText("パスワード再設定のメールを送信しました（ご登録のメールアドレスの場合に届きます）"),
     ).toBeVisible({ timeout: 10000 });
   });
 });

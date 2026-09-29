@@ -29,7 +29,7 @@ describe("accountCascadeFrozenProxyEmail — §8.5.A-1 / §8.5.A-2", () => {
       "【ビジ友 運営】「株式会社○○建設」の管理責任者の退会により、代理アカウント設定が解除されました",
     );
     expect(out.html).toContain("鈴木花子 様");
-    expect(out.html).toContain("下記の組織の代理アカウントから、管理責任者の退会に伴い解除されました。");
+    expect(out.html).toContain("管理責任者の退会に伴い、下記の組織の代理アカウント設定を解除しました。");
     expect(out.html).toContain("【法人名】 株式会社○○建設");
     expect(out.html).toContain("【退会した管理責任者】 山田一郎");
     expect(out.html).toContain("【退会日時】 2026/06/25 10:30");
@@ -92,7 +92,7 @@ describe("accountCascadeFrozenStaffEmail — §8.5.5", () => {
   it("件名「【ビジ友】」プレフィックス (法人内スタッフ向け、§5.7.5.A と統一)", () => {
     const out = accountCascadeFrozenStaffEmail(BASE);
     expect(out.subject).toBe(
-      "【ビジ友】「株式会社○○建設」の管理責任者の退会により、ご利用を終了しました",
+      "【ビジ友】「株式会社○○建設」の管理責任者の退会により、アカウントのご利用が停止されました",
     );
     expect(out.subject).not.toContain("【ビジ友 運営】");
   });
@@ -101,7 +101,7 @@ describe("accountCascadeFrozenStaffEmail — §8.5.5", () => {
     const out = accountCascadeFrozenStaffEmail(BASE);
     expect(out.html).toContain("佐藤次郎 様");
     expect(out.html).toContain(
-      "ご所属の「株式会社○○建設」の管理責任者が退会されたため、ビジ友のご利用は終了いたしました。",
+      "ご所属の「株式会社○○建設」の管理責任者が退会されたため、ビジ友のアカウントのご利用が停止されました。",
     );
     expect(out.html).toContain("【法人名】 株式会社○○建設");
     expect(out.html).toContain("【退会した管理責任者】 山田一郎");

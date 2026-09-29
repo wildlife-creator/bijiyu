@@ -35,7 +35,7 @@ const REQUIRED_BADGE = (
   <span className="ml-1 text-body-sm text-destructive">必須</span>
 );
 const OPTIONAL_BADGE = (
-  <span className="ml-1 text-body-sm text-muted-foreground">〔任意〕</span>
+  <span className="ml-1 text-body-sm text-muted-foreground">任意</span>
 );
 const ACCEPT_ATTR =
   "image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif,.heic,.heif";
@@ -275,7 +275,7 @@ export function TroubleReportForm({
             </Button>
           </div>
           <p className="text-body-sm text-muted-foreground">
-            画像（JPEG・PNG・WebP）・PDF、最大5枚・各5MBまで
+            画像（JPEG・PNG・WebP）・PDF、最大5件・各5MBまで
           </p>
           {files.length > 0 && (
             <ul className="space-y-1 pt-1">

@@ -96,30 +96,39 @@ export default async function AdminClientDetailPage({
   // 契約主体（role='client'）のみ表示。退会済みも閲覧可能
   const { data: target } = await admin
     .from("users")
-    .select("id, role, last_name, first_name, email, deleted_at, avatar_url, is_hidden")
+    .select(
+      "id, role, last_name, first_name, email, deleted_at, avatar_url, is_hidden",
+    )
     .eq("id", id)
     .maybeSingle();
 
   if (!target || target.role !== "client") notFound();
   const isDeleted = !!target.deleted_at;
 
-  const [{ data: profile }, { data: subscription }, { data: org }] =
-    await Promise.all([
-      admin.from("client_profiles").select("*").eq("user_id", id).maybeSingle(),
-      admin
-        .from("subscriptions")
-        .select("id, plan_type, status, payment_method, billing_cycle, current_period_end")
-        .eq("user_id", id)
-        .in("status", ["active", "past_due"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      admin
-        .from("organizations")
-        .select("id")
-        .eq("owner_id", id)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: profile },
+    { data: subscription },
+    { data: org },
+    { data: memoRow },
+  ] = await Promise.all([
+    admin.from("client_profiles").select("*").eq("user_id", id).maybeSingle(),
+    admin
+      .from("subscriptions")
+      .select(
+        "id, plan_type, status, payment_method, billing_cycle, current_period_end",
+      )
+      .eq("user_id", id)
+      .in("status", ["active", "past_due"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin.from("organizations").select("id").eq("owner_id", id).maybeSingle(),
+    admin
+      .from("client_admin_memos")
+      .select("memo")
+      .eq("user_id", id)
+      .maybeSingle(),
+  ]);
 
   const orgId = org?.id ?? null;
   // 運営者には退会済みでも実名/社名を見せる（状態は「このアカウントは退会済みです」バナーで示す）
@@ -192,7 +201,11 @@ export default async function AdminClientDetailPage({
         .select("id, last_name, first_name, email, password_set_at, deleted_at")
         .in("id", memberIds);
       const userById = new Map((memberUsers ?? []).map((u) => [u.id, u]));
-      const rolePriority: Record<string, number> = { owner: 0, admin: 1, staff: 2 };
+      const rolePriority: Record<string, number> = {
+        owner: 0,
+        admin: 1,
+        staff: 2,
+      };
       memberRows = (members ?? [])
         .sort(
           (a, b) =>
@@ -274,13 +287,16 @@ export default async function AdminClientDetailPage({
         </div>
       )}
 
-      {/* 1. 内部管理者のメモ（編集ボタンはメモ欄の直下に置き、メモ専用の編集だと分かるようにする） */}
+      {/* 1. 管理者メモ（編集ボタンはメモ欄の直下に置き、メモ専用の編集だと分かるようにする） */}
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">
-          内部管理者のメモ
+          管理者メモ
+          <span className="ml-1 text-body-sm font-normal text-muted-foreground">
+            （運営用。会員には表示されません）
+          </span>
         </h2>
         <div className="mt-2 min-h-20 whitespace-pre-wrap rounded-[8px] border border-border bg-background p-4 text-body-md text-foreground">
-          {profile?.admin_memo || (
+          {memoRow?.memo || (
             <span className="text-muted-foreground">メモはありません</span>
           )}
         </div>
@@ -319,7 +335,9 @@ export default async function AdminClientDetailPage({
                 key={o.id}
                 className="flex flex-wrap gap-x-3 text-body-sm text-muted-foreground"
               >
-                <span className="min-w-0 break-words text-foreground">・{o.jobTitle}</span>
+                <span className="min-w-0 break-words text-foreground">
+                  ・{o.jobTitle}
+                </span>
                 {o.endDate && <span>{formatDateTime(o.endDate)}まで</span>}
               </li>
             ))}
@@ -359,12 +377,14 @@ export default async function AdminClientDetailPage({
               </p>
             )}
             <p className="text-body-sm text-muted-foreground">
-              プラン: {planLabel ?? "—"}
+              プラン：{planLabel ?? "—"}
               {subscription && (
                 <>
                   （{PAYMENT_METHOD_LABELS[subscription.payment_method]}
                   {/* 銀行振込は月払い / 年払いを持たない */}
-                  {!isBankTransfer && `・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}）
+                  {!isBankTransfer &&
+                    `・${BILLING_CYCLE_LABELS[subscription.billing_cycle]}`}
+                  ）
                 </>
               )}
             </p>
@@ -406,7 +426,8 @@ export default async function AdminClientDetailPage({
           <DetailRow
             label="募集職種"
             value={
-              profile?.recruit_job_types && profile.recruit_job_types.length > 0 ? (
+              profile?.recruit_job_types &&
+              profile.recruit_job_types.length > 0 ? (
                 <CollapsibleList
                   items={profile.recruit_job_types}
                   initialLimit={5}
@@ -422,7 +443,9 @@ export default async function AdminClientDetailPage({
           />
           <DetailRow
             label="従業員規模"
-            value={profile?.employee_scale ? `${profile.employee_scale}名` : null}
+            value={
+              profile?.employee_scale ? `${profile.employee_scale}名` : null
+            }
           />
           <DetailRow
             label="求める働き方"
@@ -440,15 +463,15 @@ export default async function AdminClientDetailPage({
       <section className="mt-6">
         <h2 className="text-body-lg font-bold text-foreground">メッセージ</h2>
         <div className="mt-2 min-h-16 whitespace-pre-wrap rounded-[8px] border border-border bg-background p-4 text-body-md text-foreground">
-          {profile?.message || (
-            <span className="text-muted-foreground">—</span>
-          )}
+          {profile?.message || <span className="text-muted-foreground">—</span>}
         </div>
       </section>
 
       {/* 8. 職人からの評判 */}
       <section className="mt-6">
-        <h2 className="text-body-lg font-bold text-foreground">職人からの評判</h2>
+        <h2 className="text-body-lg font-bold text-foreground">
+          職人からの評判
+        </h2>
         <div className="mt-2 rounded-[8px] border border-border bg-background p-4">
           <p className="flex items-center gap-3 text-body-md text-foreground">
             ・また仕事を受けたい
@@ -517,7 +540,11 @@ export default async function AdminClientDetailPage({
           ADM-005 保存 redirect 経由の履歴ループ防止のため hardcoded ではなく
           明示的なフォールバックパスを使う） */}
       <div className="mt-8 flex flex-col items-center">
-        <Button asChild variant="outline" className="w-full max-w-xs rounded-full">
+        <Button
+          asChild
+          variant="outline"
+          className="w-full max-w-xs rounded-full"
+        >
           <Link href={backTo ?? "/admin/clients"}>もどる</Link>
         </Button>
       </div>

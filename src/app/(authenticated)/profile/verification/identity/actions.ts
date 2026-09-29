@@ -1,5 +1,6 @@
 "use server";
 
+import { writeAuditLog } from "@/lib/audit/log";
 import { sendVerificationEmails } from "@/lib/email/send/verification-emails";
 import { createClient } from "@/lib/supabase/server";
 import { isOwnedStoragePath } from "@/lib/storage/storage-path";
@@ -24,7 +25,7 @@ export async function submitIdentityAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "認証されていません" };
+    return { success: false, error: "ログインの有効期限が切れました。再度ログインしてください。" };
   }
 
   // 2. Validate uploaded paths (direct-upload 後のパスは本人フォルダ配下のみ許可)
@@ -68,15 +69,16 @@ export async function submitIdentityAction(
     return { success: false, error: "申請の登録に失敗しました" };
   }
 
-  // 9. Insert audit log
-  await supabase.from("audit_logs").insert({
+  // 9. Insert audit log（audit_logs は会員セッションから書けないため共通ヘルパー = service_role）
+  await writeAuditLog({
+    actorId: user.id,
     action: "identity.submit",
-    actor_id: user.id,
-    target_id: user.id,
-    target_type: "identity_verification",
+    targetType: "identity_verification",
+    targetId: user.id,
+    metadata: { verificationId: inserted.id },
   });
 
-  // 10. §4.1 申請者宛控え + §4.4 運営宛通知（fire-and-forget で並列送信）
+  // 10. §4.1 申請者宛控え + §4.4 運営宛通知（並列送信し、完了を await する。失敗は握って申請は成功扱い）
   await sendVerificationEmails({
     userId: user.id,
     documentType: "identity",

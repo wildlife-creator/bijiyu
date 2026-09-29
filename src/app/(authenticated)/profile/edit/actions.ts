@@ -303,7 +303,7 @@ export async function uploadAvatarAction(
   if (updateError) {
     return {
       success: false,
-      error: "アバター画像の保存に失敗しました。もう一度お試しください。",
+      error: "プロフィール画像の保存に失敗しました。もう一度お試しください。",
     };
   }
 

@@ -252,7 +252,7 @@ test.describe("受注者: スカウト受諾の確定タイミングは応募送
     await expect(
       confirmDialog.getByText("この内容で応募して良いですか？"),
     ).toBeVisible();
-    await expect(confirmDialog.getByText("1名")).toBeVisible();
+    await expect(confirmDialog.getByText("1人")).toBeVisible();
     await expect(confirmDialog.getByText("常勤")).toBeVisible();
     await expect(confirmDialog.getByText("2026-06-01")).toBeVisible();
     // 確認ダイアログ OK → 送信

@@ -236,6 +236,10 @@ describe("createMemberAction", () => {
       data: { user: { id: NEW_USER_ID } },
       error: null,
     });
+    // 招待後に admin client で role=staff・氏名を設定する（20260929130000 以降）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
     mockAdminRpc.mockResolvedValue({ data: null, error: null });
     // audit_logs insert
     mockAdminFrom.mockReturnValueOnce(
@@ -289,6 +293,10 @@ describe("createMemberAction", () => {
       data: { user: { id: NEW_USER_ID } },
       error: null,
     });
+    // 招待後に admin client で role=staff・氏名を設定する（20260929130000 以降）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
     mockAdminRpc.mockResolvedValue({ data: null, error: null });
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
@@ -317,6 +325,13 @@ describe("createMemberAction", () => {
 
     const r = await createMemberAction({ ...validInput, isProxyAccount: true });
     expect(r.success).toBe(true);
+    // role=staff・氏名は招待後にアプリが設定する（handle_new_user は GoTrue 経由の metadata を信じない）
+    const updateCalls = mockAdminFrom.mock.results
+      .map((res) => (res.value as { update?: { mock?: { calls: unknown[][] } } })?.update?.mock?.calls ?? [])
+      .flat();
+    expect(updateCalls).toContainEqual([
+      { role: "staff", last_name: "山田", first_name: "太郎" },
+    ]);
     expect(mockInviteUser).toHaveBeenCalledWith(
       "new@test.local",
       expect.objectContaining({
@@ -352,6 +367,10 @@ describe("createMemberAction", () => {
       data: { user: { id: NEW_USER_ID } },
       error: null,
     });
+    // 招待後に admin client で role=staff・氏名を設定する（20260929130000 以降）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
     mockAdminRpc.mockResolvedValue({ data: null, error: null });
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
@@ -402,6 +421,10 @@ describe("createMemberAction", () => {
       data: { user: { id: NEW_USER_ID } },
       error: null,
     });
+    // 招待後に admin client で role=staff・氏名を設定する（20260929130000 以降）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
     mockAdminRpc.mockResolvedValue({ data: null, error: null });
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
@@ -481,6 +504,10 @@ describe("createMemberAction", () => {
       data: { user: { id: NEW_USER_ID } },
       error: null,
     });
+    // 招待後に admin client で role=staff・氏名を設定する（20260929130000 以降）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
     mockAdminRpc.mockResolvedValue({ data: null, error: null });
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),
@@ -518,6 +545,10 @@ describe("createMemberAction", () => {
       data: { user: { id: NEW_USER_ID } },
       error: null,
     });
+    // 招待後に admin client で role=staff・氏名を設定する（20260929130000 以降）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
     mockAdminRpc.mockResolvedValue({
       data: null,
       error: { message: "STAFF_LIMIT_EXCEEDED: current=10, max=10" },
@@ -560,6 +591,10 @@ describe("createMemberAction", () => {
       data: { user: { id: NEW_USER_ID } },
       error: null,
     });
+    // 招待後に admin client で role=staff・氏名を設定する（20260929130000 以降）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
     mockAdminRpc.mockResolvedValue({
       data: null,
       error: { message: "PROXY_ACCOUNT_ALREADY_EXISTS: organization_id=..." },
@@ -818,6 +853,10 @@ describe("R2: createMemberAction 既存ユーザー再利用パス", () => {
       data: { user: { id: NEW_USER_ID } },
       error: null,
     });
+    // 招待後に admin client で role=staff・氏名を設定する（20260929130000 以降）
+    mockAdminFrom.mockReturnValueOnce(
+      createQueryMock({ thenable: { data: null, error: null } }),
+    );
     mockAdminRpc.mockResolvedValue({ data: null, error: null });
     mockAdminFrom.mockReturnValueOnce(
       createQueryMock({ thenable: { data: null, error: null } }),

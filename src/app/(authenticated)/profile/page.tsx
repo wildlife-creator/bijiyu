@@ -10,6 +10,7 @@ import { VideoList } from "@/components/video-embed/video-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createClient } from "@/lib/supabase/server";
 import { calculateAge } from "@/lib/utils/calculate-age";
+import { formatGender } from "@/lib/utils/format-gender";
 import { formatResidence } from "@/lib/utils/format-residence";
 import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
@@ -83,19 +84,6 @@ function VerificationBadge({
   );
 }
 
-function genderLabel(gender: string | null): string {
-  switch (gender) {
-    case "male":
-      return "男性";
-    case "female":
-      return "女性";
-    case "other":
-      return "その他";
-    default:
-      return "";
-  }
-}
-
 export default async function ProfilePage() {
   const supabase = await createClient();
 
@@ -154,7 +142,7 @@ export default async function ProfilePage() {
 
   const displayName =
     profile.last_name && profile.first_name
-      ? `${profile.last_name}　${profile.first_name}`
+      ? `${profile.last_name}${profile.first_name}`
       : "未設定";
 
   const age = profile.birth_date ? calculateAge(profile.birth_date) : null;
@@ -233,7 +221,7 @@ export default async function ProfilePage() {
               state={identityState}
               approvedLabel="本人確認済み"
               pendingLabel="本人確認申請中"
-              noneLabel="本人確認未承認"
+              noneLabel="本人確認未完了"
             />
             <VerificationBadge
               state={ccusState}
@@ -270,7 +258,7 @@ export default async function ProfilePage() {
             label="対応可能エリア"
             value={areas.length > 0 ? <AreaList areas={areas} /> : null}
           />
-          <DetailRow label="性別" value={genderLabel(profile.gender)} />
+          <DetailRow label="性別" value={formatGender(profile.gender)} />
         </div>
       </section>
 

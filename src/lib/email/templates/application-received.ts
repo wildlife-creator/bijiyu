@@ -27,7 +27,7 @@ interface ApplicationReceivedEmailProps {
  *
  * §1.4.A スカウト経由分岐 (`scoutSentDate` が渡された場合):
  *   - 件名末尾に「（スカウト経由）」を追加
- *   - opening を「あなたがスカウトを送信した受注者から、〜」に切替
+ *   - opening を「スカウトを送信した受注者から、〜」に切替
  *   - 【スカウト送信日】行を【応募者】直後に追加
  */
 export function applicationReceivedEmail({
@@ -43,7 +43,7 @@ export function applicationReceivedEmail({
   const isScout = typeof scoutSentDate === "string" && scoutSentDate.length > 0;
   const subjectSuffix = isScout ? "（スカウト経由）" : "";
   const opening = isScout
-    ? "あなたがスカウトを送信した受注者から、ご応募がありました。"
+    ? "スカウトを送信した受注者から、ご応募がありました。"
     : "下記の案件にご応募がありました。";
 
   const trimmedExcerpt = messageExcerpt?.trim() ?? "";

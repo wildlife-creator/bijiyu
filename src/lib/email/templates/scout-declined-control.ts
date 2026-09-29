@@ -31,9 +31,9 @@ export function scoutDeclinedControlEmail({
   declinedAt,
 }: ScoutDeclinedControlEmailProps): { subject: string; html: string } {
   return {
-    subject: `【ビジ友】${contractorName}さんからスカウトを辞退されました`,
+    subject: `【ビジ友】${contractorName}さんがスカウトを辞退しました`,
     html: renderLayout({
-      title: `${contractorName}さんからスカウトを辞退されました`,
+      title: `${contractorName}さんがスカウトを辞退しました`,
       bodyContent: [
         paragraph(`${recipientName} 様`),
         paragraph("下記のスカウトが辞退されました。"),

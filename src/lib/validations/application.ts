@@ -10,7 +10,7 @@ export const applicationSchema = z.object({
   headcount: z.coerce
     .number()
     .int("整数を入力してください")
-    .min(1, "1名以上を入力してください"),
+    .min(1, "1人以上を入力してください"),
   workingType: z.string().min(1, "日程/働き方を入力してください"),
   preferredFirstWorkDate: z
     .string()

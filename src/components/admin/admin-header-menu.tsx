@@ -21,7 +21,7 @@ import {
  * デザインカンプ: design-assets/screens/UI-header-login-b.png
  *
  * 上段（大きい行）: ADM-002 と同じ全 8 項目（ADMIN_MENU_ITEMS）。
- * 下段（小さいテキスト）: パスワード再設定・ログアウト。
+ * 下段（小さいテキスト）: パスワード変更・ログアウト。
  * 一般ユーザー側 SiteHeader と同じスタイル系統に揃える。
  */
 export function AdminHeaderMenu() {
@@ -65,7 +65,7 @@ export function AdminHeaderMenu() {
               href="/admin/password"
               className="block text-body-sm text-foreground underline-offset-2 hover:underline"
             >
-              パスワード再設定
+              パスワード変更
             </Link>
           </SheetClose>
           <button

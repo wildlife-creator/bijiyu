@@ -148,7 +148,7 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
                 <Textarea
                   id="details"
                   name="details"
-                  placeholder="テキスト"
+                  placeholder="改善してほしい点などがあればご記入ください（任意）"
                   rows={4}
                   value={field.value ?? ""}
                   onChange={field.onChange}
@@ -160,12 +160,12 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
           {/* Agreement section */}
           <div className="space-y-3">
             <p className="text-body-sm text-foreground">
-              退会すると以下の内容に同意したものとみなされます。
+              退会にあたり、以下の内容をご確認ください。
             </p>
             <ul className="list-disc space-y-1 pl-5 text-body-sm text-foreground">
               <li>アカウント情報が無効化されます</li>
               <li>公開中・下書きの案件は全て非公開になります</li>
-              <li>応募中の案件はキャンセルされます</li>
+              <li>応募中・進行中の案件がある場合は退会できません</li>
               <li>有料プランは解約されます</li>
               <li>退会後にデータの復元はできません</li>
             </ul>
@@ -252,7 +252,7 @@ export function WithdrawalForm({ isCorporateOwner, displayName }: Props) {
                   <p>
                     一時的に料金だけ止めたい場合は、退会ではなく
                     <span className="font-bold">「プランの解約」</span>
-                    をおすすめします。プランを解約すれば、後日あらためてプレミアムまたはハイエンドプランにご契約いただくだけで、管理者・担当者のアカウント、作成したスカウト文例、受注者との過去メッセージ、すべてを元どおりに復活できます。
+                    をおすすめします。管理者・担当者をすべて削除してから解約すると、作成したスカウト文例や受注者との過去のメッセージは残り、後日あらためてプレミアムまたはハイエンドプランにご契約いただければ、そのまま引き続きご利用いただけます（管理者・担当者はあらためて招待してください）。
                   </p>
                   <p>
                     本当に退会した場合、同じ会社でビジ友を再開するには、新しく会社アカウントを作り直して、管理者・担当者をあらためて招待する必要があります（以前のスカウト文例・メッセージ履歴は引き継げません）。

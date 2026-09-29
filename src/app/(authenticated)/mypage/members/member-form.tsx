@@ -111,7 +111,7 @@ export function MemberForm({
         }
         toast.success("担当者を招待しました", {
           description:
-            "招待メールを送信しました。担当者にご連絡のうえ、メール内のリンクから承諾をお願いしてください（リンクの有効期限は24時間です）",
+            "招待メールを送信しました。担当者に、メール内のリンクから招待を承諾するようお伝えください（リンクの有効期限は24時間です）",
         });
         router.push("/mypage/members");
         router.refresh();

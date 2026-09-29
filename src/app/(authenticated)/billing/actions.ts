@@ -157,7 +157,7 @@ export async function startCheckoutAction(
   if (userRow.role === "staff") {
     return {
       success: false,
-      error: "担当者アカウントではプランの変更はできません",
+      error: "担当者アカウントではお申し込みできません",
     };
   }
   if (userRow.role === "admin") {
@@ -186,7 +186,7 @@ export async function startCheckoutAction(
       return {
         success: false,
         error:
-          "すでにご契約中のプランがあります。プラン変更ボタンからお手続きください",
+          "すでにご契約中のプランがあります。変更したいプランの「このプランにする」からお手続きください",
       };
     }
   } else {
@@ -316,7 +316,7 @@ export async function startCheckoutAction(
         return {
           success: false,
           error:
-            "すでにご契約中のプランがあります。プラン変更ボタンからお手続きください",
+            "すでにご契約中のプランがあります。変更したいプランの「このプランにする」からお手続きください",
         };
       }
     } catch (err) {
@@ -339,7 +339,7 @@ export async function startCheckoutAction(
     if (!planPrice) {
       return {
         success: false,
-        error: "プランの価格設定が見つかりません。管理者にお問い合わせください",
+        error: "現在お手続きできません。お手数ですがお問い合わせください",
       };
     }
     lineItems.push({ price: planPrice, quantity: 1 });
@@ -349,7 +349,7 @@ export async function startCheckoutAction(
         return {
           success: false,
           error:
-            "初期費用の価格設定が見つかりません。管理者にお問い合わせください",
+            "現在お手続きできません。お手数ですがお問い合わせください",
         };
       }
       lineItems.push({ price: initialFeePrice, quantity: 1 });
@@ -360,7 +360,7 @@ export async function startCheckoutAction(
       return {
         success: false,
         error:
-          "オプションの価格設定が見つかりません。管理者にお問い合わせください",
+          "現在お手続きできません。お手数ですがお問い合わせください",
       };
     }
     lineItems.push({ price: optionPrice, quantity: 1 });

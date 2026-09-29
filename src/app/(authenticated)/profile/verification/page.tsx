@@ -28,7 +28,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
     case "pending":
       return <Badge variant="default">申請中</Badge>;
     case "rejected":
-      return <Badge variant="destructive">否認</Badge>;
+      return <Badge variant="destructive">再提出が必要</Badge>;
     default:
       return <Badge variant="outline">未申請</Badge>;
   }
@@ -88,14 +88,14 @@ export default async function VerificationPage() {
         本人確認・CCUS登録
       </h1>
       <p className="mt-2 text-center text-body-md text-muted-foreground">
-        ビジ友をご利用いただくために、以下の2つのステップを完了してください。
+        本人確認・CCUS登録を行うと、プロフィールに確認済みのバッジが表示されます。
       </p>
 
       <div className="mt-8 space-y-8">
         {/* Step 1: Identity Verification */}
         <section className="space-y-4">
           <h2 className="text-heading-sm font-bold text-foreground">
-            Step1: 本人確認
+            ステップ1：本人確認
           </h2>
           <Card>
             <CardHeader>
@@ -118,7 +118,7 @@ export default async function VerificationPage() {
                     <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
                     <div>
                       <p className="text-body-sm font-medium text-destructive">
-                        否認理由
+                        再提出のお願い（理由）
                       </p>
                       <p className="text-body-sm text-destructive">
                         {identityVerification.rejection_reason}
@@ -148,7 +148,7 @@ export default async function VerificationPage() {
         {/* Step 2: CCUS Registration */}
         <section className="space-y-4">
           <h2 className="text-heading-sm font-bold text-foreground">
-            Step2: CCUS登録
+            ステップ2：CCUS登録
           </h2>
           <Card>
             <CardHeader>
@@ -171,7 +171,7 @@ export default async function VerificationPage() {
                     <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
                     <div>
                       <p className="text-body-sm font-medium text-destructive">
-                        否認理由
+                        再提出のお願い（理由）
                       </p>
                       <p className="text-body-sm text-destructive">
                         {ccusVerification.rejection_reason}

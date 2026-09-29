@@ -45,7 +45,7 @@ const CONTRACTOR_TABS: { label: string; value: FavoriteType }[] = [
 const CLIENT_TABS: { label: string; value: FavoriteType }[] = [
   { label: "案件", value: "job" },
   { label: "発注者", value: "client" },
-  { label: "見込みユーザー", value: "user" },
+  { label: "職人", value: "user" },
 ];
 
 export default async function FavoritesPage({ searchParams }: PageProps) {
@@ -104,7 +104,7 @@ export default async function FavoritesPage({ searchParams }: PageProps) {
       totalCount = jobCount ?? 0;
     }
   } else {
-    // 発注者・見込みユーザーはお気に入り登録順でページ分け（従来どおり）
+    // 発注者・職人はお気に入り登録順でページ分け（従来どおり）
     const { data: favorites, count } = await supabase
       .from("favorites")
       .select("id, target_id, target_type", { count: "exact" })
@@ -439,7 +439,7 @@ async function UserFavorites({
   if (targetIds.length === 0) return null;
 
   // CLI-005（職人一覧）と整合: client role（個人発注者・小規模・法人 Owner）も
-  // 受注者として活動しうるため、見込みユーザーとして表示対象に含める。
+  // 受注者として活動しうるため、職人として表示対象に含める。
   // staff/admin はそもそも CLI-005 で favorite 登録できないため、ここでは role 絞りで除外する。
   const { data: users } = await supabase
     .from("users")

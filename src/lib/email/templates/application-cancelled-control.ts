@@ -45,9 +45,9 @@ export function applicationCancelledControlEmail({
   ].filter(Boolean);
 
   return {
-    subject: `【ビジ友・要対応】${contractorName}さんが発注をキャンセルしました`,
+    subject: `【ビジ友・要対応】${contractorName}さんが受注をキャンセルしました`,
     html: renderLayout({
-      title: `${contractorName}さんが発注をキャンセルしました`,
+      title: `${contractorName}さんが受注をキャンセルしました`,
       bodyContent: [
         paragraph(`${recipientName} 様`),
         paragraph("下記の応募が、応募者によりキャンセルされました。"),

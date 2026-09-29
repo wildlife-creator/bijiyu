@@ -32,12 +32,12 @@ export function ThreadListItem({
   unreadCount,
   isOfficial = false,
 }: ThreadListItemProps) {
-  // 本文があればそれを、無ければ添付有無で「画像を送信しました」を表示する。
-  // メッセージ添付は画像限定（JPEG/PNG バケット）のため「画像を送信しました」で確定。
+  // 本文があればそれを、無ければ添付有無で「ファイルが送信されました」を表示する。
+  // 添付の種類（画像・PDF 等）を問わない文言にしている。
   const lastMessagePreview = lastMessageBody
     ? lastMessageBody
     : lastMessageHasAttachment
-      ? "画像を送信しました"
+      ? "ファイルが送信されました"
       : "メッセージはありません";
   return (
     <Link

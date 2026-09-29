@@ -19,11 +19,11 @@ const clientInviteSchema = z.object({
     .max(100, "発注者名は100文字以内で入力してください"),
   lastName: z
     .string()
-    .min(1, "担当者の姓を入力してください")
+    .min(1, "管理責任者の姓を入力してください")
     .max(50, "姓は50文字以内で入力してください"),
   firstName: z
     .string()
-    .min(1, "担当者の名を入力してください")
+    .min(1, "管理責任者の名を入力してください")
     .max(50, "名は50文字以内で入力してください"),
   email: z.string().email("メールアドレスの形式が正しくありません"),
 });
@@ -43,8 +43,10 @@ const GENERIC_ERROR =
  *
  * - metadata に invited_role は**付けない**（handle_new_user トリガーの
  *   staff 化防止。role は contractor のまま）
- * - invited_last_name / invited_first_name はトリガーが public.users の
- *   氏名にセットする（middleware の登録完了判定を満たすため必須）
+ * - 氏名は招待後に admin client で public.users にセットする（middleware の
+ *   登録完了判定を満たすため必須）。handle_new_user は GoTrue 経由の作成では
+ *   metadata を信じない（20260929130000）。invited_last_name / invited_first_name は
+ *   招待メールのテンプレート用に metadata にも残す
  * - invited_company_name は決済 Webhook で client_profiles.display_name に反映される
  */
 export async function createClientInviteAction(
@@ -129,6 +131,18 @@ export async function createClientInviteAction(
     ) {
       return { success: false, error: DUPLICATE_EMAIL_ERROR };
     }
+    return { success: false, error: GENERIC_ERROR };
+  }
+
+  // 氏名はアプリ側で設定する（20260929130000: handle_new_user は GoTrue 経由の作成で
+  // user_metadata を信じない）。middleware の登録完了判定（last_name あり）を満たすため必須
+  const { error: nameError } = await admin
+    .from("users")
+    .update({ last_name: input.lastName, first_name: input.firstName })
+    .eq("id", invited.user.id);
+  if (nameError) {
+    console.error("[createClientInviteAction] set invitee name failed", nameError);
+    await admin.auth.admin.deleteUser(invited.user.id);
     return { success: false, error: GENERIC_ERROR };
   }
 

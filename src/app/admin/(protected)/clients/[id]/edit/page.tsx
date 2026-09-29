@@ -26,18 +26,18 @@ export default async function AdminClientEditPage({ params }: PageProps) {
   // 内部メモのため退会済みアカウントも編集可能（退会後の対応記録用）
   if (!target || target.role !== "client") notFound();
 
-  const { data: profile } = await admin
-    .from("client_profiles")
-    .select("admin_memo")
+  const { data: memoRow } = await admin
+    .from("client_admin_memos")
+    .select("memo")
     .eq("user_id", id)
     .maybeSingle();
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-8">
       <h1 className="text-center text-heading-lg font-bold text-secondary">
-        発注者 アカウント編集
+        管理者メモの編集
       </h1>
-      <MemoEditForm userId={id} initialMemo={profile?.admin_memo ?? ""} />
+      <MemoEditForm userId={id} initialMemo={memoRow?.memo ?? ""} />
     </div>
   );
 }

@@ -289,7 +289,7 @@ describe("startCheckoutAction — auth & role checks", () => {
     });
     expect(result).toEqual({
       success: false,
-      error: "担当者アカウントではプランの変更はできません",
+      error: "担当者アカウントではお申し込みできません",
     });
   });
 

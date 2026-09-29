@@ -49,6 +49,8 @@ export interface BankTransferPanelSubscription {
   status: "active" | "past_due";
   /** カード払いのときだけ表示に使う（YYYY/MM/DD）。銀行振込は期限を持たない */
   periodEndLabel: string | null;
+  /** カード払いで解約予約中（期末で終了）。true なら「期間終了日」、false なら「次回更新日」と出す */
+  cancelAtPeriodEnd: boolean;
 }
 
 /** 購入済みの動画プラン 1 件（表示専用。同じプランを複数回買えば複数行になる） */
@@ -238,13 +240,15 @@ export function BankTransferPanel({
           基本プラン
           {isBank && subscription && (
             <span className="ml-2 font-normal text-muted-foreground">
-              現在: {PLAN_LABELS[subscription.planType]}（手動設定）
+              現在：{PLAN_LABELS[subscription.planType]}（手動設定）
             </span>
           )}
           {isStripe && subscription && (
             <span className="ml-2 font-normal text-muted-foreground">
-              現在: {PLAN_LABELS[subscription.planType]}（クレジットカード
-              {subscription.periodEndLabel ? `・期間終了日 ${subscription.periodEndLabel}` : ""}）
+              現在：{PLAN_LABELS[subscription.planType]}（クレジットカード
+              {subscription.periodEndLabel
+                ? `・${subscription.cancelAtPeriodEnd ? "期間終了日" : "次回更新日"} ${subscription.periodEndLabel}`
+                : ""}）
             </span>
           )}
         </p>
@@ -400,7 +404,7 @@ export function BankTransferPanel({
       <div className="space-y-3 border-t border-border/20 pt-4">
         <p className="text-body-sm font-bold text-foreground">動画プラン</p>
         <div className="text-body-sm">
-          <p className="text-muted-foreground">購入済み:</p>
+          <p className="text-muted-foreground">購入済み：</p>
           {videoPurchases.length === 0 ? (
             <p className="pl-3 text-muted-foreground">なし</p>
           ) : (
@@ -452,8 +456,8 @@ export function BankTransferPanel({
               <AlertDialogHeader>
                 <AlertDialogTitle>動画プランを購入済みにしますか？</AlertDialogTitle>
                 <AlertDialogDescription>
-                  購入記録を作り、本人と運営にお申し込み受付のメールを送ります。動画の掲載は別途
-                  ADM-027（動画管理）で行います。既に購入済みでも、2本目以降（再購入）として記録できます。
+                  購入記録を作り、本人と運営にお申し込み受付のメールを送ります。動画の掲載は、この画面の
+                  「動画を投稿/編集する」で行います。既に購入済みでも、2本目以降（再購入）として記録できます。
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -471,7 +475,7 @@ export function BankTransferPanel({
       <div className="space-y-3 border-t border-border/20 pt-4">
         <p className="text-body-sm font-bold text-foreground">急募オプション</p>
         <div className="text-body-sm">
-          <p className="text-muted-foreground">適用中:</p>
+          <p className="text-muted-foreground">適用中：</p>
           {urgentOptions.length === 0 ? (
             <p className="pl-3 text-muted-foreground">なし</p>
           ) : (
@@ -526,7 +530,7 @@ export function BankTransferPanel({
                   <AlertDialogTitle>急募オプションを有効にしますか？</AlertDialogTitle>
                   <AlertDialogDescription>
                     「{selectedUrgentJob?.title ?? ""}」が今日から 7 日間、募集一覧の最上位に「急募」タグ付きで表示されます。
-                    本人（法人プランは組織メンバー全員）にお知らせメールを送ります。
+                    本人（組織で契約している場合は組織メンバー全員）にお知らせメールを送ります。
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -540,7 +544,7 @@ export function BankTransferPanel({
           </div>
         )}
         <p className="text-body-sm text-muted-foreground">
-          この会員（法人プランは同じ組織）の掲載中で、急募になっていない案件だけが並びます。お問い合わせの「問い合わせ詳細」に書かれた案件名と見比べて選んでください。
+          この会員（組織で契約している場合は同じ組織）の掲載中で、急募になっていない案件だけが並びます。お問い合わせの「問い合わせ詳細」に書かれた案件名と見比べて選んでください。
         </p>
       </div>
     </div>

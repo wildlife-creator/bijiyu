@@ -28,7 +28,7 @@ const REQUIRED_BADGE = (
   <span className="ml-1 text-body-sm text-destructive">必須</span>
 );
 const OPTIONAL_BADGE = (
-  <span className="ml-1 text-body-sm text-muted-foreground">〔任意〕</span>
+  <span className="ml-1 text-body-sm text-muted-foreground">任意</span>
 );
 
 interface InquiryFormProps {

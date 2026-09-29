@@ -342,7 +342,7 @@ export async function middleware(request: NextRequest) {
     return finalize(
       redirectToLoginAndClearSession(
         request,
-        "アカウントが一時停止されています。詳しくは管理者にお問い合わせください",
+        "このアカウントは現在ご利用いただけません。詳しくは、所属する会社の管理責任者（社内でビジ友を契約している方）、またはビジ友のお問い合わせ窓口までご連絡ください。",
       ),
     );
   }

@@ -65,7 +65,7 @@ export function MemberList({
               {m.email}
             </p>
             <p className="text-body-sm text-muted-foreground">
-              権限: {m.orgRoleLabel}
+              権限：{m.orgRoleLabel}
             </p>
           </div>
         ))}

@@ -107,15 +107,15 @@ export default async function ProfileEditPage() {
         {showOwnerBanner && (
           <div className="mt-4 rounded-[8px] border border-primary/30 bg-primary/5 px-4 py-3">
             <p className="text-body-sm text-foreground">
-              氏名・メールアドレスの変更は同一人物の情報更新のみです。契約者
-              （管理責任者）を別の方に引き継ぐ場合は、
+              氏名・メールアドレスは、ご本人の情報が変わった場合のみ変更してください。
+              契約者（管理責任者）を別の方に引き継ぐ場合は、
               <Link
                 href="/contact"
                 className="ml-1 underline text-primary"
               >
                 お問い合わせ
               </Link>
-              からご依頼ください
+              からご依頼ください。
             </p>
           </div>
         )}

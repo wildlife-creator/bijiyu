@@ -588,7 +588,7 @@ export function JobForm({
           <Label>必須スキル</Label>
           <Input
             {...register("requiredSkills")}
-            placeholder="テキスト"
+            placeholder="例: 足場組立の経験、玉掛け資格"
           />
         </div>
 

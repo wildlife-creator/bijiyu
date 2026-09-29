@@ -106,7 +106,7 @@ export default async function AdminUserDetailPage({
   // 銀行振込の枠で使う現在の契約
   const { data: activeSubscription } = await admin
     .from("subscriptions")
-    .select("id, plan_type, status, payment_method, current_period_end")
+    .select("id, plan_type, status, payment_method, current_period_end, cancel_at_period_end")
     .eq("user_id", id)
     .in("status", ["active", "past_due"])
     .order("created_at", { ascending: false })
@@ -418,6 +418,7 @@ export default async function AdminUserDetailPage({
                       activeSubscription.current_period_end
                         ? formatDateJst(activeSubscription.current_period_end)
                         : null,
+                    cancelAtPeriodEnd: activeSubscription.cancel_at_period_end === true,
                   }
                 : null
             }

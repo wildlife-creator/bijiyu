@@ -30,7 +30,7 @@ export function matchingAcceptedEmail({
     listItem("発注者", clientName),
     tradeType ? listItem("職種", tradeType) : "",
     listItem("初回稼働日", firstWorkDate),
-    workEndDate ? listItem("稼働期間の終了日（応募確定時）", workEndDate, { last: true }) : "",
+    workEndDate ? listItem("稼働期間の終了日（発注確定時点）", workEndDate, { last: true }) : "",
   ].filter(Boolean);
 
   return {

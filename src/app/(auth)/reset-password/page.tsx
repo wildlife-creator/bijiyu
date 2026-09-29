@@ -42,7 +42,7 @@ export default function ResetPasswordPage() {
       {sent ? (
         <div className="text-center">
           <p className="text-body-base text-foreground">
-            リセットメールを送信しました
+            パスワード再設定のメールを送信しました（ご登録のメールアドレスの場合に届きます）
           </p>
           <p className="mt-2 text-body-sm text-muted-foreground">
             メールに記載されたURLからパスワードを再設定してください

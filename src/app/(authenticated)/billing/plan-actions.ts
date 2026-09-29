@@ -125,7 +125,7 @@ async function scheduleDowngradeAction(
   const stripe = getStripeClient();
   const newPriceId = priceIdFor(targetPlan, targetCycle);
   if (!newPriceId) {
-    return { success: false, error: "プランの価格設定が見つかりません" };
+    return { success: false, error: "現在お手続きできません。お手数ですがお問い合わせください" };
   }
 
   try {
@@ -137,7 +137,7 @@ async function scheduleDowngradeAction(
     // The current phase is phases[0]. Add a second phase with the target price.
     const currentPhase = schedule.phases[0];
     if (!currentPhase) {
-      return { success: false, error: "スケジュール情報の取得に失敗しました" };
+      return { success: false, error: "ご契約情報の取得に失敗しました" };
     }
 
     await stripe.subscriptionSchedules.update(schedule.id, {
@@ -201,7 +201,7 @@ async function scheduleDowngradeAction(
     return {
       success: false,
       error:
-        "ダウングレード予約に失敗しました。しばらくしてから再度お試しください",
+        "プラン変更の予約に失敗しました。しばらくしてから再度お試しください",
     };
   }
 }
@@ -336,7 +336,7 @@ export async function cancelDowngradeReservationAction(): Promise<
       return {
         success: false,
         error:
-          "解約処理が既に完了したため、取り消しできません。プラン案内画面を再度ご確認ください",
+          "解約処理が既に完了したため、取り消しできません。料金プラン画面を再読み込みしてご確認ください",
       };
     }
     console.error(
@@ -423,7 +423,7 @@ export async function scheduleCancelAction(): Promise<ActionResult> {
   }
 
   // A5 と同構造の対策: 先行 UPDATE で Webhook (c) 分岐の diff が消えるため
-  // Server Action 側で「【ビジ友】解約をご予約いただきました」メールを同期送信する。
+  // Server Action 側で「【ビジ友】有料プランの解約予約を承りました」メールを同期送信する。
   await sendSubscriptionChangedEmail(admin, subscription.user_id, {
     eventType: "cancel-reserved",
     endDate: formatDateJst(periodEndIso),
@@ -544,7 +544,7 @@ export async function cancelCompensationAction(input: {
   if (!opt.stripe_subscription_id) {
     return {
       success: false,
-      error: "サブスクリプション情報が見つかりません",
+      error: "ご契約情報が見つかりません",
     };
   }
 

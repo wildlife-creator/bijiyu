@@ -1489,8 +1489,11 @@ INSERT INTO organizations (id, owner_id) VALUES
   ('0b500000-0000-4000-8000-00000000aa01', '0b500000-0000-4000-8000-000000000001');
 INSERT INTO organization_members (organization_id, user_id, org_role, is_proxy_account) VALUES
   ('0b500000-0000-4000-8000-00000000aa01', '0b500000-0000-4000-8000-000000000001', 'owner', false);
-INSERT INTO client_profiles (user_id, display_name, admin_memo) VALUES
-  ('0b500000-0000-4000-8000-000000000001', 'ビジ友運営（テスト）', '管理運営アカウント（seed）。一覧・検索には出ない');
+INSERT INTO client_profiles (user_id, display_name) VALUES
+  ('0b500000-0000-4000-8000-000000000001', 'ビジ友運営（テスト）');
+-- 運営メモは運営専用テーブル（20260929130000）
+INSERT INTO client_admin_memos (user_id, memo) VALUES
+  ('0b500000-0000-4000-8000-000000000001', '管理運営アカウント（seed）。一覧・検索には出ない');
 
 -- ============================================================
 -- 退会手動テスト用の使い捨てユーザー（COM-006 / withdrawal_surveys 検証用）

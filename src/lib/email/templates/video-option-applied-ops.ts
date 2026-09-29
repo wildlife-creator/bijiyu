@@ -7,7 +7,7 @@ interface VideoOptionAppliedOpsEmailProps {
   companyName: string | null;
   /** YYYY/MM/DD HH:MM (分単位、ops workflow tracking 用)。 */
   appliedAt: string;
-  /** OPTION_LABELS[optionType] で解決した動画種別。 */
+  /** OPTION_LABELS[optionType] で解決したお申し込みプラン名。 */
   optionLabel: string;
   /** 申込ユーザーの UUID (deep link 用)。 */
   userId: string;
@@ -16,7 +16,7 @@ interface VideoOptionAppliedOpsEmailProps {
 }
 
 /**
- * §6.6.B-Ops 動画オプション新規申込 (運営向け、新規)。M-07 準拠。
+ * §6.6.B-Ops 動画プラン新規申込 (運営向け、新規)。M-07 準拠。
  *
  * 配信先: `process.env.OPS_NOTIFICATION_EMAIL`。
  *
@@ -37,7 +37,7 @@ export function videoOptionAppliedOpsEmail({
 }: VideoOptionAppliedOpsEmailProps): { subject: string; html: string } {
   const deepLink = `${siteUrl}/admin/users/${userId}`;
   const bodyParts: string[] = [
-    paragraph("動画オプションのお申し込みが新規にありました。"),
+    paragraph("動画プランの新規お申し込みがありました。"),
     paragraph("動画制作・撮影手配を進めてください。"),
     listItem("申込者", applicantName),
   ];
@@ -46,7 +46,7 @@ export function videoOptionAppliedOpsEmail({
   }
   bodyParts.push(
     listItem("申込日時", appliedAt),
-    listItem("動画種別", optionLabel, { blockEnd: true }),
+    listItem("お申し込みプラン", optionLabel, { blockEnd: true }),
     paragraph(
       "申込者の詳細は下記からご確認いただけます。ログインした状態でクリックしてください。",
     ),
@@ -54,9 +54,9 @@ export function videoOptionAppliedOpsEmail({
   );
 
   return {
-    subject: `【ビジ友 運営】動画オプションの新規お申し込みがありました`,
+    subject: `【ビジ友 運営】動画プランの新規お申し込みがありました`,
     html: renderLayout({
-      title: "動画オプションの新規お申し込みがありました",
+      title: "動画プランの新規お申し込みがありました",
       bodyContent: bodyParts.join(""),
     }),
   };

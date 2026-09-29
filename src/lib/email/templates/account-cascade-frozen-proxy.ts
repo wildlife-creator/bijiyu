@@ -47,7 +47,7 @@ export function accountCascadeFrozenProxyEmail({
       title: `${organizationName} の管理責任者の退会により、代理アカウント設定が解除されました`,
       bodyContent: [
         paragraph(`${recipientName} 様`),
-        paragraph("下記の組織の代理アカウントから、管理責任者の退会に伴い解除されました。"),
+        paragraph("管理責任者の退会に伴い、下記の組織の代理アカウント設定を解除しました。"),
         listItem("法人名", organizationName),
         listItem("退会した管理責任者", ownerName),
         listItem("退会日時", withdrawnAt, { blockEnd: true }),

@@ -40,7 +40,10 @@ export function MemoEditForm({ userId, initialMemo }: MemoEditFormProps) {
   return (
     <form onSubmit={handleSubmit} className="mt-6">
       <label htmlFor="admin-memo" className="text-body-sm font-bold">
-        管理者のメモ
+        管理者メモ
+        <span className="ml-1 font-normal text-muted-foreground">
+          （運営用。会員には表示されません）
+        </span>
       </label>
       <Textarea
         id="admin-memo"

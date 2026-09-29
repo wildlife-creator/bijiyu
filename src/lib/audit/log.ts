@@ -13,6 +13,9 @@ export type AuditAction =
   | "identity_access"
   | "identity_approve"
   | "identity_reject"
+  // 本人確認・CCUS の会員申請（旧実装は会員セッションで INSERT して RLS で全件失敗していた。2026-09-29 修正）
+  | "identity.submit"
+  | "ccus.submit"
   // アカウント管理
   | "account_delete"
   | "admin_client_invite"

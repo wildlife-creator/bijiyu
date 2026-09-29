@@ -43,6 +43,9 @@ const adminState = {
     data: { user: { id: "new-user-1" } } as { user: { id: string } | null },
     error: null as null | { message: string; code?: string },
   },
+  /** 招待後に admin client で users に書く氏名（20260929130000 以降アプリ側で設定） */
+  userUpdates: [] as Array<{ payload: Record<string, unknown>; id: unknown }>,
+  userUpdateError: null as null | { message: string },
 };
 
 const mockInviteUserByEmail = vi.fn();
@@ -64,6 +67,12 @@ vi.mock("@/lib/supabase/admin", () => ({
       const state: { col?: string; val?: unknown } = {};
       const chain = {
         select: vi.fn().mockReturnThis(),
+        update: vi.fn((payload: Record<string, unknown>) => ({
+          eq: vi.fn(async (_col: string, id: unknown) => {
+            if (table === "users") adminState.userUpdates.push({ payload, id });
+            return { data: null, error: adminState.userUpdateError };
+          }),
+        })),
         eq: vi.fn(function (col: string, val: unknown) {
           state.col = col;
           state.val = val;
@@ -145,12 +154,31 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation(async () => adminState.inviteResult);
   mockDeleteUser.mockReset().mockResolvedValue({ data: null, error: null });
+  adminState.userUpdates = [];
+  adminState.userUpdateError = null;
   mockWriteAuditLog.mockClear();
   mockRedirect.mockClear();
   mockSendEmail.mockReset().mockResolvedValue({ success: true });
 });
 
 describe("createClientInviteAction", () => {
+  it("招待後に氏名を admin client で users に設定する（metadata はトリガーで使わない）", async () => {
+    await expect(createClientInviteAction(buildFormData())).rejects.toThrow(
+      "NEXT_REDIRECT:/admin/clients",
+    );
+    expect(adminState.userUpdates).toEqual([
+      { payload: { last_name: "田中", first_name: "一郎" }, id: "new-user-1" },
+    ]);
+  });
+
+  it("氏名の設定に失敗したら招待したアカウントを消してエラーを返す", async () => {
+    adminState.userUpdateError = { message: "db down" };
+    const result = await createClientInviteAction(buildFormData());
+    expect(result.success).toBe(false);
+    expect(mockDeleteUser).toHaveBeenCalledWith("new-user-1");
+    expect(mockWriteAuditLog).not.toHaveBeenCalled();
+  });
+
   it("非 admin は拒否", async () => {
     authState.role = "client";
     const result = await createClientInviteAction(buildFormData());

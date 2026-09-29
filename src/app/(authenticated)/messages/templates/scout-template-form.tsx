@@ -137,7 +137,7 @@ export function ScoutTemplateForm({ mode, templateId, initialValues }: Props) {
           </p>
         )}
         <p className="mt-2 text-body-xs text-muted-foreground">
-          ※メモはユーザーに共有されません。ご自身でご自由にお使いください
+          ※メモはスカウトの相手には表示されません（社内用のメモです）
         </p>
       </div>
 

@@ -60,8 +60,8 @@ export function DeleteAccountButton({
           <AlertDialogTitle>アカウントを削除しますか？</AlertDialogTitle>
           <AlertDialogDescription>
             {hasOrganization
-              ? "管理責任者を削除すると、配下の組織管理者・担当者のアカウントもすべて削除されます。Stripe のサブスクリプションも解約されます。この操作は取り消せません。"
-              : "アカウントを削除すると、Stripe のサブスクリプションも解約されます。この操作は取り消せません。"}
+              ? "管理責任者を削除すると、配下の組織管理者・担当者のアカウントもすべて削除されます。有料プランの契約（クレジットカード・手動設定とも）も終了します。この操作は取り消せません。"
+              : "アカウントを削除すると、有料プランの契約（クレジットカード・手動設定とも）も終了します。この操作は取り消せません。"}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

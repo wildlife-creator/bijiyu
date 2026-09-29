@@ -91,6 +91,28 @@ describe("resetPasswordSchema", () => {
 // updatePasswordSchema
 // ---------------------------------------------------------------------------
 describe("updatePasswordSchema", () => {
+  // 案内文「※ 8〜16文字」と一致させる（会員登録と同じ上限。2026-09-29）
+  it("rejects passwords longer than 16 characters", () => {
+    const result = updatePasswordSchema.safeParse({
+      password: "a".repeat(17),
+      confirmPassword: "a".repeat(17),
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe(
+        "パスワードは16文字以内で入力してください",
+      );
+    }
+  });
+
+  it("accepts exactly 16 characters", () => {
+    const result = updatePasswordSchema.safeParse({
+      password: "a".repeat(16),
+      confirmPassword: "a".repeat(16),
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("accepts matching passwords of 8+ characters", () => {
     const result = updatePasswordSchema.safeParse({
       password: "securepass",

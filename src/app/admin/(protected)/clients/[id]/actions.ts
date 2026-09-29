@@ -17,7 +17,9 @@ const adminMemoSchema = z
   .max(2000, "メモは2000文字以内で入力してください");
 
 /**
- * ADM-005: 管理者メモ（client_profiles.admin_memo）の更新。
+ * ADM-005: 管理者メモ（client_admin_memos.memo）の更新。
+ * 運営専用テーブル（RLS 有効・ポリシーなし = service_role のみ。20260929130000）に保存する。
+ * client_profiles は全会員が読めるため、メモを同じ表に置かない。
  * 保存成功で ADM-004 へ遷移 + audit log（admin_memo_update）。
  */
 export async function updateAdminMemoAction(
@@ -42,28 +44,15 @@ export async function updateAdminMemoAction(
 
   const admin = createAdminClient();
 
-  // client_profiles 行の存在確認（未作成の発注者には作成して保存）
-  const { data: profile } = await admin
-    .from("client_profiles")
-    .select("id")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (profile) {
-    const { error } = await admin
-      .from("client_profiles")
-      .update({ admin_memo: memo })
-      .eq("user_id", userId);
-    if (error) {
-      return { success: false, error: "メモの保存に失敗しました" };
-    }
-  } else {
-    const { error } = await admin
-      .from("client_profiles")
-      .insert({ user_id: userId, admin_memo: memo });
-    if (error) {
-      return { success: false, error: "メモの保存に失敗しました" };
-    }
+  // 空にしたら行ごと消す（「メモはありません」表示に戻る）
+  const { error } =
+    memo === null
+      ? await admin.from("client_admin_memos").delete().eq("user_id", userId)
+      : await admin
+          .from("client_admin_memos")
+          .upsert({ user_id: userId, memo }, { onConflict: "user_id" });
+  if (error) {
+    return { success: false, error: "メモの保存に失敗しました" };
   }
 
   await writeAuditLog({

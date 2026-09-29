@@ -51,7 +51,7 @@ export default async function AdminBankTransfersPage({ searchParams }: PageProps
         銀行振込お問い合わせ一覧
       </h1>
       <p className="mt-3 text-center text-body-sm text-muted-foreground">
-        銀行振込を希望するお問い合わせです。入金を確認したら、ユーザー詳細の「契約内容」でプランを有効にしてください。
+        銀行振込を希望するお問い合わせです。お問い合わせ詳細で希望内容を確認し、ユーザーアカウント一覧で会員を検索して、ユーザーアカウント詳細の「契約内容」から設定してください。
       </p>
 
       <KeywordSearchForm

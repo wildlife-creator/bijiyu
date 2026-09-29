@@ -27,7 +27,7 @@ export function paymentFailedEmail({
         paragraph(`${recipientName} 様`),
         paragraph("ご登録のお支払い方法で、有料プランの決済が確認できませんでした。"),
         listItem("ご利用中のプラン", planName),
-        listItem("次回お支払い予定日", nextRetryDate, { blockEnd: true }),
+        listItem("次回の再請求予定日", nextRetryDate, { blockEnd: true }),
         paragraph("7 日以内にお支払い方法を更新いただけない場合、自動的に有料プランが解約され、無料プランに切り替わります。"),
         paragraph("お支払い方法のご確認をお願いします。", { last: true }),
       ].join(""),

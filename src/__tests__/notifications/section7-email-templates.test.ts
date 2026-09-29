@@ -85,6 +85,15 @@ describe("contactOpsNotificationEmail — §7.1.B", () => {
     expect(out.subject).toBe("【ビジ友 運営】お問い合わせを受信しました");
   });
 
+  it("会社名／屋号が未入力（空文字）なら「（未入力）」と表示する", () => {
+    const out = contactOpsNotificationEmail({
+      ...BASE,
+      companyName: "",
+      loginStatus: { kind: "anonymous" },
+    });
+    expect(out.html).toContain("【会社名／屋号】 （未入力）");
+  });
+
   it("送信者情報ブロック 5 行 + 内容情報 2 行 + deep link", () => {
     const out = contactOpsNotificationEmail({
       ...BASE,

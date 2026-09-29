@@ -69,7 +69,7 @@ const UPDATE_INFO_VERIFICATION_MENU: MenuItem = {
 
 // Section 5: Update info - client additions
 const UPDATE_INFO_CLIENT_MENU: MenuItem[] = [
-  { label: "スカウトメッセージテンプレート一覧", href: "/messages/templates" },
+  { label: "スカウトテンプレート一覧", href: "/messages/templates" },
   { label: "発注者情報詳細", href: "/mypage/client-profile" },
 ];
 
@@ -395,7 +395,7 @@ export default async function MyPage() {
                   state={identityState}
                   approvedLabel="本人確認済み"
                   pendingLabel="本人確認申請中"
-                  noneLabel="本人確認未承認"
+                  noneLabel="本人確認未完了"
                 />
                 <VerificationBadge
                   state={ccusState}
@@ -509,7 +509,7 @@ export default async function MyPage() {
                       ? "bg-yellow-50 text-yellow-500 border-yellow-100"
                       : "bg-[rgba(146,7,131,0.05)] text-primary/60 border-[rgba(146,7,131,0.1)]"
                 }`}>
-                  {hasClientReview ? "評価登録済み" : hasUserReview ? "評価登録未入力" : "稼働予定"}
+                  {hasClientReview ? "評価済み（相手の評価待ち）" : hasUserReview ? "評価未入力（要対応）" : "稼働予定"}
                 </span>
 
                 {/* Title & Company */}

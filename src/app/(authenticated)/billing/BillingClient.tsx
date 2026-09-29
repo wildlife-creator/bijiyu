@@ -277,7 +277,7 @@ export function BillingClient({
         return;
       }
       if (result.data?.cancelledType === "downgrade") {
-        toast.success("ダウングレード予約を取り消しました");
+        toast.success("プラン変更の予約を取り消しました");
       } else {
         toast.success("解約予定を取り消しました");
       }
@@ -299,7 +299,7 @@ export function BillingClient({
         toast.error(result.error);
         return;
       }
-      toast.success("解約予約が完了しました");
+      toast.success("解約の予約が完了しました");
       router.refresh();
     });
   }
@@ -457,7 +457,7 @@ export function BillingClient({
                 </Badge>
                 {isPastDue && (
                   <Badge variant="destructive" className="text-xs">
-                    お支払い確認中
+                    お支払い未完了
                   </Badge>
                 )}
               </dd>
@@ -617,7 +617,7 @@ export function BillingClient({
         )}
         {hasReservation && !isPastDue && (
           <p className="mt-2 text-body-xs text-muted-foreground">
-            変更予定がある間は他のプランを選べません。先に「ご契約状況」の予約をキャンセルしてください。
+            変更予定・解約予定がある間は他のプランを選べません。先に「ご契約状況」で予定を取り消してください。
           </p>
         )}
 
@@ -744,7 +744,7 @@ export function BillingClient({
               </p>
             ) : urgentEligibleJobs.length === 0 ? (
               <p className="mt-2 text-body-sm text-muted-foreground">
-                掲載中の案件がありません
+                急募を申し込める案件がありません（掲載中の案件がないか、すべて急募中です）
               </p>
             ) : (
               <>

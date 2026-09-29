@@ -15,8 +15,8 @@ const CATEGORY_ITEMS = [
   { value: "owner", label: "管理責任者" },
   { value: "org_admin", label: "組織管理者" },
   { value: "org_staff", label: "担当者" },
-  { value: "individual", label: "個人発注者" },
-  { value: "small", label: "小規模発注者" },
+  { value: "individual", label: "ライトプラン発注者" },
+  { value: "small", label: "スタンダードプラン発注者" },
 ];
 
 const OPTION_ITEMS = [

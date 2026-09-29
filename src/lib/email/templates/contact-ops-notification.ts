@@ -1,7 +1,7 @@
 import { listItem, paragraph, renderLayout } from "@/lib/email/components";
 
 interface ContactOpsNotificationEmailProps {
-  /** フォーム入力（会社名／屋号、required） */
+  /** フォーム入力（会社名／屋号、任意。未入力は空文字 →「（未入力）」と表示） */
   companyName: string;
   /** フォーム入力（送信者氏名、required） */
   name: string;
@@ -67,7 +67,7 @@ export function contactOpsNotificationEmail({
         paragraph("お問い合わせを受信しました。"),
 
         // 送信者情報ブロック（5 行）
-        listItem("会社名／屋号", companyName),
+        listItem("会社名／屋号", companyName.trim() || "（未入力）"),
         listItem("送信者", name),
         listItem("メールアドレス", email),
         listItem("電話番号", phone),

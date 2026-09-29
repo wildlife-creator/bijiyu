@@ -94,7 +94,7 @@ export function BillingDialogs({
               <p>現在のプラン: {planDisplayName(currentPlan, currentCycle)}</p>
               <p>変更後のプラン: {planDisplayName(targetPlan, targetCycle)}</p>
               <p className="text-muted-foreground">
-                変更後の料金: ¥{formatPrice(planPriceFor(targetPlan, targetCycle))}/{cycleUnit}
+                変更後の料金: {formatPrice(planPriceFor(targetPlan, targetCycle))}円/{cycleUnit}
               </p>
             </div>
             <DialogFooter className="gap-2">
@@ -110,7 +110,7 @@ export function BillingDialogs({
                 pending={pendingKey === "dialog"}
                 onClick={onConfirmPlanChange}
               >
-                プラン変更する
+                確認画面へ進む
               </Button>
             </DialogFooter>
           </>
@@ -119,7 +119,7 @@ export function BillingDialogs({
         {dialogType === "downgrade" && targetPlan && (
           <>
             <DialogHeader>
-              <DialogTitle>ダウングレード予約の確認</DialogTitle>
+              <DialogTitle>プラン変更の予約の確認</DialogTitle>
               <DialogDescription>
                 現在の請求期間終了後にプランが変更されます。
               </DialogDescription>
@@ -131,7 +131,10 @@ export function BillingDialogs({
                 {formatDate(currentPeriodEnd)}まで現在のプランでご利用いただけます
               </p>
               <p className="text-muted-foreground">
-                次回課金日と金額: ¥{formatPrice(planPriceFor(targetPlan, targetCycle))}/{cycleUnit}
+                {currentPeriodEnd
+                  ? `${formatDate(currentPeriodEnd)}からの料金`
+                  : "変更後の料金"}
+                : {formatPrice(planPriceFor(targetPlan, targetCycle))}円/{cycleUnit}
               </p>
             </div>
             <DialogFooter className="gap-2">
@@ -206,8 +209,8 @@ export function BillingDialogs({
                 以下の処理が直ちに実行されます:
               </p>
               <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                <li>掲載中の案件がすべてクローズされます</li>
-                <li>担当者のログインが停止されます</li>
+                <li>掲載中の案件はすべて掲載終了になります</li>
+                <li>組織内に担当者がいる場合は、担当者のログインが停止されます</li>
               </ul>
               {hasCompensation && (
                 <p className="text-body-xs text-muted-foreground mt-2">

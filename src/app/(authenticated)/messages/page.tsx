@@ -157,7 +157,7 @@ export default async function MessagesPage({ searchParams }: Props) {
               variant="outline"
               className="flex-1 rounded-full border-primary bg-background text-primary hover:bg-primary/10 hover:text-primary"
             >
-              <Link href="/messages/templates">スカウトのテンプレート</Link>
+              <Link href="/messages/templates">スカウトテンプレート</Link>
             </Button>
           </div>
         )}

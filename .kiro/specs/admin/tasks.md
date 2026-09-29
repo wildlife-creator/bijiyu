@@ -108,7 +108,7 @@
   - `src/lib/admin/clients-list.ts` に一覧取得（fetchClientListPage）を新設し、page から分離して Vitest 可能にする
   - 対象: `role IN ('client','staff')` を人単位1行で表示。退会済みも含める（「退会済み」表示）。代理アカウントも担当者行として含める
   - 契約主体の解決: client → 本人、staff → organization_members → organizations.owner_id。行クリック遷移先は常に契約主体の userId
-  - 区分の導出（管理責任者／組織管理者／担当者／個人発注者／小規模発注者。判定不能は「—」）・プラン列・オプションバッジ（契約主体の active な urgent / video_workplace）を純粋関数に切り出す
+  - 区分の導出（管理責任者／組織管理者／担当者／ライトプラン発注者／スタンダードプラン発注者。判定不能は「—」）・プラン列・オプションバッジ（契約主体の active な urgent / video_workplace）を純粋関数に切り出す
   - フィルタは ID 集合の積パターン（CLI-005 基準実装と同型）でサーバー側完結: keyword（氏名・メール・会社名）× 区分（単一選択）× オプション（単一選択）
   - 行の付加情報（会社名・プラン・バッジ）は20行分の契約主体 id をまとめてバッチ取得（N+1 禁止）
   - Vitest: 区分／プラン導出関数を role × org_role × plan の組合せで網羅する
@@ -234,7 +234,7 @@
 - [x] 10.2 (P) ADM-014 応募履歴詳細と発注取り消しを実装する
   - デザインカンプ: `design-assets/screens/ADM-014.png`
   - ステータスバッジ（8分類表記）＋直下に発注取消ボタン（canAdminCancel が true の場合のみ表示）
-  - 案件情報（タイトル・募集職種/人数・締切・募集期間・勤務地・工事代金）→ クリックで ADM-022 へ。ユーザー情報（氏名・年齢・メール）→ ADM-009 へ。初回勤務日
+  - 案件情報（タイトル・募集職種/人数・締切・募集期間・勤務地・工事代金）→ クリックで ADM-022 へ。ユーザー情報（氏名・年齢・メール）→ ADM-009 へ。初回稼働日
   - 勤務地は job_areas（AreaList 表示）＋ accepted 以降に work_location がある場合は併記（旧 jobs.address は廃止済みのため使わない）
   - 個別評価（集計ではない）を application_id で両方向1件ずつ表示: ユーザー評価（稼働状況・補足・また仕事を受けたい はい/いいえ・評価補足）／発注者評価（稼働状況・補足・★×5 総合＋6項目・任意未入力「—」・評価補足）。未評価側は「未評価」表示。カンプの「はい/いいえ 6項目」は旧仕様のため ★×5 表示に置き換える
   - adminCancelApplicationAction: role 再チェック＋canAdminCancel を Server Action 内で再評価（UI と同一関数）→ status='cancelled'＋cancelled_by='admin' → audit log（application_cancel_admin）→ revalidate。通知メールは送らない

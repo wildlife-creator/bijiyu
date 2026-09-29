@@ -28,7 +28,7 @@ interface PageProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "下書き保存",
+  draft: "下書き",
   open: "掲載中",
   closed: "掲載終了",
 };
@@ -754,7 +754,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
               発注者情報
             </span>
             <span className="text-body-sm font-medium text-primary">
-              詳細を見る →
+              詳細をみる →
             </span>
           </Link>
         </section>

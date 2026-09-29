@@ -240,7 +240,7 @@ export function ScoutSendForm({
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="ここにタイトルが入ります。"
+            placeholder="タイトルを入力"
             className="w-full bg-background"
           />
         </div>
@@ -251,7 +251,7 @@ export function ScoutSendForm({
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="ここに本文が入ります。"
+            placeholder="本文を入力"
             rows={8}
             className="w-full bg-background"
           />

@@ -322,7 +322,7 @@ describe("changePlanAction", () => {
   it("年額 Price が未設定なら価格設定エラー", async () => {
     delete process.env.STRIPE_PRICE_SMALL_YEARLY;
     const result = await changePlanAction({ targetPlan: "small", targetCycle: "yearly" });
-    expect(result).toEqual({ success: false, error: "プランの価格設定が見つかりません" });
+    expect(result).toEqual({ success: false, error: "現在お手続きできません。お手数ですがお問い合わせください" });
   });
 
   it("routes to downgrade when target < current", async () => {
@@ -422,7 +422,7 @@ describe("changePlanAction", () => {
     await scheduleCancelAction();
     const call = sendEmailMock.mock.calls[0]![0] as { html: string; to: string; subject: string };
     expect(call.to).toBe("biz@test.local");
-    expect(call.subject).toBe("【ビジ友】解約をご予約いただきました");
+    expect(call.subject).toBe("【ビジ友】有料プランの解約予約を承りました");
     expect(call.html).toContain("鈴木工務店株式会社 様");
     expect(call.html).not.toContain("田中太郎 様");
   });
@@ -490,7 +490,7 @@ describe("changePlanAction", () => {
 // メールを送る必要がある。Webhook (c) / (d-1) / (d-2) 分岐は fallback。
 
 describe("scheduleCancelAction (A5-follow-up: cancel-reserved メール)", () => {
-  it("解約予約成功時に「【ビジ友】解約をご予約いただきました」メールを送信する", async () => {
+  it("解約予約成功時に「【ビジ友】有料プランの解約予約を承りました」メールを送信する", async () => {
     subState.row!.plan_type = "corporate";
     subState.row!.current_period_end = "2026-08-15T00:00:00Z";
 
@@ -513,9 +513,9 @@ describe("scheduleCancelAction (A5-follow-up: cancel-reserved メール)", () =>
     expect(sendEmailMock).toHaveBeenCalledTimes(1);
     const call = sendEmailMock.mock.calls[0]![0];
     expect(call.to).toBe("user1@test.local");
-    expect(call.subject).toBe("【ビジ友】解約をご予約いただきました");
+    expect(call.subject).toBe("【ビジ友】有料プランの解約予約を承りました");
     expect(call.html).toContain("田中太郎 様");
-    expect(call.html).toContain("ビジ友の解約をご予約いただきました");
+    expect(call.html).toContain("有料プランの解約をご予約いただきました");
     // endDate = formatDate("2026-08-15T00:00:00Z") = "2026/08/15"
     expect(call.html).toContain("2026/08/15");
     expect(call.html).toContain("有料プランでのご利用が終了します");

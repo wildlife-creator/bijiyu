@@ -23,11 +23,11 @@ test.describe("/mypage ナビゲーション（法人プラン Owner）", () => 
     await page.goto("/mypage");
   });
 
-  test("スカウトメッセージテンプレート一覧 → /messages/templates", async ({
+  test("スカウトテンプレート一覧 → /messages/templates", async ({
     page,
   }) => {
     await page
-      .getByRole("link", { name: "スカウトメッセージテンプレート一覧" })
+      .getByRole("link", { name: "スカウトテンプレート一覧" })
       .click();
     await expect(page).toHaveURL(/\/messages\/templates$/);
   });
@@ -70,7 +70,7 @@ test.describe("/mypage ナビゲーション（法人プラン Staff）", () => 
     await page.goto("/mypage");
 
     await expect(
-      page.getByRole("link", { name: "スカウトメッセージテンプレート一覧" }),
+      page.getByRole("link", { name: "スカウトテンプレート一覧" }),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "発注者情報詳細" }),
@@ -84,7 +84,7 @@ test.describe("/mypage ナビゲーション（法人プラン Staff）", () => 
     await login(page, TEST_STAFF.email, TEST_STAFF.password);
     await page.goto("/mypage");
     await page
-      .getByRole("link", { name: "スカウトメッセージテンプレート一覧" })
+      .getByRole("link", { name: "スカウトテンプレート一覧" })
       .click();
     await expect(page).toHaveURL(/\/messages\/templates$/);
   });
@@ -144,7 +144,7 @@ test.describe("/mypage ナビゲーション（法人プラン Staff）", () => 
     await login(page, TEST_STAFF.email, TEST_STAFF.password);
     await page.goto("/mypage");
     // 本人確認バッジ（「未承認」「済み」「申請中」のいずれも出ない）
-    await expect(page.getByText("本人確認未承認")).toHaveCount(0);
+    await expect(page.getByText("本人確認未完了")).toHaveCount(0);
     await expect(page.getByText("本人確認済み")).toHaveCount(0);
     await expect(page.getByText("本人確認申請中")).toHaveCount(0);
     // CCUS バッジ（同様）
@@ -202,7 +202,7 @@ test.describe("/mypage ナビゲーション（個人発注者プラン）", () 
     await page.goto("/mypage");
 
     await expect(
-      page.getByRole("link", { name: "スカウトメッセージテンプレート一覧" }),
+      page.getByRole("link", { name: "スカウトテンプレート一覧" }),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "発注者情報詳細" }),
@@ -219,7 +219,7 @@ test.describe("/mypage ナビゲーション（無料受注者）", () => {
     await page.goto("/mypage");
 
     await expect(
-      page.getByRole("link", { name: "スカウトメッセージテンプレート一覧" }),
+      page.getByRole("link", { name: "スカウトテンプレート一覧" }),
     ).toHaveCount(0);
     await expect(
       page.getByRole("link", { name: "発注者情報詳細" }),

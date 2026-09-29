@@ -203,6 +203,22 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - このバグは**そのテーブルを UPDATE する機能が実装されるまで潜在化する**（INSERT / SELECT では発火しない）ため、テーブル作成時のレビューでしか防げない。新テーブルは「updated_at カラム＋ set_updated_at トリガー」をセットで確認すること
 - 2026-06-12 実例: identity_verifications がテーブル定義に updated_at の無いままトリガーだけ貼られており、ADM-012（承認/否認＝初の UPDATE 機能）の実装で顕在化。migration `20260612100200` でカラム追加・pgTAP `identity_verifications_updated_at.test.sql` で回帰防止
 
+### RLS は「行」しか守らない — 保護列は guard トリガーで守る（必ず守ること）
+- RLS の `USING` / `WITH CHECK` は**どの行を触れるか**しか制限しない。`users_update_self (auth.uid() = id)` のようなポリシーだけだと、会員は PostgREST を直接叩いて**自分の行のどの列でも**書き換えられる（2026-09-29 に `jobs.is_urgent`（急募の無料付与）・`users.identity_verified` / `ccus_verified` / `role` / `is_hidden`（バッジ偽装・運営なりすまし）・`identity_verifications` を approved で INSERT・`applications` を accepted で INSERT・無関係の取引への評価 INSERT・`messages.is_proxy` の偽装を手元 DB で実証）
+- 対策は `20260929130000_member_write_guards.sql` の **`guard_<table>_member_write` トリガー**（BEFORE INSERT/UPDATE）。`public.is_member_request()`（= `current_user IN ('authenticated','anon')`）のときだけ保護列の変更を 42501 で拒否し、service_role（admin client・Webhook）・pg_cron（postgres）・SECURITY DEFINER 関数の中は通す。回帰テスト `supabase/tests/member_write_guards.test.sql`
+- **新しい列を足すとき**: その列を会員が自分で変えてよいか決める。**課金・審査・運営・集計（ランク等）・所有者・状態遷移に関わる列は、対応する guard 関数に追記**し、pgTAP に「会員は変えられない」「運営は変えられる」を足す。会員が変えてよい列なら何もしなくてよい
+- **新しい表を足すとき**: 会員の INSERT/UPDATE ポリシーを作るなら、同時に guard トリガーを作る（または会員の書き込みポリシーを作らず admin client で書く）。INSERT の初期状態（status 等）は guard で固定する
+- **会員セッションの書き込みを増やすとき**: 送る列が guard に引っかからないか確認する。引っかかる列は admin client（サーバー側で権限確認済み）で書く。guard が拒否すると Server Action 側では `42501` の error が返る
+- 列権限（`REVOKE UPDATE(col)`）は使わない: `20260617120000_grant_public_schema_to_supabase_roles.sql` の `GRANT ALL ON ALL TABLES` を再実行すると黙って戻るため
+- **全会員が SELECT できる表に運営用の列を置かない**（`client_profiles.admin_memo` が全会員に読めていた → 運営専用テーブル `client_admin_memos`（RLS 有効・ポリシーなし = service_role のみ）へ移動）
+- **SECURITY DEFINER 関数で引数の user_id を信じない**: `complete_registration` が `p_user_id` を検査せず PUBLIC 実行可で、誰でも他人のプロフィールを上書きできた。会員から呼ぶ DEFINER 関数は `auth.uid()` と照合し、`REVOKE ... FROM PUBLIC, anon` する
+
+### pg_cron から Edge Function を呼ぶ定期実行（必ず守ること）
+- `cron.job_run_details` の `succeeded` は **`net.http_post` の依頼を積めたことしか意味しない**。呼び出し先に届いたか・何を返したかは `net._http_response`（status_code / error_msg）を見ること
+- 呼び出し先 URL と鍵は **Vault（`vault.decrypted_secrets`）から実行時に読む**。migration 時に `current_setting('app.settings.*')` から読んで埋め込む方式は hosted Supabase では設定が無く、開発用 URL・仮の鍵のまま登録される。基準実装: `20260929120000_auto_cancel_cron_via_vault.sql`（Vault 未登録なら例外で `failed` を残す）
+- Edge Function の `SUPABASE_SERVICE_ROLE_KEY` は hosted では **新形式の Secret key（`sb_secret_...`）**。ダッシュボード Legacy API Keys の service_role（JWT）を渡すと 401。照合は `supabase secrets list --project-ref <ref>` の指紋（値の SHA-256）と SQL の `encode(extensions.digest(x,'sha256'),'hex')` で鍵を見ずにできる
+- 2026-09-29 実例: `auto-cancel-past-due` がステージングで一度も動いていなかった（`Couldn't resolve host name`）。記録上は毎日 succeeded。本番も同じ Vault 登録が必要
+
 ### Supabase Storage 関連
 - 画像表示に next/image を使う場合、next.config の remotePatterns に
   Supabase Storage のホストを追加すること（ローカル: localhost:54321、本番: xxxx.supabase.co）

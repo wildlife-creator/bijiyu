@@ -195,10 +195,38 @@ export type Database = {
           },
         ]
       }
+      client_admin_memos: {
+        Row: {
+          created_at: string
+          memo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          memo?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          memo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_admin_memos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_profiles: {
         Row: {
           address: string | null
-          admin_memo: string | null
           created_at: string
           display_name: string | null
           employee_scale: number | null
@@ -220,7 +248,6 @@ export type Database = {
         }
         Insert: {
           address?: string | null
-          admin_memo?: string | null
           created_at?: string
           display_name?: string | null
           employee_scale?: number | null
@@ -242,7 +269,6 @@ export type Database = {
         }
         Update: {
           address?: string | null
-          admin_memo?: string | null
           created_at?: string
           display_name?: string | null
           employee_scale?: number | null
@@ -1803,6 +1829,7 @@ export type Database = {
         Returns: undefined
       }
       is_admin: { Args: { uid: string }; Returns: boolean }
+      is_member_request: { Args: never; Returns: boolean }
       is_org_admin_or_owner_of: {
         Args: { target_owner_user_id: string; uid: string }
         Returns: boolean
@@ -1814,6 +1841,10 @@ export type Database = {
         Returns: number
       }
       list_plan_rank_of: { Args: { uid: string }; Returns: number }
+      raise_protected_column: {
+        Args: { p_column: string; p_table: string }
+        Returns: undefined
+      }
       refresh_list_plan_rank: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -1833,22 +1864,6 @@ export type Database = {
       set_stripe_customer_id: {
         Args: { customer_id: string; uid: string }
         Returns: Json
-      }
-      update_profile: {
-        Args: {
-          p_areas?: string[]
-          p_bio?: string
-          p_company_name?: string
-          p_first_name: string
-          p_gender: string
-          p_last_name: string
-          p_prefecture: string
-          p_qualifications?: string[]
-          p_skill_tags?: string[]
-          p_skills?: Json
-          p_user_id: string
-        }
-        Returns: undefined
       }
     }
     Enums: {

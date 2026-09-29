@@ -325,7 +325,7 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
                     asChild
                   >
                     <Link href={`/applications/history/${app.id}`}>
-                      応募詳細を見る
+                      応募詳細をみる
                     </Link>
                   </Button>
                 </div>

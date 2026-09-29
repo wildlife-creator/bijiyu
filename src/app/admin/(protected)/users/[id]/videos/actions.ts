@@ -560,7 +560,7 @@ export async function refreshVideoStatusAction(input: {
     const detail =
       details.state === "error"
         ? `変換に失敗しました${details.errorReasonText ? `（${details.errorReasonText}）` : ""}。削除して再登録してください`
-        : `処理中です（${details.state ?? "状態不明"}）`;
+        : "処理中です。しばらくしてから再度「状態を確認」を押してください";
     return { success: true, data: { status: "processing", detail } };
   }
 

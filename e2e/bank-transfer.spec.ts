@@ -92,8 +92,8 @@ test.describe.serial("銀行振込: お問い合わせ → 一覧 → ユーザ�
     await page.waitForURL(/\/admin\/bank-transfers/);
     await expect(page.getByRole("heading", { name: "銀行振込お問い合わせ一覧" })).toBeVisible();
 
-    // 説明文は「契約内容」枠を案内する。一覧には希望を出さない（問い合わせ詳細で読む）
-    await expect(page.getByText(/ユーザー詳細の「契約内容」でプランを有効にしてください/)).toBeVisible();
+    // 説明文は「契約内容」枠を案内する（入金には触れない）。一覧には希望を出さない（問い合わせ詳細で読む）
+    await expect(page.getByText(/ユーザーアカウント詳細の「契約内容」から設定してください/)).toBeVisible();
     await expect(page.getByText(/^希望：/)).toHaveCount(0);
     // seed の問い合わせ（振込次郎）とテスト 1 の問い合わせ（振込一郎）が並ぶ
     await expect(page.getByText("bank-requested@test.local")).toBeVisible();
@@ -131,7 +131,7 @@ test.describe.serial("銀行振込: お問い合わせ → 一覧 → ユーザ�
     // ユーザー詳細から発注者詳細への導線は置かない
     await expect(page.getByRole("link", { name: /発注者詳細/ })).toHaveCount(0);
     // 契約中の表示に切り替わる（変更する / 無効にする）
-    await expect(page.getByText("現在: スタンダードプラン（手動設定）")).toBeVisible();
+    await expect(page.getByText("現在：スタンダードプラン（手動設定）")).toBeVisible();
     await expect(page.getByRole("button", { name: "無効にする" })).toBeVisible();
   });
 
@@ -182,20 +182,20 @@ test.describe.serial("手動設定: 契約中の発注者を「変更する」�
     await adminLogin(page);
     await openBankClientUserDetail(page);
 
-    await expect(page.getByText("現在: スタンダードプラン（手動設定）")).toBeVisible();
+    await expect(page.getByText("現在：スタンダードプラン（手動設定）")).toBeVisible();
     await pickSelect(page, "bt-plan", "プレミアムプラン");
     await page.getByRole("button", { name: "変更する", exact: true }).click();
     const dialog = page.getByRole("alertdialog", { name: "プランを変更しますか？" });
     await dialog.getByRole("button", { name: "変更する" }).click();
     await expect(page.getByText("プレミアムプランに変更しました")).toBeVisible();
-    await expect(page.getByText("現在: プレミアムプラン（手動設定）")).toBeVisible();
+    await expect(page.getByText("現在：プレミアムプラン（手動設定）")).toBeVisible();
     await expect(page.getByText(/期限間近|期限切れ|期限を延長する/)).toHaveCount(0);
 
     // 発注者詳細: プランと支払い方法は表示される（手動設定は月払い / 年払いを持たない）が、操作の枠は無い
     await page.goto("/admin/clients?q=bank-client");
     await page.getByRole("link", { name: /振込商店/ }).click();
     await page.waitForURL(/\/admin\/clients\//);
-    await expect(page.getByText(/プラン: プレミアム（手動設定）/)).toBeVisible();
+    await expect(page.getByText(/プラン：プレミアム（手動設定）/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "契約内容", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "無効にする" })).toHaveCount(0);
   });
@@ -204,7 +204,7 @@ test.describe.serial("手動設定: 契約中の発注者を「変更する」�
     await adminLogin(page);
     await openBankClientUserDetail(page);
     const section = page.getByRole("heading", { name: "契約内容", exact: true }).locator("..");
-    await expect(section.getByText("購入済み:")).toBeVisible();
+    await expect(section.getByText("購入済み：")).toBeVisible();
     // 動画プラン・急募オプションともまだ無い
     await expect(section.getByText("なし", { exact: true })).toHaveCount(2);
 
@@ -228,7 +228,7 @@ test.describe.serial("手動設定: 契約中の発注者を「変更する」�
     await openBankClientUserDetail(page);
     const section = page.getByRole("heading", { name: "契約内容", exact: true }).locator("..");
     await expect(section.getByText("急募オプション", { exact: true })).toBeVisible();
-    await expect(section.getByText("適用中:")).toBeVisible();
+    await expect(section.getByText("適用中：")).toBeVisible();
 
     // 案件を選ぶまでボタンは押せない
     const button = section.getByRole("button", { name: "急募を有効にする" });
@@ -264,14 +264,14 @@ test.describe.serial("手動設定: 契約中の発注者を「変更する」�
     await adminLogin(page);
     await openBankClientUserDetail(page);
 
-    await expect(page.getByText("現在: プレミアムプラン（手動設定）")).toBeVisible();
+    await expect(page.getByText("現在：プレミアムプラン（手動設定）")).toBeVisible();
     await page.getByRole("button", { name: "無効にする" }).click();
     const dialog = page.getByRole("alertdialog", { name: "手動設定の契約を無効にしますか？" });
     await dialog.getByRole("button", { name: "無効にする" }).click();
     await expect(page.getByText("無効にしました")).toBeVisible();
     // 有料プランなし → 「有効にする」が出る
     await expect(page.getByRole("button", { name: "有効にする", exact: true })).toBeVisible();
-    await expect(page.getByText(/現在: .*（手動設定）/)).toHaveCount(0);
+    await expect(page.getByText(/現在：.*（手動設定）/)).toHaveCount(0);
   });
 });
 
@@ -282,7 +282,7 @@ test.describe("カード払いの会員の「契約内容」枠", () => {
     await page.getByRole("link", { name: /(?<![-\w])client@test\.local/ }).first().click();
     await page.waitForURL(/\/admin\/users\/[0-9a-f-]{36}/);
     const section = page.getByRole("heading", { name: "契約内容", exact: true }).locator("..");
-    await expect(section.getByText(/現在: .*（クレジットカード/)).toBeVisible();
+    await expect(section.getByText(/現在：.*（クレジットカード/)).toBeVisible();
     await expect(section.getByRole("button", { name: "銀行振込に切り替える" })).toHaveCount(0);
     await section.getByRole("button", { name: "手動設定に切り替える" }).click();
     const dialog = page.getByRole("alertdialog", { name: "手動設定に切り替えますか？" });

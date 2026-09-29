@@ -43,7 +43,7 @@ const REQUIRED_BADGE = (
   <span className="ml-1 text-body-sm text-destructive">必須</span>
 );
 const OPTIONAL_BADGE = (
-  <span className="ml-1 text-body-sm text-muted-foreground">〔任意〕</span>
+  <span className="ml-1 text-body-sm text-muted-foreground">任意</span>
 );
 
 const ACCEPT_ATTR =
@@ -222,7 +222,7 @@ export function ContactForm({ isLoggedIn, prefill }: ContactFormProps) {
           <h2 className="text-body-lg font-bold text-secondary">基本情報</h2>
 
           <div className="space-y-1">
-            <Label htmlFor="companyName">会社名／屋号{REQUIRED_BADGE}</Label>
+            <Label htmlFor="companyName">会社名／屋号{OPTIONAL_BADGE}</Label>
             <Input id="companyName" {...register("companyName")} />
             {errors.companyName && (
               <p className="text-body-sm text-destructive">
@@ -383,7 +383,7 @@ export function ContactForm({ isLoggedIn, prefill }: ContactFormProps) {
               ファイルを選ぶ
             </Button>
             <p className="text-body-sm text-muted-foreground">
-              画像（JPEG・PNG・WebP）・PDF、最大5枚・各5MBまで
+              画像（JPEG・PNG・WebP）・PDF、最大5件・各5MBまで
             </p>
             {files.length > 0 && (
               <ul className="space-y-1 pt-1">

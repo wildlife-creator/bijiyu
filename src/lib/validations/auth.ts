@@ -45,10 +45,12 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 // ---------------------------------------------------------------------------
 export const updatePasswordSchema = z
   .object({
+    // 会員登録（registerProfileFormSchema）と同じ 8〜16 文字（案内文「※ 8〜16文字」と一致させる）
     password: z
       .string()
       .trim()
-      .min(8, "パスワードは8文字以上で入力してください"),
+      .min(8, "パスワードは8文字以上で入力してください")
+      .max(16, "パスワードは16文字以内で入力してください"),
     confirmPassword: z.string().trim().min(1, "確認用パスワードを入力してください"),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -100,7 +102,7 @@ const registerProfileBaseSchema = z.object({
   companyName: z.string().optional(),
   skills: z
     .array(skillSchema)
-    .min(1, "スキルを1つ以上追加してください")
+    .min(1, "職種を1つ以上追加してください")
     .transform((arr) => {
       const seen = new Set<string>();
       return arr.filter((s) => {

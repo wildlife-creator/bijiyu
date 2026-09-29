@@ -13,8 +13,8 @@ import { PendingOverlay } from "@/components/shared/pending-overlay";
 
 /**
  * マイリスト（CON-007）の種類切り替えプルダウン。
- * 案件 / 発注者 / 見込みユーザー を ?type= で切り替える。
- * 選択肢はロールに応じて Server 側から渡す（contractor は 見込みユーザー なし）。
+ * 案件 / 発注者 / 職人 を ?type= で切り替える。
+ * 選択肢はロールに応じて Server 側から渡す（contractor は 職人 なし）。
  */
 
 interface Option {

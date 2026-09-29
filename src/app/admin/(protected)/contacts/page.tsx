@@ -90,7 +90,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
                 </p>
                 <p className="mt-0.5 flex items-center gap-2 text-body-md font-medium text-foreground">
                   <span className="truncate">
-                    {c.company_name}　{c.name}
+                    {c.company_name ? `${c.company_name}　${c.name}` : c.name}
                   </span>
                   {c.user_id && (
                     <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-body-xs font-medium text-primary">

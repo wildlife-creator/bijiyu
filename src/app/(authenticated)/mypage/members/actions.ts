@@ -232,6 +232,25 @@ export async function createMemberAction(
     }
 
     newUserId = invited.user.id;
+
+    // role / 氏名はアプリ側で設定する（20260929130000: handle_new_user は GoTrue 経由の
+    // 作成で user_metadata を信じない。/signup を直接呼んで自分を担当者にできたため）
+    const { error: roleError } = await admin
+      .from("users")
+      .update({
+        role: "staff",
+        last_name: parsed.data.lastName,
+        first_name: parsed.data.firstName,
+      })
+      .eq("id", newUserId);
+    if (roleError) {
+      console.error("[createMemberAction] set staff role failed", roleError);
+      await admin.auth.admin.deleteUser(newUserId);
+      return {
+        success: false,
+        error: "招待メールの送信に失敗しました。時間をおいて再度お試しください",
+      };
+    }
   }
 
   // insert_staff_member_with_limit RPC（atomic: FOR UPDATE ロック + 上限 + 代理一意性チェック）

@@ -37,6 +37,8 @@ const adminState = {
   memberCount: 0,
   updates: [] as Array<{ table: string; payload: Record<string, unknown> }>,
   inserts: [] as Array<{ table: string; payload: Record<string, unknown> }>,
+  upserts: [] as Array<{ table: string; payload: Record<string, unknown> }>,
+  deletes: [] as Array<{ table: string }>,
   updateError: null as null | { message: string },
 };
 
@@ -63,6 +65,14 @@ vi.mock("@/lib/supabase/admin", () => ({
         insert: vi.fn((payload: Record<string, unknown>) => {
           adminState.inserts.push({ table, payload });
           return Promise.resolve({ data: null, error: null });
+        }),
+        upsert: vi.fn((payload: Record<string, unknown>) => {
+          adminState.upserts.push({ table, payload });
+          return Promise.resolve({ data: null, error: adminState.updateError });
+        }),
+        delete: vi.fn(() => {
+          adminState.deletes.push({ table });
+          return chain;
         }),
         maybeSingle: vi.fn(async () => {
           if (table === "users") {
@@ -129,6 +139,8 @@ beforeEach(() => {
   adminState.memberCount = 0;
   adminState.updates = [];
   adminState.inserts = [];
+  adminState.upserts = [];
+  adminState.deletes = [];
   adminState.updateError = null;
   mockExecuteWithdrawal.mockReset().mockResolvedValue({ success: true });
   mockWriteAuditLog.mockClear();
@@ -158,17 +170,23 @@ describe("updateAdminMemoAction", () => {
     expect(adminState.updates).toHaveLength(0);
   });
 
-  it("成功: client_profiles.admin_memo 更新 + audit log + ADM-004 へ redirect", async () => {
+  it("成功: 運営専用テーブル client_admin_memos に保存 + audit log + ADM-004 へ redirect", async () => {
     await expect(
       updateAdminMemoAction(TARGET_ID, memoFormData("対応履歴メモ")),
     ).rejects.toThrow(`NEXT_REDIRECT:/admin/clients/${TARGET_ID}`);
 
+    expect(adminState.upserts).toEqual([
+      {
+        table: "client_admin_memos",
+        payload: { user_id: TARGET_ID, memo: "対応履歴メモ" },
+      },
+    ]);
+    // 全会員が読める client_profiles には書かない（2026-09-29 運営メモの漏えい対策）
     expect(
-      adminState.updates.some(
-        (u) =>
-          u.table === "client_profiles" && u.payload.admin_memo === "対応履歴メモ",
+      [...adminState.updates, ...adminState.inserts].some(
+        (u) => u.table === "client_profiles",
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(mockWriteAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "admin_memo_update",
@@ -178,15 +196,22 @@ describe("updateAdminMemoAction", () => {
     );
   });
 
-  it("空文字（メモ削除）は許容される", async () => {
+  it("空文字（メモ削除）は行を消す", async () => {
     await expect(
       updateAdminMemoAction(TARGET_ID, memoFormData("")),
     ).rejects.toThrow("NEXT_REDIRECT");
-    expect(
-      adminState.updates.some(
-        (u) => u.table === "client_profiles" && u.payload.admin_memo === null,
-      ),
-    ).toBe(true);
+    expect(adminState.deletes).toEqual([{ table: "client_admin_memos" }]);
+    expect(adminState.upserts).toHaveLength(0);
+  });
+
+  it("保存に失敗したらエラーを返し、audit log を残さない", async () => {
+    adminState.updateError = { message: "db down" };
+    const result = await updateAdminMemoAction(
+      TARGET_ID,
+      memoFormData("対応履歴メモ"),
+    );
+    expect(result).toEqual({ success: false, error: "メモの保存に失敗しました" });
+    expect(mockWriteAuditLog).not.toHaveBeenCalled();
   });
 });
 

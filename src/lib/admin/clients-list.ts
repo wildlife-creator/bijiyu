@@ -27,8 +27,8 @@ export const CLIENT_CATEGORY_LABELS: Record<ClientCategory, string> = {
   owner: "管理責任者",
   org_admin: "組織管理者",
   org_staff: "担当者",
-  individual: "個人発注者",
-  small: "小規模発注者",
+  individual: "ライトプラン発注者",
+  small: "スタンダードプラン発注者",
 };
 
 /** ADM-003 のプラン列表記（「プラン」サフィックス無しの短縮形） */

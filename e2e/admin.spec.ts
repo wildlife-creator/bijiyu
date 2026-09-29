@@ -44,7 +44,7 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
   }) => {
     await adminLogin(page);
 
-    // ダッシュボードの9メニュー＋パスワード再設定（計10メニュー）をクリックで巡回。
+    // ダッシュボードの9メニュー＋パスワード変更（計10メニュー）をクリックで巡回。
     // 各画面から共通ヘッダーのロゴ（accessible name「ビジ友 管理画面」）でダッシュボードへ戻る
     const menus: Array<[string, RegExp, string]> = [
       ["発注者アカウント一覧", /\/admin\/clients/, "発注者 アカウント一覧"],
@@ -56,7 +56,7 @@ test.describe("ADM-001/002: admin 導線スモーク", () => {
       ["求人問い合わせ一覧", /\/admin\/job-inquiries/, "求人問い合わせ一覧"],
       ["代理メッセージ一覧", /\/admin\/messages/, "代理メッセージ一覧"],
       ["銀行振込お問い合わせ一覧", /\/admin\/bank-transfers/, "銀行振込お問い合わせ一覧"],
-      ["パスワード再設定", /\/admin\/password/, "パスワード再設定"],
+      ["パスワード変更", /\/admin\/password/, "パスワード変更"],
     ];
 
     for (const [label, urlPattern, heading] of menus) {
@@ -159,6 +159,9 @@ test.describe("ADM-011/012: 本人確認審査", () => {
 
     // 非対象（CCUS）: 「未申請」グレーアウトでボタン非活性
     await expect(ccusSection.getByText("未申請")).toBeVisible();
+    await expect(
+      ccusSection.getByText("本人確認が承認されるまで CCUS は審査できません"),
+    ).toBeVisible();
     await expect(
       ccusSection.getByRole("button", { name: "承認" }),
     ).toBeDisabled();
@@ -375,13 +378,13 @@ test.describe("ADM-003/004/022: 発注者管理ドリルダウン", () => {
     await expect(page.getByRole("link", { name: /(?<!-)client@test\.local/ })).toBeVisible();
   });
 
-  test("区分フィルタ（小規模発注者）で対象だけに絞り込まれる", async ({
+  test("区分フィルタ（スタンダードプラン発注者）で対象だけに絞り込まれる", async ({
     page,
   }) => {
     await page.goto("/admin/clients");
     // 1つ目の combobox = 区分
     await page.locator("button[role='combobox']").first().click();
-    await page.getByRole("option", { name: "小規模発注者" }).click();
+    await page.getByRole("option", { name: "スタンダードプラン発注者" }).click();
     await page.getByRole("button", { name: "検索" }).click();
     await page.waitForURL(/category=small/);
 

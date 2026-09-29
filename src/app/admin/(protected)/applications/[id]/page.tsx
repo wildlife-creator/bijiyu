@@ -351,9 +351,9 @@ export default async function AdminApplicationDetailPage({
         </Link>
       </section>
 
-      {/* 初回勤務日 */}
+      {/* 初回稼働日 */}
       <section className="mt-6">
-        <h2 className="text-body-lg font-bold text-foreground">初回勤務日</h2>
+        <h2 className="text-body-lg font-bold text-foreground">初回稼働日</h2>
         <p className="mt-2 pl-4 text-body-md text-foreground">
           {formatDate(app.first_work_date)}
         </p>

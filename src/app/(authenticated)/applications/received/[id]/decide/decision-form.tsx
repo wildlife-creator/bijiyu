@@ -202,7 +202,7 @@ export function DecisionForm({
               勤務についての詳細
             </h2>
             <p className="text-body-sm text-muted-foreground">
-              マッチング成立時にユーザーに表示される詳細な勤務内容です。マッチング後に入力することも可能です。
+              発注が確定した応募者にだけ表示される勤務の詳細です。
             </p>
 
             <div className="space-y-2">
@@ -355,7 +355,7 @@ export function DecisionForm({
         {decision === "reject" && (
           <div className="space-y-2">
             <Label className="text-body-md font-bold">
-              お断りの理由を入力ください
+              お断りの理由をご入力ください
             </Label>
             <Textarea
               value={rejectionReason}
