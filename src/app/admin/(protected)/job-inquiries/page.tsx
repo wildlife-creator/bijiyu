@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { KeywordSearchForm } from "@/components/admin/keyword-search-form";
+import { AdminFilterForm } from "@/components/admin/admin-filter-form";
 import { KEYWORD_ID_SET_LIMIT } from "@/lib/admin/applications-list";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { adminParticipantName } from "@/lib/admin/display-name";
@@ -133,10 +133,12 @@ export default async function AdminJobInquiriesPage({
         求人問い合わせ一覧
       </h1>
 
-      <KeywordSearchForm
+      <AdminFilterForm
         basePath="/admin/job-inquiries"
-        placeholder="送信者氏名・メールアドレス・発注者名"
+        keywordId="admin-job-inquiry-keyword"
+        keywordPlaceholder="送信者氏名・メールアドレス・発注者名"
         initialKeyword={keyword}
+        passthrough={{ backTo }}
       />
 
       <p className="mt-6 text-body-md font-bold">検索結果：{total}件</p>

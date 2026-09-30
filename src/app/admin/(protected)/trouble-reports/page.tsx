@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { KeywordSearchForm } from "@/components/admin/keyword-search-form";
+import { AdminFilterForm } from "@/components/admin/admin-filter-form";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
@@ -65,10 +65,12 @@ export default async function AdminTroubleReportsPage({
         トラブル報告一覧
       </h1>
 
-      <KeywordSearchForm
+      <AdminFilterForm
         basePath="/admin/trouble-reports"
-        placeholder="報告者氏名・相手氏名・メールアドレス"
+        keywordId="admin-trouble-report-keyword"
+        keywordPlaceholder="報告者氏名・相手氏名・メールアドレス"
         initialKeyword={keyword}
+        passthrough={{ backTo }}
       />
 
       <p className="mt-6 text-body-md font-bold">検索結果：{total}件</p>

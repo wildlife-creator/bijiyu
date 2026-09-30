@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { KeywordSearchForm } from "@/components/admin/keyword-search-form";
+import { AdminFilterForm } from "@/components/admin/admin-filter-form";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
@@ -64,10 +64,12 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
         お問い合わせ一覧
       </h1>
 
-      <KeywordSearchForm
+      <AdminFilterForm
         basePath="/admin/contacts"
-        placeholder="会社名/屋号・氏名・メールアドレス"
+        keywordId="admin-contact-keyword"
+        keywordPlaceholder="会社名/屋号・氏名・メールアドレス"
         initialKeyword={keyword}
+        passthrough={{ backTo }}
       />
 
       <p className="mt-6 text-body-md font-bold">検索結果：{total}件</p>

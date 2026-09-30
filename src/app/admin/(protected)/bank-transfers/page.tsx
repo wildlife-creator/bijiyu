@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { KeywordSearchForm } from "@/components/admin/keyword-search-form";
+import { AdminFilterForm } from "@/components/admin/admin-filter-form";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import {
   BANK_TRANSFER_PAGE_SIZE,
@@ -54,10 +54,12 @@ export default async function AdminBankTransfersPage({ searchParams }: PageProps
         銀行振込を希望するお問い合わせです。お問い合わせ詳細で希望内容を確認し、ユーザーアカウント一覧で会員を検索して、ユーザーアカウント詳細の「契約内容」から設定してください。
       </p>
 
-      <KeywordSearchForm
+      <AdminFilterForm
         basePath="/admin/bank-transfers"
-        placeholder="会社名/屋号・氏名・メールアドレス"
+        keywordId="admin-bank-transfer-keyword"
+        keywordPlaceholder="会社名/屋号・氏名・メールアドレス"
         initialKeyword={keyword}
+        passthrough={{ backTo }}
       />
 
       <p className="mt-6 text-body-md font-bold">検索結果：{totalCount}件</p>
