@@ -202,10 +202,6 @@ function headersWith(entries: Record<string, string>) {
   };
 }
 
-function findQuery(table: string, op: Op): RecordedQuery | undefined {
-  return recorded.find((q) => q.table === table && q.op === op);
-}
-
 beforeEach(() => {
   mockGetUser.mockReset();
   mockUpdateUser.mockReset();
@@ -329,7 +325,7 @@ describe("updateProfileAction", () => {
         success: false,
         error: "存在しない職種が含まれています: 建築/躯体｜架空工",
       });
-      expect(findQuery("users", "update")).toBeUndefined();
+      expect(mockRpc).not.toHaveBeenCalled();
     });
 
     it("廃止済みの職種を新規追加すると「新規追加できません」エラー", async () => {
@@ -399,64 +395,55 @@ describe("updateProfileAction", () => {
         error:
           "データの取得に一時的に失敗しました。時間をおいて再度お試しください。",
       });
-      expect(findQuery("users", "update")).toBeUndefined();
+      expect(mockRpc).not.toHaveBeenCalled();
     });
   });
 
-  describe("保存処理のエラー", () => {
-    it("users UPDATE が失敗したらプロフィール保存失敗のエラー", async () => {
-      responses.users = {
-        ...responses.users,
-        update: { data: null, error: { message: "db error" } },
+  describe("今の登録内容の読み込み失敗", () => {
+    it.each([
+      ["user_skills"],
+      ["user_qualifications"],
+      ["users"],
+      ["user_available_areas"],
+    ])("%s の読み込みが失敗したら一時エラーを返し、保存しない", async (table) => {
+      responses[table] = {
+        select: { data: null, error: { message: "network" } },
       };
       const result = await updateProfileAction(buildFormData());
       expect(result).toEqual({
         success: false,
-        error: "プロフィールの保存に失敗しました。もう一度お試しください。",
-      });
-      expect(findQuery("user_skills", "insert")).toBeUndefined();
-      expect(mockRpc).not.toHaveBeenCalled();
-    });
-
-    it("職種の INSERT が失敗したら職種保存失敗のエラー", async () => {
-      responses.user_skills = {
-        ...responses.user_skills,
-        insert: { data: null, error: { message: "db error" } },
-      };
-      const result = await updateProfileAction(buildFormData());
-      expect(result).toEqual({
-        success: false,
-        error: "職種の保存に失敗しました。もう一度お試しください。",
+        error:
+          "データの取得に一時的に失敗しました。時間をおいて再度お試しください。",
       });
       expect(mockRpc).not.toHaveBeenCalled();
-    });
-
-    it("資格の INSERT が失敗したら資格保存失敗のエラー", async () => {
-      responses.user_qualifications = {
-        ...responses.user_qualifications,
-        insert: { data: null, error: { message: "db error" } },
-      };
-      const result = await updateProfileAction(buildFormData());
-      expect(result).toEqual({
-        success: false,
-        error: "資格の保存に失敗しました。もう一度お試しください。",
-      });
-      expect(mockRpc).not.toHaveBeenCalled();
-    });
-
-    it("replace_user_areas RPC が失敗したら対応エリア保存失敗のエラー", async () => {
-      mockRpc.mockResolvedValue({ data: null, error: { message: "rpc error" } });
-      const result = await updateProfileAction(buildFormData());
-      expect(result).toEqual({
-        success: false,
-        error: "対応エリアの保存に失敗しました。もう一度お試しください。",
-      });
       expect(mockUpdateUser).not.toHaveBeenCalled();
     });
   });
 
+  describe("保存処理のエラー", () => {
+    it("保存（update_my_profile）が失敗したらプロフィール保存失敗のエラーを返し、メールは変更しない", async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: "db error" } });
+      const result = await updateProfileAction(
+        buildFormData({ email: "new@test.local" }),
+      );
+      expect(result).toEqual({
+        success: false,
+        error: "プロフィールの保存に失敗しました。もう一度お試しください。",
+      });
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it("書き込みは RPC 1 回だけで、テーブルへの直接の UPDATE / DELETE / INSERT はしない（一部だけ保存されるのを防ぐ）", async () => {
+      await updateProfileAction(buildFormData());
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(
+        recorded.filter((q) => q.op === "update" || q.op === "delete" || q.op === "insert"),
+      ).toEqual([]);
+    });
+  });
+
   describe("正常系", () => {
-    it("users を更新し（性別は日本語ラベルのまま）、職種・資格を入れ替え、エリア RPC を呼ぶ", async () => {
+    it("update_my_profile に全項目を 1 回で渡す（性別は日本語ラベルのまま・重複は除去・エリアは DB タプルに展開）", async () => {
       const result = await updateProfileAction(
         buildFormData({
           gender: "女性",
@@ -471,45 +458,22 @@ describe("updateProfileAction", () => {
       );
 
       expect(result).toEqual({ success: true });
-
-      const userUpdate = findQuery("users", "update");
-      expect(userUpdate?.payload).toEqual({
-        last_name: "山田",
-        first_name: "太郎",
-        gender: "女性",
-        birth_date: "1990-01-15",
-        prefecture: "東京都",
-        municipality: "港区",
-        company_name: "山田工務店",
-        bio: "よろしくお願いします",
-        skill_tags: ["型枠設置工", "外壁塗装工"],
-      });
-      expect(userUpdate?.eqs).toEqual([["id", USER_ID]]);
-
-      // 職種: 全削除 → 重複除去済みで INSERT
-      const skillsDelete = findQuery("user_skills", "delete");
-      expect(skillsDelete?.eqs).toEqual([["user_id", USER_ID]]);
-      expect(findQuery("user_skills", "insert")?.payload).toEqual([
-        { user_id: USER_ID, trade_type: "建築/躯体｜大工", experience_years: 10 },
-        {
-          user_id: USER_ID,
-          trade_type: "建築/仕上げ｜内装工",
-          experience_years: 2,
-        },
-      ]);
-
-      // 資格: 全削除 → INSERT
-      expect(findQuery("user_qualifications", "delete")?.eqs).toEqual([
-        ["user_id", USER_ID],
-      ]);
-      expect(findQuery("user_qualifications", "insert")?.payload).toEqual([
-        { user_id: USER_ID, qualification_name: "一級建築士" },
-      ]);
-
-      // エリア: UI 行 → DB タプルに展開して RPC
       expect(mockRpc).toHaveBeenCalledTimes(1);
-      expect(mockRpc).toHaveBeenCalledWith("replace_user_areas", {
-        p_user_id: USER_ID,
+      expect(mockRpc).toHaveBeenCalledWith("update_my_profile", {
+        p_last_name: "山田",
+        p_first_name: "太郎",
+        p_gender: "女性",
+        p_birth_date: "1990-01-15",
+        p_prefecture: "東京都",
+        p_municipality: "港区",
+        p_company_name: "山田工務店",
+        p_bio: "よろしくお願いします",
+        p_skill_tags: ["型枠設置工", "外壁塗装工"],
+        p_skills: [
+          { trade_type: "建築/躯体｜大工", experience_years: 10 },
+          { trade_type: "建築/仕上げ｜内装工", experience_years: 2 },
+        ],
+        p_qualifications: ["一級建築士"],
         p_areas: [
           { prefecture: "東京都", municipality: "港区" },
           { prefecture: "東京都", municipality: "新宿区" },
@@ -522,7 +486,7 @@ describe("updateProfileAction", () => {
       expect(mockHeaders).not.toHaveBeenCalled();
     });
 
-    it("任意項目が空なら municipality は null、company_name / bio は空文字で保存し、資格は INSERT しない", async () => {
+    it("任意項目が空なら municipality は空文字（DB 側で NULL）、company_name / bio は空文字、資格・スキルは空配列で渡す", async () => {
       const result = await updateProfileAction(
         buildFormData({
           municipality: "",
@@ -534,16 +498,12 @@ describe("updateProfileAction", () => {
       );
 
       expect(result).toEqual({ success: true });
-      const payload = findQuery("users", "update")?.payload as Record<
-        string,
-        unknown
-      >;
-      expect(payload.municipality).toBeNull();
-      expect(payload.company_name).toBe("");
-      expect(payload.bio).toBe("");
-      expect(payload.skill_tags).toEqual([]);
-      expect(findQuery("user_qualifications", "delete")).toBeDefined();
-      expect(findQuery("user_qualifications", "insert")).toBeUndefined();
+      const args = mockRpc.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(args.p_municipality).toBe("");
+      expect(args.p_company_name).toBe("");
+      expect(args.p_bio).toBe("");
+      expect(args.p_qualifications).toEqual([]);
+      expect(args.p_skill_tags).toEqual([]);
     });
 
     it("メールアドレス欄が空なら updateUser を呼ばない", async () => {
@@ -569,8 +529,7 @@ describe("updateProfileAction", () => {
         { emailRedirectTo: "http://127.0.0.1:3000/email-change-confirmed" },
       );
       // プロフィール本体は先に保存済み
-      expect(findQuery("users", "update")).toBeDefined();
-      expect(mockRpc).toHaveBeenCalled();
+      expect(mockRpc).toHaveBeenCalledWith("update_my_profile", expect.anything());
     });
 
     it("x-forwarded-proto が https ならその proto を使う", async () => {

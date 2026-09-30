@@ -19,6 +19,9 @@ import {
 } from "@/lib/master/validate-area";
 import { expandAreasForDb } from "@/lib/master/area-conversion";
 
+const PROFILE_READ_TRANSIENT_ERROR =
+  "データの取得に一時的に失敗しました。時間をおいて再度お試しください。";
+
 export async function updateProfileAction(
   formData: FormData
 ): Promise<ActionResult> {
@@ -85,6 +88,12 @@ export async function updateProfileAction(
         .eq("user_id", user.id),
     ]);
 
+    // 今の登録内容が読めないまま進むと「何も登録されていない」とみなして検証し、
+    // 保有中の廃止ラベル・エリアを「新規追加」と誤判定して保存を弾いてしまう
+    if (prevSkills.error || prevQuals.error || prevUser.error || prevAreas.error) {
+      return { success: false, error: PROFILE_READ_TRANSIENT_ERROR };
+    }
+
     const prevTradeTypes = (prevSkills.data ?? []).map((r) => r.trade_type);
     const prevQualifications = (prevQuals.data ?? []).map(
       (r) => r.qualification_name,
@@ -138,88 +147,29 @@ export async function updateProfileAction(
       };
     }
 
-    // Convert skills to JSONB format for the RPC call
-    const skillsJsonb = data.skills.map((skill) => ({
-      trade_type: skill.tradeType,
-      experience_years: skill.experienceYears,
-    }));
-
-    // Use individual table updates instead of RPC to avoid type casting issues
-    // Update users table
-    const { error: userError } = await supabase
-      .from("users")
-      .update({
-        last_name: data.lastName,
-        first_name: data.firstName,
-        gender: data.gender,
-        birth_date: data.birthDate,
-        prefecture: data.prefecture,
-        municipality: data.municipality || null,
-        company_name: data.companyName ?? null,
-        bio: data.bio ?? null,
-        skill_tags: data.skillTags ?? [],
-      })
-      .eq("id", user.id);
-
-    if (userError) {
+    // DB への保存（users・職種・資格・対応エリア）は 1 トランザクションで行う。
+    // 途中で失敗したら全部取り消されるので、一部だけ保存された状態が残らない
+    const { error: saveError } = await supabase.rpc("update_my_profile", {
+      p_last_name: data.lastName,
+      p_first_name: data.firstName,
+      p_gender: data.gender,
+      p_birth_date: data.birthDate,
+      p_prefecture: data.prefecture,
+      p_municipality: data.municipality || "",
+      p_company_name: data.companyName ?? null,
+      p_bio: data.bio ?? null,
+      p_skill_tags: newSkillTags,
+      p_skills: data.skills.map((skill) => ({
+        trade_type: skill.tradeType,
+        experience_years: skill.experienceYears,
+      })),
+      p_qualifications: newQualifications,
+      p_areas: flatAreas,
+    });
+    if (saveError) {
       return {
         success: false,
         error: "プロフィールの保存に失敗しました。もう一度お試しください。",
-      };
-    }
-
-    // Replace skills: delete all then insert new
-    await supabase.from("user_skills").delete().eq("user_id", user.id);
-    if (skillsJsonb.length > 0) {
-      const { error: skillsError } = await supabase
-        .from("user_skills")
-        .insert(
-          skillsJsonb.map((s) => ({
-            user_id: user.id,
-            trade_type: s.trade_type,
-            experience_years: s.experience_years,
-          }))
-        );
-      if (skillsError) {
-        return {
-          success: false,
-          error: "職種の保存に失敗しました。もう一度お試しください。",
-        };
-      }
-    }
-
-    // Replace qualifications
-    await supabase
-      .from("user_qualifications")
-      .delete()
-      .eq("user_id", user.id);
-    const quals = data.qualifications ?? [];
-    if (quals.length > 0) {
-      const { error: qualsError } = await supabase
-        .from("user_qualifications")
-        .insert(
-          quals.map((q) => ({
-            user_id: user.id,
-            qualification_name: q,
-          }))
-        );
-      if (qualsError) {
-        return {
-          success: false,
-          error: "資格の保存に失敗しました。もう一度お試しください。",
-        };
-      }
-    }
-
-    // Replace available areas via RPC (DELETE old + INSERT new in 1 トランザクション)
-    const { error: areasError } = await supabase.rpc("replace_user_areas", {
-      p_user_id: user.id,
-      p_areas: flatAreas,
-    });
-    if (areasError) {
-      return {
-        success: false,
-        error: "対応エリアの保存に失敗しました。もう一度お試しください。",
       };
     }
 
