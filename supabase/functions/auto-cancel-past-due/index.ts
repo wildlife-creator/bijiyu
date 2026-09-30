@@ -15,6 +15,8 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import Stripe from "npm:stripe";
 
+import { processOverdueSubscriptions, type AutoCancelDb } from "./process.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -43,76 +45,33 @@ Deno.serve(async (req: Request) => {
   const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
   const stripe = new Stripe(stripeSecretKey, { apiVersion: "2026-02-25.clover" });
 
-  // ---- Find overdue subscriptions ----
-  const { data: overdue, error: queryError } = await admin
-    .from("subscriptions")
-    .select("id, user_id, plan_type, stripe_subscription_id, past_due_since")
-    .eq("status", "past_due")
-    // 銀行振込（payment_method='bank_transfer'）は Stripe にサブスクが無く、
-    // 期限管理は運営の手動運用（D3）。Stripe 行だけを対象にする
-    .eq("payment_method", "stripe")
-    .not("past_due_since", "is", null)
-    .lt("past_due_since", new Date(Date.now() - 7 * 86_400_000).toISOString());
+  // ---- Find overdue subscriptions → cancel on Stripe（本体は process.ts）----
+  const result = await processOverdueSubscriptions({
+    // supabase-js のクライアントは AutoCancelDb の形を満たす（検索と audit_logs への INSERT のみ使う）
+    db: admin as unknown as AutoCancelDb,
+    stripe,
+    now: new Date(),
+    log: (message, ...args) => console.error(message, ...args),
+  });
 
-  if (queryError) {
-    console.error("[auto-cancel-past-due] query error", queryError);
+  if (result.queryFailed) {
     return Response.json(
-      { total: 0, succeeded: 0, failed: 0, errors: [{ message: queryError.message }] },
+      { total: 0, succeeded: 0, failed: 0, errors: result.errors },
       { status: 500, headers: corsHeaders },
     );
   }
 
-  if (!overdue || overdue.length === 0) {
-    console.log("[auto-cancel-past-due] no overdue subscriptions found");
-    return Response.json(
-      { total: 0, succeeded: 0, failed: 0, errors: [] },
-      { headers: corsHeaders },
-    );
-  }
-
-  console.log(`[auto-cancel-past-due] processing ${overdue.length} overdue subscriptions`);
-
-  let succeeded = 0;
-  let failed = 0;
-  const errors: Array<{ userId: string; message: string }> = [];
-
-  for (const sub of overdue) {
-    try {
-      if (!sub.stripe_subscription_id) {
-        throw new Error("missing stripe_subscription_id");
-      }
-
-      // Cancel on Stripe — DB update + メール送信は customer.subscription.deleted
-      // webhook 経由で `handleSubscriptionDeleted` が担当 (§6.4 案 4)。
-      // ここではメール送らない (二重送信防止)。
-      await stripe.subscriptions.cancel(sub.stripe_subscription_id);
-
-      // Audit log
-      await admin.from("audit_logs").insert({
-        actor_id: null,
-        action: "auto_cancelled_past_due",
-        target_type: "subscription",
-        target_id: sub.id,
-        metadata: {
-          user_id: sub.user_id,
-          stripe_subscription_id: sub.stripe_subscription_id,
-          past_due_since: sub.past_due_since,
-        },
-      });
-
-      succeeded += 1;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("[auto-cancel-past-due] failed for user", sub.user_id, message);
-      errors.push({ userId: sub.user_id, message });
-      failed += 1;
-    }
-  }
-
-  console.log(`[auto-cancel-past-due] done: total=${overdue.length} succeeded=${succeeded} failed=${failed}`);
+  console.log(
+    `[auto-cancel-past-due] done: total=${result.total} succeeded=${result.succeeded} failed=${result.failed}`,
+  );
 
   return Response.json(
-    { total: overdue.length, succeeded, failed, errors },
+    {
+      total: result.total,
+      succeeded: result.succeeded,
+      failed: result.failed,
+      errors: result.errors,
+    },
     { headers: corsHeaders },
   );
 });

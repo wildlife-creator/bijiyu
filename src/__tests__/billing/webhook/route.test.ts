@@ -174,6 +174,26 @@ describe("POST /api/webhooks/stripe", () => {
     });
   });
 
+  it.each([
+    ["customer.subscription.created", { id: "sub_new" }],
+    ["customer.subscription.deleted", { id: "sub_del" }],
+    ["invoice.payment_succeeded", { id: "in_paid" }],
+  ])("dispatches %s to handleSubscriptionLifecycle", async (type, object) => {
+    constructEventMock.mockReturnValueOnce({
+      id: `evt_${type}`,
+      type,
+      data: { object },
+    } as unknown as Stripe.Event);
+
+    const res = await POST(makeRequest({ signature: "t=1,v1=ok" }));
+    expect(res.status).toBe(200);
+    expect(withWebhookIdempotencyMock).toHaveBeenCalledOnce();
+    expect(handleSubscriptionLifecycleMock).toHaveBeenCalledOnce();
+    expect(handleCheckoutCompletedMock).not.toHaveBeenCalled();
+    const callArgs = handleSubscriptionLifecycleMock.mock.calls[0]!;
+    expect(callArgs[2]).toMatchObject({ type, data: object });
+  });
+
   it("returns 500 when STRIPE_WEBHOOK_SECRET is missing", async () => {
     delete process.env.STRIPE_WEBHOOK_SECRET;
     const res = await POST(makeRequest({ signature: "t=1,v1=ok" }));

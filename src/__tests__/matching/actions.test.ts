@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mock setup
@@ -23,6 +23,8 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/email/send-email", () => ({
   sendEmail: vi.fn().mockResolvedValue({ success: true }),
 }));
+
+import { sendEmail } from "@/lib/email/send-email";
 
 import {
   cancelApplicationAction,
@@ -506,6 +508,102 @@ describe("acceptApplicationAction", () => {
         work_location: "東京都渋谷区1-1-1",
         first_work_date: "2026-05-01",
       }),
+    );
+  });
+});
+
+describe("acceptApplicationAction / rejectApplicationAction のメール送信", () => {
+  // mockReturnValueOnce のキューは clearAllMocks で消えないため、ここで明示的に消す
+  beforeEach(() => {
+    mockFrom.mockReset();
+    mockAdminFrom.mockReset();
+  });
+  afterEach(() => {
+    mockFrom.mockReset();
+    mockAdminFrom.mockReset();
+  });
+  const APPLICANT = {
+    id: "applicant-1",
+    last_name: "高橋",
+    first_name: "美咲",
+    company_name: null,
+    deleted_at: null,
+  };
+  function appRow() {
+    return {
+      id: APP_ID,
+      applicant_id: APPLICANT.id,
+      status: "applied",
+      headcount: 1,
+      jobs: {
+        id: "j1",
+        title: "外壁塗装の応援",
+        owner_id: USER_ID,
+        organization_id: null,
+        trade_types: ["建築/仕上げ｜塗装工"],
+        work_end_date: "2026-11-30",
+        owner: { last_name: "田中", first_name: "一郎", deleted_at: null, client_profiles: { display_name: "田中工務店", image_url: null } },
+        organization: null,
+      },
+      applicant: APPLICANT,
+    };
+  }
+  function setup() {
+    mockAuth(USER_ID);
+    mockFrom
+      .mockReturnValueOnce(createQueryMock({ single: { data: appRow(), error: null } }))
+      .mockReturnValueOnce(createQueryMock({ error: null }));
+    // 応募者のメールアドレス（admin client）/ 発注者控えの宛先
+    mockAdminFrom.mockReturnValue(
+      createQueryMock({ data: { email: "applicant@test.local" }, error: null }),
+    );
+  }
+  function sentTo(address: string) {
+    return vi.mocked(sendEmail).mock.calls
+      .map((c) => c[0] as { to: string; subject: string })
+      .filter((m) => m.to === address);
+  }
+
+  it("発注すると応募者に「受注が決定しました」メールを送る（宛先は admin client で読んだメールアドレス）", async () => {
+    setup();
+    const fd = new FormData();
+    fd.set("applicationId", APP_ID);
+    fd.set("workLocation", "東京都渋谷区1-1-1");
+    fd.set("firstWorkDate", "2026-11-01");
+    const result = await acceptApplicationAction(fd);
+    expect(result.success).toBe(true);
+    const mails = sentTo("applicant@test.local");
+    expect(mails.map((m) => m.subject)).toContain("【ビジ友】「外壁塗装の応援」の受注が決定しました");
+  });
+
+  it("お断りすると応募者に「応募結果のお知らせ」メールを送る", async () => {
+    setup();
+    const fd = new FormData();
+    fd.set("applicationId", APP_ID);
+    const result = await rejectApplicationAction(fd);
+    expect(result.success).toBe(true);
+    const mails = sentTo("applicant@test.local");
+    expect(mails.map((m) => m.subject)).toContain("【ビジ友】応募結果のお知らせ - 外壁塗装の応援");
+  });
+
+  it("退会済みの応募者にはメールを送らない", async () => {
+    mockAuth(USER_ID);
+    mockFrom
+      .mockReturnValueOnce(
+        createQueryMock({
+          single: { data: { ...appRow(), applicant: { ...APPLICANT, deleted_at: "2026-09-01T00:00:00Z" } }, error: null },
+        }),
+      )
+      .mockReturnValueOnce(createQueryMock({ error: null }));
+    mockAdminFrom.mockReturnValue(
+      createQueryMock({ data: { email: "applicant@test.local" }, error: null }),
+    );
+    const fd = new FormData();
+    fd.set("applicationId", APP_ID);
+    const result = await rejectApplicationAction(fd);
+    expect(result.success).toBe(true);
+    expect(sentTo("applicant@test.local").map((m) => m.subject)).not.toContain(
+      "【ビジ友】応募結果のお知らせ - 外壁塗装の応援",
     );
   });
 });
