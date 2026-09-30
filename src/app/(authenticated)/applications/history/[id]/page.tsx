@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate, getJstToday } from "@/lib/utils/format-date";
 import { canContractorCancel } from "@/lib/matching";
 import { formatRewardRange } from "@/lib/utils/format-reward";
+import { hasReview } from "@/lib/utils/has-review";
 
 // 応募キャンセル通知は発注者組織のメンバー全員宛にメールを直列送信する
 // （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
@@ -108,12 +109,8 @@ export default async function ApplicationDetailPage({ params }: Props) {
     } | null;
   } | null;
 
-  const hasClientReview =
-    application.client_reviews != null &&
-    (!Array.isArray(application.client_reviews) || application.client_reviews.length > 0);
-  const hasUserReview =
-    application.user_reviews != null &&
-    (!Array.isArray(application.user_reviews) || application.user_reviews.length > 0);
+  const hasClientReview = hasReview(application.client_reviews);
+  const hasUserReview = hasReview(application.user_reviews);
 
   const resolution = job ? resolveClientProfileForRow(job) : null;
   const companyName = resolution

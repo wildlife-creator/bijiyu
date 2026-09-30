@@ -19,6 +19,7 @@ import { StatusFilter } from "@/components/shared/status-filter";
 import { APPLICANTS_STATUS_FILTER_OPTIONS } from "@/lib/constants/application-status-filters";
 import { SortSelect } from "@/components/shared/sort-select";
 import { AreaSummary } from "@/components/area/area-summary";
+import { hasReview } from "@/lib/utils/has-review";
 import {
   APPLICATION_SORT_OPTIONS,
   resolveSortValue,
@@ -117,32 +118,20 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
   let filteredApplications = allApplications ?? [];
   if (filterCategory === "発注済み") {
     filteredApplications = filteredApplications.filter((app) => {
-      const hasUR =
-        app.user_reviews != null &&
-        (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
-      const hasCR =
-        app.client_reviews != null &&
-        (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
+      const hasUR = hasReview(app.user_reviews);
+      const hasCR = hasReview(app.client_reviews);
       return !hasUR && !hasCR;
     });
   } else if (filterCategory === "評価登録済み") {
     filteredApplications = filteredApplications.filter((app) => {
-      const hasUR =
-        app.user_reviews != null &&
-        (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
-      const hasCR =
-        app.client_reviews != null &&
-        (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
+      const hasUR = hasReview(app.user_reviews);
+      const hasCR = hasReview(app.client_reviews);
       return hasUR && !hasCR;
     });
   } else if (filterCategory === "評価登録未入力") {
     filteredApplications = filteredApplications.filter((app) => {
-      const hasUR =
-        app.user_reviews != null &&
-        (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
-      const hasCR =
-        app.client_reviews != null &&
-        (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
+      const hasUR = hasReview(app.user_reviews);
+      const hasCR = hasReview(app.client_reviews);
       return !hasUR && hasCR;
     });
   }
@@ -215,12 +204,8 @@ export default async function JobApplicantsPage({ params, searchParams }: Props)
             user_available_areas: { prefecture: string; municipality: string | null }[] | null;
           } | null;
 
-          const hasUserReview =
-            app.user_reviews != null &&
-            (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
-          const hasClientReview =
-            app.client_reviews != null &&
-            (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
+          const hasUserReview = hasReview(app.user_reviews);
+          const hasClientReview = hasReview(app.client_reviews);
 
           const displayCategory = getOrderDisplayCategory(
             app.status,

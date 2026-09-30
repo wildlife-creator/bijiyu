@@ -29,6 +29,7 @@ import {
 } from "@/lib/constants/sort-options";
 import { SuccessToast } from "@/components/shared/success-toast";
 import { formatDate } from "@/lib/utils/format-date";
+import { hasReview } from "@/lib/utils/has-review";
 
 // カード3列グリッド。3 と 2 の公倍数にして最終行の欠けを防ぐ（lg=3列 / md=2列）
 const ITEMS_PER_PAGE = 18;
@@ -98,24 +99,24 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
   if (filterCategory === "稼働予定") {
     filteredApplications = filteredApplications.filter(
       (app) => {
-        const hasCR = app.client_reviews != null && (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
-        const hasUR = app.user_reviews != null && (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
+        const hasCR = hasReview(app.client_reviews);
+        const hasUR = hasReview(app.user_reviews);
         return !hasCR && !hasUR;
       },
     );
   } else if (filterCategory === "評価登録済み") {
     filteredApplications = filteredApplications.filter(
       (app) => {
-        const hasCR = app.client_reviews != null && (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
-        const hasUR = app.user_reviews != null && (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
+        const hasCR = hasReview(app.client_reviews);
+        const hasUR = hasReview(app.user_reviews);
         return hasCR && !hasUR;
       },
     );
   } else if (filterCategory === "評価登録未入力") {
     filteredApplications = filteredApplications.filter(
       (app) => {
-        const hasCR = app.client_reviews != null && (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
-        const hasUR = app.user_reviews != null && (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
+        const hasCR = hasReview(app.client_reviews);
+        const hasUR = hasReview(app.user_reviews);
         return !hasCR && hasUR;
       },
     );
@@ -210,10 +211,8 @@ export default async function ApplicationHistoryPage({ searchParams }: Props) {
             } | null;
           } | null;
 
-          const hasClientReview =
-            app.client_reviews != null && (!Array.isArray(app.client_reviews) || app.client_reviews.length > 0);
-          const hasUserReview =
-            app.user_reviews != null && (!Array.isArray(app.user_reviews) || app.user_reviews.length > 0);
+          const hasClientReview = hasReview(app.client_reviews);
+          const hasUserReview = hasReview(app.user_reviews);
 
           const resolution = job ? resolveClientProfileForRow(job) : null;
           const companyName = resolution

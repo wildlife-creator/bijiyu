@@ -16,6 +16,7 @@ import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 import { fetchUserAges } from "@/lib/users/private-fields";
+import { hasReview } from "@/lib/utils/has-review";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -153,9 +154,7 @@ export default async function OrderDetailPage({ params }: Props) {
   const skillTagList = (applicant?.skill_tags ?? []) as string[];
 
   // Check if review exists
-  const hasUserReview =
-    application.user_reviews != null &&
-    (!Array.isArray(application.user_reviews) || application.user_reviews.length > 0);
+  const hasUserReview = hasReview(application.user_reviews);
 
   const rewardText = formatRewardRange(job.reward_lower, job.reward_upper, {
     emptyLabel: "未定",
@@ -187,8 +186,7 @@ export default async function OrderDetailPage({ params }: Props) {
           displayCategory={getOrderDisplayCategory(
             application.status,
             hasUserReview,
-            application.client_reviews != null &&
-              (!Array.isArray(application.client_reviews) || application.client_reviews.length > 0),
+            hasReview(application.client_reviews),
           )}
         />
         {application.scout_message_id && (
