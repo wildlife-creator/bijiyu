@@ -1,13 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
 import { DocumentView } from "@/components/admin/document-view";
 import { resolveBackTo } from "@/lib/admin/back-to";
 import { getSignedDocumentUrls } from "@/lib/admin/signed-urls";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
+import { AdminBackFooter } from "@/components/admin/admin-back-footer";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -201,15 +200,7 @@ export default async function AdminContactDetailPage({
           複数アカウントを持つ会員が別アカウント宛ての依頼を送ることがあり、ボタンで開いた相手を
           そのまま操作すると取り違える。運営はユーザーアカウント一覧で検索して確認する。
           判断材料として「送信時のログインアカウント」を上部に文字だけで出す */}
-      <div className="mt-10 flex flex-col items-center gap-3">
-        <Button
-          asChild
-          variant="outline"
-          className="w-full max-w-xs rounded-full"
-        >
-          <Link href={backTo ?? "/admin/contacts"}>もどる</Link>
-        </Button>
-      </div>
+      <AdminBackFooter href={backTo ?? "/admin/contacts"} />
     </div>
   );
 }

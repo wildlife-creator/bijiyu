@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
 import { AdminFilterForm } from "@/components/admin/admin-filter-form";
 import { KEYWORD_ID_SET_LIMIT } from "@/lib/admin/applications-list";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
@@ -8,6 +7,7 @@ import { adminParticipantName } from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
 import { AdminPagination } from "@/components/admin/admin-pagination";
+import { AdminBackFooter } from "@/components/admin/admin-back-footer";
 
 const PAGE_SIZE = 20;
 
@@ -183,15 +183,7 @@ export default async function AdminJobInquiriesPage({
         pageSize={PAGE_SIZE}
       />
 
-      <div className="mt-10 flex flex-col items-center gap-3">
-        <Button
-          asChild
-          variant="outline"
-          className="w-full max-w-xs rounded-full"
-        >
-          <Link href={backTo ?? "/admin/dashboard"}>もどる</Link>
-        </Button>
-      </div>
+      <AdminBackFooter href={backTo ?? "/admin/dashboard"} />
     </div>
   );
 }

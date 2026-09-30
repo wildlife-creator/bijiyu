@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
 
-import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
 import {
   ProxyMessageList,
   type ProxyMessageItem,
@@ -16,6 +14,7 @@ import {
 } from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
+import { AdminBackFooter } from "@/components/admin/admin-back-footer";
 
 interface PageProps {
   params: Promise<{ threadId: string }>;
@@ -156,15 +155,7 @@ export default async function AdminProxyMessageDetailPage({
         />
       </div>
 
-      <div className="mt-10 flex flex-col items-center gap-3">
-        <Button
-          asChild
-          variant="outline"
-          className="w-full max-w-xs rounded-full"
-        >
-          <Link href={backTo ?? "/admin/messages"}>もどる</Link>
-        </Button>
-      </div>
+      <AdminBackFooter href={backTo ?? "/admin/messages"} />
     </div>
   );
 }

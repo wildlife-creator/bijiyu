@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
 import {
   ADMIN_APPLICATION_CATEGORY_LABELS,
   applyCategoryFilter,
@@ -20,6 +19,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatDate, getJstToday } from "@/lib/utils/format-date";
 import { AdminPagination } from "@/components/admin/admin-pagination";
+import { AdminBackFooter } from "@/components/admin/admin-back-footer";
 import { AdminApplicationFilters } from "./filters";
 import { AdminApplicationSortButton } from "./sort-button";
 
@@ -383,15 +383,7 @@ export default async function AdminApplicationsPage({
         pageSize={PAGE_SIZE}
       />
 
-      <div className="mt-10 flex flex-col items-center gap-3">
-        <Button
-          asChild
-          variant="outline"
-          className="w-full max-w-xs rounded-full"
-        >
-          <Link href={backTo ?? "/admin/dashboard"}>もどる</Link>
-        </Button>
-      </div>
+      <AdminBackFooter href={backTo ?? "/admin/dashboard"} />
     </div>
   );
 }

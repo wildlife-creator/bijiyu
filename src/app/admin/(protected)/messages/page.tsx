@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
 import { buildBackToValue, resolveBackTo } from "@/lib/admin/back-to";
 import {
   buildProxyOrgOptions,
@@ -11,6 +10,7 @@ import { adminUserDisplayName } from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
 import { AdminPagination } from "@/components/admin/admin-pagination";
+import { AdminBackFooter } from "@/components/admin/admin-back-footer";
 
 import { ProxyThreadFilters } from "./filters";
 
@@ -199,15 +199,7 @@ export default async function AdminProxyMessagesPage({
         pageSize={PAGE_SIZE}
       />
 
-      <div className="mt-10 flex flex-col items-center gap-3">
-        <Button
-          asChild
-          variant="outline"
-          className="w-full max-w-xs rounded-full"
-        >
-          <Link href={backTo ?? "/admin/dashboard"}>もどる</Link>
-        </Button>
-      </div>
+      <AdminBackFooter href={backTo ?? "/admin/dashboard"} />
     </div>
   );
 }
