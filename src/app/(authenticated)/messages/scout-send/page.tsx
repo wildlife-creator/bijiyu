@@ -1,9 +1,9 @@
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchUserAges } from "@/lib/users/private-fields";
+import { requireUser } from "@/lib/auth/require-user";
 import { ScoutSendForm } from "./scout-send-form";
 
 // スカウト送信の控えメールは自組織のメンバー全員宛に直列送信する
@@ -19,11 +19,7 @@ export default async function ScoutSendPage({ searchParams }: PageProps) {
   const targetUserId = params.userId;
   if (!targetUserId) notFound();
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // Fetch target user profile
   const { data: targetUser } = await supabase

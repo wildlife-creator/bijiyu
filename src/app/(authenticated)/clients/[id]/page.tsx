@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import { AreaList } from "@/components/area/area-list";
 import { VideoList } from "@/components/video-embed/video-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { getJstToday } from "@/lib/utils/format-date";
 import { canSendJobInquiry } from "@/lib/job-inquiry/access-guard";
@@ -22,6 +21,7 @@ import {
   resolveViewerOrganizationId,
 } from "@/lib/job-inquiry/resolve-context";
 import { SuccessToast } from "@/components/shared/success-toast";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -54,12 +54,7 @@ function InfoRow({
 
 export default async function ClientDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // Self-access guard: 自分自身の発注者詳細は表示しない（CLI-006 と同じ。
   // 自分宛の /messages/new を防ぐ）

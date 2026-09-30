@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import { MessageThreadView } from "@/components/messaging/message-thread-view";
 import type { Message, ScoutJobInfo } from "@/components/messaging/types";
 import { MessageHeader } from "@/components/messaging/message-header";
@@ -10,6 +9,7 @@ import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display
 import { counterpartyAvatarUrl } from "@/lib/messaging/official-account";
 import { fetchScoutJobInfo } from "@/lib/messaging/fetch-scout-job";
 import { resolveSideUserIds } from "@/lib/messaging/scout-recipient";
+import { requireUser } from "@/lib/auth/require-user";
 
 // メッセージ通知は相手組織のメンバー全員宛にメールを直列送信する
 // （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
@@ -21,12 +21,7 @@ interface Props {
 
 export default async function ThreadDetailPage({ params }: Props) {
   const { threadId } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // Phase 2: 新 org カラム + 両側 organization の owner nested を取得
   const { data: thread, error: threadError } = await supabase

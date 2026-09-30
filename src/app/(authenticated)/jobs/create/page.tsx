@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { JobForm } from "@/components/jobs/job-form";
 import {
   getAllMasterRows,
@@ -9,6 +7,7 @@ import {
 } from "@/lib/master/fetch";
 import { collapseAreasFromDb } from "@/lib/master/area-conversion";
 import type { JobFormValues } from "@/lib/validations/job";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface PageProps {
   searchParams: Promise<{ copyFrom?: string }>;
@@ -16,14 +15,7 @@ interface PageProps {
 
 export default async function JobCreatePage({ searchParams }: PageProps) {
   const { copyFrom } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase } = await requireUser();
 
   const [
     allTradeTypes,

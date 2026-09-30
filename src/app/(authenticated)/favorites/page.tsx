@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { CalendarDays, Clock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,9 +18,10 @@ import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import { HighRatingBadge } from "@/components/shared/high-rating-badge";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
-import { createClient } from "@/lib/supabase/server";
 import { fetchUserAges } from "@/lib/users/private-fields";
 import { fetchBulkOverallSummary } from "@/lib/rating/aggregate";
+import { requireUser } from "@/lib/auth/require-user";
+import { createClient } from "@/lib/supabase/server";
 import {
   getUserDisplayName,
   resolveClientProfileForRow,
@@ -50,12 +50,7 @@ const CLIENT_TABS: { label: string; value: FavoriteType }[] = [
 
 export default async function FavoritesPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // Get user role
   const { data: userData } = await supabase

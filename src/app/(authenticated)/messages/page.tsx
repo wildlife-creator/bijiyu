@@ -1,14 +1,13 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ThreadListItem } from "@/components/messaging/thread-list-item";
 import { BackButton } from "@/components/shared/back-button";
 import { resolveCounterpartyDisplay } from "@/lib/messaging/counterparty-display";
 import { counterpartyAvatarUrl } from "@/lib/messaging/official-account";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface Props {
   searchParams: Promise<{ type?: string }>;
@@ -16,12 +15,7 @@ interface Props {
 
 export default async function MessagesPage({ searchParams }: Props) {
   const params = await searchParams;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // Get user role + org info
   const { data: userData } = await supabase

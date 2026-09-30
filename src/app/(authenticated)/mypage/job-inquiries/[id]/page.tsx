@@ -1,10 +1,10 @@
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { BackButton } from "@/components/shared/back-button";
 import { formatDateTime } from "@/lib/utils/format-message-time";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -25,14 +25,7 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
 // 状態管理 UI・返信ボタンは置かない（保存して読むだけ）。メールは mailto リンクで表示。
 export default async function JobInquiryDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   // RLS（宛先本人 / 所属全組織）に加えて、アクティブ組織（法人でなければ
   // 本人宛）のみに絞る。複数組織所属の代理スタッフが URL 直叩きで他組織宛を

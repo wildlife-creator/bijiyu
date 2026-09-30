@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { SupportFooter } from "@/components/layout/support-footer";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
@@ -17,6 +16,7 @@ import {
   resolveParticipantName,
 } from "@/lib/utils/display-name";
 import { SuccessToast } from "@/components/shared/success-toast";
+import { requireUser } from "@/lib/auth/require-user";
 
 // -------------------------------------------------------------------
 // Menu item definitions
@@ -134,15 +134,7 @@ function MenuList({ items }: { items: MenuItem[] }) {
 // Page
 // -------------------------------------------------------------------
 export default async function MyPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   // Fetch user data including profile fields
   const { data: userData } = await supabase

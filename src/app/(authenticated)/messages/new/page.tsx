@@ -4,7 +4,6 @@ import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/shared/back-button";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   MONTHLY_NEW_THREAD_LIMIT,
@@ -15,6 +14,7 @@ import {
   type ThreadActorIdentity,
 } from "@/lib/messaging/identity";
 import { fetchAllRows } from "@/lib/admin/proxy-threads";
+import { requireUser } from "@/lib/auth/require-user";
 
 // メッセージ通知は相手組織のメンバー全員宛にメールを直列送信する
 // （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
@@ -41,14 +41,7 @@ export default async function NewMessagePage({ searchParams }: Props) {
     redirect("/messages");
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   // Get BOTH sides' organizations.
   // Use admin client for targetUserId because organization_members RLS

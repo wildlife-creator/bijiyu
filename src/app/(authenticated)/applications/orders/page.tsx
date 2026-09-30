@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -23,6 +21,7 @@ import { ORDERS_STATUS_FILTER_OPTIONS } from "@/lib/constants/application-status
 import { SortSelect } from "@/components/shared/sort-select";
 import { AreaSummary } from "@/components/area/area-summary";
 import { hasReview } from "@/lib/utils/has-review";
+import { requireUser } from "@/lib/auth/require-user";
 import {
   APPLICATION_SORT_OPTIONS,
   resolveSortValue,
@@ -36,15 +35,7 @@ interface Props {
 
 export default async function OrderHistoryPage({ searchParams }: Props) {
   const params = await searchParams;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const currentPage = Number(params.page) || 1;
   const from = (currentPage - 1) * ITEMS_PER_PAGE;

@@ -1,11 +1,11 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { BackButton } from "@/components/shared/back-button";
+import { requireUser } from "@/lib/auth/require-user";
 import {
   evaluateReviewInputWindow,
   reviewInputWindowMessage,
 } from "@/lib/matching";
-import { createClient } from "@/lib/supabase/server";
 import { ContractorReportForm } from "./contractor-report-form";
 
 // 完了報告の通知は発注者組織のメンバー全員宛にメールを直列送信する
@@ -18,15 +18,7 @@ interface Props {
 
 export default async function ContractorReportPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const { data: application } = await supabase
     .from("applications")

@@ -1,9 +1,9 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { BackButton } from "@/components/shared/back-button";
 import { ScheduleForm } from "@/components/schedule/schedule-form";
 import { DeleteScheduleButton } from "@/components/schedule/delete-schedule-button";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 
 const DESCRIPTION =
   "予定が空いている日程を登録すると、発注者からスカウトが届きやすくなります。";
@@ -15,12 +15,7 @@ interface PageProps {
 export default async function EditSchedulePage({ params }: PageProps) {
   const { id } = await params;
 
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data: schedule } = await supabase
     .from("available_schedules")

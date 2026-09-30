@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
 import { EMPLOYEE_SCALE_RANGES } from "@/lib/constants/options";
-import { createClient } from "@/lib/supabase/server";
 import {
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
@@ -20,6 +18,7 @@ import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { SortSelect } from "@/components/shared/sort-select";
+import { requireUser } from "@/lib/auth/require-user";
 import {
   CLIENT_LIST_SORT_OPTIONS,
   resolveSortValue,
@@ -36,12 +35,7 @@ interface PageProps {
 
 export default async function ClientListPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const page = Math.max(1, Number(sp.page) || 1);
   const offset = (page - 1) * ITEMS_PER_PAGE;

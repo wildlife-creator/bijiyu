@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import {
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
@@ -22,6 +20,7 @@ import { BackButton } from "@/components/shared/back-button";
 import { SortSelect } from "@/components/shared/sort-select";
 import { JobSearchFilter } from "./job-search-filter";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
+import { requireUser } from "@/lib/auth/require-user";
 
 // カード3列グリッド。3 と 2 の公倍数にして最終行の欠けを防ぐ（lg=3列 / md=2列）
 const ITEMS_PER_PAGE = 18;
@@ -64,12 +63,7 @@ interface PageProps {
 
 export default async function JobSearchPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const page = Math.max(1, Number(sp.page) || 1);
   const offset = (page - 1) * ITEMS_PER_PAGE;

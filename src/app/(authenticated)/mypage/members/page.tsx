@@ -10,7 +10,7 @@ import { MembersSearchForm } from "./members-search-form";
 import { fetchMemberPrivateFields } from "./member-private-fields";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { ChevronRight } from "lucide-react";
 
 const ITEMS_PER_PAGE = 20;
@@ -51,12 +51,7 @@ function formatName(lastName: string | null, firstName: string | null): string {
 
 export default async function MembersListPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase } = await requireUser();
 
   // 操作者の組織 + ロール取得
   const { active } = await getActiveOrganizationContext(supabase);

@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { BulkSendForm } from "./bulk-send-form";
 
 interface Recipient {
@@ -26,14 +25,7 @@ interface ThreadParticipant {
  *   同一ロジックで正しく "受注者" を counterpart として抽出できる。
  */
 export default async function BulkSendPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const { active } = await getActiveOrganizationContext(supabase);
   const organizationId = active?.organizationId ?? null;

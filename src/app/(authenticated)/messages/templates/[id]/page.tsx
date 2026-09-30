@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { DeleteTemplateButton } from "./delete-template-button";
 
@@ -34,12 +34,7 @@ interface PageProps {
 
 export default async function ScoutTemplateDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // アクティブ組織（法人でなければ本人分）のテンプレのみ閲覧可。
   // RLS は所属全組織を許可するため、URL 直叩きでの他組織テンプレ閲覧を

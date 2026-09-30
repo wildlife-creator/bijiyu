@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { BackButton } from "@/components/shared/back-button";
 import {
@@ -6,7 +6,7 @@ import {
   reviewInputWindowMessage,
 } from "@/lib/matching";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { ClientReportForm } from "./client-report-form";
 
 // 完了報告の通知は発注者組織のメンバー全員宛にメールを直列送信する
@@ -19,15 +19,7 @@ interface Props {
 
 export default async function ClientReportPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const { data: application } = await supabase
     .from("applications")

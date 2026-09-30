@@ -1,20 +1,15 @@
 import { redirect } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { MemberForm } from "../member-form";
 
 type PlanType = "individual" | "small" | "corporate" | "corporate_premium";
 
 export default async function MemberNewPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase } = await requireUser();
 
   // 操作者の組織 + ロール
   const { active } = await getActiveOrganizationContext(supabase);

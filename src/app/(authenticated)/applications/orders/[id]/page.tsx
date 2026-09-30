@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ApplicationStatusBadge, getOrderDisplayCategory } from "@/components/shared/application-status-badge";
 import { BackButton } from "@/components/shared/back-button";
@@ -17,6 +16,7 @@ import { formatDate } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 import { fetchUserAges } from "@/lib/users/private-fields";
 import { hasReview } from "@/lib/utils/has-review";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -24,15 +24,7 @@ interface Props {
 
 export default async function OrderDetailPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const { data: application } = await supabase
     .from("applications")

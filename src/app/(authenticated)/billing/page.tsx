@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   PLAN_LABELS,
@@ -13,6 +12,7 @@ import {
 import { isCompensationOptionEnabled } from "@/lib/billing/options";
 import { comparePlanChange } from "@/lib/billing/compare-plans";
 import { FEE_COOKIE_NAME, readFeeCookie } from "@/lib/billing/fee-cookie";
+import { requireUser } from "@/lib/auth/require-user";
 import { cookies } from "next/headers";
 
 import { BillingClient } from "./BillingClient";
@@ -27,11 +27,7 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // Staff / Admin (org_role) は Owner のサブスク・オプション・プロフィールに
   // 相乗りするため、subscription / option_subscriptions / client_profiles の

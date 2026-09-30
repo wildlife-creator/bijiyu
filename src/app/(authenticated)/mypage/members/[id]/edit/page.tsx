@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { MemberForm } from "../../member-form";
 import { fetchMemberPrivateFields } from "../../member-private-fields";
@@ -14,12 +14,7 @@ interface PageProps {
 
 export default async function MemberEditPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // 操作者の組織 + ロール
   const { active } = await getActiveOrganizationContext(supabase);

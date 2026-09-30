@@ -1,15 +1,9 @@
-import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { ScoutTemplateForm } from "../scout-template-form";
+import { requireUser } from "@/lib/auth/require-user";
 
 export default async function ScoutTemplateNewPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  await requireUser();
 
   return (
     <div className="min-h-dvh bg-muted">

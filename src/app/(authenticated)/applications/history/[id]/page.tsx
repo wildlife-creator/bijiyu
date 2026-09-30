@@ -1,7 +1,6 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { Clock, CheckCircle2, FileText } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { isPdfUrl } from "@/lib/utils/is-pdf-url";
 import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
@@ -21,6 +20,7 @@ import { formatDate, getJstToday } from "@/lib/utils/format-date";
 import { canContractorCancel } from "@/lib/matching";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 import { hasReview } from "@/lib/utils/has-review";
+import { requireUser } from "@/lib/auth/require-user";
 
 // 応募キャンセル通知は発注者組織のメンバー全員宛にメールを直列送信する
 // （最大31通 ≒ 約20秒）ため、タイムアウトしないよう実行時間上限を延長する
@@ -32,15 +32,7 @@ interface Props {
 
 export default async function ApplicationDetailPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const { data: application } = await supabase
     .from("applications")

@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { BackButton } from "@/components/shared/back-button";
-import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils/format-date";
+import { requireUser } from "@/lib/auth/require-user";
 
 const DESCRIPTION =
   "予定が空いている日程を登録すると、発注者からスカウトが届きやすくなります。";
@@ -19,12 +18,7 @@ function todayLocalIso(): string {
 }
 
 export default async function SchedulePage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { data: schedules } = await supabase
     .from("available_schedules")

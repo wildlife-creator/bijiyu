@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/shared/back-button";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { DeleteMemberButton } from "./delete-member-button";
 import { ResendInviteButton } from "./resend-invite-button";
@@ -83,12 +83,7 @@ interface PageProps {
 
 export default async function MemberDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // 操作者の組織 + ロール
   const { active } = await getActiveOrganizationContext(supabase);

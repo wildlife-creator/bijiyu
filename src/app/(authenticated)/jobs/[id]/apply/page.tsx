@@ -2,7 +2,6 @@ import { redirect, notFound } from "next/navigation";
 
 import { resolveEffectiveSubscription } from "@/lib/billing/resolve-effective-subscription";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { canApplyJob } from "@/lib/matching";
 import {
   resolveClientProfileForRow,
@@ -11,6 +10,7 @@ import {
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatRewardRange } from "@/lib/utils/format-reward";
+import { requireUser } from "@/lib/auth/require-user";
 import { ApplicationForm } from "./application-form";
 
 // 応募通知は発注者組織のメンバー全員宛にメールを直列送信する（最大31通 ≒ 約20秒）
@@ -25,12 +25,7 @@ interface PageProps {
 export default async function ApplicationPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { scout_message_id: scoutMessageId } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // Fetch job summary（standard query pattern で B3 対応）
   const { data: job } = await supabase

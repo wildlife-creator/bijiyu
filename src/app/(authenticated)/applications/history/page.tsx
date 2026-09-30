@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { createClient } from "@/lib/supabase/server";
 import { appendWithdrawnSuffix } from "@/lib/messaging/counterparty-display";
 import {
   resolveClientProfileForRow,
@@ -30,6 +28,7 @@ import {
 import { SuccessToast } from "@/components/shared/success-toast";
 import { formatDate } from "@/lib/utils/format-date";
 import { hasReview } from "@/lib/utils/has-review";
+import { requireUser } from "@/lib/auth/require-user";
 
 // カード3列グリッド。3 と 2 の公倍数にして最終行の欠けを防ぐ（lg=3列 / md=2列）
 const ITEMS_PER_PAGE = 18;
@@ -40,15 +39,7 @@ interface Props {
 
 export default async function ApplicationHistoryPage({ searchParams }: Props) {
   const params = await searchParams;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const currentPage = Number(params.page) || 1;
   const from = (currentPage - 1) * ITEMS_PER_PAGE;

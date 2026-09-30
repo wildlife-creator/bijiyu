@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,13 @@ import { VideoList } from "@/components/video-embed/video-list";
 import { StarRatingDisplay } from "@/components/shared/star-rating-display";
 import { fetchOverallSummary } from "@/lib/rating/aggregate";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
-import { createClient } from "@/lib/supabase/server";
 import { fetchUserAges } from "@/lib/users/private-fields";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatResidence } from "@/lib/utils/format-residence";
 import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -46,12 +46,7 @@ function InfoRow({
 
 export default async function ContractorDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // Self-access guard: 自分自身の詳細ページは表示しない（受注/発注の対象として無意味）
   if (id === user.id) notFound();

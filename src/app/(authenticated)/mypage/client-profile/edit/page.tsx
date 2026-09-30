@@ -1,7 +1,5 @@
-import { redirect } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buildExistingDeprecatedMunicipalitiesByPrefecture,
@@ -12,6 +10,8 @@ import {
 import { collapseAreasFromDb } from "@/lib/master/area-conversion";
 import { WORKING_WAYS, type WorkingWay } from "@/lib/constants/options";
 import type { ClientProfileFormInput } from "@/lib/validations/client-profile";
+import { requireUser } from "@/lib/auth/require-user";
+import { createClient } from "@/lib/supabase/server";
 
 import { ClientProfileEditForm } from "./client-profile-edit-form";
 
@@ -37,12 +37,7 @@ export default async function ClientProfileEditPage({
   const sp = await searchParams;
   const isSetup = sp.setup === "true";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const profileUserId = await resolveProfileUserId(supabase, user.id);
 

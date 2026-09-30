@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
 import { formatDateTime } from "@/lib/utils/format-message-time";
+import { requireUser } from "@/lib/auth/require-user";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -21,14 +20,7 @@ interface Props {
 // 本人宛）に必ず絞る。
 export default async function JobInquiriesInboxPage({ searchParams }: Props) {
   const params = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const currentPage = Number(params.page) || 1;
   const from = (currentPage - 1) * ITEMS_PER_PAGE;

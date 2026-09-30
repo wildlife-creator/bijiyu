@@ -1,19 +1,13 @@
-import { redirect } from "next/navigation";
 
 import { BackButton } from "@/components/shared/back-button";
 import { ScheduleForm } from "@/components/schedule/schedule-form";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 
 const DESCRIPTION =
   "予定が空いている日程を登録すると、発注者からスカウトが届きやすくなります。";
 
 export default async function NewSchedulePage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  await requireUser();
 
   return (
     <div className="min-h-dvh bg-muted">

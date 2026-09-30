@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Clock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import { BackButton } from "@/components/shared/back-button";
 import { ContractorSearchFilter } from "./contractor-search-filter";
 import { HighRatingBadge } from "@/components/shared/high-rating-badge";
 import { fetchBulkOverallSummary } from "@/lib/rating/aggregate";
-import { createClient } from "@/lib/supabase/server";
 import {
   getAllMasterRows,
   getMunicipalitiesByPrefecture,
@@ -23,6 +21,7 @@ import { getUserDisplayName } from "@/lib/utils/display-name";
 import { AreaSummary } from "@/components/area/area-summary";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { SortSelect } from "@/components/shared/sort-select";
+import { requireUser } from "@/lib/auth/require-user";
 import {
   CONTRACTOR_LIST_SORT_OPTIONS,
   resolveSortValue,
@@ -42,12 +41,7 @@ function getArrayParam(value: string | string[] | undefined): string[] {
 
 export default async function ContractorListPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const page = Math.max(1, Number(sp.page) || 1);
   const offset = (page - 1) * ITEMS_PER_PAGE;

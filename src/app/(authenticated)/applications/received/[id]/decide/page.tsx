@@ -1,12 +1,12 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { CircleCheck } from "lucide-react";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { formatAreasLong } from "@/lib/utils/format-areas";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { formatDate } from "@/lib/utils/format-date";
+import { requireUser } from "@/lib/auth/require-user";
 import { DecisionForm } from "./decision-form";
 
 // 発注可否の通知は発注者組織のメンバー全員宛にメールを直列送信する
@@ -19,15 +19,7 @@ interface Props {
 
 export default async function DecisionPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const { data: application } = await supabase
     .from("applications")

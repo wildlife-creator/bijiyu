@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +19,7 @@ import { APPLICANTS_STATUS_FILTER_OPTIONS } from "@/lib/constants/application-st
 import { SortSelect } from "@/components/shared/sort-select";
 import { AreaSummary } from "@/components/area/area-summary";
 import { hasReview } from "@/lib/utils/has-review";
+import { requireUser } from "@/lib/auth/require-user";
 import {
   APPLICATION_SORT_OPTIONS,
   resolveSortValue,
@@ -40,15 +40,7 @@ interface Props {
 export default async function JobApplicantsPage({ params, searchParams }: Props) {
   const { id } = await params;
   const sp = await searchParams;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   // Fetch job + permission check (same pattern as CLI-002 manage view)
   const { data: job } = await supabase

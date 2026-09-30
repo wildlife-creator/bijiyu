@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import {
   buildExistingDeprecatedMunicipalitiesByPrefecture,
   getAllMasterRows,
@@ -10,6 +8,7 @@ import {
   getMunicipalitySortOrderMap,
 } from "@/lib/master/fetch";
 import { collapseAreasFromDb } from "@/lib/master/area-conversion";
+import { requireUser } from "@/lib/auth/require-user";
 
 import { ProfileEditForm } from "./profile-edit-form";
 
@@ -20,12 +19,7 @@ import { ProfileEditForm } from "./profile-edit-form";
  * 編集機能自体は一切制限しない。同一人物の改姓・メール変更は通常通り保存可。
  */
 export default async function ProfileEditPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // 3 マスタ取得 (active 候補 + 廃止判定セット)
   const [

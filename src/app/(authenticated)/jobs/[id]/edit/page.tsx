@@ -1,7 +1,6 @@
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { JobForm } from "@/components/jobs/job-form";
 import {
   buildExistingDeprecatedMunicipalitiesByPrefecture,
@@ -11,6 +10,7 @@ import {
 } from "@/lib/master/fetch";
 import { collapseAreasFromDb } from "@/lib/master/area-conversion";
 import type { JobFormValues } from "@/lib/validations/job";
+import { requireUser } from "@/lib/auth/require-user";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -18,14 +18,7 @@ interface PageProps {
 
 export default async function JobEditPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   // Fetch existing job
   const { data: job } = await supabase

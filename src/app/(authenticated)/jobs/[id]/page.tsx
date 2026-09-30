@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CollapsibleList } from "@/components/master/collapsible-list";
 import { resolveEffectiveSubscription } from "@/lib/billing/resolve-effective-subscription";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   resolveClientProfileForRow,
@@ -21,6 +20,7 @@ import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 import { JOB_STATUS_LABELS } from "@/lib/constants/job-status";
+import { requireUser } from "@/lib/auth/require-user";
 import { CloseJobButton } from "./close-job-button";
 
 interface PageProps {
@@ -92,14 +92,7 @@ export default async function JobDetailPage({ params, searchParams }: PageProps)
   const { id } = await params;
   const sp = await searchParams;
   const isManageView = sp.manage === "true";
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   // Fetch user data
   const { data: userData } = await supabase

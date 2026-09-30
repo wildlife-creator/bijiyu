@@ -1,6 +1,5 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { BackButton } from "@/components/shared/back-button";
 import { FavoriteButton } from "@/components/job-search/favorite-button";
 import { RatingSummaryCard } from "@/components/reviews/rating-summary-card";
@@ -9,6 +8,7 @@ import { CommentsPagination } from "@/components/reviews/comments-pagination";
 import { getUserDisplayName } from "@/lib/utils/display-name";
 import { fetchUserAges } from "@/lib/users/private-fields";
 import { fetchPerItemSummary } from "@/lib/rating/aggregate";
+import { requireUser } from "@/lib/auth/require-user";
 
 const COMMENTS_PER_PAGE = 20;
 
@@ -26,15 +26,7 @@ export default async function ContractorReviewsPage({
   const statusPage = Math.max(1, parseInt(statusPageParam || "1", 10) || 1);
   const commentPage = Math.max(1, parseInt(commentPageParam || "1", 10) || 1);
 
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   // Fetch contractor user info
   const { data: contractorUser } = await supabase

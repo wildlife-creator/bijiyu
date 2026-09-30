@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { ScoutTemplateForm } from "../../scout-template-form";
 
 interface PageProps {
@@ -10,12 +10,7 @@ interface PageProps {
 
 export default async function ScoutTemplateEditPage({ params }: PageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   // アクティブ組織（法人でなければ本人分）のテンプレのみ編集画面を開ける
   const { active } = await getActiveOrganizationContext(supabase);

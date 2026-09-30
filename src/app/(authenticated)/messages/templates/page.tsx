@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/job-search/pagination-controls";
 import { BackButton } from "@/components/shared/back-button";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { ChevronRight } from "lucide-react";
 
 const ITEMS_PER_PAGE = 20;
@@ -41,12 +40,7 @@ function resolveOwnerName(owner: {
 
 export default async function ScoutTemplatesListPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const page = Math.max(1, Number(sp.page) || 1);
   const offset = (page - 1) * ITEMS_PER_PAGE;

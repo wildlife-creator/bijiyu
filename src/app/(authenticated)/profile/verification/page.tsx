@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { AlertCircle, ShieldCheck } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BackButton } from "@/components/shared/back-button";
+import { requireUser } from "@/lib/auth/require-user";
 
 // ---------------------------------------------------------------------------
 // Status helpers
@@ -38,15 +37,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
 // Page
 // ---------------------------------------------------------------------------
 export default async function VerificationPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   // Fetch latest identity verification
   const { data: identityVerification } = await supabase

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ThumbsUp } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -11,12 +10,13 @@ import { AreaList } from "@/components/area/area-list";
 import { VideoList } from "@/components/video-embed/video-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { fetchClientReputation } from "@/lib/client-review/aggregate";
 import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
+import { requireUser } from "@/lib/auth/require-user";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * CLI-020 発注者情報詳細
@@ -79,12 +79,7 @@ function DetailRow({
 }
 
 export default async function ClientProfilePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const { supabase, user } = await requireUser();
 
   const { profileUserId, orgRole, organizationId } = await resolveProfileContext(
     supabase,

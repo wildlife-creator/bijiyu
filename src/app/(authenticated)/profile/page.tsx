@@ -8,13 +8,13 @@ import { CollapsibleList } from "@/components/master/collapsible-list";
 import { AreaList } from "@/components/area/area-list";
 import { VideoList } from "@/components/video-embed/video-list";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
-import { createClient } from "@/lib/supabase/server";
 import { fetchMyPrivateProfile } from "@/lib/users/private-fields";
 import { calculateAge } from "@/lib/utils/calculate-age";
 import { formatGender } from "@/lib/utils/format-gender";
 import { formatResidence } from "@/lib/utils/format-residence";
 import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
+import { requireUser } from "@/lib/auth/require-user";
 
 /**
  * COM-001: ユーザープロフィール（受注者向け自己プロフィール閲覧）
@@ -86,15 +86,7 @@ function VerificationBadge({
 }
 
 export default async function ProfilePage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase, user } = await requireUser();
 
   const { data: profile } = await supabase
     .from("users")
