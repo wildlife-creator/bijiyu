@@ -339,6 +339,13 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 「公開する」ボタンは `handleSubmit(callback)()` を使い、バリデーション失敗時はトーストでエラーフィールドを通知すること
 
 
+### Zod の `.transform()` は「変換後の値をもう一度検証する」前提で書く（必ず守ること）
+- `useForm({ resolver: zodResolver(schema) })` の `onSubmit` に渡るのは**変換後の値**。それを Server Action が同じ `schema` でもう一度 `safeParse` するため、**変換後の値（例: 空欄 → `null`）も schema が受け付けなければならない**
+- NG: `z.string().optional().or(z.literal("")).transform((v) => (v ? v : null))` — 1 回目で `null` になり、2 回目の `z.string()` が `null` を弾いて英語の「Invalid input」でサイレントに保存失敗する
+- OK: `z.preprocess((v) => (v === null || v === undefined ? "" : v), z.string().trim().max(...)).transform((v) => (v ? v : null))`（`client-profile.ts` の `optionalString` と同じ形）
+- 任意項目を空欄のまま保存する経路は、入力ありの経路と別にテストすること（入力ありだけのテストでは通ってしまう）。unit で「`schema.parse` の結果をもう一度 `schema.safeParse` しても通る」を書く
+- 2026-09-30 実例: スカウトテンプレート（CLI-018/019）でメモ空欄だと作成・更新できなかった（全ロール共通）。既存 E2E はメモを入力していたため検出できず、staging の担当者目線の確認で発覚。回帰テスト `src/__tests__/validations/scout-template.test.ts` / `e2e/scout-templates.spec.ts`「メモ空欄」
+
 ### フォーム必須マークと Zod schema の整合（必ず守ること）
 - フォームの Label に「必須」マークが付いていない（= UI 上は任意扱い）フィールドは、対応する Zod schema 側でも `.optional()` で許容すること。両者が食い違うと「UI は任意なのに公開ボタンで弾かれる」謎エラーになる
 - 数値フィールドで `register("xxx", { valueAsNumber: true })` を使う場合、空欄入力時は **NaN** になるため、`.optional().or(z.nan())` の両方を付ける必要がある（`.optional()` だけでは NaN を弾く）

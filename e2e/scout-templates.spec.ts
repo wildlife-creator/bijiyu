@@ -103,6 +103,41 @@ test.describe("個人プラン発注者のスカウトテンプレ CRUD（CLI-01
 });
 
 // ---------------------------------------------------------------------------
+// メモ空欄（任意項目）で作成・編集できる
+// 2026-09-30 staging: フォームが変換した memo: null を Server Action が再検証して
+// 「Invalid input」で保存できなかった（担当者の目線の確認で発覚。全ロール共通）
+// ---------------------------------------------------------------------------
+test.describe("スカウトテンプレのメモ空欄", () => {
+  test("担当者がメモ空欄で作成 → メモ空欄のまま編集して保存できる", async ({ page }) => {
+    await login(page, TEST_STAFF.email, TEST_STAFF.password);
+    await page.goto("/messages/templates");
+    await page.getByRole("link", { name: "新規作成" }).click();
+    await page.waitForURL(/\/messages\/templates\/new$/);
+    await expect(
+      page.getByRole("heading", { name: "スカウトテンプレート新規登録" }),
+    ).toBeVisible();
+    const title = `E2E_メモ空欄_${Date.now()}`;
+    await page.getByLabel("タイトル").fill(title);
+    await page.getByLabel("本文").fill("メモ空欄の本文です。");
+    await page.getByRole("button", { name: "保存する" }).click();
+    await expect(page.getByText("テンプレートを作成しました")).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole("heading", { name: "スカウトテンプレート一覧" }),
+    ).toBeVisible({ timeout: 15000 });
+
+    await page.getByText(title).click();
+    await page.getByRole("link", { name: "編集する" }).click();
+    await expect(
+      page.getByRole("heading", { name: "スカウトテンプレート編集" }),
+    ).toBeVisible({ timeout: 10000 });
+    await page.getByLabel("本文").fill("メモ空欄のまま編集しました。");
+    await page.getByRole("button", { name: "保存する" }).click();
+    await expect(page.getByText("テンプレートを更新しました")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("メモ空欄のまま編集しました。")).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // バリデーション
 // ---------------------------------------------------------------------------
 test.describe("スカウトテンプレのバリデーション（Task 9.1 Zod）", () => {

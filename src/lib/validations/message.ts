@@ -77,15 +77,20 @@ export const scoutTemplateSchema = z.object({
       SCOUT_TEMPLATE_BODY_MAX,
       `本文は${SCOUT_TEMPLATE_BODY_MAX}文字以内で入力してください`,
     ),
+  // 空欄は null に正規化する。フォーム（zodResolver）で一度変換した値（memo: null）を
+  // Server Action がもう一度検証するため、null も受け付ける必要がある
+  // （受け付けないと、メモ空欄のテンプレートが「Invalid input」で保存できない）
   memo: z
-    .string()
-    .trim()
-    .max(
-      SCOUT_TEMPLATE_MEMO_MAX,
-      `メモは${SCOUT_TEMPLATE_MEMO_MAX}文字以内で入力してください`,
+    .preprocess(
+      (v) => (v === null || v === undefined ? "" : v),
+      z
+        .string()
+        .trim()
+        .max(
+          SCOUT_TEMPLATE_MEMO_MAX,
+          `メモは${SCOUT_TEMPLATE_MEMO_MAX}文字以内で入力してください`,
+        ),
     )
-    .optional()
-    .or(z.literal(""))
     .transform((v) => (v ? v : null)),
 });
 
