@@ -14,20 +14,15 @@ import { resolveClientProfileForRow } from "@/lib/utils/display-name";
 import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { formatDate } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
+import { JOB_STATUS_LABELS } from "@/lib/constants/job-status";
 
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ backTo?: string }>;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "下書き",
-  open: "掲載中",
-  closed: "掲載終了",
-};
-
 function StatusBadge({ status }: { status: string }) {
-  const label = STATUS_LABELS[status] ?? status;
+  const label = JOB_STATUS_LABELS[status] ?? status;
   if (status === "open") {
     return (
       <Badge className="rounded-sm bg-primary text-primary-foreground">

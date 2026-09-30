@@ -21,6 +21,7 @@ import type { AreaForDisplay } from "@/lib/utils/format-areas";
 import { VIDEO_SECTION_LABEL } from "@/lib/videos/constants";
 import { getReadyVideos } from "@/lib/videos/fetch";
 import { OpsAccountBadge } from "@/components/admin/ops-account-badge";
+import { JOB_STATUS_LABELS } from "@/lib/constants/job-status";
 import { DeleteAccountButton } from "./delete-account-button";
 import { JobSiteList } from "./job-site-list";
 import { MemberList } from "./member-list";
@@ -38,12 +39,6 @@ const ORG_ROLE_LABELS: Record<string, string> = {
   owner: "管理責任者",
   admin: "組織管理者",
   staff: "担当者",
-};
-
-const JOB_STATUS_LABELS: Record<string, string> = {
-  draft: "下書き",
-  open: "掲載中",
-  closed: "掲載終了",
 };
 
 const SNS_ITEMS = [

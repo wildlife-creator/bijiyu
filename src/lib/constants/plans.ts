@@ -69,6 +69,14 @@ export type PaidPlanType = (typeof PAID_PLAN_TYPES)[number];
 // Display labels (Japanese)
 // ---------------------------------------------------------------------------
 
+/** 「プラン」を付けない短い名前（料金比較表の列見出し・管理画面 ADM-003 のプラン列） */
+export const PLAN_SHORT_LABELS: Record<PaidPlanType, string> = {
+  individual: "ライト",
+  small: "スタンダード",
+  corporate: "プレミアム",
+  corporate_premium: "ハイエンド",
+};
+
 export const PLAN_LABELS: Record<PlanType, string> = {
   free: "無料プラン",
   individual: "ライトプラン",

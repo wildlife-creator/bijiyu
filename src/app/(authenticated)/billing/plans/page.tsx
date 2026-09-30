@@ -8,17 +8,10 @@ import { OPTION_PRICES_TAX_INCLUDED } from "@/lib/billing/options";
 import {
   PAID_PLAN_TYPES,
   PLAN_LIMITS,
+  PLAN_SHORT_LABELS,
   YEARLY_PRICE_TAX_INCLUDED,
   type PlanType,
 } from "@/lib/constants/plans";
-
-/** 比較表の列見出し（「プラン」サフィックス無しの短縮名） */
-const PLAN_SHORT_LABELS: Record<Exclude<PlanType, "free">, string> = {
-  individual: "ライト",
-  small: "スタンダード",
-  corporate: "プレミアム",
-  corporate_premium: "ハイエンド",
-};
 
 /**
  * CLI-026 plan-list: Plan comparison table page.

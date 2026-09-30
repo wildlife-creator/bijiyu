@@ -1,4 +1,4 @@
-import type { PaymentMethod } from "@/lib/constants/plans";
+import { PLAN_SHORT_LABELS, type PaymentMethod } from "@/lib/constants/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -32,12 +32,7 @@ export const CLIENT_CATEGORY_LABELS: Record<ClientCategory, string> = {
 };
 
 /** ADM-003 のプラン列表記（「プラン」サフィックス無しの短縮形） */
-export const ADMIN_PLAN_LABELS: Record<string, string> = {
-  individual: "ライト",
-  small: "スタンダード",
-  corporate: "プレミアム",
-  corporate_premium: "ハイエンド",
-};
+export const ADMIN_PLAN_LABELS: Record<string, string> = PLAN_SHORT_LABELS;
 
 export const CLIENT_OPTION_BADGE_LABELS: Record<ClientOptionBadge, string> = {
   urgent: "急募",

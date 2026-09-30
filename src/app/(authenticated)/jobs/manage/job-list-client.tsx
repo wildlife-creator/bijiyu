@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PendingOverlay } from "@/components/shared/pending-overlay";
 import { SortSelect } from "@/components/shared/sort-select";
 import { JOB_MANAGE_SORT_OPTIONS } from "@/lib/constants/sort-options";
+import { JOB_STATUS_LABELS } from "@/lib/constants/job-status";
 import {
   Select,
   SelectContent,
@@ -51,14 +52,8 @@ interface JobListClientProps {
   statusFilter: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "下書き",
-  open: "掲載中",
-  closed: "掲載終了",
-};
-
 function StatusBadge({ status }: { status: string }) {
-  const label = STATUS_LABELS[status] ?? status;
+  const label = JOB_STATUS_LABELS[status] ?? status;
 
   if (status === "open") {
     return (
