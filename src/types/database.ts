@@ -244,7 +244,6 @@ export type Database = {
           updated_at: string
           user_id: string
           working_way: string[] | null
-          workplace_video_url: string | null
         }
         Insert: {
           address?: string | null
@@ -265,7 +264,6 @@ export type Database = {
           updated_at?: string
           user_id: string
           working_way?: string[] | null
-          workplace_video_url?: string | null
         }
         Update: {
           address?: string | null
@@ -286,7 +284,6 @@ export type Database = {
           updated_at?: string
           user_id?: string
           working_way?: string[] | null
-          workplace_video_url?: string | null
         }
         Relationships: [
           {
@@ -1602,7 +1599,6 @@ export type Database = {
           skill_tags: string[]
           stripe_customer_id: string | null
           updated_at: string
-          video_url: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -1629,7 +1625,6 @@ export type Database = {
           skill_tags?: string[]
           stripe_customer_id?: string | null
           updated_at?: string
-          video_url?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -1656,7 +1651,6 @@ export type Database = {
           skill_tags?: string[]
           stripe_customer_id?: string | null
           updated_at?: string
-          video_url?: string | null
         }
         Relationships: []
       }
@@ -1879,6 +1873,23 @@ export type Database = {
       set_stripe_customer_id: {
         Args: { customer_id: string; uid: string }
         Returns: Json
+      }
+      update_my_profile: {
+        Args: {
+          p_areas: Json
+          p_bio: string
+          p_birth_date: string
+          p_company_name: string
+          p_first_name: string
+          p_gender: string
+          p_last_name: string
+          p_municipality: string
+          p_prefecture: string
+          p_qualifications: string[]
+          p_skill_tags: string[]
+          p_skills: Json
+        }
+        Returns: undefined
       }
     }
     Enums: {

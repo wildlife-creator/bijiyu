@@ -156,8 +156,9 @@ export async function updateProfileAction(
       p_birth_date: data.birthDate,
       p_prefecture: data.prefecture,
       p_municipality: data.municipality || "",
-      p_company_name: data.companyName ?? null,
-      p_bio: data.bio ?? null,
+      // フォームは常に送るため実際は空文字（未入力）か入力値。空文字のまま保存する（従来どおり）
+      p_company_name: data.companyName ?? "",
+      p_bio: data.bio ?? "",
       p_skill_tags: newSkillTags,
       p_skills: data.skills.map((skill) => ({
         trade_type: skill.tradeType,
