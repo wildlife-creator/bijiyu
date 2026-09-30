@@ -100,7 +100,7 @@
 
 ## 5. 動画基盤
 
-- `videos` テーブル（1 行 = 1 本。`placement` = `contractor_page`（ユーザー詳細） / `client_page`（発注者詳細）、`sort_order`、`provider` = `cloudflare` / `external`、`status` = `processing` / `ready`）。旧 `users.video_url` / `client_profiles.workplace_video_url` は参照しない（DROP 予定）。
+- `videos` テーブル（1 行 = 1 本。`placement` = `contractor_page`（ユーザー詳細） / `client_page`（発注者詳細）、`sort_order`、`provider` = `cloudflare` / `external`、`status` = `processing` / `ready`）。旧 `users.video_url` / `client_profiles.workplace_video_url` は 2026-09-30 に削除済み。
 - **表示はオプション購入の有無で出し分けない**。`getReadyVideos()` → `<VideoList>` の 1 パターン。会員が見る見出しは掲載先に関係なく「プロフィール動画」（`VIDEO_SECTION_LABEL`）。
 - 登録・並び替え・削除は管理者専有（ADM-027 `/admin/users/[id]/videos`。タブ名は画面名 `VIDEO_PLACEMENT_LABELS`）。MP4 は Cloudflare Stream に**ブラウザから直接**アップロード（`createVideoUploadAction` で一時 URL 発行）。処理完了は Webhook `/api/webhooks/cloudflare-stream` か「状態を確認」で `ready` に。削除は Cloudflare 側も消す。
 - 掲載お知らせメールは動画が公開中になるたびに本人（法人は全員）と運営へ送る（2026-09-24 変更。以前は「0 → 1 本」のときだけで 2 本目の掲載が伝わらなかった）。本文は【掲載先】（`VIDEO_PLACEMENT_MEMBER_LABELS`）。

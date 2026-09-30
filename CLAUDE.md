@@ -211,7 +211,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **会員セッションの書き込みを増やすとき**: 送る列が guard に引っかからないか確認する。引っかかる列は admin client（サーバー側で権限確認済み）で書く。guard が拒否すると Server Action 側では `42501` の error が返る
 - 列権限（`REVOKE UPDATE(col)`）は使わない: `20260617120000_grant_public_schema_to_supabase_roles.sql` の `GRANT ALL ON ALL TABLES` を再実行すると黙って戻るため
 - **全会員が SELECT できる表に運営用の列を置かない**（`client_profiles.admin_memo` が全会員に読めていた → 運営専用テーブル `client_admin_memos`（RLS 有効・ポリシーなし = service_role のみ）へ移動）
-- **読む側は列権限で守っている（`20260929140000_member_read_guards.sql`）**: `users` の `email` / `birth_date` / `stripe_customer_id` / `ccus_worker_id` / `password_set_at` / `video_url` と `videos.admin_label` は会員セッション（anon / authenticated）から **本人の行でも SELECT できない**。PostgREST は許可の無い列を 1 つでも含む問い合わせ全体を 42501 で拒否し、埋め込み（`applicant:users!fk(...)`）でも親ごと失敗する。`data` が null になるだけなので「見つからない」「0 件」「/register/profile へリダイレクト」等に化けて気づきにくい（2026-09-30 の監査で 22 か所が該当し、Stripe 決済・応募の承認/辞退・職人一覧・担当者一覧が全滅する状態だった）
+- **読む側は列権限で守っている（`20260929140000_member_read_guards.sql`）**: `users` の `email` / `birth_date` / `stripe_customer_id` / `ccus_worker_id` / `password_set_at` と `videos.admin_label` は会員セッション（anon / authenticated）から **本人の行でも SELECT できない**。PostgREST は許可の無い列を 1 つでも含む問い合わせ全体を 42501 で拒否し、埋め込み（`applicant:users!fk(...)`）でも親ごと失敗する。`data` が null になるだけなので「見つからない」「0 件」「/register/profile へリダイレクト」等に化けて気づきにくい（2026-09-30 の監査で 22 か所が該当し、Stripe 決済・応募の承認/辞退・職人一覧・担当者一覧が全滅する状態だった）
   - 本人の非公開列 → `fetchMyPrivateProfile()`、他の会員の年齢 → `fetchUserAges()`（`src/lib/users/private-fields.ts`。生年月日そのものは他の会員に渡さない）。他の会員のメールアドレス（通知の宛先）は **会員セッションで行の RLS を確認した後に admin client で読む**（例: `applications/actions.ts` の `getApplicationWithDetails`、`mypage/members/member-private-fields.ts`）
   - 会員セッションで `users` を `select("*")` / `users(*)` しない（列を列挙する）
   - **`users` / `videos` に列を足したら、会員に見せてよいか決める**。見せてよいなら新しい migration で `GRANT SELECT (col) ON ... TO anon, authenticated` し、`supabase/tests/member_read_guards.test.sql` に追記する。何もしなければ会員からは読めない（安全側）
@@ -245,6 +245,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - 新しいバケットを作成する場合は、マイグレーションでバケット作成 + RLS ポリシー設定をセットで行うこと
 
 ### Server Actions 関連
+- **複数のテーブルを書き換える保存は RPC で 1 トランザクションにまとめる**: PostgREST の呼び出しを並べると途中で失敗したときに一部だけ保存された状態が残る。`SECURITY INVOKER` + `auth.uid()` の行だけ（user_id を引数で受け取らない）+ `REVOKE ... FROM PUBLIC, anon` で書く。基準実装: `update_my_profile`（`20260930120000`、COM-002 プロフィール保存）。保存前に今の登録内容を読む処理は、読み込みの error を必ず見る（「何も無い」とみなすと検証が誤判定する）
 - Server Action を実装したら、ブラウザから実際に呼び出せることを
   前提としたコードにすること（モックだけで通るコードは不可）
 - フォームの onSubmit ハンドラが Server Action を正しく呼び出していることを確認すること
@@ -395,7 +396,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - E2E: `e2e/bank-transfer.spec.ts`（会員のお問い合わせ（詳細に希望を書く）→ 一覧 → ユーザー詳細の「契約内容」で手動設定 → /billing に支払い方法の行が出ない、ユーザー詳細で変更・動画プランの購入済み・急募・無効化（発注者詳細には枠が無いことも確認）、カード払いの会員は「（クレジットカード…）」のまま、未ログインは選択肢なし）
 
 ### 動画基盤（videos テーブル・Cloudflare Stream、必ず守ること）
-- 動画は **`videos` テーブル**（1 行 = 1 本、`placement` = contractor_page / client_page、`sort_order`、`provider` = cloudflare / external、`status` = processing / ready）で管理する。旧 `users.video_url` / `client_profiles.workplace_video_url` は【廃止予定】でアプリから参照してはならない（staging マージ時に DROP）
+- 動画は **`videos` テーブル**（1 行 = 1 本、`placement` = contractor_page / client_page、`sort_order`、`provider` = cloudflare / external、`status` = processing / ready）で管理する。旧 `users.video_url` / `client_profiles.workplace_video_url` は `20260930130000_drop_legacy_video_columns.sql` で削除済み（足し直さないこと）
 - **表示はオプション購入の有無でゲートしない**（承認済み D4）。`option_subscriptions` を見て動画を出し分けるコードを書かないこと。表示は `getReadyVideos(client, userId, placement)`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />` の 1 パターンに統一。公開中（ready）の行は RLS で全 authenticated が読めるため cross-user 参照でも admin client 不要
 - 登録・削除は管理者専有（ADM-027 `/admin/users/[id]/videos`）。videos の書き込みは service_role のみ（RLS にポリシー無し）。Server Action は `requireAdmin()` + `writeAuditLog`（`video_create` / `video_update` / `video_reorder` / `video_delete`）必須
 - **ファイル本体は Server Action に通さない**（Vercel 4.5MB 上限）。`createVideoUploadAction` で Cloudflare の一時 URL を発行し、ブラウザから `uploadVideoToCloudflare()`（`src/lib/videos/upload-client.ts`）で直接 POST する。API トークンは `src/lib/cloudflare/stream.ts` の中だけで使い、ブラウザに出さない
@@ -439,6 +440,7 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - **`getByRole("combobox").last()` は `<button role="combobox">` (shadcn Select trigger) を拾うので避ける（必ず守ること）**: cmdk の `CommandPrimitive.Input` は `<input role="combobox" cmdk-input="">` で、shadcn `<Select>` の trigger は `<button role="combobox">`。両者が同一画面に居ると `getByRole("combobox").last()` が DOM 順で shadcn ボタンを引き当て、fill 時に `Element is not an <input>` で死ぬ。対策: **cmdk Input を狙うときは `page.locator('input[role="combobox"]').last()`**（`input` セレクタで button 除外）。ResidencePicker 等の追加で同居画面が後から増える可能性があるため、新規テストでも最初からこの形にすること。2026-06-24 実例: 2c0f279 (ResidencePicker 追加) で `/profile/edit` に shadcn Select が増え、`e2e/master-skills.spec.ts:164` が壊れた
 - **MasterCombobox (multi モード) の trigger click は `position: { x: 5, y: 5 }` で（必ず守ること）**: `<MasterCombobox mode="multi">` (src/components/master/master-combobox.tsx) は trigger button 内に既存選択を chip として表示し、各 chip の × ボタン (`<span role="button" onClick={e.stopPropagation()}>`) を含む。Playwright の `.click()` は中央を狙うため、中央が chip の × 領域に重なる場合 **chip 削除が発火して popover は開かない** (`stopPropagation` で Radix.Popover.Trigger に伝播しない)。対策: `triggerForSection(...).click({ position: { x: 5, y: 5 } })` で button の左上 padding 領域 (`px-3 py-2` の内側) を明示的に狙う。**この罠は既存 chip 件数・ラベル長で再現性が変わるため flake として現れやすい**。2026-06-24 実例: `e2e/master-skills.spec.ts:163` (9.3a contractor4 既存 chip 3 件) で click が chip × を踏み、popover が開かないまま fill が timeout していた
 - **長時間 E2E run 中の `ERR_NETWORK_IO_SUSPENDED` / `page.goto` 30s timeout は環境 flake（dev server pause）**: 全 E2E (~250 ケース) を走らせ続けると、macOS の App Nap やメモリ圧で `next dev` が一時的に IO 停止し、後半のテストが `net::ERR_NETWORK_IO_SUSPENDED` や `page.goto` timeout で fail することがある。**再現箇所が run ごとに変わる**ことが flake の特徴。対策: 失敗したテストを単体 / spec 単位で再実行し fail 再現しなければ flake 確定。`npm run dev` を foreground で動かしターミナルを非アクティブにしないか、Activity Monitor で `node` の App Nap を OFF にして再現性を下げる。新コードに起因する場合は単体再実行でも繰り返し fail するため区別可能
+- **E2E の途中で `next dev` が自動で再起動すると、一部の画面が古いまま 404 を返し続ける（単体再実行でも繰り返し fail する）**: 2026-09-30 実例。ベースライン実行の途中（22:49）に next-server が再起動し、発注可否（`/applications/received/[id]/decide`）・完了報告・担当者編集・スカウトテンプレート・動画管理の計 19 件が「404 / element(s) not found」で失敗。コードも DB も正常で、該当ファイルを保存し直す（= 再コンパイル）と 200 に戻った。**単体再実行でも落ちる 404 は、コードを疑う前に `next dev` を再起動してから再実行する**（`ps -o lstart -p $(lsof -tiTCP:3000 -sTCP:LISTEN)` で起動時刻を見れば途中の再起動に気づける）。ワークツリー（`git worktree`）で並行作業するときも、本体の dev サーバーは触らないこと
 
 ### ナビゲーションリンクと実ルートの整合（必ず守ること）
 - 新規画面を実装したら、**その画面への導線となる全リンク**（マイページ、ヘッダー、画面内ボタン）の `href` 値を検索し、実在のルートと完全一致することを確認する
@@ -825,6 +827,14 @@ cc-sdd（Spec-Driven Development）で開発を進める。
 - その結果、あるテストで未消費のモック（例: 早期 return する検証で .from() を呼ばないケース）が次のテストで消費されてしまい、意図しない値を返す → 「upsert が呼ばれていない」等の謎の失敗
 - **対策**: 各 spy を `spy.mockReset()` で明示的にリセットしてから必要なモックを再構築する。`beforeEach` で `vi.clearAllMocks()` ではなく `mockFrom.mockReset(); mockAdminFrom.mockReset(); ...` の形を使う
 - 実例: 2026-04-25 に `client-profile-actions.test.ts` の Staff ガードモック追加で queue 漏れが連鎖しデバッグに時間を費やした
+### 共通の部品・関数（2026-09-30 のコード整理。新しく書くときはこれを使う）
+- **画面冒頭のログイン確認**: `const { supabase, user } = await requireUser();`（`src/lib/auth/require-user.ts`。未ログインは /login へ）。認可（ロール・組織・本人か）は各画面で行う
+- **評価の登録有無**: `hasReview(application.client_reviews)`（`src/lib/utils/has-review.ts`。embed がオブジェクトでも配列でも判定できる）。`x != null && (!Array.isArray(x) || x.length > 0)` を手書きしない
+- **表示名の定数**: プランの短い名前 `PLAN_SHORT_LABELS`（`constants/plans.ts`）/ 案件ステータス `JOB_STATUS_LABELS`（`constants/job-status.ts`）。画面ごとに同じ一覧を定義しない
+- **管理画面の一覧**: 検索欄は `AdminFilterForm`（キーワードだけの画面も。`passthrough={{ backTo }}` を必ず渡す — 以前の `KeywordSearchForm` は backTo を落として「もどる」がダッシュボードに飛んでいた）/ ページ送りは `AdminPagination` / 画面下の「もどる」は `AdminBackFooter`
+- **自動解約（Edge Function `auto-cancel-past-due`）の本体は `process.ts`**（外部 import を持たないので vitest から読める。テスト `src/__tests__/billing/auto-cancel-past-due.test.ts`）。`index.ts` は認証とクライアント生成だけ
+- メール送信の `.catch` と組織全員への送信ループは、送信間隔（Resend のレート制限対策）や宛先の扱いが場所ごとに違うため**共通化しない**（2026-09-30 判断）
+
 ### ステージング指摘（2026-09）から学んだルール
 
 - **スカウトの受信者は「送信者の反対側」で判定する（必ず守ること）**: 「`organization_X_id` が null な側（個人 identity）= 受注者 = 受信者」という決め打ちを復活させないこと。ビジ友は 1 アカウントで受注・発注の両方が可能で、法人プランの Owner も職人一覧に出てスカウトを受けられる（両側が組織 identity になる）。判定は `resolveScoutRecipientUserIds()`（`src/lib/messaging/scout-recipient.ts`）に集約し、画面（`messages/[threadId]/page.tsx` + `MessageThreadView` の isMine）と Server Action（`respondToScoutAction`）で共有する。担当者（staff）は受注者アクション不可なのでボタンの代わりに案内文を出す。2026-09 実例: 法人同士のスカウトで受諾/辞退ボタンが出ず、応答も拒否されていた

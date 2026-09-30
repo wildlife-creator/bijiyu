@@ -80,7 +80,6 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | company_name | text | 会社名/屋号（任意・空欄可。「なし」等の文字は入力させない） |
 | bio | text | 自己紹介 |
 | avatar_url | text | プロフィール画像URL（Supabase Storage） |
-| video_url | text | 【廃止予定】旧 PR動画URL。`videos` テーブルへ移行済み・アプリからは参照しない。staging マージ時に DROP |
 | is_hidden | boolean (DEFAULT false NOT NULL) | 管理運営アカウントの非表示フラグ。true なら職人一覧（CLI-005/006）・発注者一覧（CON-005/006）・求人お問い合わせ・マイリスト・評価詳細・スカウト対象・新規スレッド作成（/messages/new）から除外。**RLS では絞らない**（メッセージ相手・応募者・案件の発注者名として見える必要がある）。設定は開発側が SQL で行う（管理画面に設定 UI はない） |
 | list_plan_rank | smallint (DEFAULT 0 NOT NULL) | 一覧のプラン順ランク。0 = その他（無料 / ライト）/ 1 = スタンダード / 2 = プレミアム / 3 = ハイエンド。`list_plan_rank_of(uid)` で subscriptions（active / past_due）の plan_type から計算し、**subscriptions のトリガーで自動更新**（手動更新・cron 不要）。CON-005 の既定順「おすすめ順」で `list_plan_rank DESC, created_at DESC`。誰でも読める列（並び順とプランバッジから推測できる情報のため許容） |
 | is_active | boolean (DEFAULT true) | ログイン有効フラグ。false の場合 Middleware でログインをブロックする。past_due 超過時の担当者停止や、管理者によるアカウント一時停止に使用 |
@@ -517,7 +516,6 @@ Supabase Auth の auth.users（認証情報を管理するシステムテーブ�
 | sns_facebook | boolean (DEFAULT false NOT NULL) | Facebook を利用しているかのチェック値。同上 |
 | admin_memo | text | 内部管理者のメモ（管理画面用） |
 | is_urgent_option | boolean | 急募オプション有効フラグ |
-| workplace_video_url | text (nullable) | 【廃止予定】旧 職場紹介動画 URL。`videos` テーブル（placement=client_page）へ移行済み・アプリからは参照しない。staging マージ時に DROP |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
@@ -770,7 +768,7 @@ Stripe からの Webhook（自動通知）が重複して届いた場合に、�
 
 - CHECK `videos_provider_consistency`: provider と cloudflare_uid / embed_source_url の整合
 - RLS: SELECT は authenticated に `status = 'ready'` の行を全員に開放（表示 6 画面は通常クライアントで cross-user 参照可）+ 管理者は全行。INSERT / UPDATE / DELETE はポリシー無し（service_role 専用）
-- 既存データ: migration `20260902120000_videos.sql` で `users.video_url` / `client_profiles.workplace_video_url` を external 行としてコピー移行済み。旧カラムは【廃止予定】として残置（staging マージ時に DROP）
+- 既存データ: migration `20260902120000_videos.sql` で `users.video_url` / `client_profiles.workplace_video_url` を external 行としてコピー移行済み。旧カラムは `20260930130000_drop_legacy_video_columns.sql` で削除済み
 - 掲載お知らせメール（§6.6.C）: 動画が公開中になるたび（2026-09-24 変更。以前は 0 → 1 本のときのみ）（`src/lib/videos/published-emails.ts`）
 - 監査: `video_create` / `video_update` / `video_reorder` / `video_delete`（旧 `video_url_update` は過去ログの値として残す）
 - 表示部品: `getReadyVideos()`（`src/lib/videos/fetch.ts`）→ `<VideoList videos label />`（`src/components/video-embed/video-list.tsx`）。Cloudflare 連携は `src/lib/cloudflare/stream.ts`（env: `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_STREAM_API_TOKEN` / `CLOUDFLARE_STREAM_WEBHOOK_SECRET`。未設定なら URL 登録のみ動く）

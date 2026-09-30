@@ -79,7 +79,7 @@ Supabase Storage にもテーブルと同様に RLS を設定できる。
 
 ### users / videos の列単位の読み取り制限
 
-`users` の email / birth_date / stripe_customer_id / ccus_worker_id / password_set_at / video_url と `videos.admin_label` は会員セッションから SELECT できない（列権限。本人の行も同じ）。本人の値は RPC `get_my_private_profile()`、他の会員の年齢は `get_user_ages()`（生年月日は返さない）、通知メールの宛先は admin client で読む。詳細は CLAUDE.md「読む側は列権限で守っている」。
+`users` の email / birth_date / stripe_customer_id / ccus_worker_id / password_set_at と `videos.admin_label` は会員セッションから SELECT できない（列権限。本人の行も同じ）。本人の値は RPC `get_my_private_profile()`、他の会員の年齢は `get_user_ages()`（生年月日は返さない）、通知メールの宛先は admin client で読む。詳細は CLAUDE.md「読む側は列権限で守っている」。
 
 ### Storage のファイル保存先パス（フォルダ構造のルール）
 
