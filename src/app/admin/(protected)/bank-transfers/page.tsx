@@ -8,6 +8,7 @@ import {
   fetchBankTransferContactList,
 } from "@/lib/admin/bank-transfers";
 import { formatDateTime } from "@/lib/utils/format-date";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 
 interface PageProps {
   searchParams: Promise<{ q?: string; page?: string; backTo?: string }>;
@@ -98,20 +99,11 @@ export default async function AdminBankTransfersPage({ searchParams }: PageProps
         )}
       </div>
 
-      {(hasPrev || hasNext) && (
-        <div className="mt-4 flex justify-center gap-3">
-          {hasPrev && (
-            <Button asChild variant="outline" className="rounded-full">
-              <Link href={pageHref(page - 1)}>＜前の{BANK_TRANSFER_PAGE_SIZE}件</Link>
-            </Button>
-          )}
-          {hasNext && (
-            <Button asChild variant="outline" className="rounded-full">
-              <Link href={pageHref(page + 1)}>次の{BANK_TRANSFER_PAGE_SIZE}件＞</Link>
-            </Button>
-          )}
-        </div>
-      )}
+      <AdminPagination
+        prevHref={hasPrev ? pageHref(page - 1) : null}
+        nextHref={hasNext ? pageHref(page + 1) : null}
+        pageSize={BANK_TRANSFER_PAGE_SIZE}
+      />
     </div>
   );
 }

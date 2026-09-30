@@ -10,6 +10,7 @@ import {
 import { adminUserDisplayName } from "@/lib/admin/display-name";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/utils/format-date";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 
 import { ProxyThreadFilters } from "./filters";
 
@@ -192,20 +193,11 @@ export default async function AdminProxyMessagesPage({
         )}
       </div>
 
-      {(hasPrev || hasNext) && (
-        <div className="mt-4 flex justify-center gap-3">
-          {hasPrev && (
-            <Button asChild variant="outline" className="rounded-full">
-              <Link href={pageHref(page - 1)}>＜前の20件</Link>
-            </Button>
-          )}
-          {hasNext && (
-            <Button asChild variant="outline" className="rounded-full">
-              <Link href={pageHref(page + 1)}>次の20件＞</Link>
-            </Button>
-          )}
-        </div>
-      )}
+      <AdminPagination
+        prevHref={hasPrev ? pageHref(page - 1) : null}
+        nextHref={hasNext ? pageHref(page + 1) : null}
+        pageSize={PAGE_SIZE}
+      />
 
       <div className="mt-10 flex flex-col items-center gap-3">
         <Button
