@@ -65,9 +65,13 @@ function cloudflareEmbedUrl(uid: string): string {
   return `https://iframe.videodelivery.net/${uid}`;
 }
 
-/** Cloudflare Stream が自動生成するサムネイル URL（oEmbed 不要）。 */
+/**
+ * Cloudflare Stream が自動生成するサムネイル URL（oEmbed 不要）。
+ * 時刻を指定しない既定のサムネイル（先頭 0 秒のコマ）は、先頭にコマが無い動画で 404 になる
+ * （2026-09-30 staging で実例。`?time=1s` なら同じ動画で取得できた）ため、1 秒目を指定する。
+ */
 export function cloudflareThumbnailUrl(uid: string): string {
-  return `https://videodelivery.net/${uid}/thumbnails/thumbnail.jpg`;
+  return `https://videodelivery.net/${uid}/thumbnails/thumbnail.jpg?time=1s`;
 }
 
 /** Cloudflare Stream の動画 UID から ParsedVideo を組む（URL 解析を経由しない）。 */

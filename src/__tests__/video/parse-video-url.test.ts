@@ -116,7 +116,7 @@ describe("parseVideoUrl — Cloudflare Stream 埋込 URL", () => {
   it("videodelivery.net（プレイヤー以外のホスト）は null", () => {
     expect(
       parseVideoUrl(
-        "https://videodelivery.net/a1b2c3d4e5f60718293a4b5c6d7e8f90/thumbnails/thumbnail.jpg",
+        "https://videodelivery.net/a1b2c3d4e5f60718293a4b5c6d7e8f90/thumbnails/thumbnail.jpg?time=1s",
       ),
     ).toBeNull();
   });
@@ -132,7 +132,7 @@ describe("Cloudflare Stream ヘルパー（parsedVideoFromCloudflareUid / URL �
       embedUrl: `https://iframe.videodelivery.net/${uid}`,
     });
     expect(cloudflareThumbnailUrl(uid)).toBe(
-      `https://videodelivery.net/${uid}/thumbnails/thumbnail.jpg`,
+      `https://videodelivery.net/${uid}/thumbnails/thumbnail.jpg?time=1s`,
     );
   });
 });

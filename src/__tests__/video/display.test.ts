@@ -67,7 +67,7 @@ describe("staticThumbnailForRow", () => {
   it("cloudflare 行は固定サムネ URL を返す", () => {
     expect(
       staticThumbnailForRow(row({ provider: "cloudflare", cloudflare_uid: UID })),
-    ).toBe(`https://videodelivery.net/${UID}/thumbnails/thumbnail.jpg`);
+    ).toBe(`https://videodelivery.net/${UID}/thumbnails/thumbnail.jpg?time=1s`);
   });
 
   it("external 行は null（oEmbed で取得する）", () => {
