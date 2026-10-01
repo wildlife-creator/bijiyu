@@ -22,6 +22,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
 import type { Database } from "@/types/database";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 import type { ChangePlanResult } from "./plan-actions";
 
 export interface ActiveSubscription {
@@ -45,7 +46,7 @@ export async function getAuthenticatedClientSubscription(): Promise<
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "ログインしてください" };
+  if (!user) return { success: false, error: SESSION_EXPIRED_ERROR };
 
   const { data: userRow } = await supabase
     .from("users")

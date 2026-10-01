@@ -12,6 +12,7 @@ import {
   type SupportAttachmentMeta,
 } from "@/lib/support/attachment-rules";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 export interface SignedUploadTarget {
   path: string;
@@ -54,7 +55,7 @@ export async function prepareSupportAttachmentUploadAction(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: "ログインが必要です" };
+      return { success: false, error: SESSION_EXPIRED_ERROR };
     }
     prefix = `trouble/${user.id}`;
   } else {

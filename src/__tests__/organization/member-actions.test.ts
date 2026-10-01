@@ -158,6 +158,28 @@ describe("createMemberAction", () => {
     expect(r.success).toBe(false);
   });
 
+  // 2026-10-01: ログイン切れと「組織に所属していない」で案内を分けた
+  describe("ログイン切れ / 組織に所属していない の案内", () => {
+    it.each([
+      ["createMemberAction", () => createMemberAction(validInput), "担当者の作成権限がありません"],
+      ["updateMemberAction", () => updateMemberAction(STAFF_ID, { lastName: "X" }), "編集権限がありません"],
+      ["deleteMemberAction", () => deleteMemberAction(STAFF_ID), "削除権限がありません"],
+      ["resendInviteAction", () => resendInviteAction(STAFF_ID), "再送権限がありません"],
+    ] as const)("%s: 未ログインはログイン切れ、組織なしは権限の案内", async (_name, run, noOrgMessage) => {
+      mockAuth(null);
+      const r1 = await run();
+      expect(r1).toEqual({
+        success: false,
+        error: "ログインの有効期限が切れました。再度ログインしてください。",
+      });
+
+      mockAuth(OWNER_ID);
+      mockGetActiveOrgContext.mockResolvedValue({ active: null, all: [] });
+      const r2 = await run();
+      expect(r2).toEqual({ success: false, error: noOrgMessage });
+    });
+  });
+
   it("staff は作成不可", async () => {
     mockAuth(STAFF_ID);
     mockActorContext(STAFF_ID, "staff");

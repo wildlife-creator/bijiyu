@@ -140,7 +140,7 @@ describe("sendMessageAction", () => {
     mockAuth(null);
     const result = await sendMessageAction(buildFormData());
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("認証が必要です");
+    if (!result.success) expect(result.error).toBe("ログインの有効期限が切れました。再度ログインしてください。");
   });
 
   it("threadId が未指定ならエラーを返す", async () => {
@@ -436,7 +436,7 @@ describe("respondToScoutAction", () => {
     mockAuth(null);
     const result = await respondToScoutAction(MESSAGE_ID, "accepted");
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("認証が必要です");
+    if (!result.success) expect(result.error).toBe("ログインの有効期限が切れました。再度ログインしてください。");
   });
 
   it("メッセージが見つからない場合はエラーを返す", async () => {
@@ -781,7 +781,7 @@ describe("sendScoutAction", () => {
     mockAuth(null);
     const result = await sendScoutAction(buildFormData());
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("認証が必要です");
+    if (!result.success) expect(result.error).toBe("ログインの有効期限が切れました。再度ログインしてください。");
   });
 
   it("contractor ロールはスカウト送信不可", async () => {
@@ -1225,7 +1225,7 @@ describe("sendBulkMessagesAction", () => {
     mockAuth(null);
     const result = await sendBulkMessagesAction(buildFormData([CONTRACTOR_ID]));
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("認証が必要です");
+    if (!result.success) expect(result.error).toBe("ログインの有効期限が切れました。再度ログインしてください。");
   });
 
   it("contractor ロールは一斉送信不可", async () => {

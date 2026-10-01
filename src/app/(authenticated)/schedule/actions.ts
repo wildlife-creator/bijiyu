@@ -7,12 +7,12 @@ import type { ActionResult } from "@/lib/types/action-result";
 import { hasOverlappingSchedule } from "@/lib/utils/has-overlapping-schedule";
 import { isContractorOrClientRole } from "@/lib/utils/role-guards";
 import { scheduleSchema } from "@/lib/validations/schedule";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 export type ScheduleSuccessData = { warning?: string };
 
 const OVERLAP_WARNING = "同じ期間が登録されています";
 const ROLE_DENIED_ERROR = "この操作は実行できません";
-const AUTH_REQUIRED_ERROR = "ログインが必要です";
 const UNEXPECTED_ERROR = "予期しないエラーが発生しました";
 const SAVE_FAILED_ERROR = "保存に失敗しました。時間をおいて再度お試しください";
 const NOT_FOUND_OR_FORBIDDEN_ERROR = "この空き日程は編集できません";
@@ -32,7 +32,7 @@ export async function createScheduleAction(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: AUTH_REQUIRED_ERROR };
+      return { success: false, error: SESSION_EXPIRED_ERROR };
     }
 
     const { data: userData } = await supabase
@@ -95,7 +95,7 @@ export async function updateScheduleAction(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: AUTH_REQUIRED_ERROR };
+      return { success: false, error: SESSION_EXPIRED_ERROR };
     }
 
     const { data: userData } = await supabase
@@ -170,7 +170,7 @@ export async function deleteScheduleAction(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: AUTH_REQUIRED_ERROR };
+      return { success: false, error: SESSION_EXPIRED_ERROR };
     }
 
     const { data: userData } = await supabase

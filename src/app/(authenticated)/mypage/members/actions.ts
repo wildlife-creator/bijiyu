@@ -23,6 +23,7 @@ import {
   resolveExistingProxyReuse,
 } from "@/lib/organization/resolve-existing-proxy-reuse";
 import { applyDeletedSuffix } from "@/lib/email-recycle/apply-deleted-suffix";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 import {
   roleLabel,
   SERVICE_URL,
@@ -47,10 +48,11 @@ async function getActorContext(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  // ログインが切れている場合と、組織に所属していない場合で案内を分ける
+  if (!user) return "no-user" as const;
 
   const { active } = await getActiveOrganizationContext(supabase);
-  if (!active) return null;
+  if (!active) return "no-org" as const;
 
   return {
     userId: user.id,
@@ -89,7 +91,8 @@ export async function createMemberAction(
 ): Promise<ActionResult<{ userId: string }>> {
   const supabase = await createClient();
   const actor = await getActorContext(supabase);
-  if (!actor) return { success: false, error: "認証が必要です" };
+  if (actor === "no-user") return { success: false, error: SESSION_EXPIRED_ERROR };
+  if (actor === "no-org") return { success: false, error: "担当者の作成権限がありません" };
 
   // 権限: owner / admin のみ
   if (actor.orgRole !== "owner" && actor.orgRole !== "admin") {
@@ -397,7 +400,8 @@ export async function updateMemberAction(
 ): Promise<ActionResult<void>> {
   const supabase = await createClient();
   const actor = await getActorContext(supabase);
-  if (!actor) return { success: false, error: "認証が必要です" };
+  if (actor === "no-user") return { success: false, error: SESSION_EXPIRED_ERROR };
+  if (actor === "no-org") return { success: false, error: "編集権限がありません" };
 
   // R6 二重防衛: UI バイパス / 改竄リクエストに備え、入力段階で
   // 代理 + admin の組み合わせを Zod に依存せず明示拒否する。
@@ -673,7 +677,8 @@ export async function deleteMemberAction(
 ): Promise<ActionResult<void>> {
   const supabase = await createClient();
   const actor = await getActorContext(supabase);
-  if (!actor) return { success: false, error: "認証が必要です" };
+  if (actor === "no-user") return { success: false, error: SESSION_EXPIRED_ERROR };
+  if (actor === "no-org") return { success: false, error: "削除権限がありません" };
 
   if (actor.orgRole !== "owner" && actor.orgRole !== "admin") {
     return { success: false, error: "削除権限がありません" };
@@ -772,7 +777,8 @@ export async function resendInviteAction(
 ): Promise<ActionResult<void>> {
   const supabase = await createClient();
   const actor = await getActorContext(supabase);
-  if (!actor) return { success: false, error: "認証が必要です" };
+  if (actor === "no-user") return { success: false, error: SESSION_EXPIRED_ERROR };
+  if (actor === "no-org") return { success: false, error: "再送権限がありません" };
 
   if (actor.orgRole !== "owner" && actor.orgRole !== "admin") {
     return { success: false, error: "再送権限がありません" };

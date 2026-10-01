@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 import {
   scoutTemplateSchema,
   type ScoutTemplateInput,
@@ -37,7 +38,7 @@ export async function createScoutTemplateAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "認証が必要です" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   const parsed = scoutTemplateSchema.safeParse(input);
@@ -83,7 +84,7 @@ export async function updateScoutTemplateAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "認証が必要です" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   const parsed = scoutTemplateSchema.safeParse(input);
@@ -138,7 +139,7 @@ export async function deleteScoutTemplateAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "認証が必要です" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   // RLS（本人作成 or 所属組織）に加えて、アクティブ組織（法人でなければ

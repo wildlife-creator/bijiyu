@@ -273,7 +273,7 @@ describe("startCheckoutAction — auth & role checks", () => {
     });
     expect(result).toEqual({
       success: false,
-      error: "ログインしてください",
+      error: "ログインの有効期限が切れました。再度ログインしてください。",
     });
   });
 

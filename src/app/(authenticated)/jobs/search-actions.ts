@@ -17,6 +17,7 @@ import {
 import { formatDateTime } from "@/lib/utils/format-date";
 import { formatAreasShort } from "@/lib/utils/format-areas";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 // ---------------------------------------------------------------------------
 // applyJobAction
@@ -35,7 +36,7 @@ export async function applyJobAction(
     if (!user) {
       return {
         success: false,
-        error: "認証情報が見つかりません。再度ログインしてください。",
+        error: SESSION_EXPIRED_ERROR,
       };
     }
 
@@ -424,7 +425,7 @@ export async function toggleFavoriteAction(
     if (!user) {
       return {
         success: false,
-        error: "認証情報が見つかりません。再度ログインしてください。",
+        error: SESSION_EXPIRED_ERROR,
       };
     }
 

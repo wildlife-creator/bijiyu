@@ -107,7 +107,7 @@ describe("createScoutTemplateAction", () => {
     mockAuth(null);
     const result = await createScoutTemplateAction(validInput);
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("認証が必要です");
+    if (!result.success) expect(result.error).toBe("ログインの有効期限が切れました。再度ログインしてください。");
   });
 
   it("title が空文字ならバリデーションエラー", async () => {
@@ -251,7 +251,7 @@ describe("updateScoutTemplateAction", () => {
     mockAuth(null);
     const result = await updateScoutTemplateAction(TEMPLATE_ID, validInput);
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("認証が必要です");
+    if (!result.success) expect(result.error).toBe("ログインの有効期限が切れました。再度ログインしてください。");
   });
 
   it("バリデーション失敗時は日本語エラーを返す", async () => {
@@ -350,7 +350,7 @@ describe("deleteScoutTemplateAction", () => {
     mockAuth(null);
     const result = await deleteScoutTemplateAction(TEMPLATE_ID);
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("認証が必要です");
+    if (!result.success) expect(result.error).toBe("ログインの有効期限が切れました。再度ログインしてください。");
   });
 
   it("DELETE が成功すれば success を返す（個人プランは owner_id で絞る）", async () => {

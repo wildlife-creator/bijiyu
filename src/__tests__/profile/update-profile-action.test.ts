@@ -244,7 +244,7 @@ describe("updateProfileAction", () => {
 
       expect(result).toEqual({
         success: false,
-        error: "認証情報が見つかりません。再度ログインしてください。",
+        error: "ログインの有効期限が切れました。再度ログインしてください。",
       });
       expect(recorded).toHaveLength(0);
       expect(mockRpc).not.toHaveBeenCalled();

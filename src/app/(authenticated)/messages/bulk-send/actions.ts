@@ -10,6 +10,7 @@ import {
 } from "@/lib/messaging/identity";
 import { fetchAllRows } from "@/lib/admin/proxy-threads";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 // ---------------------------------------------------------------------------
 // 3.3 sendBulkMessagesAction (org-aware)
@@ -22,7 +23,7 @@ export async function sendBulkMessagesAction(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "認証が必要です" };
+    if (!user) return { success: false, error: SESSION_EXPIRED_ERROR };
 
     // Role check
     const { data: userData } = await supabase

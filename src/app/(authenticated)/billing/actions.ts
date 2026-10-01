@@ -18,6 +18,7 @@ import { getActiveOrganizationContext } from "@/lib/organization/active-org-cont
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 import { cookies } from "next/headers";
 
 // ---------------------------------------------------------------------------
@@ -140,7 +141,7 @@ export async function startCheckoutAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { success: false, error: "ログインしてください" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   // 3. Load user record (role)

@@ -22,6 +22,7 @@ import {
   areaValidationErrorMessage,
 } from "@/lib/master/validate-area";
 import { expandAreasForDb } from "@/lib/master/area-conversion";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -156,7 +157,7 @@ export async function createJobAction(
     if (!user) {
       return {
         success: false,
-        error: "認証情報が見つかりません。再度ログインしてください。",
+        error: SESSION_EXPIRED_ERROR,
       };
     }
 
@@ -346,7 +347,7 @@ export async function updateJobAction(
     if (!user) {
       return {
         success: false,
-        error: "認証情報が見つかりません。再度ログインしてください。",
+        error: SESSION_EXPIRED_ERROR,
       };
     }
 
@@ -562,7 +563,7 @@ export async function closeJobAction(
     if (!user) {
       return {
         success: false,
-        error: "認証情報が見つかりません。再度ログインしてください。",
+        error: SESSION_EXPIRED_ERROR,
       };
     }
 
@@ -619,7 +620,7 @@ export async function deleteJobImageAction(
     if (!user) {
       return {
         success: false,
-        error: "認証情報が見つかりません。再度ログインしてください。",
+        error: SESSION_EXPIRED_ERROR,
       };
     }
 

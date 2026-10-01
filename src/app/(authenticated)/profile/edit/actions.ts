@@ -18,6 +18,7 @@ import {
   areaValidationErrorMessage,
 } from "@/lib/master/validate-area";
 import { expandAreasForDb } from "@/lib/master/area-conversion";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 const PROFILE_READ_TRANSIENT_ERROR =
   "データの取得に一時的に失敗しました。時間をおいて再度お試しください。";
@@ -34,7 +35,7 @@ export async function updateProfileAction(
     if (!user) {
       return {
         success: false,
-        error: "認証情報が見つかりません。再度ログインしてください。",
+        error: SESSION_EXPIRED_ERROR,
       };
     }
 
@@ -219,7 +220,7 @@ export async function uploadAvatarAction(
   if (!user) {
     return {
       success: false,
-      error: "認証情報が見つかりません。再度ログインしてください。",
+      error: SESSION_EXPIRED_ERROR,
     };
   }
 

@@ -15,6 +15,7 @@ import { formatDateTime } from "@/lib/utils/format-date";
 // messageSchema is not used here; validation is done inline to avoid
 // File instanceof issues across server/client boundary
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -156,7 +157,7 @@ export async function sendMessageAction(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "認証が必要です" };
+    if (!user) return { success: false, error: SESSION_EXPIRED_ERROR };
 
     const threadId = formData.get("threadId") as string;
     if (!threadId) return { success: false, error: "スレッドIDが必要です" };
@@ -273,7 +274,7 @@ export async function markAsReadAction(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "認証が必要です" };
+    if (!user) return { success: false, error: SESSION_EXPIRED_ERROR };
     if (messageIds.length === 0) return { success: true };
 
     const admin = createAdminClient();
@@ -303,7 +304,7 @@ export async function respondToScoutAction(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "認証が必要です" };
+    if (!user) return { success: false, error: SESSION_EXPIRED_ERROR };
 
     // Fetch the scout message
     const { data: scoutMessage, error: msgError } = await supabase

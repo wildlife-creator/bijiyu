@@ -182,7 +182,7 @@ describe("withdrawAction: 認証・バリデーション", () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toContain("認証されていません");
+      expect(result.error).toContain("ログインの有効期限が切れました");
     }
   });
 

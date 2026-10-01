@@ -15,6 +15,7 @@ import { jobInquirySchema } from "@/lib/validations/job-inquiry";
 import { resolveParticipantName } from "@/lib/utils/display-name";
 import { formatDateTime } from "@/lib/utils/format-date";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 const MAX_SUBMISSIONS_PER_HOUR = 5;
 const GENERIC_ERROR =
@@ -31,7 +32,7 @@ export async function submitJobInquiryAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { success: false, error: "ログインが必要です" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   const admin = createAdminClient();

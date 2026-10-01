@@ -18,6 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types/action-result";
 import { formatDateJst } from "@/lib/utils/format-date";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 import {
   ActiveSubscription,
   getAuthenticatedClientSubscription,
@@ -496,7 +497,7 @@ export async function cancelCompensationAction(input: {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "ログインしてください" };
+  if (!user) return { success: false, error: SESSION_EXPIRED_ERROR };
 
   // Staff は課金アクション不可（契約主体は Owner 単一）。所有権チェックでも
   // 弾かれるが、明示ガードで正しいエラー文言を返す（三重防御）。
@@ -574,7 +575,7 @@ export async function openCustomerPortalAction(): Promise<
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "ログインしてください" };
+  if (!user) return { success: false, error: SESSION_EXPIRED_ERROR };
 
   // Staff は Owner のサブスクに相乗りするだけで支払い情報を持たない
   const { data: roleRow } = await supabase

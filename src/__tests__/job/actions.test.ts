@@ -164,7 +164,7 @@ describe("createJobAction", () => {
     const result = await createJobAction(buildValidFormData());
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toContain("認証情報が見つかりません");
+      expect(result.error).toContain("ログインの有効期限が切れました");
     }
   });
 
@@ -995,7 +995,7 @@ describe("deleteJobImageAction", () => {
     const result = await deleteJobImageAction(formData);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error).toContain("認証情報が見つかりません");
+      expect(result.error).toContain("ログインの有効期限が切れました");
     }
   });
 

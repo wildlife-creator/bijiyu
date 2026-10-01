@@ -14,6 +14,7 @@ import {
   areaValidationErrorMessage,
 } from "@/lib/master/validate-area";
 import { expandAreasForDb } from "@/lib/master/area-conversion";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 export async function completeRegistrationAction(
   input: unknown
@@ -31,7 +32,7 @@ export async function completeRegistrationAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "認証情報が見つかりません。再度ログインしてください。" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   // パスワードは最初に設定する。この後のマスタ照合や RPC が一時的に失敗しても、

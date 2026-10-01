@@ -19,6 +19,7 @@ import {
   resolveParticipantName,
 } from "@/lib/utils/display-name";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 // ---------------------------------------------------------------------------
 // Helper: find or create thread by identity pair (Phase 2)
@@ -130,7 +131,7 @@ export async function sendScoutAction(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "認証が必要です" };
+    if (!user) return { success: false, error: SESSION_EXPIRED_ERROR };
 
     // Role check
     const { data: userData } = await supabase

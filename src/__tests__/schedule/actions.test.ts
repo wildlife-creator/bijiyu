@@ -92,7 +92,7 @@ describe("schedule actions", () => {
       const result = await createScheduleAction(
         makeFormData("2030-07-01", "2030-07-05"),
       );
-      expect(result).toEqual({ success: false, error: "ログインが必要です" });
+      expect(result).toEqual({ success: false, error: "ログインの有効期限が切れました。再度ログインしてください。" });
     });
 
     it("rejects staff role", async () => {
@@ -217,7 +217,7 @@ describe("schedule actions", () => {
         SCHEDULE_ID,
         makeFormData("2030-07-01", "2030-07-05"),
       );
-      expect(result).toEqual({ success: false, error: "ログインが必要です" });
+      expect(result).toEqual({ success: false, error: "ログインの有効期限が切れました。再度ログインしてください。" });
     });
 
     it("rejects staff role", async () => {
@@ -305,7 +305,7 @@ describe("schedule actions", () => {
     it("rejects when user is not authenticated", async () => {
       setUser(null);
       const result = await deleteScheduleAction(SCHEDULE_ID);
-      expect(result).toEqual({ success: false, error: "ログインが必要です" });
+      expect(result).toEqual({ success: false, error: "ログインの有効期限が切れました。再度ログインしてください。" });
     });
 
     it("rejects staff role", async () => {

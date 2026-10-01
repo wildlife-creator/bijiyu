@@ -19,6 +19,7 @@ import {
   areaValidationErrorMessage,
 } from "@/lib/master/validate-area";
 import { expandAreasForDb } from "@/lib/master/area-conversion";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 interface SaveOpts {
   mode: "edit" | "setup";
@@ -61,7 +62,7 @@ export async function saveClientProfileAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "認証が必要です" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   // 担当者（org_role='staff'）は発注者情報を編集できない（REQ-ORG-002: 閲覧のみ）。

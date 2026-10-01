@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isOwnedStoragePath } from "@/lib/storage/storage-path";
 import { DOCUMENT_PATH_EXTENSIONS } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 interface SubmitCcusInput {
   /** direct-upload 済みのカード画像パス (ccus-documents バケット) */
@@ -24,7 +25,7 @@ export async function submitCcusAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "ログインの有効期限が切れました。再度ログインしてください。" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   // 2. Check identity verification is approved

@@ -97,7 +97,7 @@ describe("cancelApplicationAction", () => {
     mockAuth(null);
     const result = await cancelApplicationAction(APP_ID);
     expect(result.success).toBe(false);
-    expect(result).toHaveProperty("error", "認証が必要です");
+    expect(result).toHaveProperty("error", "ログインの有効期限が切れました。再度ログインしてください。");
   });
 
   it("自分の応募でなければエラーを返す", async () => {

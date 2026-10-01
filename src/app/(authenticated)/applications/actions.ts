@@ -27,6 +27,7 @@ import {
 } from "@/lib/utils/display-name";
 import { getJstToday } from "@/lib/utils/format-date";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 import {
   sendCancellationEmails,
   sendCompletionReportToClient,
@@ -100,7 +101,7 @@ export async function cancelApplicationAction(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "認証が必要です" };
+      return { success: false, error: SESSION_EXPIRED_ERROR };
     }
 
     // Fetch application with full join (needed for the cancellation emails)
@@ -189,7 +190,7 @@ export async function submitContractorReportAction(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "認証が必要です" };
+      return { success: false, error: SESSION_EXPIRED_ERROR };
     }
 
     // Parse and validate
@@ -322,7 +323,7 @@ export async function acceptApplicationAction(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "認証が必要です" };
+      return { success: false, error: SESSION_EXPIRED_ERROR };
     }
 
     // Parse and validate
@@ -473,7 +474,7 @@ export async function rejectApplicationAction(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "認証が必要です" };
+      return { success: false, error: SESSION_EXPIRED_ERROR };
     }
 
     const raw = {
@@ -590,7 +591,7 @@ export async function submitClientReportAction(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "認証が必要です" };
+      return { success: false, error: SESSION_EXPIRED_ERROR };
     }
 
     // Parse and validate

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isOwnedStoragePath } from "@/lib/storage/storage-path";
 import { DOCUMENT_PATH_EXTENSIONS } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 interface SubmitIdentityInput {
   /** direct-upload 済みの書類パス (identity-documents バケット) */
@@ -25,7 +26,7 @@ export async function submitIdentityAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "ログインの有効期限が切れました。再度ログインしてください。" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   // 2. Validate uploaded paths (direct-upload 後のパスは本人フォルダ配下のみ許可)

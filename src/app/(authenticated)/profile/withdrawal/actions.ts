@@ -9,6 +9,7 @@ import { withdrawalCompletedEmail } from "@/lib/email/templates/withdrawal-compl
 import { executeWithdrawal } from "@/lib/withdrawal/execute";
 import { withdrawalSchema } from "@/lib/validations/profile";
 import type { ActionResult } from "@/lib/types/action-result";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 /**
  * 本人退会（COM 系・プロフィール配下）。
@@ -26,7 +27,7 @@ export async function withdrawAction(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { success: false, error: "認証されていません。再度ログインしてください。" };
+    return { success: false, error: SESSION_EXPIRED_ERROR };
   }
 
   // 2. Zod validation

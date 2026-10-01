@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { SESSION_EXPIRED_ERROR } from "@/lib/auth/messages";
 
 // ---------------------------------------------------------------------------
 // ブラウザ → Supabase Storage 直接アップロード共通ヘルパー
@@ -122,7 +123,7 @@ export async function uploadFilesDirect(opts: {
   if (!user) {
     return {
       success: false,
-      error: "認証情報が見つかりません。再度ログインしてください。",
+      error: SESSION_EXPIRED_ERROR,
     };
   }
 
