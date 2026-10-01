@@ -516,8 +516,7 @@ export function BankTransferPanel({
               <AlertDialogTrigger asChild>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="rounded-full"
+                  className="rounded-full text-white"
                   disabled={isPending || !selectedUrgentJob}
                   pending={pendingKey === "urgent"}
                 >
