@@ -110,12 +110,14 @@ test.describe("A. 一般会員からは運営アカウントが見えない", ()
     await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
   });
 
-  test("自分自身宛の新規スレッドは作れない（発注者詳細も自分は 404）", async ({
+  test("自分自身宛の新規スレッドは作れない（発注者詳細は自分も開けるが「メッセージを送る」は出ない）", async ({
     page,
   }) => {
     await login(page, TEST_CLIENT.email, TEST_CLIENT.password);
+    // 2026-10-01 変更: 発注者一覧に自分も出るため、自分の発注者詳細は開ける（e2e/client-detail-self.spec.ts）
     await page.goto(`/clients/${CLIENT_ID}`);
-    await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "発注者詳細" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "メッセージを送る" })).toHaveCount(0);
     await page.goto(`/messages/new?to=${CLIENT_ID}`);
     await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
   });

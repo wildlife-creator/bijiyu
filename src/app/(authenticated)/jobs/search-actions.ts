@@ -458,6 +458,11 @@ export async function toggleFavoriteAction(
       return { success: false, error: "不正なリクエストです。" };
     }
 
+    // 2.5 自分自身はマイリストに登録できない（発注者詳細・職人詳細の自分のページではボタンを出さない）
+    if ((targetType === "client" || targetType === "user") && targetId === user.id) {
+      return { success: false, error: "不正なリクエストです。" };
+    }
+
     // 3. Target existence check
     let targetExists = false;
     if (targetType === "job") {

@@ -266,4 +266,34 @@ describe("toggleFavoriteAction", () => {
     const result = await toggleFavoriteAction(fd);
     expect(result.success).toBe(false);
   });
+
+  // 2026-10-01: 発注者詳細で自分のページを開けるようにした（ボタンは出さない）。
+  // Server Action でも自分自身のマイリスト登録を拒否する
+  it.each(["client", "user"])(
+    "自分自身（targetType=%s）はマイリスト登録できず、favorites に触れない",
+    async (targetType) => {
+      mockGetUser.mockResolvedValue({ data: { user: { id: "user-self" } } });
+      mockFrom.mockReturnValue(createQueryMock({ data: { role: "client" } }));
+
+      const result = await toggleFavoriteAction(
+        buildFormData({ targetType, targetId: "user-self" }),
+      );
+
+      expect(result).toEqual({ success: false, error: "不正なリクエストです。" });
+      // 役割の確認（users）だけで止まり、対象の確認・favorites の読み書きに進まない
+      expect(mockFrom).toHaveBeenCalledTimes(1);
+      expect(mockFrom).toHaveBeenCalledWith("users");
+    },
+  );
+
+  it("他の発注者はこれまでどおり自分チェックを通過して対象の確認に進む", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-self" } } });
+    mockFrom.mockReturnValue(createQueryMock({ data: { role: "client" } }));
+
+    await toggleFavoriteAction(
+      buildFormData({ targetType: "client", targetId: "other-client" }),
+    );
+
+    expect(mockFrom.mock.calls.length).toBeGreaterThan(1);
+  });
 });

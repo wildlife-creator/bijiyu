@@ -56,9 +56,11 @@ export default async function ClientDetailPage({ params }: PageProps) {
   const { id } = await params;
   const { supabase, user } = await requireUser();
 
-  // Self-access guard: 自分自身の発注者詳細は表示しない（CLI-006 と同じ。
-  // 自分宛の /messages/new を防ぐ）
-  if (id === user.id) notFound();
+  // 自分自身の発注者詳細も開ける（発注者一覧に自分も出るため。他の会員からの見え方の確認用）。
+  // 自分のページでは「メッセージを送る」「マイリスト登録」を出さない。「求人へのお問い合わせ」は
+  // canSendJobInquiry が self で false を返す。/messages/new・お問い合わせフォームも自分宛てを
+  // サーバー側で拒否している（2026-10-01 変更。以前はこの画面自体を 404 にしていた）
+  const isSelf = id === user.id;
 
   // Fetch client user data with profile
   const { data: client } = await supabase
@@ -250,8 +252,8 @@ export default async function ClientDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* ♡マイリスト登録（職人詳細と同じく独立行） */}
-        {!isDeleted && (
+        {/* ♡マイリスト登録（職人詳細と同じく独立行）。自分のページでは出さない */}
+        {!isDeleted && !isSelf && (
           <div className="px-5 mt-3">
             <FavoriteButton
               targetType="client"
@@ -274,8 +276,8 @@ export default async function ClientDetailPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* Action buttons（上） */}
-        {!isDeleted && (
+        {/* Action buttons（上）。自分のページでは出さない */}
+        {!isDeleted && !isSelf && (
           <div className="px-5 mt-4 flex items-center gap-3">
             {canInquire && (
               <Button
@@ -409,8 +411,8 @@ export default async function ClientDetailPage({ params }: PageProps) {
           )}
         </section>
 
-        {/* Action buttons（下） */}
-        {!isDeleted && (
+        {/* Action buttons（下）。自分のページでは出さない */}
+        {!isDeleted && !isSelf && (
           <div className="mx-5 mt-8 flex items-center gap-3">
             {canInquire && (
               <Button
