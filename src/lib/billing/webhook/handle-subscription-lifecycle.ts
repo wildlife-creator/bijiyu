@@ -89,6 +89,7 @@ export async function handleSubscriptionLifecycle(
       return;
     case "customer.subscription.deleted":
       await handleSubscriptionDeleted(admin, event.data, send);
+      await voidOpenInvoicesOfCancelledSubscription(stripe, event.data.id);
       return;
     case "invoice.payment_failed":
       await handleInvoicePaymentFailed(admin, stripe, event.data, send);
@@ -382,6 +383,48 @@ async function handleSubscriptionDeleted(
   }
 
   // 6. Neither hit → silently skip
+}
+
+/**
+ * 解約された契約に残っている未払い（open）の請求書を取り消す（void）。
+ *
+ * Stripe は契約を解約しても、支払いに失敗した更新の請求書を open のまま残す
+ * （自動の再試行は止まるが、請求書のリンクから会員が手動で払えてしまう）。
+ * 解約後の期間のサービスは提供しないので、解約経路（自動解約・遅延中の即時解約・
+ * 退会・カード → 手動設定の切り替え・補償の解約）に関係なくここで一括して取り消す。
+ * 猶予期間中の利用分を別途請求するかは運営判断で、システムでは扱わない。
+ *
+ * 取り消しに失敗しても throw しない（DB 側の解約処理は完了済み。再送させると
+ * 解約メールが重複するため）。ログに残し、運営が Stripe の画面で取り消せる。
+ * 2026-10-01 staging のテストクロック確認で発見。
+ */
+async function voidOpenInvoicesOfCancelledSubscription(
+  stripe: Stripe,
+  subscriptionId: string,
+): Promise<void> {
+  try {
+    const open = await stripe.invoices.list({
+      subscription: subscriptionId,
+      status: "open",
+      limit: 100,
+    });
+    for (const invoice of open.data) {
+      if (!invoice.id) continue;
+      try {
+        await stripe.invoices.voidInvoice(invoice.id);
+      } catch (err) {
+        console.error(
+          "[voidOpenInvoicesOfCancelledSubscription] void failed",
+          { subscriptionId, invoiceId: invoice.id, err },
+        );
+      }
+    }
+  } catch (err) {
+    console.error(
+      "[voidOpenInvoicesOfCancelledSubscription] list failed",
+      { subscriptionId, err },
+    );
+  }
 }
 
 async function handleInvoicePaymentFailed(

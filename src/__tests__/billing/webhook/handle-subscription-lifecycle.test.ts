@@ -201,10 +201,24 @@ function makeAdmin(config: FakeConfig) {
   return { admin: admin as never, calls };
 }
 
-function makeStripe(scheduleOverride?: unknown, liveSubscriptionStatus: string = "past_due"): Stripe & { _calls: string[] } {
+function makeStripe(
+  scheduleOverride?: unknown,
+  liveSubscriptionStatus: string = "past_due",
+  openInvoices: Array<{ id: string }> = [],
+): Stripe & { _calls: string[] } {
   const calls: string[] = [];
   const stripe = {
     _calls: calls,
+    invoices: {
+      list: vi.fn(async (params: { subscription: string; status: string }) => {
+        calls.push(`invoices.list:${params.subscription}:${params.status}`);
+        return { data: openInvoices };
+      }),
+      voidInvoice: vi.fn(async (id: string) => {
+        calls.push(`invoices.void:${id}`);
+        return {};
+      }),
+    },
     subscriptionSchedules: {
       retrieve: vi.fn(async (id: string) => {
         calls.push(`schedules.retrieve:${id}`);
@@ -1657,5 +1671,134 @@ describe("invoice.payment_succeeded", () => {
     expect(
       calls.find((c) => c.op === "update" && c.table === "subscriptions"),
     ).toBeUndefined();
+  });
+});
+
+describe("customer.subscription.deleted — 解約後に残る未払いの請求書を取り消す（2026-10-01 staging で発見）", () => {
+  function adminForPlanRow() {
+    return makeAdmin({
+      results: {
+        "select:subscriptions": {
+          data: {
+            id: "sub-row-void",
+            user_id: "user-void",
+            plan_type: "individual",
+            past_due_since: new Date(Date.now() - 8 * 86_400_000).toISOString(),
+          },
+        },
+        "select:users": {
+          data: {
+            email: "user-void@test.local",
+            last_name: "認証",
+            first_name: "テスト",
+            company_name: null,
+          },
+        },
+      },
+      rpcResults: {
+        handle_subscription_lifecycle_deleted: { data: {}, error: null },
+      },
+    });
+  }
+
+  it("その契約の open の請求書をすべて取り消す（解約処理とメールは通常どおり）", async () => {
+    const sub = buildSubscription({ id: "sub_void_1" });
+    const { admin, calls } = adminForPlanRow();
+    const stripe = makeStripe(undefined, "canceled", [{ id: "in_open_1" }, { id: "in_open_2" }]);
+
+    await handleSubscriptionLifecycle(
+      admin,
+      stripe,
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(calls.find((c) => c.op === "rpc")?.fn).toBe("handle_subscription_lifecycle_deleted");
+    expect(SEND).toHaveBeenCalledOnce();
+    // 解約した契約の open だけを対象にする
+    expect(stripe._calls).toContain("invoices.list:sub_void_1:open");
+    expect(stripe._calls).toContain("invoices.void:in_open_1");
+    expect(stripe._calls).toContain("invoices.void:in_open_2");
+  });
+
+  it("open の請求書が無ければ何も取り消さない", async () => {
+    const sub = buildSubscription({ id: "sub_void_none" });
+    const { admin } = adminForPlanRow();
+    const stripe = makeStripe(undefined, "canceled", []);
+
+    await handleSubscriptionLifecycle(
+      admin,
+      stripe,
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(stripe._calls).toContain("invoices.list:sub_void_none:open");
+    expect(stripe._calls.some((c) => c.startsWith("invoices.void:"))).toBe(false);
+  });
+
+  it("取り消しに失敗しても例外にしない（解約処理・メールは完了済み、残りの請求書は続けて取り消す）", async () => {
+    const sub = buildSubscription({ id: "sub_void_err" });
+    const { admin } = adminForPlanRow();
+    const stripe = makeStripe(undefined, "canceled", [{ id: "in_bad" }, { id: "in_ok" }]);
+    vi.mocked(stripe.invoices.voidInvoice).mockImplementationOnce(async () => {
+      throw new Error("stripe down");
+    });
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      handleSubscriptionLifecycle(
+        admin,
+        stripe,
+        { type: "customer.subscription.deleted", data: sub },
+        { sendEmail: SEND as never },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(SEND).toHaveBeenCalledOnce();
+    expect(stripe._calls).toContain("invoices.void:in_ok");
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+
+  it("請求書の一覧の取得に失敗しても例外にしない", async () => {
+    const sub = buildSubscription({ id: "sub_list_err" });
+    const { admin } = adminForPlanRow();
+    const stripe = makeStripe(undefined, "canceled", []);
+    (stripe.invoices.list as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => {
+      throw new Error("stripe down");
+    });
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      handleSubscriptionLifecycle(
+        admin,
+        stripe,
+        { type: "customer.subscription.deleted", data: sub },
+        { sendEmail: SEND as never },
+      ),
+    ).resolves.toBeUndefined();
+    expect(SEND).toHaveBeenCalledOnce();
+    errSpy.mockRestore();
+  });
+
+  it("契約が DB に無い（補償オプションの解約など）場合も、Stripe 側の open の請求書は取り消す", async () => {
+    const sub = buildSubscription({ id: "sub_option_void" });
+    const { admin } = makeAdmin({
+      results: {
+        "select:subscriptions": { data: null },
+        "select:option_subscriptions": { data: null },
+      },
+    });
+    const stripe = makeStripe(undefined, "canceled", [{ id: "in_opt_open" }]);
+
+    await handleSubscriptionLifecycle(
+      admin,
+      stripe,
+      { type: "customer.subscription.deleted", data: sub },
+      { sendEmail: SEND as never },
+    );
+
+    expect(stripe._calls).toContain("invoices.void:in_opt_open");
   });
 });
