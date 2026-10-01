@@ -8,6 +8,7 @@ import {
   fetchBankTransferContactList,
 } from "@/lib/admin/bank-transfers";
 import { formatDateTime } from "@/lib/utils/format-date";
+import { AdminBackFooter } from "@/components/admin/admin-back-footer";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 
 interface PageProps {
@@ -104,6 +105,8 @@ export default async function AdminBankTransfersPage({ searchParams }: PageProps
         nextHref={hasNext ? pageHref(page + 1) : null}
         pageSize={BANK_TRANSFER_PAGE_SIZE}
       />
+
+      <AdminBackFooter href={backTo ?? "/admin/dashboard"} />
     </div>
   );
 }

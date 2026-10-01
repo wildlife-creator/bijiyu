@@ -579,6 +579,7 @@ test.describe("admin の戻り導線", () => {
 
   // 2026-09-30: キーワード 1 枠の 4 画面（お問い合わせ・トラブル報告・求人お問い合わせ・銀行振込）は
   // 以前、検索すると backTo が落ちて「もどる」がダッシュボードに飛んでいた
+  // （ADM-025 銀行振込は 2026-10-01 に「もどる」を追加）
   for (const path of [
     "/admin/contacts",
     "/admin/trouble-reports",
@@ -593,13 +594,10 @@ test.describe("admin の戻り導線", () => {
       await page.getByRole("button", { name: "検索" }).click();
       await page.waitForURL(/q=/);
       expect(new URL(page.url()).searchParams.get("backTo")).toBe("/admin/users");
-      // ADM-025（銀行振込）は画面に「もどる」が無い（URL に backTo が残ることだけ確認）
-      if (path !== "/admin/bank-transfers") {
-        await expect(page.getByRole("link", { name: "もどる" })).toHaveAttribute(
-          "href",
-          "/admin/users",
-        );
-      }
+      await expect(page.getByRole("link", { name: "もどる" })).toHaveAttribute(
+        "href",
+        "/admin/users",
+      );
     });
   }
 });
