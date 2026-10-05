@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, FileText } from "lucide-react";
 
 import { getActiveOrganizationContext } from "@/lib/organization/active-org-context";
 import { Button } from "@/components/ui/button";
 import { ApplicationStatusBadge, getOrderDisplayCategory } from "@/components/shared/application-status-badge";
 import { BackButton } from "@/components/shared/back-button";
+import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { SummaryWithOthers } from "@/components/master/summary-with-others";
 import { AreaList } from "@/components/area/area-list";
 import { AreaSummary } from "@/components/area/area-summary";
@@ -16,6 +17,9 @@ import { formatDate } from "@/lib/utils/format-date";
 import { formatRewardRange } from "@/lib/utils/format-reward";
 import { fetchUserAges } from "@/lib/users/private-fields";
 import { hasReview } from "@/lib/utils/has-review";
+import { isPdfUrl } from "@/lib/utils/is-pdf-url";
+import { canEditOrderDetails } from "@/lib/order-details";
+import { signApplicationDocuments } from "@/lib/storage/application-documents";
 import { requireUser } from "@/lib/auth/require-user";
 
 interface Props {
@@ -29,7 +33,7 @@ export default async function OrderDetailPage({ params }: Props) {
   const { data: application } = await supabase
     .from("applications")
     .select(
-      `id, status, headcount, working_type, preferred_first_work_date, first_work_date, work_location, message, created_at, scout_message_id,
+      `id, status, headcount, working_type, preferred_first_work_date, first_work_date, work_location, client_notes, document_urls, message, created_at, scout_message_id,
        applicant:users!applications_applicant_id_fkey(
          id, last_name, first_name, avatar_url, deleted_at,
          identity_verified, ccus_verified, skill_tags
@@ -147,6 +151,18 @@ export default async function OrderDetailPage({ params }: Props) {
 
   // Check if review exists
   const hasUserReview = hasReview(application.user_reviews);
+  const hasClientReview = hasReview(application.client_reviews);
+
+  // 発注内容（発注確定時に入力した 4 項目）は発注確定の間だけ表示する。
+  // 編集できるのは、どちらも完了報告を出していない間（Server Action と同一の判定）
+  const isAccepted = application.status === "accepted";
+  const canEditOrder = canEditOrderDetails(application, {
+    hasUserReview,
+    hasClientReview,
+  });
+  const orderDocuments = isAccepted
+    ? await signApplicationDocuments(supabase, application.document_urls)
+    : [];
 
   const rewardText = formatRewardRange(job.reward_lower, job.reward_upper, {
     emptyLabel: "未定",
@@ -178,7 +194,7 @@ export default async function OrderDetailPage({ params }: Props) {
           displayCategory={getOrderDisplayCategory(
             application.status,
             hasUserReview,
-            hasReview(application.client_reviews),
+            hasClientReview,
           )}
         />
         {application.scout_message_id && (
@@ -385,11 +401,76 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* 6.1 発注時に入力した勤務地（成立後のみ表示） */}
-      {application.status === "accepted" && application.work_location && (
-        <div className="mt-6 space-y-2">
-          <h2 className="text-body-lg font-bold text-foreground">勤務地</h2>
-          <p className="text-body-sm text-foreground">{application.work_location}</p>
+      {/* 6.1 発注内容（発注確定時に入力した内容。発注確定の間だけ表示） */}
+      {isAccepted && (
+        <div className="mt-6">
+          <h2 className="mb-2 text-body-lg font-bold text-foreground">発注内容</h2>
+          <div className="space-y-3 rounded-[8px] border border-border bg-background p-4 text-body-sm text-foreground">
+            <div>
+              <span className="font-semibold">【勤務地】</span>
+              <p className="pl-4">{application.work_location ?? "—"}</p>
+            </div>
+            <div>
+              <span className="font-semibold">【業務に関する書類】</span>
+              {orderDocuments.length > 0 ? (
+                <div className="mt-1 space-y-2 pl-4">
+                  {orderDocuments.map((doc, i) =>
+                    isPdfUrl(doc.url) ? (
+                      <a
+                        key={doc.entry}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-40 w-full flex-col items-center justify-center gap-1 rounded-[8px] border border-border bg-muted text-secondary"
+                      >
+                        <FileText className="size-8" />
+                        <span className="text-body-xs">PDFを開く</span>
+                      </a>
+                    ) : (
+                      <ImageLightbox
+                        key={doc.entry}
+                        src={doc.url}
+                        alt={`業務書類 ${i + 1}`}
+                        className="block w-full"
+                      >
+                        <img
+                          src={doc.url}
+                          alt={`業務書類 ${i + 1}`}
+                          className="h-40 w-full rounded-[8px] border border-border object-contain bg-muted"
+                        />
+                      </ImageLightbox>
+                    ),
+                  )}
+                </div>
+              ) : (
+                <p className="pl-4 text-muted-foreground">—</p>
+              )}
+            </div>
+            <div>
+              <span className="font-semibold">【その他】</span>
+              <p className="whitespace-pre-wrap pl-4">{application.client_notes ?? "—"}</p>
+            </div>
+            <div>
+              <span className="font-semibold">【初回稼働日】</span>
+              <p className="pl-4 font-semibold">{formatDate(application.first_work_date)}</p>
+            </div>
+          </div>
+          {canEditOrder && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                className="w-full max-w-xs rounded-full border-primary text-primary"
+                asChild
+              >
+                <Link
+                  href={`/applications/orders/${application.id}/edit`}
+                  className="inline-flex items-center justify-center"
+                >
+                  発注内容を編集する
+                </Link>
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

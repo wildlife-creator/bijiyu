@@ -15,6 +15,11 @@ import {
   evaluateReviewInputWindow,
   reviewInputWindowMessage,
 } from "@/lib/matching";
+import {
+  canEditOrderDetails,
+  diffOrderDetails,
+  toApplicationDocumentPath,
+} from "@/lib/order-details";
 import { isOwnedStoragePath } from "@/lib/storage/storage-path";
 import { DOCUMENT_PATH_EXTENSIONS } from "@/lib/validations/profile";
 import { sendEmail } from "@/lib/email/send-email";
@@ -32,6 +37,7 @@ import {
   sendCancellationEmails,
   sendCompletionReportToClient,
   sendOrderAcceptedControl,
+  sendOrderDetailsUpdatedEmails,
   sendOrderRejectedControl,
   sendCompletionReportToContractor,
 } from "./application-emails";
@@ -577,6 +583,216 @@ export async function rejectApplicationAction(
 // ---------------------------------------------------------------------------
 // sendOrderRejectedControl — §1.6.D
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// updateOrderDetailsAction — 発注確定後の発注内容（勤務地・書類・その他・初回稼働日）の編集
+// ---------------------------------------------------------------------------
+// FormData:
+//   applicationId / workLocation / clientNotes / firstWorkDate … 発注可否と同じ
+//   keepDocuments  … 残す既存書類（applications.document_urls に保存されている値そのまま）
+//   documentPaths  … 追加する書類（direct-upload 済みのパス）
+// 変更が無ければ何も書かず、メールも送らない（data.changed = false）。
+export async function updateOrderDetailsAction(
+  formData: FormData,
+): Promise<ActionResult<{ changed: boolean }>> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: SESSION_EXPIRED_ERROR };
+    }
+
+    const raw = {
+      applicationId: formData.get("applicationId") as string,
+      workLocation: formData.get("workLocation") as string,
+      clientNotes: (formData.get("clientNotes") as string) || undefined,
+      firstWorkDate: formData.get("firstWorkDate") as string,
+    };
+
+    const parsed = acceptApplicationSchema.safeParse(raw);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || "入力内容に誤りがあります";
+      return { success: false, error: firstError };
+    }
+
+    const input = parsed.data;
+    const workLocation = input.workLocation.trim();
+    if (!workLocation) {
+      return { success: false, error: "勤務地を入力してください" };
+    }
+    const clientNotes = input.clientNotes?.trim() || null;
+
+    // 応募の行が RLS で読めること（= 当事者）を会員セッションで確認する
+    const { data: application, error: fetchError } =
+      await getApplicationWithDetails(supabase, input.applicationId);
+
+    if (fetchError || !application) {
+      return { success: false, error: "応募が見つかりません" };
+    }
+
+    // Verify ownership: job owner or same org member（発注可否と同じ範囲）
+    const job = application.jobs;
+    if (!job) {
+      return { success: false, error: "案件情報が見つかりません" };
+    }
+
+    if (job.owner_id !== user.id) {
+      if (job.organization_id) {
+        const { active } = await getActiveOrganizationContext(supabase);
+        if (active?.organizationId !== job.organization_id) {
+          return { success: false, error: "この応募に対する権限がありません" };
+        }
+      } else {
+        return { success: false, error: "この応募に対する権限がありません" };
+      }
+    }
+
+    const admin = createAdminClient();
+
+    // 編集できるのは「発注確定」かつ、どちらも完了報告を出していない間だけ
+    const [userReviewResult, clientReviewResult] = await Promise.all([
+      admin
+        .from("user_reviews")
+        .select("id")
+        .eq("application_id", input.applicationId)
+        .maybeSingle(),
+      admin
+        .from("client_reviews")
+        .select("id")
+        .eq("application_id", input.applicationId)
+        .maybeSingle(),
+    ]);
+    if (userReviewResult.error || clientReviewResult.error) {
+      return { success: false, error: "発注内容の更新に失敗しました" };
+    }
+    if (
+      !canEditOrderDetails(application, {
+        hasUserReview: userReviewResult.data != null,
+        hasClientReview: clientReviewResult.data != null,
+      })
+    ) {
+      return {
+        success: false,
+        error:
+          application.status === "accepted"
+            ? "完了報告が提出されているため、発注内容は変更できません"
+            : "発注確定中の応募のみ発注内容を変更できます",
+      };
+    }
+
+    // 書類: 残す既存分（今の登録内容に含まれるものだけ）+ 追加分（本人フォルダ配下のみ）
+    const currentDocuments = application.document_urls ?? [];
+    const keepRequested = new Set(
+      formData
+        .getAll("keepDocuments")
+        .filter((v): v is string => typeof v === "string" && v.length > 0),
+    );
+    for (const entry of keepRequested) {
+      if (!currentDocuments.includes(entry)) {
+        return {
+          success: false,
+          error:
+            "書類データが不正です。画面を再読み込みして再度お試しください",
+        };
+      }
+    }
+    const keptDocuments = currentDocuments.filter((entry) =>
+      keepRequested.has(entry),
+    );
+
+    const addedDocuments = [
+      ...new Set(
+        formData
+          .getAll("documentPaths")
+          .filter((v): v is string => typeof v === "string" && v.length > 0),
+      ),
+    ].filter((path) => !keptDocuments.includes(path));
+    for (const path of addedDocuments) {
+      if (!isOwnedStoragePath(path, user.id, DOCUMENT_PATH_EXTENSIONS)) {
+        return {
+          success: false,
+          error:
+            "書類データが不正です。画面を再読み込みして再度お試しください",
+        };
+      }
+    }
+    const nextDocuments = [...keptDocuments, ...addedDocuments];
+
+    const changedFields = diffOrderDetails(
+      {
+        workLocation: application.work_location,
+        clientNotes: application.client_notes,
+        firstWorkDate: application.first_work_date,
+        documents: currentDocuments,
+      },
+      {
+        workLocation,
+        clientNotes,
+        firstWorkDate: input.firstWorkDate,
+        documents: nextDocuments,
+      },
+    );
+    if (changedFields.length === 0) {
+      return { success: true, data: { changed: false } };
+    }
+
+    // accepted の行は会員セッションでは UPDATE できない（RLS は applied → accepted/rejected のみ）。
+    // 上で権限を確認済みなので admin client で書く。status 条件で同時の状態変化を弾く
+    const { data: updatedRows, error: updateError } = await admin
+      .from("applications")
+      .update({
+        first_work_date: input.firstWorkDate,
+        work_location: workLocation,
+        client_notes: clientNotes,
+        document_urls: nextDocuments.length > 0 ? nextDocuments : null,
+      })
+      .eq("id", input.applicationId)
+      .eq("status", "accepted")
+      .select("id");
+
+    if (updateError || !updatedRows || updatedRows.length === 0) {
+      return { success: false, error: "発注内容の更新に失敗しました" };
+    }
+
+    // 外した書類のファイル本体を消す（失敗しても保存は成立。参照が消えた時点で受注者からは読めない）
+    const removedPaths = currentDocuments
+      .filter((entry) => !keepRequested.has(entry))
+      .map(toApplicationDocumentPath)
+      .filter((path): path is string => path !== null);
+    if (removedPaths.length > 0) {
+      try {
+        const { error: removeError } = await admin.storage
+          .from("application-documents")
+          .remove(removedPaths);
+        if (removeError) {
+          console.error(
+            "[updateOrderDetailsAction] document remove failed:",
+            removeError.message,
+          );
+        }
+      } catch (err) {
+        console.error("[updateOrderDetailsAction] document remove failed:", err);
+      }
+    }
+
+    // §1.8 受注者宛 + 発注者組織宛の控え（失敗しても保存は巻き戻さない）
+    await sendOrderDetailsUpdatedEmails({
+      admin,
+      application,
+      changedFields,
+      firstWorkDate: input.firstWorkDate,
+    }).catch((err) => {
+      console.error("[updateOrderDetailsAction] order-details-updated failed:", err);
+    });
+
+    return { success: true, data: { changed: true } };
+  } catch {
+    return { success: false, error: "予期しないエラーが発生しました" };
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 4.3 submitClientReportAction — 発注者の完了報告 + 受注者評価

@@ -14,6 +14,8 @@ import {
 import { applicationWithdrawnEmail } from "@/lib/email/templates/application-withdrawn";
 import { applicationCancelledEmail } from "@/lib/email/templates/application-cancelled";
 import { orderAcceptedControlEmail } from "@/lib/email/templates/order-accepted-control";
+import { orderDetailsUpdatedEmail } from "@/lib/email/templates/order-details-updated";
+import { orderDetailsUpdatedControlEmail } from "@/lib/email/templates/order-details-updated-control";
 import { orderRejectedControlEmail } from "@/lib/email/templates/order-rejected-control";
 import {
   completionReportToClientEmail,
@@ -28,6 +30,10 @@ import {
   resolveParticipantName,
 } from "@/lib/utils/display-name";
 import { formatDateTime } from "@/lib/utils/format-date";
+import {
+  formatChangedOrderDetailFields,
+  type OrderDetailField,
+} from "@/lib/order-details";
 import type { ApplicationWithDetails } from "./actions";
 
 export interface SendCancellationEmailsParams {
@@ -272,6 +278,104 @@ export async function sendOrderAcceptedControl(params: {
       });
     }),
   );
+}
+
+/**
+ * §1.8 発注内容の変更（受注者本人 + 発注者組織宛の控え）。
+ * 宛先は発注確定（§1.6.A / §1.6.C）と同じ。
+ */
+export async function sendOrderDetailsUpdatedEmails(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  application: ApplicationWithDetails;
+  changedFields: readonly OrderDetailField[];
+  /** 変更後の初回稼働日（YYYY-MM-DD） */
+  firstWorkDate: string;
+}): Promise<void> {
+  const { admin, application, changedFields, firstWorkDate } = params;
+  const job = application.jobs;
+  const applicant = application.applicant;
+  if (!job) return;
+
+  const contractorName = applicant
+    ? getUserDisplayName(
+        {
+          lastName: applicant.last_name,
+          firstName: applicant.first_name,
+          companyName:
+            (applicant as { company_name?: string | null }).company_name,
+          deletedAt: applicant.deleted_at,
+        },
+        "prefer-company",
+      )
+    : "受注者";
+
+  const changedFieldsText = formatChangedOrderDetailFields(changedFields);
+  const previousFirstWorkDate = (
+    application as { first_work_date?: string | null }
+  ).first_work_date;
+  const firstWorkDateChange = changedFields.includes("firstWorkDate")
+    ? {
+        before: previousFirstWorkDate
+          ? previousFirstWorkDate.replace(/-/g, "/")
+          : undefined,
+        after: firstWorkDate.replace(/-/g, "/"),
+      }
+    : undefined;
+  const updatedAt = formatDateTime(new Date().toISOString());
+
+  const tasks: Array<Promise<unknown>> = [];
+
+  // §1.8.A 受注者本人
+  if (applicant?.email && !applicant.deleted_at) {
+    const resolution = resolveClientProfileForRow(job);
+    const clientName = resolveParticipantName({
+      displayName: resolution.displayName,
+      lastName: resolution.lastName,
+      firstName: resolution.firstName,
+      deletedAt: resolution.deletedAt,
+    });
+    const { subject, html } = orderDetailsUpdatedEmail({
+      applicantName: contractorName,
+      jobTitle: job.title,
+      clientName,
+      changedFields: changedFieldsText,
+      firstWorkDateChange,
+    });
+    tasks.push(
+      sendEmail({ to: applicant.email, subject, html }).catch((err) => {
+        console.error(
+          "[updateOrderDetailsAction] order-details-updated send failed:",
+          err,
+        );
+      }),
+    );
+  }
+
+  // §1.8.B 発注者組織宛 broadcast
+  const recipients = await getJobClientRecipients(admin, {
+    owner_id: job.owner_id,
+    organization_id: job.organization_id ?? null,
+  });
+  for (const r of recipients) {
+    const { subject, html } = orderDetailsUpdatedControlEmail({
+      recipientName: r.displayName,
+      jobTitle: job.title,
+      contractorName,
+      changedFields: changedFieldsText,
+      firstWorkDateChange,
+      updatedAt,
+    });
+    tasks.push(
+      sendEmail({ to: r.email, subject, html }).catch((err) => {
+        console.error(
+          "[updateOrderDetailsAction] order-details-updated-control send failed:",
+          err,
+        );
+      }),
+    );
+  }
+
+  await Promise.all(tasks);
 }
 
 export async function sendOrderRejectedControl(params: {

@@ -814,6 +814,19 @@ INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, pre
 INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date) VALUES
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac', '88888888-8888-8888-8888-888888888882', 'cc222222-2222-2222-2222-222222222222', 1, '常勤', CURRENT_DATE + interval '5 days', 'accepted', CURRENT_DATE - interval '3 days');
 
+-- 発注内容の編集（CLI-011 →「発注内容を編集する」→ CLI-011B /applications/orders/[id]/edit）E2E 用。
+-- 発注確定（accepted）かつ、どちらも完了報告を出していない応募だけが編集できる。
+-- 案件は closed にして公開の案件一覧を汚さない。
+--   ed17a…01: 発注者（Owner）が編集する。受注者 = contractor
+--   ed17a…02: 担当者（staff）が編集する。受注者 = contractor2
+-- 編集できない側の確認には、既存の aaaa…aaaa（発注者が評価済み）を使う。
+INSERT INTO jobs (id, owner_id, organization_id, title, description, trade_types, headcount, status, reward_lower, reward_upper, work_start_date, work_end_date, recruit_start_date, recruit_end_date)
+VALUES ('ed170000-0000-4000-8000-000000000001', '22222222-2222-2222-2222-222222222222', '55555555-5555-5555-5555-555555555555', '発注内容の編集テスト用案件', '発注確定後の発注内容の編集 E2E 用', ARRAY['建築/内装｜木工']::text[], 2, 'closed', 18000, 22000, CURRENT_DATE - 10, CURRENT_DATE + 60, CURRENT_DATE - 30, CURRENT_DATE - 11);
+
+INSERT INTO applications (id, job_id, applicant_id, headcount, working_type, preferred_first_work_date, status, first_work_date, work_location, client_notes) VALUES
+  ('ed17a000-0000-4000-8000-000000000001', 'ed170000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + 20, 'accepted', CURRENT_DATE + 20, '東京都新宿区西新宿1-1-1 編集テスト現場', '朝礼は8時開始です。'),
+  ('ed17a000-0000-4000-8000-000000000002', 'ed170000-0000-4000-8000-000000000001', 'cc111111-1111-1111-1111-111111111111', 1, '常勤', CURRENT_DATE + 20, 'accepted', CURRENT_DATE + 20, '東京都新宿区西新宿2-2-2 担当者テスト現場', NULL);
+
 -- contractor1 の1件目のみ評価済み（発注済み表示）、2件目は未評価（評価登録未入力表示）
 -- rating-redesign: 7項目★×5（rating_overall 必須・他6項目任意）。has_special_equipment は NULL = CLI-028「未評価」表示の検証用
 INSERT INTO user_reviews (application_id, reviewer_id, reviewee_id, operating_status, rating_overall, rating_punctual, rating_follows_instructions, rating_speed, rating_quality, rating_has_tools, rating_has_special_equipment, comment) VALUES

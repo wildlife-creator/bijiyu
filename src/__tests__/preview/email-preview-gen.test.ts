@@ -48,6 +48,8 @@ import { optionPaymentFailedEmail } from "@/lib/email/templates/option-payment-f
 import { optionSubscriptionActivatedEmail } from "@/lib/email/templates/option-subscription-activated";
 import { optionSubscriptionCancelledEmail } from "@/lib/email/templates/option-subscription-cancelled";
 import { orderAcceptedControlEmail } from "@/lib/email/templates/order-accepted-control";
+import { orderDetailsUpdatedEmail } from "@/lib/email/templates/order-details-updated";
+import { orderDetailsUpdatedControlEmail } from "@/lib/email/templates/order-details-updated-control";
 import { orderRejectedControlEmail } from "@/lib/email/templates/order-rejected-control";
 import { orphanAuthUserAlertEmail } from "@/lib/email/templates/orphan-auth-user-alert";
 import { passwordResetCompletedEmail } from "@/lib/email/templates/password-reset-completed";
@@ -523,6 +525,51 @@ const fixtures: Fixture[] = [
   // ============================================================
   // §2 メッセージ
   // ============================================================
+  {
+    id: "1.8.A",
+    section: "§1 案件・応募・スカウト",
+    title: "発注内容の変更 (受注者宛)",
+    templateFile: "src/lib/email/templates/order-details-updated.ts",
+    invoke: () =>
+      orderDetailsUpdatedEmail({
+        applicantName: "田中 太郎",
+        jobTitle: "△△工事",
+        clientName: "山田工務店",
+        changedFields: "初回稼働日、業務に関する書類",
+        firstWorkDateChange: { before: "2026/06/30", after: "2026/07/02" },
+      }),
+    meta: {
+      recipient: "受注者本人 1 名",
+      trigger: "発注者が CLI-011B 発注内容の編集で保存し、内容が変わったとき (accepted のまま)",
+      actionFile: "src/app/(authenticated)/applications/actions.ts (updateOrderDetailsAction)",
+      specRef: "§1.8.A",
+      classification: "新規",
+      parallel: ["1.8.B"],
+    },
+  },
+  {
+    id: "1.8.B",
+    section: "§1 案件・応募・スカウト",
+    title: "発注内容の変更控え (発注者宛)",
+    templateFile: "src/lib/email/templates/order-details-updated-control.ts",
+    invoke: () =>
+      orderDetailsUpdatedControlEmail({
+        recipientName: "山田 一郎",
+        jobTitle: "△△工事",
+        contractorName: "田中さん（××建設）",
+        changedFields: "初回稼働日、業務に関する書類",
+        firstWorkDateChange: { before: "2026/06/30", after: "2026/07/02" },
+        updatedAt: "2026/06/25 10:15",
+      }),
+    meta: {
+      recipient: "発注者(個人=本人 / 法人=組織全員 M-03 broadcast)",
+      trigger: "同上 (1.8.A と並列発火)",
+      actionFile: "src/app/(authenticated)/applications/actions.ts (updateOrderDetailsAction)",
+      specRef: "§1.8.B",
+      classification: "新規",
+      parallel: ["1.8.A"],
+    },
+  },
   {
     id: "2.1",
     section: "§2 メッセージ",
